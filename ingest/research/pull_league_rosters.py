@@ -35,8 +35,14 @@ def norm(n):
     return re.sub(r"\s+", " ", re.sub(r"[^a-z ]", "", n.lower())).strip()
 
 
-cw = pd.read_csv(ROOT / "data" / "espn_nba_id_crosswalk.csv", encoding="latin1").dropna(subset=["ESPNID", "NBAID"])
-e2n = dict(zip(cw["ESPNID"].astype(int), cw["NBAID"].astype(int)))
+# ESPN id -> NBA id. The big crosswalk CSV is gitignored (not ours to republish), so a small committed map
+# (espn_id_map.json, only ids that matter here) is what CI uses; it is refreshed from the CSV whenever the CSV exists.
+MAP_PATH = ROOT / "espn_id_map.json"
+CW_PATH = ROOT / "data" / "espn_nba_id_crosswalk.csv"
+e2n = {int(k): int(v) for k, v in json.load(open(MAP_PATH)).items()} if MAP_PATH.exists() else {}
+if CW_PATH.exists():
+    _cw = pd.read_csv(CW_PATH, encoding="latin1").dropna(subset=["ESPNID", "NBAID"])
+    e2n.update(dict(zip(_cw["ESPNID"].astype(int), _cw["NBAID"].astype(int))))
 hub = json.load(open(HUB / "hub_data.json", encoding="utf-8"))
 hub_ids = {p["id"] for p in hub["players"]}
 hub_by_name = {norm(p["player"]): p["id"] for p in hub["players"]}
@@ -64,6 +70,11 @@ for t in lg.teams:
     teams.append({"id": t.team_id, "name": t.team_name.strip(), "abbrev": t.team_abbrev, "logo": t.logo_url,
                   "roster": roster})
 
+if len(teams) < 12 or sum(len(t["roster"]) for t in teams) < 150:
+    sys.exit(f"refusing to write: only {len(teams)} teams / {sum(len(t['roster']) for t in teams)} players came back from ESPN")
+if CW_PATH.exists():  # keep the committed map current (only hub players' ids)
+    nba_hub = {int(i[1:]) for i in hub_ids}
+    MAP_PATH.write_text(json.dumps({str(k): v for k, v in sorted(e2n.items()) if v in nba_hub}, separators=(",", ":")))
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "league": lg.settings.name,
        "roster_size": max(len(t["roster"]) for t in teams), "teams": teams}
 (HUB / "league_rosters.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

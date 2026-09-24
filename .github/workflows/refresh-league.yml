@@ -1,0 +1,62 @@
+name: Refresh league rosters
+
+# Once a day, in GitHub's quiet overnight window (09:37 UTC = 5:37am ET in summer, 4:37am ET in winter).
+# The minute is deliberately :37, not :00/:05/:10/:15/:30 -- GitHub staff have confirmed scheduled workflows
+# get delayed or dropped at the round minutes everyone else uses (lesson from the Winner's Circle hub).
+# Scheduled runs are still best-effort; if one is skipped, the next day's run (or a manual "Run workflow") catches up.
+on:
+  schedule:
+    - cron: "37 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # commit the refreshed JSON
+  actions: write    # dispatch the Pages deploy (a push made with GITHUB_TOKEN does NOT trigger other workflows)
+
+concurrency:
+  group: refresh-league
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet espn-api pandas python-dotenv requests
+
+      # ESPN_S2 and SWID are repository secrets (Settings > Secrets and variables > Actions).
+      # The script refuses to write anything if ESPN returns a partial/empty league, so a bad pull can't wipe the site's data.
+      - name: Pull rosters from ESPN
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: python research/pull_league_rosters.py
+
+      - name: Commit if changed
+        id: commit
+        run: |
+          git config user.name "league-refresh-bot"
+          git config user.email "league-refresh-bot@users.noreply.github.com"
+          git add dashboard/league_rosters.json
+          if git diff --cached --quiet; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Daily league roster refresh"
+            git pull --rebase --quiet
+            git push
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Explicit dispatch, since the push above (made with the default token) will not start pages.yml by itself.
+      - name: Redeploy the site
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
