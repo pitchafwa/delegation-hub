@@ -37,7 +37,7 @@ SFX = "_carry" if CTX_MODE == "carry" else ""
 OUT_PATH = ROOT.parent.parent / "dashboard" / f"hub_data{SFX}.json"
 
 OPP_FLOOR, OPP_AMP, OPP_TAU = 14.84, 20.37, 19.96
-HORIZON_YEARS = 7
+HORIZON_YEARS = 10
 CURRENT_SEASON_END_YEAR = 2027  # matches kalman_vor.py's NEXT_SEASON_START = 2026-10-20 (the 2026-27 season)
 PROSPECT_RECENCY_CUTOFF = 2025  # drop draft classes older than this that never became a current player
 
@@ -166,11 +166,25 @@ _avcols = [f"av{k}" for k in range(20)]
 # veterans blend the Kalman path with an empirical forecast; prospects blend an empirical draft-slot model with the
 # calibrated Output B path. Tested out-of-sample (engine_blend_test.py, prospect_engine_test.py).
 _up = pd.read_csv(ROOT / "data" / f"unified_paths{SFX}.csv")
-UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 8)] for r in _up.itertuples()}
+UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 11)] for r in _up.itertuples()}
 # 90th-percentile career ("ceiling outcome") per player: path + asset value at each keeper count (asset_value_v2.py)
 _cp = pd.read_csv(ROOT / "data" / f"ceiling_paths{SFX}.csv")
-CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 8)],
+CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 11)],
                            "asset": [round(float(getattr(r, f"CA{k}")), 1) for k in range(20)]} for r in _cp.itertuples()}
+# MARKET RANK: Hashtag Basketball crowdsourced dynasty rankings (205k votes), as published 2026-09-24. Shown next to our asset rank so the gap
+# between our production-based value and the market's price is visible.
+import re as _re
+import unicodedata as _ud
+
+
+def _nk(n):
+    n = _ud.normalize("NFKD", str(n)).encode("ascii", "ignore").decode()
+    n = _re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", n, flags=_re.I)
+    return _re.sub(r"\s+", " ", _re.sub(r"[^a-z ]", "", n.lower())).strip()
+
+
+_hk = pd.read_csv(ROOT / "data" / "hashtag_dynasty_2026-09-24.csv")
+MARKET = {_nk(r.player): int(r.rank) for r in _hk.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
 current_out = []
 for _, r in current.iterrows():
@@ -183,6 +197,7 @@ for _, r in current.iterrows():
         "kind": "current",
         "id": f"c{int(r['PLAYER_ID'])}",
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
+        "market_rank": MARKET.get(_nk(r["player"])),
         "ceil_path": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("path"),
         "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
         "player": r["player"],
@@ -304,6 +319,7 @@ for _, r in prospects.iterrows():
         "kind": "prospect",
         "id": f"p{int(r['PLAYER_ID'])}",
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
+        "market_rank": MARKET.get(_nk(r["player"])),
         "ceil_path": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("path"),
         "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
         "brk_tier": "rookie" if pd.notna(r.get("rk_p")) else None,
@@ -372,6 +388,7 @@ out = {
     "breakout_meta": {**_bval, "rookie": json.loads((ROOT / "data" / "rookie_breakout_validation.json").read_text(encoding="utf-8")), "opener": str(OPENER), "frozen": frozen,
                       "frozen_at": json.loads(LEDGER_META.read_text())["frozen_at"] if frozen else None},
     "ctx_mode": CTX_MODE,
+    "market_meta": {"source": "Hashtag Basketball crowdsourced dynasty rankings", "asof": "2026-09-24", "url": "https://hashtagbasketball.com/keeper"},
     "players": current_out + prospect_out,
 }
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

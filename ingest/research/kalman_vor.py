@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parent
 # placeholder it already had.
 KALMAN_STATS = ["PTS", "REB", "AST", "BLK", "TOV", "FG3M", "FTM", "FTA", "MIN"]
 STATS = KALMAN_STATS + ["STL"]
-HORIZON_YEARS = 7
+HORIZON_YEARS = 10
 K_THIS_YEAR = 3
 
 df = pd.read_csv(ROOT / "data" / "kalman_input.csv")

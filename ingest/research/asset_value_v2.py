@@ -40,7 +40,7 @@ warnings.filterwarnings("ignore")
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parent
 D = ROOT / "data"
-NTEAMS, H, REPL, LAST_YR, DELTA = 12, 6, 22.0, 2025, 0.92
+NTEAMS, H, REPL, LAST_YR, DELTA = 12, 10, 22.0, 2025, 0.95  # 10-season horizon (dynasty standard; was 6), 5%/yr discount
 # how the rookie team-situation boost is used: "decay" = years 1-3 with the measured fade (default); "carry" = year 1 only, and that
 # boosted year-1 level becomes the baseline every later season builds on (level shift for all years). Variant files get a _carry suffix.
 CTX_MODE = os.environ.get("CTX_MODE", "decay")
@@ -246,18 +246,35 @@ import ast
 
 kt = pd.read_csv(D / "current_player_trajectories.csv")
 ktm = dict(zip(kt["PLAYER_ID"], kt["trajectory"].apply(ast.literal_eval)))
-kal_v = np.full((len(live), 7), np.nan)
+kal_v = np.full((len(live), H), np.nan)
 for i, pid in enumerate(live["PLAYER_ID"]):
     t = ktm.get(pid)
     if t:
-        kal_v[i, : min(7, len(t))] = t[:7]
+        kal_v[i, : min(H, len(t))] = t[:H]
 W_VET = lambda h: 0.75 if h == 1 else 0.5
-E_v = np.full((len(live), 7), np.nan)
+E_v = np.full((len(live), H), np.nan)
 for h in range(1, H + 1):
     ridge_mu = fc.m[h].predict(live[FH(h)])
     a = kal_v[:, h - 1]
     E_v[:, h - 1] = np.where(np.isnan(a), ridge_mu, W_VET(h) * ridge_mu + (1 - W_VET(h)) * a)
-E_v[:, 6] = np.where(np.isnan(kal_v[:, 6]), E_v[:, 5], kal_v[:, 6] + (E_v[:, 5] - kal_v[:, 5]))
+
+# SCOUTING-INFORMATION UPLIFT for young elite-pedigree players (top-5 pick, age <= 21). Calibrated, NOT a validated production effect:
+# after the 10-season horizon these players still sat below BOTH independent expert sources (mean rank 44 vs Hashtag 32, RotoWire 40 at
+# full dynasty); +3 pts/g every season puts the group between the two outlets at 5 keepers and at full dynasty (39 / 35; see
+# elite_talent_shift_test.py). The market's own later re-ranking also moved young players up ~25 spots relative to established ones.
+def smooth_tail(E, start=5):
+    """each season beyond the 5th has its own fitted model, which adds a few points of season-to-season noise to the far path;
+    a light 1-2-1 smoothing over seasons 6+ removes it without touching the first five seasons"""
+    S = E.copy()
+    for j in range(start, E.shape[1] - 1):
+        S[:, j] = 0.25 * E[:, j - 1] + 0.5 * E[:, j] + 0.25 * E[:, j + 1]
+    return S
+
+
+E_v = smooth_tail(E_v)
+ELITE_UPLIFT = float(os.environ.get("ELITE_UPLIFT", "3.0"))
+elite_v = (np.round(np.exp(live["logpick"].to_numpy())) <= 5) & (live_age_next <= 21.5)
+E_v[elite_v, :] += ELITE_UPLIFT
 
 pt = pd.read_csv(D / "prospect_trajectories.csv")
 ptm = dict(zip(pt["PLAYER_ID"], pt["trajectory"].apply(ast.literal_eval)))
@@ -275,23 +292,25 @@ def cal_traj(traj, pick):
     return out
 
 
-A_p = np.full((len(pros), 7), np.nan)
+A_p = np.full((len(pros), H), np.nan)
 for i, (q, pk) in enumerate(zip(pros, pr_pick)):
     t = ptm.get(int(q["id"][1:]))
     if t:
-        A_p[i, : min(7, len(t))] = cal_traj(t[:7], pk)
+        A_p[i, : min(H, len(t))] = cal_traj(t[:H], pk)
 Xp = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent, "is1": (pr_pick == 1).astype(float), "open": pr_open, "open_top": pr_open * (pr_pick <= 15)})
 lam = 0.4 * np.clip((16 - pr_pick) / 6.0, 0.0, 1.0)
-E_p = np.full((len(pros), 7), np.nan)
+E_p = np.full((len(pros), H), np.nan)
 for h in range(1, H + 1):
     Bh = pm[h].predict(Xp[PFH(h)])
     Bh0 = pm[h].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(h)])  # same model with a league-average team (median fill)
     a = A_p[:, h - 1] + (Bh - Bh0)                        # the team-situation effect applies to both engines
     E_p[:, h - 1] = np.where(np.isnan(A_p[:, h - 1]), Bh, (1 - lam) * Bh + lam * a)
-E_p[:, 6] = np.where(np.isnan(A_p[:, 6]), E_p[:, 5], E_p[:, 5] + (A_p[:, 6] - A_p[:, 5]))
+E_p = smooth_tail(E_p)
+elite_p = (pr_pick <= 5) & (pr_age <= 21.5)
+E_p[elite_p, :] += ELITE_UPLIFT
 ADJ1 = pm[1].predict(Xp[PFH(1)]) - pm[1].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(1)])
 if CTX_MODE == "carry":
-    for _h in range(2, 8):
+    for _h in range(2, H + 1):
         E_p[:, _h - 1] += ADJ1  # the boosted year-1 level is the baseline: every later season is shifted by the same amount
 _pc = pd.DataFrame({"PLAYER_ID": [int(q["id"][1:]) for q in pros], "team": pr_team, "open_fp": pr_open_raw, "open_z": (pr_open_raw - _omu) / _osd})
 for _h in (1, 2, 3):
@@ -368,11 +387,9 @@ def ceiling_paths(E, groups, pool_groups, R, PRES):
         cov = np.outer(sd, sd) * corr
         dev[g] = z * (cov @ w) / np.sqrt(w @ cov @ w)
     n = len(E)
-    out = np.zeros((n, 7))
+    out = np.zeros((n, H))
     for i in range(n):
-        path = np.maximum(E[i, :H] + dev[groups[i]], 0.0)
-        out[i, :H] = path
-        out[i, 6] = path[5] + (E[i, 6] - E[i, 5])
+        out[i, :] = np.maximum(E[i, :H] + dev[groups[i]], 0.0)
     return out
 
 
@@ -420,15 +437,15 @@ def ceiling_asset(C, k):
 
 
 C_all = np.vstack([C_v, C_p])
-cp = pd.DataFrame(C_all, columns=[f"C{h}" for h in range(1, 8)])
+cp = pd.DataFrame(C_all, columns=[f"C{h}" for h in range(1, H + 1)])
 cp["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 for k in range(20):
     cp[f"CA{k}"] = ceiling_asset(C_all, k)
 cp.to_csv(D / f"ceiling_paths{SFX}.csv", index=False)
-up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, 8)])
+up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, H + 1)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)
-for h in range(1, 8):
+for h in range(1, H + 1):
     up[f"K{h}"] = np.concatenate([kal_v[:, h - 1], A_p[:, h - 1]])
 up.to_csv(D / f"unified_paths{SFX}.csv", index=False)
 

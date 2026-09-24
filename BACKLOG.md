@@ -250,3 +250,16 @@ ingest/research/prospect_teams_2026.csv (transcribed from hashtagbasketball.com/
 CTX_MODE=carry (asset_value_v2.py / build_hub_data.py): opportunity applied to year 1 only; the boosted year-1 level shifts every later season equally (no fade).
 Default site keeps the measured fade (+3.8/+2.5/+1.9/+1.5/+1.0 pts/g per sd in yrs 1-5). Data says carry-through overstates later years (the effect decays historically).
 K=5 ranks fading -> carry: Boozer #44 -> #30, Dybantsa #26 -> #35, Peterson #39 -> #20, Acuff #95 -> #61. Year-1-to-peak growth: Dybantsa +20 -> +17, Boozer +11 -> +16, Peterson +6 -> +14.
+
+### 10-season horizon, elite-young scouting prior, market rank (2026-09-24, Tommy's go-ahead)
+- HORIZON: Kalman/prospect trajectories, unified paths, asset value and ceiling paths all run 10 seasons (was 6-7); yearly discount 0.95 (was 0.92);
+  seasons 7-10 come from per-season ridge/logistic models trained on real outcomes (fewer rows), blended like earlier seasons, lightly smoothed (seasons 6+).
+  VOR now sums up to 10 seasons. K=5: Boozer #44 -> #24, Dybantsa #26 -> #14, Wilson #83 -> #42, Harper #85 -> #50.
+- Corrected research target (Tommy): dynasty ranks are judged by whether value HOLDS. Young players' market ranks held/gained (2-yr median -9 vs +16 for established);
+  expert_rank_drift_check.py. But: uniform youth premium (fails cross-source), per-season convex tilt (tiny), convex CAREER value with persistent variance
+  (year-to-year deviation correlation 0.74; tiny effect, no agreement gain), and a multiplier premium on top-5 picks all failed or behaved inconsistently across K.
+- SCOUTING PRIOR (calibration, not a validated production effect): +3 pts/g every season for players with draft pick <= 5 and age <= 21 (ELITE_UPLIFT in asset_value_v2.py).
+  After the horizon fix this group averaged rank 44 (K=19) vs Hashtag 32 / RotoWire 40; +3 puts it at 39 (K=5) / 35 (K=19), between the two outlets, raising agreement with
+  Hashtag (0.839 -> 0.845) at some cost vs RotoWire (0.701 -> 0.635). elite_talent_shift_test.py. Disclosed in the site legend. Override lever unchanged.
+- MARKET RANK column (Hashtag Basketball crowdsourced dynasty rankings as of 2026-09-24, data/hashtag_dynasty_2026-09-24.csv) with our-minus-market gap; refresh by re-pasting the list.
+- Carry-through variant page (?variant=carry) removed.

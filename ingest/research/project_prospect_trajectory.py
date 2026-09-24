@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 from keeper_value_over_replacement import opportunity_cost
 
-HORIZON_YEARS = 7
+HORIZON_YEARS = 10
 KALMAN_STATS = ["PTS", "REB", "AST", "BLK", "TOV", "FG3M", "FTM", "FTA", "MIN"]
 STATS = KALMAN_STATS + ["STL"]
 
