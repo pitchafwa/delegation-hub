@@ -231,3 +231,17 @@ at its 90th pct] = z * Cov*w / sqrt(w'Cov w). Assumes he stays in the league (re
 First attempt (sampling actual analog careers) was too jagged with ~30 comparable top-3 picks (injury years, flameouts) and was replaced.
 Shown as columns + a dashed green line on the player chart. Ceiling asset value is the path treated as realized (no extra spread). Examples (K=5):
 Dybantsa VOR 118 / asset 58 -> ceiling 214 / 115; Boozer path 40->60; Peterson 39->58. Scripts: asset_value_v2.py (ceiling_paths), data/ceiling_paths.csv.
+
+### Rookie team situation ("available usage") -- Tommy's idea (2026-09-24)
+Measure (team_context.py): production that LEFT the team minus veterans who ARRIVED, every rotation player (>=10 mpg) counted at his HEALTHY per-game fantasy level.
+The availability-weighted version (fpg x GP share) was worse: injured stars look small (Morant 46 fpg x 20 gp counted as 11; A. Davis as 12). Same-position
+competition was tested and did NOT beat the team-wide measure; crowd (returning+arriving) and star-returning measures were weaker than "open".
+Held-out (leave-one-draft-class-out): lottery picks' rookie-year RMSE 8.85 -> 7.93 (-10%); all picks 7.46 -> 7.02. Effect per +1 sd (sd = 52 pts/g of production):
++3.8 pts/g rookie yr, +2.5 yr 2, +1.9 yr 3, +1.5 yr 4, +1.0 yr 5 for top-15 picks (fades; out-of-sample gain mainly yrs 1-2).
+Model: added to the empirical prospect model for years 1-3 (open + open x top-15), capped at +/-2 sd; the effect flows to both engines in the blend.
+Live 2026-27 (z): MEM +1.0 (+79), CHI +0.3, BKN +0.3, WAS -1.1 (-25), UTA +3.4, SAC +2.9. Boozer +4.8/+3.5/+1.3 pts/g (yr 1/2/3), Dybantsa -2.9/-2.2/-1.3.
+Result K=5: Boozer #44, Dybantsa #26; at 0 keepers Boozer #79 vs Dybantsa #95 (redraft favours Boozer; #1-pick tier favours Dybantsa long-run).
+Payroll: Basketball-Reference committed 2026-27 payroll (prospect... payroll_2026_27.csv) puts MEM $161M (29th), BKN/CHI $161.5M, DET lowest $153M; WAS $192.8M (23rd,
+NOT top 5). Uncorrelated with the production measure across the 30 teams (rho -0.08). Cannot test as a predictor: no historical payroll (Spotrac 403, HoopsHype 402).
+Open: a historical payroll/cap-space series by team-season would let us test Tommy's "invested in others" idea properly. Incoming-class teams come from
+ingest/research/prospect_teams_2026.csv (transcribed from hashtagbasketball.com/keeper, 2026-09-24); 23 of 61 prospects have one.

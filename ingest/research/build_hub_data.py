@@ -283,8 +283,13 @@ def calibrate_prospect(traj, pick):
     return out
 
 
+# incoming-class team assignments (ESPN doesn't list them yet) and the team-situation adjustment used in the projection
+_pt = pd.read_csv(ROOT / "prospect_teams_2026.csv").set_index("player")["team"].to_dict()
+_pctx = {int(r.PLAYER_ID): r for r in pd.read_csv(ROOT / "data" / "prospect_context.csv").itertuples()}
 prospect_out = []
 for _, r in prospects.iterrows():
+    _tm = r["pro_team"] if pd.notna(r.get("pro_team")) else _pt.get(r["player"])
+    _cx = _pctx.get(int(r["PLAYER_ID"]))
     _pick = int(r["pick_filled"]) if r["pick_filled"] < 61 else None
     _cal_traj = calibrate_prospect(r["trajectory"], _pick)
     _uni_p = UNIFIED.get(int(r["PLAYER_ID"]))
@@ -305,8 +310,10 @@ for _, r in prospects.iterrows():
         "break_why": r["rk_why"] if pd.notna(r.get("rk_why")) else None,
         "player": r["player"],
         "pos": pos if pd.notna(pos) else None,
-        "team": r["pro_team"] if pd.notna(r.get("pro_team")) else None,
-        "team_logo": logo_url(r.get("pro_team")),
+        "team": _tm if _tm else None,
+        "team_logo": logo_url(_tm) if _tm else None,
+        "team_context": ({"open_fp": round(float(_cx.open_fp), 1), "open_z": round(float(_cx.open_z), 2), "adj": [round(float(_cx.adj1), 1), round(float(_cx.adj2), 1), round(float(_cx.adj3), 1)]}
+                         if (_cx is not None and pd.notna(_cx.open_fp)) else None),
         "age": round_or_none(r["draft_age_filled"], 1),
         "year": int(r["real_draft_year"]) if pd.notna(r["real_draft_year"]) else None,
         "anchor_year": int(r["real_draft_year"]) + 1 if pd.notna(r["real_draft_year"]) else CURRENT_SEASON_END_YEAR,

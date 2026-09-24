@@ -55,6 +55,10 @@ for h in range(1, H + 1):
     panel[f"v{h}"] = np.where(obs & (present == 1), f, np.nan)  # pts/g given present
 
 F = ["fpg", "AGE", "young", "mpg", "late_mpg", "late_fpg", "late_fp_per36", "USG_PCT", "PIE", "logpick", "exp", "d_fpg", "d_mpg"]
+# TEAM SITUATION (held-out tests: vets +2% next-season accuracy, +4% for players who changed teams; fades after year 1):
+# did he move, and how much production/minutes are vacated at his team net of arrivals
+S = ["moved", "dest_net_usg", "dest_vac_min"]
+FH = lambda h: F + S if h == 1 else F
 POOL = panel[(panel["GP"] >= 20) & (panel["mpg"] >= 10)].copy()
 AGEB = lambda a: np.digitize(a, [22.5, 25.5, 29.5])  # 4 age groups
 
@@ -82,8 +86,8 @@ class Forecaster:
                 continue
             self.s[h] = lg().fit(pres[F], pres[f"pres{h}"].astype(int))
             pv = pres[pres[f"pres{h}"] == 1]
-            self.m[h] = rg().fit(pv[F], pv[f"v{h}"])
-            r = pv[f"v{h}"].to_numpy() - self.m[h].predict(pv[F])
+            self.m[h] = rg().fit(pv[FH(h)], pv[f"v{h}"])
+            r = pv[f"v{h}"].to_numpy() - self.m[h].predict(pv[FH(h)])
             b = AGEB(pv["AGE"].to_numpy())
             self.res[h] = {g: r[b == g] for g in range(4)}
 
@@ -91,7 +95,7 @@ class Forecaster:
         """A_h(c) per row; c scalar; mu optionally overrides the ridge mean (used for the unified path)"""
         if h not in self.m:
             return np.zeros(len(X))
-        mu = self.m[h].predict(X[F]) if mu is None else mu
+        mu = self.m[h].predict(X[FH(h)]) if mu is None else mu
         ps = self.s[h].predict_proba(X[F])[:, 1]
         b = AGEB(age)
         out = np.zeros(len(X))
@@ -127,6 +131,25 @@ fc = Forecaster(POOL[POOL["yr"] < LAST_YR])
 live = POOL[POOL["yr"] == LAST_YR].reset_index(drop=True)
 live_age_next = live["AGE"].to_numpy() + 1
 
+from build_breakout_context import situation_features  # noqa: E402
+from team_context import prep_panel, team_context  # noqa: E402
+
+_espn = pd.read_csv(D / "espn_adp.csv")
+_espn = _espn[(_espn["season_id"] == LAST_YR + 2) & _espn["PLAYER_ID"].notna()].copy()
+_espn["PLAYER_ID"] = _espn["PLAYER_ID"].astype(int)
+_espn["abbr"] = _espn["pro_team"].replace({"PHL": "PHI", "PHO": "PHX", "NOR": "NOP", "NO": "NOP"})
+_a2id = panel.dropna(subset=["team_id"]).drop_duplicates("team").set_index("team")["team_id"].to_dict()
+_espn["team_id_now"] = _espn["abbr"].map(_a2id)
+_espn = _espn.sort_values("adp").drop_duplicates("PLAYER_ID")
+_lp = panel[panel["yr"] == LAST_YR].drop(columns=["team_id_next", "team_next", "moved", "dest_net_usg", "dest_vac_min", "coach_change"], errors="ignore")
+_lp = _lp.merge(_espn[["PLAYER_ID", "team_id_now"]].rename(columns={"team_id_now": "team_id_next"}), on="PLAYER_ID", how="left")
+_lp["totmin"] = _lp["totmin"].fillna(0)
+_lp = situation_features(_lp, None)
+live = live.drop(columns=S, errors="ignore").merge(_lp[["PLAYER_ID"] + S], on="PLAYER_ID", how="left")
+_pp = prep_panel(panel)
+_lpp = _pp[_pp["yr"] == LAST_YR].merge(_espn[["PLAYER_ID", "team_id_now"]], on="PLAYER_ID", how="left")
+LIVE_CTX = team_context(_lpp, LAST_YR, "team_id_now")  # 2026-27 team situation for every team
+
 # ------------------------------------------------------------------ prospects: draft-slot model
 u = pd.read_csv(D / "rookie_model_dataset_unified.csv")[["PLAYER_ID", "player", "real_draft_year", "real_draft_number", "draft_age", "talent_pctile"]].drop_duplicates("PLAYER_ID")
 sb = pd.read_csv(D / "player_season_base.csv")
@@ -148,22 +171,43 @@ for h in range(1, H + 1):  # h=1 is the rookie season
     obs = hd["real_draft_year"].to_numpy() + h - 1 <= LAST_YR
     hd[f"pres{h}"] = np.where(obs, present, np.nan)
     hd[f"v{h}"] = np.where(obs & (present == 1), f, np.nan)
+_gl = pd.read_csv(D / "kalman_input.csv", usecols=["PLAYER_ID", "SEASON", "GAME_DATE", "TEAM"])
+_gl["sy"] = _gl["SEASON"].str[:4].astype(int)
+_first = _gl.sort_values("GAME_DATE").groupby(["PLAYER_ID", "sy"]).first().reset_index()
+_abbr_id = panel.dropna(subset=["team_id"]).drop_duplicates(["team", "yr"]).set_index(["team", "yr"])["team_id"].to_dict()
+_open = {}
+_open_all = []
+for _cls in sorted(hd["real_draft_year"].unique()):
+    _cls = int(_cls)
+    if _cls - 1 < panel["yr"].min() or _cls > LAST_YR:
+        continue
+    _ctx = team_context(_pp, _cls - 1)
+    for _r in _first[_first["sy"] == _cls].itertuples():
+        _tid = _abbr_id.get((_r.TEAM, _cls))
+        if _tid is not None and int(_tid) in _ctx.index:
+            _open[(_r.PLAYER_ID, _cls)] = float(_ctx.loc[int(_tid), "open_fp"])
+    _open_all.extend(_ctx["open_fp"].tolist())
+_omu, _osd = float(np.mean(_open_all)), float(np.std(_open_all))
+OPEN_CLIP = lambda x: np.clip(x, _omu - 2 * _osd, _omu + 2 * _osd)  # cap at +/-2 sd: no extrapolating past the historical range
+hd["open"] = OPEN_CLIP(np.array([_open.get((pid, int(c)), np.nan) for pid, c in zip(hd["PLAYER_ID"], hd["real_draft_year"])], dtype=float))
+hd["open_top"] = hd["open"] * (hd["real_draft_number"].fillna(61) <= 15)  # lottery picks get the minutes: their effect is larger
 PF = ["logpick", "dage", "talent", "is1"]
+PFH = lambda h: PF + ["open", "open_top"] if h <= 3 else PF  # rookie-team opportunity: +3.8/+2.5/+1.9 pts/g per sd in yrs 1/2/3, fading after (held-out gain in yrs 1-2)
 pm, ps_, pres_res = {}, {}, {}
 for h in range(1, H + 1):
     t = hd[hd[f"pres{h}"].notna()]
     ps_[h] = lg().fit(t[PF], t[f"pres{h}"].astype(int))
     pv = t[t[f"pres{h}"] == 1]
-    pm[h] = rg().fit(pv[PF], pv[f"v{h}"])
-    r = pv[f"v{h}"].to_numpy() - pm[h].predict(pv[PF])
+    pm[h] = rg().fit(pv[PFH(h)], pv[f"v{h}"])
+    r = pv[f"v{h}"].to_numpy() - pm[h].predict(pv[PFH(h)])
     tier = np.digitize(np.exp(pv["logpick"].to_numpy()), [4, 11, 31])
     pres_res[h] = {g_: r[tier == g_] for g_ in range(4)}
 
 
 def prospect_value(picks, ages, h, c, mu=None):
-    X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages, "talent": pr_talent, "is1": (np.asarray(picks) == 1).astype(float)})
+    X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages, "talent": pr_talent, "is1": (np.asarray(picks) == 1).astype(float), "open": pr_open, "open_top": pr_open * (np.asarray(picks) <= 15)})
     p = ps_[h].predict_proba(X[PF])[:, 1]
-    mu = pm[h].predict(X[PF]) if mu is None else mu
+    mu = pm[h].predict(X[PFH(h)]) if mu is None else mu
     tier = np.digitize(picks, [4, 11, 31])
     out = np.zeros(len(X))
     for g_ in range(4):
@@ -185,6 +229,10 @@ for q, a, e in zip(pros, pr_pick_actual, pr_pick):
     if a != e:
         print(f"  OVERRIDE: {q['player']} valued as pick #{e:.0f} instead of #{a:.0f} ({OVR[q['player']].get('note', '')})")
 pr_age = np.array([q["age"] if q.get("age") else 20.5 for q in pros], dtype=float)
+_teams = pd.read_csv(ROOT / "prospect_teams_2026.csv").set_index("player")["team"].to_dict()
+pr_team = [_teams.get(q["player"]) for q in pros]
+pr_open_raw = np.array([float(LIVE_CTX.loc[int(_a2id[t]), "open_fp"]) if (t in _a2id and int(_a2id[t]) in LIVE_CTX.index) else np.nan for t in pr_team], dtype=float)
+pr_open = OPEN_CLIP(pr_open_raw)
 pr_talent = np.array([q["talent_pctile"] if q.get("talent_pctile") is not None else hd["talent"].median() for q in pros], dtype=float)
 
 
@@ -201,7 +249,7 @@ for i, pid in enumerate(live["PLAYER_ID"]):
 W_VET = lambda h: 0.75 if h == 1 else 0.5
 E_v = np.full((len(live), 7), np.nan)
 for h in range(1, H + 1):
-    ridge_mu = fc.m[h].predict(live[F])
+    ridge_mu = fc.m[h].predict(live[FH(h)])
     a = kal_v[:, h - 1]
     E_v[:, h - 1] = np.where(np.isnan(a), ridge_mu, W_VET(h) * ridge_mu + (1 - W_VET(h)) * a)
 E_v[:, 6] = np.where(np.isnan(kal_v[:, 6]), E_v[:, 5], kal_v[:, 6] + (E_v[:, 5] - kal_v[:, 5]))
@@ -227,14 +275,19 @@ for i, (q, pk) in enumerate(zip(pros, pr_pick)):
     t = ptm.get(int(q["id"][1:]))
     if t:
         A_p[i, : min(7, len(t))] = cal_traj(t[:7], pk)
-Xp = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent, "is1": (pr_pick == 1).astype(float)})
+Xp = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent, "is1": (pr_pick == 1).astype(float), "open": pr_open, "open_top": pr_open * (pr_pick <= 15)})
 lam = 0.4 * np.clip((16 - pr_pick) / 6.0, 0.0, 1.0)
 E_p = np.full((len(pros), 7), np.nan)
 for h in range(1, H + 1):
-    Bh = pm[h].predict(Xp[PF])
-    a = A_p[:, h - 1]
-    E_p[:, h - 1] = np.where(np.isnan(a), Bh, (1 - lam) * Bh + lam * a)
+    Bh = pm[h].predict(Xp[PFH(h)])
+    Bh0 = pm[h].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(h)])  # same model with a league-average team (median fill)
+    a = A_p[:, h - 1] + (Bh - Bh0)                        # the team-situation effect applies to both engines
+    E_p[:, h - 1] = np.where(np.isnan(A_p[:, h - 1]), Bh, (1 - lam) * Bh + lam * a)
 E_p[:, 6] = np.where(np.isnan(A_p[:, 6]), E_p[:, 5], E_p[:, 5] + (A_p[:, 6] - A_p[:, 5]))
+_pc = pd.DataFrame({"PLAYER_ID": [int(q["id"][1:]) for q in pros], "team": pr_team, "open_fp": pr_open_raw, "open_z": (pr_open_raw - _omu) / _osd})
+for _h in (1, 2, 3):
+    _pc[f"adj{_h}"] = pm[_h].predict(Xp[PFH(_h)]) - pm[_h].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(_h)])
+_pc.to_csv(D / "prospect_context.csv", index=False)
 
 
 # expected next-season value per player (for keep cutoffs): E[pts/g_1] incl. absent as 0
@@ -264,7 +317,7 @@ def analog_vectors_vet():
     R, PRES = np.full((len(pool), H), np.nan), np.zeros((len(pool), H))
     for h in range(1, H + 1):
         ok = pool[f"pres{h}"].notna().to_numpy()
-        mu = fc.m[h].predict(pool[F])
+        mu = fc.m[h].predict(pool[FH(h)])
         PRES[:, h - 1] = np.where(ok, pool[f"pres{h}"].fillna(0).to_numpy(), 0)
         R[:, h - 1] = np.where(ok & (pool[f"pres{h}"].to_numpy() == 1), pool[f"v{h}"].to_numpy() - mu, np.nan)
     return AGEB(pool["AGE"].to_numpy() + 1), R, PRES
@@ -275,7 +328,7 @@ def analog_vectors_pro():
     R, PRES = np.full((len(pool), H), np.nan), np.zeros((len(pool), H))
     for h in range(1, H + 1):
         ok = pool[f"pres{h}"].notna().to_numpy()
-        mu = pm[h].predict(pool[PF])
+        mu = pm[h].predict(pool[PFH(h)])
         PRES[:, h - 1] = np.where(ok, pool[f"pres{h}"].fillna(0).to_numpy(), 0)
         R[:, h - 1] = np.where(ok & (pool[f"pres{h}"].to_numpy() == 1), pool[f"v{h}"].to_numpy() - mu, np.nan)
     return np.digitize(np.exp(pool["logpick"].to_numpy()), [4, 11, 31]), R, PRES

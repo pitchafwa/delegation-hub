@@ -464,6 +464,7 @@ function render(){
             </div>
           </div>
           <div>
+            ${p.team_context?`<div class="simwrap"><div class="lbl">Team situation · ${p.team}</div><div class="inputs"><div class="i"><b>${p.team_context.open_fp>=0?'+':''}${p.team_context.open_fp.toFixed(0)}</b> pts/g of production up for grabs (${p.team_context.open_z>=0?'+':''}${p.team_context.open_z.toFixed(1)} sd vs the average team)</div><div class="i">effect on his projection: <b>${p.team_context.adj[0]>=0?'+':''}${p.team_context.adj[0].toFixed(1)}</b> pts/g rookie year · ${p.team_context.adj[1]>=0?'+':''}${p.team_context.adj[1].toFixed(1)} year 2 · ${p.team_context.adj[2]>=0?'+':''}${p.team_context.adj[2].toFixed(1)} year 3</div></div><div class="note">Production that left the team minus veterans who joined, counting each rotation player at his healthy per-game level. Applied to years 1-3 only (fading), capped at ±2 sd. Past rookies: +1 sd of this ≈ +3.8 pts/g in the rookie year for lottery picks.</div></div>`:''}
             <div class="simwrap"><div class="lbl">Projected rookie-season line (per game)</div>${rookieStatLine(p.rookie_proj)}</div>
             <div class="simwrap"><div class="lbl">Prospect-profile comps</div>${compChips(p.similar, true)}</div>
             <div class="simwrap"><div class="lbl">Stylistic comps ${p.style_low_conf?'<span class="hint">(cruder proxy for international)</span>':''}</div>${compChips(p.style_similar, false)}</div>
