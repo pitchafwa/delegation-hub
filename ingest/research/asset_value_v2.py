@@ -9,7 +9,7 @@ For a player x and horizon h (seasons out):
    c_1 = replacement level (you always play next season)
    c_h(K), h>=2 = keep cutoff = pts/g of the (K x 12 teams)-th best player; K=0 -> no future value.
    Keepers cost nothing in this league (12 teams), only a roster slot.
-Incoming prospects: same structure keyed on draft slot / draft age, outcomes = past draftees.
+Incoming prospects: same structure keyed on draft slot, draft age and pre-NBA talent percentile (small but consistent held-out gain), outcomes = past draftees.
 
 Out-of-sample test vs "current output persists", then compared with the two anchors.
 Usage: python asset_value_v2.py -> data/asset_value.csv
@@ -121,7 +121,7 @@ live = POOL[POOL["yr"] == LAST_YR].reset_index(drop=True)
 live_age_next = live["AGE"].to_numpy() + 1
 
 # ------------------------------------------------------------------ prospects: draft-slot model
-u = pd.read_csv(D / "rookie_model_dataset_unified.csv")[["PLAYER_ID", "player", "real_draft_year", "real_draft_number", "draft_age"]].drop_duplicates("PLAYER_ID")
+u = pd.read_csv(D / "rookie_model_dataset_unified.csv")[["PLAYER_ID", "player", "real_draft_year", "real_draft_number", "draft_age", "talent_pctile"]].drop_duplicates("PLAYER_ID")
 sb = pd.read_csv(D / "player_season_base.csv")
 sb["yr"] = sb["SEASON"].str[:4].astype(int)
 sb = sb.sort_values("GP", ascending=False).drop_duplicates(["PLAYER_ID", "yr"])
@@ -132,6 +132,7 @@ sf = sb.set_index(["PLAYER_ID", "yr"])
 hd = u[(u["real_draft_year"] >= 2010)].copy()
 hd["logpick"] = np.log(hd["real_draft_number"].fillna(61).clip(1, 61))
 hd["dage"] = hd["draft_age"].fillna(hd["draft_age"].median())
+hd["talent"] = hd["talent_pctile"].fillna(hd["talent_pctile"].median())
 for h in range(1, H + 1):  # h=1 is the rookie season
     idx = pd.MultiIndex.from_arrays([hd["PLAYER_ID"], hd["real_draft_year"].astype(int) + h - 1])
     f, g, m = (sf[c].reindex(idx).to_numpy() for c in ("fpg", "GP", "mpg"))
@@ -139,7 +140,7 @@ for h in range(1, H + 1):  # h=1 is the rookie season
     obs = hd["real_draft_year"].to_numpy() + h - 1 <= LAST_YR
     hd[f"pres{h}"] = np.where(obs, present, np.nan)
     hd[f"v{h}"] = np.where(obs & (present == 1), f, np.nan)
-PF = ["logpick", "dage"]
+PF = ["logpick", "dage", "talent"]
 pm, ps_, pres_res = {}, {}, {}
 for h in range(1, H + 1):
     t = hd[hd[f"pres{h}"].notna()]
@@ -152,7 +153,7 @@ for h in range(1, H + 1):
 
 
 def prospect_value(picks, ages, h, c):
-    X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages})
+    X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages, "talent": pr_talent})
     mu, p = pm[h].predict(X[PF]), ps_[h].predict_proba(X[PF])[:, 1]
     tier = np.digitize(picks, [4, 11, 31])
     out = np.zeros(len(X))
@@ -169,6 +170,7 @@ hub = json.loads((ROOT.parent.parent / "dashboard" / "hub_data.json").read_text(
 pros = [q for q in hub if q["kind"] == "prospect"]
 pr_pick = np.array([q["pick"] if q.get("pick") else 61 for q in pros], dtype=float)
 pr_age = np.array([q["age"] if q.get("age") else 20.5 for q in pros], dtype=float)
+pr_talent = np.array([q["talent_pctile"] if q.get("talent_pctile") is not None else hd["talent"].median() for q in pros], dtype=float)
 
 
 def expected_y1(vet, pro):
@@ -183,7 +185,7 @@ def mean_y1_vet():
 
 
 def mean_y1_pro():
-    X = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age})
+    X = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent})
     return pm[1].predict(X[PF]) * ps_[1].predict_proba(X[PF])[:, 1]
 
 

@@ -187,3 +187,11 @@ What held up out-of-sample:
 Not fixed: VOR still stops counting at the first year below the opportunity-cost line, so a prospect who starts just under
 it and climbs later (Peterson) can show VOR 0 -- Asset value exists for exactly that case.
 Scripts: fit_aging_shape.py, aging_shape.py, prospect_calibration.py, ceiling_calibration_backtest.py.
+
+### Asset value prospect model now uses pre-NBA talent (2026-09-24)
+Prompted by Tommy questioning Boozer at ~#59: the prospect model used only draft slot + age, so an elite (100th-pct) profile was
+treated like any #3 pick. Among past top-5 picks, talent 95+ averaged 44 pts/g in years 3-5 vs 35 for <80 (n=8 vs 32; weak once
+pick is controlled, t=0.7), but adding talent_pctile lowers held-out (leave-one-class-out) error 2-3% at every horizon -> adopted.
+Boozer K=5 rank #59 -> #48 (dynasty crowd #15). Remaining gap = model still treats him as a top-3 pick with a good profile, not a
+consensus generational talent; the crowd is pricing scouting/hype we can't measure. Any further move toward the crowd would be a
+judgment call, not a validated fix.
