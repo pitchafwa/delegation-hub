@@ -164,18 +164,6 @@ _avcols = [f"av{k}" for k in range(20)]
 # calibrated Output B path. Tested out-of-sample (engine_blend_test.py, prospect_engine_test.py).
 _up = pd.read_csv(ROOT / "data" / "unified_paths.csv")
 UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 8)] for r in _up.itertuples()}
-# ceiling scenarios (real analog career paths, incl. flops): pointwise p25/p50/p75/p90 paths, peak-season percentiles, star odds
-SCEN = {}
-for r in _up.itertuples():
-    SCEN[int(r.PLAYER_ID)] = {
-        "paths": {p: [round(float(getattr(r, f"P{p}_{h}")), 1) for h in range(1, 7)] for p in (25, 50, 75, 90)},
-        "peak": [round(float(r.peak_p25), 1), round(float(r.peak_p50), 1), round(float(r.peak_p75), 1), round(float(r.peak_p90), 1)],
-        "p_star": round(float(r.p_star), 3),
-    }
-# risk appetite: same asset value with an upside tilt (gamma 1.5 / 2.0) -- computed by asset_value_v2.py with ASSET_GAMMA
-_avcols_ = [f"av{k}" for k in range(20)]
-ASSET_BOOM = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols_] for r in pd.read_csv(ROOT / "data" / "asset_value_g1.5.csv").itertuples()}
-ASSET_MAX = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols_] for r in pd.read_csv(ROOT / "data" / "asset_value_g2.0.csv").itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
 current_out = []
 for _, r in current.iterrows():
@@ -188,12 +176,6 @@ for _, r in current.iterrows():
         "kind": "current",
         "id": f"c{int(r['PLAYER_ID'])}",
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
-        "asset_k_boom": ASSET_BOOM.get(int(r["PLAYER_ID"])),
-        "asset_k_max": ASSET_MAX.get(int(r["PLAYER_ID"])),
-        "scen": SCEN.get(int(r["PLAYER_ID"])),
-        "asset_k_boom": ASSET_BOOM.get(int(r["PLAYER_ID"])),
-        "asset_k_max": ASSET_MAX.get(int(r["PLAYER_ID"])),
-        "scen": SCEN.get(int(r["PLAYER_ID"])),
         "player": r["player"],
         "pos": pos if pd.notna(pos) else None,
         "team": r["TEAM_ABBREVIATION"] if pd.notna(r.get("TEAM_ABBREVIATION")) else None,
@@ -308,9 +290,6 @@ for _, r in prospects.iterrows():
         "kind": "prospect",
         "id": f"p{int(r['PLAYER_ID'])}",
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
-        "asset_k_boom": ASSET_BOOM.get(int(r["PLAYER_ID"])),
-        "asset_k_max": ASSET_MAX.get(int(r["PLAYER_ID"])),
-        "scen": SCEN.get(int(r["PLAYER_ID"])),
         "brk_tier": "rookie" if pd.notna(r.get("rk_p")) else None,
         "p_break": round_or_none(r.get("rk_p"), 3), "p_break_base": round_or_none(r.get("rk_pbase"), 3),
         "proj_fpg": round_or_none(r.get("rk_proj"), 1), "proj_lo": round_or_none(r.get("rk_lo"), 1), "proj_hi": round_or_none(r.get("rk_hi"), 1),

@@ -152,7 +152,6 @@
   </div>
   <div class="controls">
     <input type="search" id="q" placeholder="filter by name…" />
-    <div class="kbox" title="How much the asset value should reward boom potential (a high ceiling) on top of the average outcome"><span>Risk appetite:</span><select id="riskSel" style="background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:.25rem .4rem;font:inherit"><option value="exp">Expected value</option><option value="boom">Boom-tilted</option><option value="max">Max upside</option></select></div>
     <div class="kbox"><span>Keepers/team:</span><input type="range" id="kSlider" min="0" max="19" value="3" step="1" /><input type="number" id="kNum" min="0" max="19" step="1" value="3" /></div>
   </div>
   <div class="legend" id="legend"></div>
@@ -163,7 +162,7 @@
 </div>
 
 <script>
-let D=null, H=null, risk='exp', brkYear='live', kind='all', brkType='all', q='', K=3, sort={k:'vor',asc:false}, open=new Set();
+let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=3, sort={k:'vor',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -211,13 +210,13 @@ function sparkline(traj, w=100, h=30){
 // an implausible-looking projection (e.g. a "future peak" for a player
 // whose real recent seasons already show clear decline) is immediately
 // visible against the real trend it's supposed to continue from.
-function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], scen=null, w=460, h=160){
+function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], w=460, h=160){
   const futYears = traj.map((_,i)=>anchorYear+i);
   const allYears = [...histYears, ...futYears];
   const allValues = [...histValues, ...traj];
   const n = allYears.length;
   const histCount = histYears.length;
-  const max=Math.max(...allValues, opp, ...(scen?scen.paths['90']:[]))*1.08, min=0;
+  const max=Math.max(...allValues, opp)*1.08, min=0;
   const span=Math.max(max-min,1);
   const pad=26;
   const iw=w-pad*2, ih=h-pad*1.7;
@@ -229,15 +228,6 @@ function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], scen=null
   // future line starts at the last history point (or first future point if no history) for visual continuity
   const futStart = histCount>0 ? histCount-1 : 0;
   const futPts = ptsFor(futStart, n-1);
-  let band='';
-  if(scen){
-    const base=histCount, m=Math.min(scen.paths['75'].length, traj.length), ks=[...Array(m).keys()];
-    const top=ks.map(k=>`${x(base+k).toFixed(1)},${y(scen.paths['75'][k]).toFixed(1)}`);
-    const bot=[...ks].reverse().map(k=>`${x(base+k).toFixed(1)},${y(scen.paths['25'][k]).toFixed(1)}`);
-    band=`<polygon points="${[...top,...bot].join(' ')}" fill="var(--accent)" opacity="0.14"/>`+
-      `<polyline points="${ks.map(k=>`${x(base+k).toFixed(1)},${y(scen.paths['90'][k]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.75"/>`+
-      `<text x="${x(base+m-1).toFixed(1)}" y="${(y(scen.paths['90'][m-1])-5).toFixed(1)}" font-size="8.5" text-anchor="end" fill="var(--accent)" font-family="IBM Plex Mono, monospace">90th pct</text>`;
-  }
   const dots = allValues.map((v,i)=>{
     const isHist = i < histCount;
     return `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.6" fill="${isHist?'var(--ink-faint)':'var(--accent)'}"/>` +
@@ -250,7 +240,6 @@ function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], scen=null
     <line x1="${pad}" y1="${oppY}" x2="${w-pad}" y2="${oppY}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4,3"/>
     <text x="${w-pad}" y="${(+oppY-4)}" font-size="9" text-anchor="end" fill="var(--warn)" font-family="IBM Plex Mono, monospace">replacement (${opp.toFixed(1)})</text>
     ${histPts?`<polyline points="${histPts}" fill="none" stroke="var(--ink-faint)" stroke-width="1.8"/>`:''}
-    ${band}
     <polyline points="${futPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
     ${todayLine}
     ${dots}${yrs}
@@ -271,10 +260,9 @@ function compChips(list, withFant){
   return `<div class="comps">${list.map(s=>`<div class="comp"><b>${s.p}</b> '${String(s.y).slice(-2)} · ${s.sim}%${withFant&&s.fant!=null?` · ${(s.fant*100).toFixed(0)}%ile`:''}${s.intl?' 🌐':''}</div>`).join('')}</div>`;
 }
 
-function assetArr(p){ return risk==='boom' ? (p.asset_k_boom||p.asset_k) : risk==='max' ? (p.asset_k_max||p.asset_k) : p.asset_k; }
 // rank of every player by keeper-count-aware asset value at the current K (1 = most valuable)
 function assetRanks(){
-  const arr = D.players.filter(p=>p.asset_k).map(p=>[p.id, assetArr(p)[K]]).sort((a,b)=>b[1]-a[1]);
+  const arr = D.players.filter(p=>p.asset_k).map(p=>[p.id, p.asset_k[K]]).sort((a,b)=>b[1]-a[1]);
   return new Map(arr.map((x,i)=>[x[0], i+1]));
 }
 function rowsFiltered(){
@@ -288,13 +276,11 @@ function rowsFiltered(){
   else if(kind!=='all') r = r.filter(p => p.kind===kind);
   if(q) r = r.filter(p => p.player.toLowerCase().includes(q.toLowerCase()));
   const assetRank = assetRanks();
-  r = r.map(p => ({...p, _asset: p.asset_k?assetArr(p)[K]:null, _ceil: p.scen?p.scen.peak[3]:null, _star: p.scen?p.scen.p_star:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory)}));
+  r = r.map(p => ({...p, _asset: p.asset_k?p.asset_k[K]:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory)}));
   r.sort((a,b)=>{
     let av,bv;
     if(sort.k==='vor'){av=a._vor.vor;bv=b._vor.vor;}
     else if(sort.k==='asset'){av=a._asset;bv=b._asset;}
-    else if(sort.k==='ceil'){av=a._ceil;bv=b._ceil;}
-    else if(sort.k==='p_star'){av=a._star;bv=b._star;}
     else if(sort.k==='vor_brk'){av=a._vorB?a._vorB.vor:null;bv=b._vorB?b._vorB.vor:null;}
     else if(sort.k==='sparkline'){av=a._trajDelta;bv=b._trajDelta;}
     else if(sort.k==='player'){av=a.player;bv=b.player;}
@@ -394,7 +380,7 @@ function render(){
     <b>Season-total edge</b> = same idea in <i>season-total points</i> (pts/g × games). Additional info only, and a humbler result: the per-game edge picks did <b>not</b> beat ADP in season totals (${te.top10_total_surprise_by_pergame_edge.toFixed(0)} pts vs ADP-implied), because injuries eat the per-game advantage; ranking by the total edge itself gave +${te.top10_total_surprise_by_total_edge.toFixed(0)} pts (small next to ~${te.rmse_total_adp_only.toFixed(0)} pts of random season-to-season noise). Read per-game edge and injury risk together.<br>
     <b>VOR + breakout</b> = VOR after adding the breakout odds <i>beyond what age + output already imply</i> × how long a breakout's jump persists. Kept as a separate column because folding odds into projections only cut error ${((1-vt.h1.rmse_base_plus_breakout_odds/vt.h1.rmse_base)*100).toFixed(1)}% at 1 year and ${((1-vt.h3.rmse_base_plus_breakout_odds/vt.h3.rmse_base)*100).toFixed(1)}% at 3 years — too small to justify changing the core trajectories (tested against a simple proxy, not the Kalman model itself).<br>
     <b>Rookies</b> (separate model on college/international profile): "breakout chance" = probability of being fantasy-relevant in year 1 (within 1 pt of the ${oppCost(3).toFixed(1)} line). Honest result: draft slot alone (AUC ${m.rookie.pick_only.auc.toFixed(2)}) already does nearly all the work; adding the college profile ${m.rookie.full.auc<m.rookie.pick_only.auc?'did not help':'helped little'} (best variant AUC ${m.rookie['pick+few'].auc.toFixed(2)}, error ${m.rookie['pick+few'].rmse.toFixed(1)} vs ${m.rookie.pick_only.rmse.toFixed(1)} pts/g). And ESPN's ADP was far more accurate on ADP-listed rookies (error ${m.rookie.adp.rmse_adp_only.toFixed(1)} vs our ${m.rookie.adp.rmse_model_only.toFixed(1)} pts/g, ${m.rookie.adp.n} rookies), so <b>no rookie edge vs ADP is shown</b> — treat ADP as the better guide to year-1 output, and this as a P(relevant) read.<br>
-    Situation signals used: changed teams, usage/minutes vacated at his new team. Head-coach changes were tested and did <b>not</b> help. Watchlist, not a lock.</div></details>`;})() : `<b>Projections</b> are ONE blended path per player that feeds both VOR and Asset value: for players with NBA data, the Kalman tracking model blended with an empirical forecast built from what similar players actually did (75/25 next season, 50/50 after); for prospects, an empirical draft-slot/age/talent model blended with the calibrated college-profile projection (picks 1-10; late picks use the empirical model alone). Weights were chosen on held-out seasons. <b>Ceiling / Star odds / Risk appetite:</b> the asset value already averages over each player's whole range of outcomes (he's only kept in years he's good enough, so a wide range is worth more than a narrow one), and that range is checked against history. <b>Best season</b> and <b>Star odds</b> show the range directly (median vs 90th-percentile best season, and the chance of a 55+ pts/g season), drawn from real careers of similar players. <b>Risk appetite</b> tilts the asset value toward boom potential: Boom-tilted and Max upside weight the high-end outcomes more, so high-ceiling players climb and safe, low-ceiling ones slide. <b>Asset value</b> = an overall, keeper-count-aware snapshot (the "what is this player worth to own" number): next season always counts, future seasons only count where he'd clear the keep cutoff for this many keepers per team (none at 0 = pure redraft; up to nearly everyone at 19 = full dynasty), weighted by career-survival odds and real historical outcome spread (young high-ceiling players carry upside, older players fade). Slide the keeper count to see young players rise and old high-scorers fall; <b>VOR</b> (below) stays the keep-vs-draft decision tool. <b>VOR</b> = value above opportunity cost, summed over each season your keeper trajectory stays above what you'd get back drafting fresh (stops at the first year it dips below) — <span class="kind rookie" style="font-size:.66rem">ROOKIE</span> not yet debuted (🌐 = international pathway), <span style="color:var(--accent)">●</span>/<span style="color:var(--warn)">●</span> injury-risk watch/chronic. Adjust the keeper count above to see value shift with league format.`;
+    Situation signals used: changed teams, usage/minutes vacated at his new team. Head-coach changes were tested and did <b>not</b> help. Watchlist, not a lock.</div></details>`;})() : `<b>Projections</b> are ONE blended path per player that feeds both VOR and Asset value: for players with NBA data, the Kalman tracking model blended with an empirical forecast built from what similar players actually did (75/25 next season, 50/50 after); for prospects, an empirical draft-slot/age/talent model blended with the calibrated college-profile projection (picks 1-10; late picks use the empirical model alone). Weights were chosen on held-out seasons. <b>Asset value</b> = an overall, keeper-count-aware snapshot (the "what is this player worth to own" number): next season always counts, future seasons only count where he'd clear the keep cutoff for this many keepers per team (none at 0 = pure redraft; up to nearly everyone at 19 = full dynasty), weighted by career-survival odds and real historical outcome spread (young high-ceiling players carry upside, older players fade). Slide the keeper count to see young players rise and old high-scorers fall; <b>VOR</b> (below) stays the keep-vs-draft decision tool. <b>VOR</b> = value above opportunity cost, summed over each season your keeper trajectory stays above what you'd get back drafting fresh (stops at the first year it dips below) — <span class="kind rookie" style="font-size:.66rem">ROOKIE</span> not yet debuted (🌐 = international pathway), <span style="color:var(--accent)">●</span>/<span style="color:var(--warn)">●</span> injury-risk watch/chronic. Adjust the keeper count above to see value shift with league format.`;
 
   const isBrk = kind==='breakout';
   const cols = isBrk ? [
@@ -407,7 +393,6 @@ function render(){
     {k:'player',t:'Player'},{k:'pos',t:'Pos'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},
     {k:'year0_ppg',t:'2026 PPG'},{k:'peak_ppg',t:'Peak PPG'},
     {k:'sparkline',t:'Trajectory (5yr Δ)'},{k:'vor',t:'VOR'},{k:'asset',t:'Asset value'},
-    {k:'ceil',t:'Best season (median / 90th pct)'},{k:'p_star',t:'Star odds (55+)'},
   ];
   const NC = cols.length;
   document.getElementById('hrow').innerHTML = cols.map(c=>
@@ -445,14 +430,11 @@ function render(){
       <td data-label="Trajectory">${sparkline(p.trajectory)}</td>
       <td class="num" data-label="VOR"><b>${p._vor.vor.toFixed(1)}</b></td>
       <td class="num" data-label="Asset value">${p._asset!=null?`<b>${p._asset.toFixed(1)}</b> <span class="hint">#${p._assetRank}</span>`:'<span class="hint">—</span>'}</td>
-      <td class="num" data-label="Best season">${p.scen?`${p.scen.peak[1].toFixed(0)} <span class="hint">/ ${p.scen.peak[3].toFixed(0)}</span>`:'<span class="hint">—</span>'}</td>
-      <td class="num" data-label="Star odds">${p.scen?`${(p.scen.p_star*100).toFixed(0)}%`:'<span class="hint">—</span>'}</td>
 `}
     </tr>`;
     if(isOpen){
       const opp = oppCost(K);
-      let detail = `<div class="trajChart-wrap">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[], p.scen||null)}</div>`;
-      if(p.scen){ const pk=p.scen.peak; detail += `<div class="note" style="margin:.3rem 0 .6rem">Ceiling scenarios (real career paths of similar players, including flops and retirements): best season <b>${pk[0].toFixed(0)}</b> (25th pct) · <b>${pk[1].toFixed(0)}</b> median · <b>${pk[2].toFixed(0)}</b> (75th) · <b>${pk[3].toFixed(0)}</b> (90th); chance of a 55+ pts/g season: <b>${(p.scen.p_star*100).toFixed(0)}%</b>. Shaded band = 25th–75th percentile path, dashed = 90th.</div>`; }
+      let detail = `<div class="trajChart-wrap">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[])}</div>`;
       if(p.kind==='prospect'){
         detail += `<div class="detailGrid">
           <div>
@@ -535,7 +517,6 @@ function wire(){
     brkType=b.dataset.v; sort = brkType==='radar' ? {k:'edge_fpg',asc:false} : brkType==='bust' ? {k:'p_bust',asc:false} : {k:'p_break',asc:false}; render();
   });
   document.getElementById('q').addEventListener('input', e=>{ q=e.target.value; render(); });
-  document.getElementById('riskSel').addEventListener('change', e=>{ risk=e.target.value; render(); });
   document.getElementById('kSlider').addEventListener('input', e=>{ K=+e.target.value; document.getElementById('kNum').value=K; render(); });
   document.getElementById('kNum').addEventListener('input', e=>{
     let v=+e.target.value; if(!Number.isFinite(v)) return;

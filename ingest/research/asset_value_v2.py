@@ -21,7 +21,6 @@ Out-of-sample test vs "current output persists", then compared with the two anch
 Usage: python asset_value_v2.py -> data/asset_value.csv
 """
 import json
-import os
 import re
 import sys
 import unicodedata
@@ -41,7 +40,6 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parent
 D = ROOT / "data"
 NTEAMS, H, REPL, LAST_YR, DELTA = 12, 6, 22.0, 2025, 0.92
-GAM = float(os.environ.get('ASSET_GAMMA', '1'))  # boom appetite: 1 = expected surplus; >1 tilts toward the upside tail
 
 # ------------------------------------------------------------------ vet panel with outcomes at +1..+6
 panel = pd.read_csv(D / "breakout_panel_ctx2.csv")
@@ -103,14 +101,14 @@ class Forecaster:
                 continue
             rr = self.res[h][g] if len(self.res[h][g]) > 30 else np.concatenate(list(self.res[h].values()))
             rr = rr[:: max(1, len(rr) // 300)]
-            out[sel] = ps[sel] * (np.maximum(mu[sel, None] + rr[None, :] - c, 0) ** GAM).mean(axis=1) ** (1.0 / GAM)
+            out[sel] = ps[sel] * np.maximum(mu[sel, None] + rr[None, :] - c, 0).mean(axis=1)
         return out
 
 
 # ------------------------------------------------------------------ out-of-sample test
 print("== analog-free empirical forecast vs 'current output persists'  (test base years 2015-2019, trained only on outcomes observable then)")
 rows = []
-for ty in (() if os.environ.get('ASSET_SKIP_TEST') else (2015, 2016, 2017, 2018, 2019)):
+for ty in (2015, 2016, 2017, 2018, 2019):
     test = POOL[POOL["yr"] == ty]
     fc = Forecaster(POOL[POOL["yr"] < ty], asof=ty, hmax=4)
     for h in (1, 2, 3, 4):
@@ -122,8 +120,7 @@ for ty in (() if os.environ.get('ASSET_SKIP_TEST') else (2015, 2016, 2017, 2018,
             rr = np.maximum(real - c, 0)
             rows.append(dict(h=h, c=c, rho_model=spearmanr(pa[ok], rr[ok])[0], rho_naive=spearmanr(pn[ok], rr[ok])[0],
                              rmse_model=float(np.sqrt(np.mean((pa[ok] - rr[ok]) ** 2))), rmse_naive=float(np.sqrt(np.mean((pn[ok] - rr[ok]) ** 2)))))
-if rows:
-    print(pd.DataFrame(rows).groupby(["h", "c"]).mean().round(3).to_string())
+print(pd.DataFrame(rows).groupby(["h", "c"]).mean().round(3).to_string())
 
 # ------------------------------------------------------------------ live vets
 fc = Forecaster(POOL[POOL["yr"] < LAST_YR])
@@ -172,7 +169,7 @@ def prospect_value(picks, ages, h, c, mu=None):
         sel = tier == g_
         if sel.any():
             rr = pres_res[h][g_] if len(pres_res[h][g_]) > 20 else np.concatenate(list(pres_res[h].values()))
-            out[sel] = p[sel] * (np.maximum(mu[sel, None] + rr[None, :] - c, 0) ** GAM).mean(axis=1) ** (1.0 / GAM)
+            out[sel] = p[sel] * np.maximum(mu[sel, None] + rr[None, :] - c, 0).mean(axis=1)
     return out
 
 
@@ -251,67 +248,6 @@ y1 = np.concatenate([mean_y1_vet(), mean_y1_pro()])
 y1s = np.sort(y1)[::-1]
 cut = lambda k: np.inf if k <= 0 else float(y1s[min(int(k * NTEAMS) - 1, len(y1s) - 1)])
 
-# ------------------------------------------------------------------ CEILING SCENARIOS (real career outcomes, persistent across years)
-# For each player, draw whole career paths from real analogs (same age group / draft tier): each analog contributes its
-# actual year-by-year deviation from what the model expected, INCLUDING flops and retirements (value 0 once gone).
-# That keeps "if he hits, he hits for years" and gives honest percentile paths, peaks, and star odds.
-STAR = 55.0
-SIMS = 400
-rng = np.random.default_rng(7)
-
-
-def analog_vectors_vet():
-    pool = POOL[POOL["yr"] <= LAST_YR - 6].copy()
-    R = np.full((len(pool), H), np.nan)
-    PRES = np.zeros((len(pool), H))
-    for h in range(1, H + 1):
-        ok = pool[f"pres{h}"].notna().to_numpy()
-        mu = fc.m[h].predict(pool[F])
-        v = pool[f"v{h}"].to_numpy()
-        PRES[:, h - 1] = np.where(ok, pool[f"pres{h}"].fillna(0).to_numpy(), 0)
-        R[:, h - 1] = np.where(ok & (pool[f"pres{h}"].to_numpy() == 1), v - mu, np.nan)
-    return AGEB(pool["AGE"].to_numpy() + 1), R, PRES
-
-
-def analog_vectors_pro():
-    pool = hd[hd["real_draft_year"] <= LAST_YR - 5].copy()
-    R = np.full((len(pool), H), np.nan)
-    PRES = np.zeros((len(pool), H))
-    for h in range(1, H + 1):
-        ok = pool[f"pres{h}"].notna().to_numpy()
-        mu = pm[h].predict(pool[PF])
-        PRES[:, h - 1] = np.where(ok, pool[f"pres{h}"].fillna(0).to_numpy(), 0)
-        R[:, h - 1] = np.where(ok & (pool[f"pres{h}"].to_numpy() == 1), pool[f"v{h}"].to_numpy() - mu, np.nan)
-    tier = np.digitize(np.exp(pool["logpick"].to_numpy()), [4, 11, 31])
-    return tier, R, PRES
-
-
-def simulate(E, groups, pool_groups, R, PRES):
-    n = len(E)
-    q = {p: np.zeros((n, H)) for p in (25, 50, 75, 90)}
-    peak = np.zeros((n, 4))
-    pstar = np.zeros(n)
-    for i in range(n):
-        idx = np.where(pool_groups == groups[i])[0]
-        if len(idx) < 8:
-            idx = np.arange(len(pool_groups))
-        pick = rng.choice(idx, size=SIMS, replace=True)
-        path = np.where(PRES[pick] == 1, E[i, :H][None, :] + np.nan_to_num(R[pick]), 0.0)
-        path = np.maximum(path, 0.0)
-        for p_ in q:
-            q[p_][i] = np.percentile(path, p_, axis=0)
-        pk = path.max(axis=1)
-        peak[i] = np.percentile(pk, [25, 50, 75, 90])
-        pstar[i] = (pk >= STAR).mean()
-    return q, peak, pstar
-
-
-gv, Rv, Pv = analog_vectors_vet()
-qv, peak_v, star_v = simulate(E_v, AGEB(live_age_next), gv, Rv, Pv)
-gp_, Rp, Pp = analog_vectors_pro()
-tier_p = np.digitize(pr_pick, [4, 11, 31])
-qp, peak_p, star_p = simulate(E_p, tier_p, gp_, Rp, Pp)
-
 
 def total_value(k, delta=DELTA):
     c_future = max(cut(k), REPL)
@@ -334,21 +270,13 @@ Ks = (0, 1, 3, 5, 8, 19)  # shown in the printed diagnostics
 for k in range(20):       # all keeper counts the dashboard slider can pick
     res[f"av{k}"] = total_value(k)
 res["exp_y1"] = y1
-res.to_csv(D / ("asset_value.csv" if GAM == 1 else f"asset_value_g{GAM}.csv"), index=False)
+res.to_csv(D / "asset_value.csv", index=False)
 up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, 8)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)
 for h in range(1, 8):
     up[f"K{h}"] = np.concatenate([kal_v[:, h - 1], A_p[:, h - 1]])
-for p_ in (25, 50, 75, 90):
-    arr = np.vstack([qv[p_], qp[p_]])
-    for h in range(1, H + 1):
-        up[f"P{p_}_{h}"] = arr[:, h - 1]
-peak_all = np.vstack([peak_v, peak_p])
-up["peak_p25"], up["peak_p50"], up["peak_p75"], up["peak_p90"] = peak_all[:, 0], peak_all[:, 1], peak_all[:, 2], peak_all[:, 3]
-up["p_star"] = np.concatenate([star_v, star_p])
-if GAM == 1:
-    up.to_csv(D / "unified_paths.csv", index=False)
+up.to_csv(D / "unified_paths.csv", index=False)
 
 
 def nn_(n):

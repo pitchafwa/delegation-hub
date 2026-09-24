@@ -213,15 +213,3 @@ draft slot in every model (transparent, off by default). Test: Boozer as a #1-pi
 justify more; the crowd's #15 requires believing he is a tier above any historical #1 pick.
 Known VOR quirk: VOR stops at the first year below the opportunity-cost line, so Boozer's VOR@K=3 is 0 (yr-1 31.8 vs 32.4 line) despite
 a rising path -- Asset value handles that case; a "stash-adjusted VOR" (net early sub-replacement years against later surplus) is an option.
-
-### Ceiling / upside tools (2026-09-24) -- Tommy: "we HAVE to price in uncertainty for rookies / young players"
-Checked first: the asset model already values each player as the AVERAGE over his whole outcome distribution (kept only in years he's good
-enough), and that distribution is calibrated to history (held-out PIT: 25% of top-3 picks land above the model's 75th pct, 10% above its 90th;
-ceiling_tail_check.py). Real top-3 picks 2010-2019, best season in first 6 yrs: median 45, p75 52, p90 64, 23% reach 55+.
-Built: (1) ceiling scenarios -- whole career paths drawn from real analogs incl. flops/retirements (persistent across years): p25/p50/p75/p90 paths,
-peak-season percentiles, P(55+ season) -> "Best season (median / 90th)" and "Star odds" columns + shaded band on the player chart;
-Boozer: best season 40/50/59/64 (25/50/75/90th), 36% star odds. (2) "Risk appetite" selector (Expected / Boom-tilted g=1.5 / Max upside g=2)
-that tilts the asset value toward the upside tail: Boozer #39 -> #35 -> #33 at K=5, Dybantsa #32 -> #25 -> #22; crowd agreement slightly up (0.827 -> 0.834).
-Flagg check: only 3 of 36 top-3 picks (2010-2025) posted 45+ as rookies (Flagg 48.3, Wall 46.5, Towns 45.3, i.e. ~97th pct); those three averaged
-51-56 pts/g in years 2-5 vs 35-42 for other top-3 picks. So the jump to #6 after one season is the model correctly updating on rare evidence.
-What data cannot supply = ex-ante scouting conviction -> use prospect_overrides.json (transparent, off by default).
