@@ -222,3 +222,12 @@ Held-out (leave-one-class-out): #1 picks were under-projected by ~4-8 pts/g in b
 (actual avg 39/47/51 at rookie yr/yr 3/yr 5 vs model 34/41/43; median best season of the 13 #1 picks 2010-2025 = 51), while #2-3 were slightly
 over-projected. Adding a #1-pick term cuts #1-pick bias to ~0, improves top-3 RMSE (yr 5: 12.0 -> 11.5), leaves picks 4+ untouched.
 Dybantsa (#1, 2026): projected path 38 -> 53 by 2033 (was ~30 -> 45.5), asset rank #32 -> #21 at K=5. Boozer/Peterson (#3/#2) unchanged.
+
+### Ceiling VOR / Ceiling asset value (2026-09-24, Tommy's request)
+"If he hits a 90th-percentile career": the expected career shape given TOTAL career value (discounted pts/g above replacement, independent of keeper
+count) lands at the 90th percentile of outcomes for players like him. Method: deviations from the projected path are jointly normal across years,
+using each age-group / draft-tier's own spread and the real pooled year-to-year correlation of deviations (a hit persists); E[deviation | career score
+at its 90th pct] = z * Cov*w / sqrt(w'Cov w). Assumes he stays in the league (retirement/flop risk is priced in the base asset value, not here).
+First attempt (sampling actual analog careers) was too jagged with ~30 comparable top-3 picks (injury years, flameouts) and was replaced.
+Shown as columns + a dashed green line on the player chart. Ceiling asset value is the path treated as realized (no extra spread). Examples (K=5):
+Dybantsa VOR 118 / asset 58 -> ceiling 214 / 115; Boozer path 40->60; Peterson 39->58. Scripts: asset_value_v2.py (ceiling_paths), data/ceiling_paths.csv.

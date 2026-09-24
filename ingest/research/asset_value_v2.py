@@ -252,6 +252,73 @@ y1 = np.concatenate([mean_y1_vet(), mean_y1_pro()])
 y1s = np.sort(y1)[::-1]
 cut = lambda k: np.inf if k <= 0 else float(y1s[min(int(k * NTEAMS) - 1, len(y1s) - 1)])
 
+# ------------------------------------------------------------------ 90th-PERCENTILE CAREER ("ceiling outcome")
+# The typical career whose TOTAL value (discounted pts/g above replacement, independent of keeper count) is at the 90th
+# percentile of the range of real outcomes for players like him. Real analogs supply the spread by age group / draft tier and
+# the year-to-year persistence of deviations (if he hits, he hits for years).
+CEIL_PCT = 90
+
+
+def analog_vectors_vet():
+    pool = POOL[POOL["yr"] <= LAST_YR - 6].copy()
+    R, PRES = np.full((len(pool), H), np.nan), np.zeros((len(pool), H))
+    for h in range(1, H + 1):
+        ok = pool[f"pres{h}"].notna().to_numpy()
+        mu = fc.m[h].predict(pool[F])
+        PRES[:, h - 1] = np.where(ok, pool[f"pres{h}"].fillna(0).to_numpy(), 0)
+        R[:, h - 1] = np.where(ok & (pool[f"pres{h}"].to_numpy() == 1), pool[f"v{h}"].to_numpy() - mu, np.nan)
+    return AGEB(pool["AGE"].to_numpy() + 1), R, PRES
+
+
+def analog_vectors_pro():
+    pool = hd[hd["real_draft_year"] <= LAST_YR - 5].copy()
+    R, PRES = np.full((len(pool), H), np.nan), np.zeros((len(pool), H))
+    for h in range(1, H + 1):
+        ok = pool[f"pres{h}"].notna().to_numpy()
+        mu = pm[h].predict(pool[PF])
+        PRES[:, h - 1] = np.where(ok, pool[f"pres{h}"].fillna(0).to_numpy(), 0)
+        R[:, h - 1] = np.where(ok & (pool[f"pres{h}"].to_numpy() == 1), pool[f"v{h}"].to_numpy() - mu, np.nan)
+    return np.digitize(np.exp(pool["logpick"].to_numpy()), [4, 11, 31]), R, PRES
+
+
+def ceiling_paths(E, groups, pool_groups, R, PRES):
+    """Expected career shape GIVEN total career value lands at the CEIL_PCT-th percentile.
+    Deviations from projection are jointly normal across years with (a) each group's own spread and (b) the real,
+    pooled year-to-year correlation of deviations (persistent: a hit tends to stay a hit). For score = sum_h w_h * dev_h
+    (w = discount weights), E[dev | score at its z-quantile] = z * Cov w / sqrt(w' Cov w). Smooth, no injury-year artifacts;
+    it is the 90th-percentile career for a player who stays in the league (retirement risk is priced separately)."""
+    from scipy.stats import norm as _norm
+    z = float(_norm.ppf(CEIL_PCT / 100.0))
+    Rdf = pd.DataFrame(R)
+    corr = Rdf.corr(min_periods=20).fillna(0.0).to_numpy().copy()
+    np.fill_diagonal(corr, 1.0)
+    ev, evec = np.linalg.eigh(corr)
+    corr = (evec * np.clip(ev, 1e-3, None)) @ evec.T  # nearest PSD
+    d = np.sqrt(np.diag(corr))
+    corr = corr / np.outer(d, d)
+    pooled_sd = Rdf.std().fillna(Rdf.std().mean()).to_numpy()
+    w = DELTA ** np.arange(H)
+    dev = {}
+    for g in np.unique(groups):
+        rows = pool_groups == g
+        sd = Rdf[rows].std().to_numpy() if rows.sum() >= 8 else pooled_sd
+        sd = np.where(np.isnan(sd), pooled_sd, sd)
+        cov = np.outer(sd, sd) * corr
+        dev[g] = z * (cov @ w) / np.sqrt(w @ cov @ w)
+    n = len(E)
+    out = np.zeros((n, 7))
+    for i in range(n):
+        path = np.maximum(E[i, :H] + dev[groups[i]], 0.0)
+        out[i, :H] = path
+        out[i, 6] = path[5] + (E[i, 6] - E[i, 5])
+    return out
+
+
+gv, Rv, Pv = analog_vectors_vet()
+C_v = ceiling_paths(E_v, AGEB(live_age_next), gv, Rv, Pv)
+gp_, Rp, Pp = analog_vectors_pro()
+C_p = ceiling_paths(E_p, np.digitize(pr_pick, [4, 11, 31]), gp_, Rp, Pp)
+
 
 def total_value(k, delta=DELTA):
     c_future = max(cut(k), REPL)
@@ -275,6 +342,27 @@ for k in range(20):       # all keeper counts the dashboard slider can pick
     res[f"av{k}"] = total_value(k)
 res["exp_y1"] = y1
 res.to_csv(D / "asset_value.csv", index=False)
+
+
+def ceiling_asset(C, k):
+    """asset value of the 90th-percentile career treated as the realized path (no extra spread): sum of discounted
+    surplus over the keep cutoff in each year he clears it -- same rules as total_value"""
+    out = np.zeros(len(C))
+    c_future = max(cut(k), REPL)
+    for h in range(1, H + 1):
+        if not np.isfinite(cut(k)) and h > 1:
+            continue
+        c = REPL if h == 1 else c_future
+        out += DELTA ** (h - 1) * np.maximum(C[:, h - 1] - c, 0.0)
+    return out
+
+
+C_all = np.vstack([C_v, C_p])
+cp = pd.DataFrame(C_all, columns=[f"C{h}" for h in range(1, 8)])
+cp["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
+for k in range(20):
+    cp[f"CA{k}"] = ceiling_asset(C_all, k)
+cp.to_csv(D / "ceiling_paths.csv", index=False)
 up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, 8)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)

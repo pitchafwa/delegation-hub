@@ -164,6 +164,10 @@ _avcols = [f"av{k}" for k in range(20)]
 # calibrated Output B path. Tested out-of-sample (engine_blend_test.py, prospect_engine_test.py).
 _up = pd.read_csv(ROOT / "data" / "unified_paths.csv")
 UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 8)] for r in _up.itertuples()}
+# 90th-percentile career ("ceiling outcome") per player: path + asset value at each keeper count (asset_value_v2.py)
+_cp = pd.read_csv(ROOT / "data" / "ceiling_paths.csv")
+CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 8)],
+                           "asset": [round(float(getattr(r, f"CA{k}")), 1) for k in range(20)]} for r in _cp.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
 current_out = []
 for _, r in current.iterrows():
@@ -176,6 +180,8 @@ for _, r in current.iterrows():
         "kind": "current",
         "id": f"c{int(r['PLAYER_ID'])}",
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
+        "ceil_path": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("path"),
+        "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
         "player": r["player"],
         "pos": pos if pd.notna(pos) else None,
         "team": r["TEAM_ABBREVIATION"] if pd.notna(r.get("TEAM_ABBREVIATION")) else None,
@@ -290,6 +296,8 @@ for _, r in prospects.iterrows():
         "kind": "prospect",
         "id": f"p{int(r['PLAYER_ID'])}",
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
+        "ceil_path": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("path"),
+        "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
         "brk_tier": "rookie" if pd.notna(r.get("rk_p")) else None,
         "p_break": round_or_none(r.get("rk_p"), 3), "p_break_base": round_or_none(r.get("rk_pbase"), 3),
         "proj_fpg": round_or_none(r.get("rk_proj"), 1), "proj_lo": round_or_none(r.get("rk_lo"), 1), "proj_hi": round_or_none(r.get("rk_hi"), 1),
