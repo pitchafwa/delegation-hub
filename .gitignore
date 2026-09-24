@@ -26,6 +26,8 @@ ingest/research/data/kalman_fit_*_*.json
 !ingest/research/data/breakout_validation.json
 !ingest/research/data/rookie_breakout_validation.json
 !ingest/research/data/breakout_ledger/
+!ingest/research/data/aging_shape*.json
+!ingest/research/data/prospect_calibration.json
 # scratch / caches / models
 *.pkl
 *.parquet

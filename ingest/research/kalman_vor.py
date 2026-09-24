@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from espn_api.basketball import League
 import config
 from kalman_engine import run_filter_all_players
+from aging_shape import annual_slope  # validated late-career decline correction (see aging_shape.py)
 from keeper_value_over_replacement import opportunity_cost
 
 ROOT = Path(__file__).resolve().parent
@@ -149,7 +150,7 @@ for stat in KALMAN_STATS:
     df["_post"] = posterior
     end_state = df.loc[last_game_idx].set_index("PLAYER_ID")["_post"]
     diff = last_game_age - peak_age
-    daily_slope = np.where(diff <= 0, slope_up, slope_down) / 365.0
+    daily_slope = annual_slope(stat, last_game_age, fit["params"]) / 365.0
     year0[stat] = (end_state + daily_slope * days_to_next_season).clip(lower=0)
     print(f"  {stat} year-0 projected.")
 
@@ -197,9 +198,7 @@ def build_trajectory(player_id):
         # advance one year for each Kalman-filtered stat using its own fitted
         # annual slope; STL stays flat (no age evolution -- tested, didn't help).
         for s in KALMAN_STATS:
-            Q, R, peak_age, slope_up, slope_down = params_by_stat[s]
-            diff = (age0 + k) - peak_age
-            slope = slope_up if diff <= 0 else slope_down
+            slope = annual_slope(s, age0 + k, params_by_stat[s])
             floor = 0.0
             state[s] = max(state[s] + slope, floor)
     return traj

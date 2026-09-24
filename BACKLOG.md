@@ -170,3 +170,20 @@ Empirical forecasts sit 3-4 pts/g above the Kalman for players <=21 and 2-5 pts/
 Remaining gap vs dynasty crowd: young stars (Boozer ~#59 at K=5 vs crowd #15) -- unknown whether crowd is hyping.
 Assumptions to revisit: delta=0.92/yr, replacement=22 pts/g, 6-year horizon, only players with >=20 GP / >=10 mpg last
 season (460 of 590) get a value.
+
+### Aging-shape work: RESULT and CORRECTION (2026-09-24)
+Correction to the "trajectories are too flat" claim above: the "young veterans projected 3-4 pts/g too low" figure
+came from grading only players who stuck around (survivorship / peeking at outcomes). Graded honestly (players the model
+already expected to matter at the forecast date; fit on targets <=2019, tested 2020-25), a fully re-fit steeper curve was
+WORSE for young players (bias -4 pts/g, RMSE +9%) and the ORIGINAL curve was roughly unbiased through age ~30.
+What held up out-of-sample:
+ 1. LATE-CAREER DECLINE (age 31+): original curve forecast ~2.6 pts/g too high. Fix: keep original slope below 28, blend to
+    the fitted age-dependent slope by 31 at 60% strength (aging_shape.py; best held-out error; small overall gain, 31+ error -2%).
+    Wired into kalman_vor.py (year-0 partial-year drift + build_trajectory). LeBron/Durant/Curry VOR@K=3 roughly -40%.
+ 2. PROSPECT CEILINGS (no NBA data yet, top-15 picks): the Output-B-based trajectories undershoot real outcomes, growing
+    over the first 3 years (pick 1: +4.5 rookie yr, +8.8 yr 2, ~+7.8 by yr 3-5; pick 8: +0.6/+4.4/+4.7). Leave-one-class-out:
+    bias removed, error -13% at year 2 to -8% at year 5. Fixed in build_hub_data.py (prospect_calibration.py); full strength
+    through pick 10, tapering to zero at pick 16. Existing NBA players' trajectories are unaffected.
+Not fixed: VOR still stops counting at the first year below the opportunity-cost line, so a prospect who starts just under
+it and climbs later (Peterson) can show VOR 0 -- Asset value exists for exactly that case.
+Scripts: fit_aging_shape.py, aging_shape.py, prospect_calibration.py, ceiling_calibration_backtest.py.

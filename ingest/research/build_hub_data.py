@@ -251,8 +251,28 @@ rk_cands = rk_cands.rename(columns={"p_break": "rk_p", "p_baseline": "rk_pbase",
                                     "proj_hi": "rk_hi", "adp": "rk_adp", "adp_implied_fpg": "rk_adp_fpg", "why": "rk_why"})
 prospects = prospects.merge(rk_cands, on="PLAYER_ID", how="left")
 
+# ceiling calibration for top picks (prospect_calibration.py): past top-15 picks outproduced their
+# Output-B-based trajectories by a pick-dependent amount that grows over the first ~3 years
+_pc = json.loads((ROOT / "data" / "prospect_calibration.json").read_text(encoding="utf-8"))
+
+
+def calibrate_prospect(traj, pick):
+    if pick is None or pick > 15:
+        return list(traj)
+    taper = float(np.clip((16 - pick) / 6.0, 0.0, 1.0))  # full strength through pick 10, zero at 16+
+    out = []
+    for k, v in enumerate(traj):
+        a, b = _pc["coef"][str(min(k, _pc["max_k"]))]
+        out.append(round(max(v + taper * (a + b * float(np.log(pick))), 0.0), 1))
+    return out
+
+
 prospect_out = []
 for _, r in prospects.iterrows():
+    _pick = int(r["pick_filled"]) if r["pick_filled"] < 61 else None
+    _traj = calibrate_prospect(r["trajectory"], _pick)
+    _f = (_traj[0] / r["trajectory"][0]) if r["trajectory"][0] > 0 else 1.0
+    _proj = {k: (round_or_none(v * _f, 4) if k != "MIN" else round_or_none(v, 4)) for k, v in r["rookie_proj"].items()}
     pos = r["espn_position"] if pd.notna(r.get("espn_position")) else r["pos_display"]
     prospect_out.append({
         "kind": "prospect",
@@ -272,11 +292,12 @@ for _, r in prospects.iterrows():
         "anchor_year": int(r["real_draft_year"]) + 1 if pd.notna(r["real_draft_year"]) else CURRENT_SEASON_END_YEAR,
         "pick": int(r["pick_filled"]) if r["pick_filled"] < 61 else None,
         "data_source": r["data_source"],
-        "year0_ppg": r["rookie_year_ppg"],
-        "peak_ppg": r["peak_ppg"],
-        "peak_year_index": int(r["peak_year_index"]),
-        "trajectory": r["trajectory"],
-        "rookie_proj": {k: round_or_none(v, 4) for k, v in r["rookie_proj"].items()},
+        "year0_ppg": _traj[0],
+        "peak_ppg": max(_traj),
+        "peak_year_index": int(np.argmax(_traj)),
+        "trajectory": _traj,
+        "trajectory_uncalibrated": [round(float(v), 1) for v in r["trajectory"]],
+        "rookie_proj": _proj,
         "talent_pctile": round_or_none(r["talent_pctile"], 3),
         "bpm": round_or_none(r["bpm"], 2) if r["data_source"] == "college" else None,
         "game_score": round_or_none(r.get("game_score"), 2) if r["data_source"] == "international" else None,
