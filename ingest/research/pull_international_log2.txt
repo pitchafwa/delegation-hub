@@ -1,0 +1,87 @@
+Gap population (no college match, 2008-2026 draftees): 179
+UNMATCHED: Bam Adebayo (2017)
+UNMATCHED: Giannis Antetokounmpo (2013)
+UNMATCHED: Thanasis Antetokounmpo (2014)
+UNMATCHED: Mo Bamba (2018)
+UNMATCHED: Cat Barber (2016)
+UNMATCHED: Darius Bazley (2019)
+UNMATCHED: MarJon Beauchamp (2022)
+--- progress: 15/179 processed, 8 matched so far ---
+UNMATCHED: Davis Bertans (2011)
+UNMATCHED: Isaac Bonga (2018)
+UNMATCHED: Matas Buzelis (2024)
+UNMATCHED: Bruno Caboclo (2014)
+--- progress: 30/179 processed, 19 matched so far ---
+UNMATCHED: Bub Carrington (2024)
+UNMATCHED: Ulrich Chomche (2024)
+UNMATCHED: Nic Claxton (2019)
+UNMATCHED: Dyson Daniels (2022)
+--- progress: 45/179 processed, 30 matched so far ---
+UNMATCHED: Sekou Doumbouya (2019)
+UNMATCHED: Kay Felder (2016)
+UNMATCHED: Enes Freedom (2011)
+UNMATCHED: Hugo González (2025)
+--- progress: 60/179 processed, 41 matched so far ---
+UNMATCHED: Jalen Green (2021)
+UNMATCHED: Jaden Hardy (2022)
+UNMATCHED: Maurice Harkless (2012)
+UNMATCHED: Scoot Henderson (2023)
+UNMATCHED: Dewan Hernandez (2019)
+UNMATCHED: Juancho Hernangomez (2016)
+UNMATCHED: Willy Hernangomez (2015)
+UNMATCHED: Haywood Highsmith (2018)
+UNMATCHED: Ronald Holland II (2024)
+UNMATCHED: Bones Hyland (2021)
+--- progress: 75/179 processed, 46 matched so far ---
+UNMATCHED: Serge Ibaka (2008)
+UNMATCHED: Vsevolod Ishchenko (2026)
+UNMATCHED: Wes Iwundu (2017)
+UNMATCHED: GG Jackson (2023)
+UNMATCHED: Nathan Jawai (2008)
+UNMATCHED: Wesley Johnson (2010)
+UNMATCHED: Nikola Jokić (2014)
+--- progress: 90/179 processed, 54 matched so far ---
+UNMATCHED: Jonathan Kuminga (2021)
+UNMATCHED: Ricky Ledo (2013)
+UNMATCHED: Didi Louzada (2019)
+UNMATCHED: Timothe Luwawu-Cabarrot (2016)
+UNMATCHED: Sheldon Mac (2016)
+UNMATCHED: Josh Magette (2012)
+UNMATCHED: Thon Maker (2016)
+--- progress: 105/179 processed, 62 matched so far ---
+UNMATCHED: Devyn Marble (2014)
+UNMATCHED: KJ Martin (2020)
+UNMATCHED: Vasilije Micic (2014)
+UNMATCHED: Leonard Miller (2023)
+UNMATCHED: Svi Mykhailiuk (2018)
+--- progress: 120/179 processed, 72 matched so far ---
+UNMATCHED: Georgios Papagiannis (2016)
+UNMATCHED: Anžejs Pasečņiks (2017)
+--- progress: 135/179 processed, 85 matched so far ---
+UNMATCHED: Mitchell Robinson (2018)
+UNMATCHED: Luka Samanic (2019)
+UNMATCHED: Gui Santos (2022)
+UNMATCHED: Alex Sarr (2024)
+UNMATCHED: Dennis Schröder (2013)
+UNMATCHED: Jay Scrubb (2020)
+UNMATCHED: Shaedon Sharpe (2022)
+--- progress: 150/179 processed, 93 matched so far ---
+UNMATCHED: Anfernee Simons (2018)
+UNMATCHED: Alen Smailagic (2019)
+UNMATCHED: Edy Tavares (2014)
+UNMATCHED: Cam Thomas (2021)
+UNMATCHED: Amen Thompson (2023)
+UNMATCHED: Ausar Thompson (2023)
+UNMATCHED: Isaiah Todd (2021)
+--- progress: 165/179 processed, 101 matched so far ---
+UNMATCHED: Jeremy Tyler (2011)
+UNMATCHED: Sasha Vezenkov (2017)
+UNMATCHED: Tristan Vukcevic (2023)
+UNMATCHED: Yang Hansen (2025)
+UNMATCHED: Joe Young (2015)
+UNMATCHED: Ante Zizic (2016)
+UNMATCHED: Ivica Zubac (2016)
+--- progress: 179/179 processed, 108 matched so far ---
+
+Matched 108 / 179 real players
+Saved 352 season rows to international_player_seasons.csv

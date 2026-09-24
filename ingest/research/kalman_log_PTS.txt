@@ -1,0 +1,3 @@
+PTS fit done in 2002s. Best Spearman: 0.7990
+Params (Q, R, peak_age, slope_up, slope_down): [0.0006490605946760947, 41.04760752427647, 26.685042082068062, 0.02491848283114512, -0.020702504998627136]
+Naive baseline Spearman: 0.7296

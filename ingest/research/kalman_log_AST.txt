@@ -1,0 +1,3 @@
+AST fit done in 2000s. Best Spearman: 0.8419
+Params (Q, R, peak_age, slope_up, slope_down): [0.000198133416033283, 45.017534954363654, 22.792004255930898, 0.013685727014692214, -0.000151615673498251]
+Naive baseline Spearman: 0.8183

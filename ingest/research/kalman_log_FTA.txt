@@ -1,0 +1,3 @@
+FTA fit done in 2009s. Best Spearman: 0.7723
+Params (Q, R, peak_age, slope_up, slope_down): [2.69835576642459e-05, 41.3113460051769, 24.803587481775896, 0.0037298770022019118, -0.005694481720372679]
+Naive baseline Spearman: 0.7237

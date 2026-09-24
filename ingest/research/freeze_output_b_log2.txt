@@ -1,0 +1,26 @@
+Fit PTS (ridge) on 704 rookies.
+Fit REB (ridge) on 704 rookies.
+Fit AST (ridge) on 704 rookies.
+Fit BLK (ridge) on 704 rookies.
+Fit TOV (rf) on 704 rookies.
+Fit FG3M (ridge) on 704 rookies.
+Fit FTM (rf) on 704 rookies.
+Fit FTA (rf) on 704 rookies.
+Fit STL (ridge) on 704 rookies.
+Fit MIN (rf) on 704 rookies.
+
+Saved output_b_model.pkl (10 stats) and output_b_model.meta.json
+
+Cooper Flagg (draft 2025, pick 1):
+  PTS   projected=0.4712  actual=0.6285
+  REB   projected=0.2043  actual=0.1988
+  AST   projected=0.1249  actual=0.1348
+  BLK   projected=0.0248  actual=0.0273
+  TOV   projected=0.0749  actual=0.0687
+  FG3M  projected=0.0417  actual=0.0307
+  FTM   projected=0.1005  actual=0.1207
+  FTA   projected=0.1283  actual=0.1459
+  STL   projected=0.0318  actual=0.0358
+  MIN   projected=28.6452  actual=33.4837
+Zaccharie Risacher: not found in trainable set (may be international / no match)
+Alex Sarr: not found in trainable set (may be international / no match)

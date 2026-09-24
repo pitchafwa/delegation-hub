@@ -1,0 +1,32 @@
+{
+  "stat": "FTA",
+  "params": [
+    0.00024161439091639717,
+    45.276300787587395,
+    27.461047156844856,
+    0.0025646295188037167,
+    -0.004748146433833955
+  ],
+  "multiyear_r2": 0.588820070759996,
+  "naive_multiyear_r2": 0.38670975289244625,
+  "naive_multiyear_spearman": 0.6034461078143168,
+  "fitted_multiyear_spearman": 0.7354758816920408,
+  "elapsed_sec": 3820.9645133018494,
+  "param_names": [
+    "Q",
+    "R",
+    "peak_age",
+    "slope_up",
+    "slope_down"
+  ],
+  "horizons_used": [
+    {
+      "cutoff_season": "2018-19",
+      "target_season": "2022-23"
+    },
+    {
+      "cutoff_season": "2020-21",
+      "target_season": "2025-26"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+MIN fit done in 7498s. Best Spearman: 0.8407
+Params (Q, R, peak_age, slope_up, slope_down): [0.005060976704109996, 49.51950956609202, 27.879606040253194, 0.05188094523261613, -0.486501267588544]
+Naive baseline Spearman: 0.7417

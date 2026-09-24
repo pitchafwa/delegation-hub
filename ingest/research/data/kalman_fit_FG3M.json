@@ -1,0 +1,32 @@
+{
+  "stat": "FG3M",
+  "params": [
+    3.290978766629648e-06,
+    43.53847230164157,
+    33.794035379667655,
+    0.0018974651471724629,
+    0.0
+  ],
+  "multiyear_r2": 0.6470875652489005,
+  "naive_multiyear_r2": 0.43384762718738157,
+  "naive_multiyear_spearman": 0.7690385237155828,
+  "fitted_multiyear_spearman": 0.7641528963475566,
+  "elapsed_sec": 4083.7798426151276,
+  "param_names": [
+    "Q",
+    "R",
+    "peak_age",
+    "slope_up",
+    "slope_down"
+  ],
+  "horizons_used": [
+    {
+      "cutoff_season": "2018-19",
+      "target_season": "2022-23"
+    },
+    {
+      "cutoff_season": "2020-21",
+      "target_season": "2025-26"
+    }
+  ]
+}

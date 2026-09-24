@@ -1,0 +1,32 @@
+{
+  "stat": "FTM",
+  "params": [
+    0.0003626248161807096,
+    49.49472533113939,
+    27.460843225863925,
+    0.0027021854302152564,
+    -0.003946256568755952
+  ],
+  "multiyear_r2": 0.5858477412708339,
+  "naive_multiyear_r2": 0.3861626517239554,
+  "naive_multiyear_spearman": 0.5961516054997387,
+  "fitted_multiyear_spearman": 0.7309158584774205,
+  "elapsed_sec": 4244.494791269302,
+  "param_names": [
+    "Q",
+    "R",
+    "peak_age",
+    "slope_up",
+    "slope_down"
+  ],
+  "horizons_used": [
+    {
+      "cutoff_season": "2018-19",
+      "target_season": "2022-23"
+    },
+    {
+      "cutoff_season": "2020-21",
+      "target_season": "2025-26"
+    }
+  ]
+}

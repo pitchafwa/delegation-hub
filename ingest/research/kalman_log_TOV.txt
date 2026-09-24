@@ -1,0 +1,3 @@
+TOV fit done in 2046s. Best Spearman: 0.7231
+Params (Q, R, peak_age, slope_up, slope_down): [7.263426199016276e-05, 43.37992186576893, 20.499336422818025, 0.013273306555579904, -0.0020711763671585337]
+Naive baseline Spearman: 0.6900

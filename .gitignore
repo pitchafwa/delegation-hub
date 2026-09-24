@@ -1,0 +1,41 @@
+# Secrets — never committed
+.env
+
+# Python
+ingest/.venv/
+ingest/.cache/
+ingest/__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / frontend
+web/node_modules/
+web/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ---- Public-repo hygiene (added when publishing) ----
+# Raw / third-party / large data pulls: regenerable, and not ours to republish (BBRef, Torvik, ESPN, Hashtag...)
+ingest/research/data/*
+# ...except small production artifacts worth keeping in version control:
+!ingest/research/data/kalman_fit_[A-Z0-9]*.json
+ingest/research/data/kalman_fit_*_*.json
+!ingest/research/data/breakout_validation.json
+!ingest/research/data/rookie_breakout_validation.json
+!ingest/research/data/breakout_ledger/
+# scratch / caches / models
+*.pkl
+*.parquet
+*.log
+__pycache__/
+.venv/
+# local-only source for build script; big and not displayed
+dashboard/rookie_scores.json
+.claude/
+
+# noisy run logs
+*_log.txt
+*.log

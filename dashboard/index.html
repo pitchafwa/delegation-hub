@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fantasy Hub</title>
+<meta name="theme-color" content="#0f1318" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+<style>
+  :root{--paper:#f3f5f7;--surface:#fff;--surface-2:#eef1f4;--ink:#171d24;--ink-soft:#55606c;
+    --ink-faint:#8a939d;--line:#dde2e8;--line-strong:#c6cdd5;--accent:#a9741f;
+    --good:#2f7d5d;--warn:#b1472f;--intl:#7a5cc8;--current:#3a86c8}
+  @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#0f1318;--surface:#171d24;--surface-2:#1e252d;--ink:#e2e6ea;--ink-soft:#97a2ad;
+    --ink-faint:#6c7680;--line:#2a323b;--line-strong:#39434e;--accent:#d69a3f;
+    --good:#4ea883;--warn:#d3694c;--intl:#9c85e0;--current:#5aa0dd}}
+  :root[data-theme="dark"]{--paper:#0f1318;--surface:#171d24;--surface-2:#1e252d;--ink:#e2e6ea;--ink-soft:#97a2ad;
+    --ink-faint:#6c7680;--line:#2a323b;--line-strong:#39434e;--accent:#d69a3f;
+    --good:#4ea883;--warn:#d3694c;--intl:#9c85e0;--current:#5aa0dd}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:2rem clamp(.7rem,3vw,2rem) 4rem}
+  h1{font-family:"Zilla Slab",Georgia,serif;font-weight:700;font-size:clamp(1.7rem,4vw,2.4rem);margin:0 0 .15rem}
+  .sub{color:var(--ink-soft);font-size:.92rem;margin-bottom:1.3rem;max-width:70ch}
+  a{color:var(--accent)}
+  .statbar{display:flex;flex-wrap:wrap;gap:1.1rem 1.9rem;padding:1rem 1.2rem;background:var(--surface);
+    border:1px solid var(--line);border-radius:10px;margin-bottom:1.1rem;font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-soft)}
+  .statbar b{display:block;font:600 1.1rem/1 "IBM Plex Sans",sans-serif;color:var(--ink);letter-spacing:-.01em}
+
+  .controls{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem;align-items:center}
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:var(--surface);color:var(--ink-soft);padding:.42rem .72rem;font:inherit;font-size:.8rem;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600}
+  .hint{font-size:.72rem;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace}
+  input[type=search]{flex:1;min-width:150px;padding:.42rem .7rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.84rem}
+  .kbox{display:flex;align-items:center;gap:.5rem;padding:.3rem .7rem;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;font-size:.8rem}
+  .kbox input[type=range]{width:110px}
+  .kbox input[type=number]{width:3.2rem;color:var(--accent);font-family:"IBM Plex Mono",monospace;font-weight:600;text-align:center;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:.15rem .2rem}
+  .legend{font-size:.78rem;color:var(--ink-faint);margin:.2rem 0 1rem;line-height:1.65}
+  .legend b{color:var(--ink-soft)} .legend .intl{color:var(--intl)} .legend .cur{color:var(--current)}
+
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+  table{border-collapse:collapse;width:100%;font-size:.84rem}
+  th,td{padding:.55rem .6rem;text-align:right;white-space:nowrap;border-top:1px solid var(--line)}
+  /* identity block (Player/Pos/Team/Age) sits tight together; value columns get their normal spacing */
+  th:nth-child(2),td:nth-child(2){padding-left:.25rem}
+  th:nth-child(3),td:nth-child(3){padding-left:.25rem}
+  th:nth-child(4),td:nth-child(4){padding-left:.25rem;padding-right:1.1rem;border-right:1px solid var(--line)}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  thead th{position:sticky;top:0;background:var(--surface-2);border-top:0;font-family:"IBM Plex Mono",monospace;
+    font-size:.66rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;cursor:pointer;user-select:none}
+  thead th.sorted::after{content:" ▾";color:var(--accent)}
+  thead th.sorted.asc::after{content:" ▴"}
+  tbody tr{cursor:pointer} tbody tr:hover{background:var(--surface-2)}
+  td.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  .kind{display:inline-block;min-width:1.4rem;text-align:center;font-family:"IBM Plex Mono",monospace;font-weight:600;padding:.05rem .28rem;border-radius:4px;font-size:.68rem}
+  .kind.rookie{background:color-mix(in srgb, var(--intl) 18%, transparent);color:var(--intl);letter-spacing:.03em}
+  .spark{display:block;vertical-align:middle}
+  .sparkCell{display:flex;align-items:center;gap:.4rem;justify-content:flex-end}
+  .sparkDelta{font-family:"IBM Plex Mono",monospace;font-size:.72rem;min-width:2.6rem;text-align:right}
+  .sparkDelta.up{color:var(--good)} .sparkDelta.down{color:var(--warn)} .sparkDelta.flat{color:var(--ink-faint)}
+  .teamCell{display:flex;align-items:center;gap:.35rem;justify-content:flex-start}
+  .teamCell img{width:18px;height:18px;object-fit:contain}
+  .injDot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:.35rem}
+  .injDot.watch{background:var(--accent)} .injDot.chronic{background:var(--warn)}
+  .liveStatus{font-family:"IBM Plex Mono",monospace;font-size:.62rem;font-weight:600;padding:.04rem .32rem;border-radius:4px;margin-left:.35rem;background:color-mix(in srgb, var(--warn) 20%, transparent);color:var(--warn)}
+  .ic{margin-left:.25rem;font-size:.82rem}
+  .detail td{background:var(--surface-2);border-top:0;white-space:normal}
+  .detailGrid{display:grid;grid-template-columns:280px 1fr;gap:1.4rem;align-items:start;padding:.4rem 0}
+  .trajChart{width:100%;height:150px}
+  .statline{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:.5rem;margin-top:.6rem}
+  .statline .s{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.4rem .5rem;text-align:center}
+  .statline .s .v{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1rem}
+  .statline .s .l{font-size:.62rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
+  .inputs{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem}
+  .inputs .i{font-family:"IBM Plex Mono",monospace;font-size:.73rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+  .inputs .i b{color:var(--accent)}
+  .comps{display:flex;flex-wrap:wrap;gap:.4rem;padding:.3rem 0}
+  .comp{font-family:"IBM Plex Mono",monospace;font-size:.73rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+  .comp b{color:var(--accent)}
+  .note{font-size:.77rem;color:var(--ink-faint);margin-top:.25rem}
+  .simwrap{margin-top:.9rem}
+  .simwrap .lbl{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.35rem}
+  footer{margin-top:2.6rem;padding-top:1.1rem;border-top:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);line-height:1.7}
+  .err{padding:2rem;text-align:center;color:var(--warn);font-family:"IBM Plex Mono",monospace}
+  #aboutPane h2{font-family:"Zilla Slab",serif;font-size:1.25rem;margin:1.6rem 0 .5rem}
+  #aboutPane h2:first-child{margin-top:0}
+  #aboutPane p,#aboutPane li{color:var(--ink-soft);font-size:.92rem}
+  #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
+
+  @media(max-width:720px){
+    .wrap{padding:1.2rem .7rem 3rem}
+    h1{font-size:1.6rem}
+    .sub{font-size:.86rem}
+    .statbar{gap:.8rem 1.3rem;font-size:.7rem;padding:.8rem .9rem}
+    .controls{gap:.4rem} .controls .hint{order:9;flex-basis:100%}
+    .seg{flex-wrap:wrap}
+    input[type=search]{min-width:0;flex-basis:100%;order:1}
+    #boardPane .tablewrap{border:0;background:transparent;overflow:visible}
+    #boardPane table,#boardPane tbody,#boardPane tr,#boardPane td{display:block;width:100%}
+    #boardPane thead{display:none}
+    #boardPane tbody tr{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem;padding:.5rem .7rem}
+    #boardPane tbody tr:hover{background:var(--surface)}
+    #boardPane tbody tr.detail{border-top:0;border-radius:0 0 10px 10px;margin-top:-.6rem}
+    #boardPane td{border:0;text-align:left !important;padding:.18rem 0;display:flex;justify-content:space-between;gap:1rem;font-size:.9rem}
+    #boardPane td:first-child{display:block;font-family:"Zilla Slab",serif;font-size:1.05rem;font-weight:500;padding-bottom:.35rem;border-bottom:1px solid var(--line);margin-bottom:.3rem}
+    #boardPane td:first-child::before{content:none}
+    #boardPane tbody tr:not(.detail) td:nth-child(3){display:none}
+    #boardPane td::before{content:attr(data-label);font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);align-self:center}
+    #boardPane .detail td{display:block}#boardPane .detail td::before{content:none}
+    .detailGrid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fantasy Hub</h1>
+  <div class="sub" id="hSub"></div>
+
+  <div class="controls" style="margin-bottom:1rem">
+    <div class="seg" id="segView">
+      <button data-v="board" aria-pressed="true">Board</button>
+      <button data-v="about">How it works</button>
+    </div>
+  </div>
+
+  <div id="aboutPane" style="display:none"></div>
+  <div id="boardPane">
+  <div class="statbar" id="statbar"></div>
+
+  <div class="controls">
+    <div class="seg" id="segKind">
+      <button data-v="all" aria-pressed="true">All</button>
+      <button data-v="current" style="color:var(--current)">Current players</button>
+      <button data-v="prospect">Prospects <span class="hint">(not yet debuted)</span></button>
+      <button data-v="breakout" style="color:var(--good)">Breakouts</button>
+    </div>
+  </div>
+  <div class="controls" id="brkCtl" style="display:none">
+    <div class="seg" id="segBrk">
+      <button data-v="all" aria-pressed="true">All types</button>
+      <button data-v="emergence">Emerging <span class="hint">(→ fantasy-relevant)</span></button>
+      <button data-v="elevation">Elevating <span class="hint">(good → great)</span></button>
+      <button data-v="rookie">Rookies <span class="hint">(incoming)</span></button>
+      <button data-v="radar">Under the radar <span class="hint">(edge vs ADP)</span></button>
+      <button data-v="bust">Bust risk <span class="hint">(sell-high)</span></button>
+    </div>
+    <label class="kbox" style="gap:.5rem"><span>Season:</span><select id="brkYear" style="background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:.3rem .5rem;font:inherit"></select></label>
+  </div>
+  <div class="controls">
+    <input type="search" id="q" placeholder="filter by name…" />
+    <div class="kbox"><span>Keepers/team:</span><input type="range" id="kSlider" min="0" max="19" value="3" step="1" /><input type="number" id="kNum" min="0" max="19" step="1" value="3" /></div>
+  </div>
+  <div class="legend" id="legend"></div>
+
+  <div class="tablewrap"><table id="tbl"><thead><tr id="hrow"></tr></thead><tbody id="body"></tbody></table></div>
+  </div>
+  <footer id="foot">Delegation League Fantasy Hub — current-roster + rookie/prospect valuation, unified on one trajectory/VOR scale.</footer>
+</div>
+
+<script>
+let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=3, sort={k:'vor',asc:false}, open=new Set();
+
+function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
+function computeVOR(traj, k){
+  const opp = oppCost(k);
+  let total=0, years=0;
+  for(const v of traj){ if(v < opp) break; total += v-opp; years++; }
+  return {vor: Math.round(total*10)/10, years};
+}
+const fmt1=v=>v==null?'—':v.toFixed(1);
+const yearLabel=(anchorYear,k)=>`'${String(anchorYear+k).slice(-2)}`;
+
+// 5-year change (not the full 7) -- year 6-7 is often just a slow decline
+// off a peak already reached, so a 7-year delta understates how good the
+// near/mid-term climb actually is. The line itself still shows all 7.
+function trajDelta5yr(traj){
+  const base = traj[0] || 1;
+  const idx = Math.min(4, traj.length-1);
+  return (traj[idx]-traj[0])/base;
+}
+
+// Normalized (% of year-1 value) so shape is comparable across players
+// regardless of absolute magnitude, colored by net direction (rising =
+// good, falling = warn) with the peak point marked -- a raw-value sparkline
+// of these mostly-smooth curves looked nearly identical row to row.
+function sparkline(traj, w=100, h=30){
+  const base = traj[0] || 1;
+  const rel = traj.map(v => v/base);
+  const max=Math.max(...rel,1.02), min=Math.min(...rel,0.98);
+  const span=Math.max(max-min,0.02);
+  const pts=rel.map((v,i)=>[ (i/(rel.length-1)*w), (h-((v-min)/span)*h) ]);
+  const peakIdx = traj.indexOf(Math.max(...traj));
+  const netChange = trajDelta5yr(traj);
+  const dir = netChange > 0.03 ? 'up' : netChange < -0.03 ? 'down' : 'flat';
+  const color = dir==='up' ? 'var(--good)' : dir==='down' ? 'var(--warn)' : 'var(--ink-faint)';
+  const line = pts.map(p=>p.join(',')).join(' ');
+  const peakDot = `<circle cx="${pts[peakIdx][0].toFixed(1)}" cy="${pts[peakIdx][1].toFixed(1)}" r="2.2" fill="${color}"/>`;
+  const svg = `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.8"/>${peakDot}
+  </svg>`;
+  const deltaTxt = (netChange>=0?'+':'') + (netChange*100).toFixed(0) + '%';
+  return `<div class="sparkCell">${svg}<span class="sparkDelta ${dir}" title="5-year change">${deltaTxt}</span></div>`;
+}
+
+// Real trailing seasons + projected future on one continuous timeline, so
+// an implausible-looking projection (e.g. a "future peak" for a player
+// whose real recent seasons already show clear decline) is immediately
+// visible against the real trend it's supposed to continue from.
+function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], w=460, h=160){
+  const futYears = traj.map((_,i)=>anchorYear+i);
+  const allYears = [...histYears, ...futYears];
+  const allValues = [...histValues, ...traj];
+  const n = allYears.length;
+  const histCount = histYears.length;
+  const max=Math.max(...allValues, opp)*1.08, min=0;
+  const span=Math.max(max-min,1);
+  const pad=26;
+  const iw=w-pad*2, ih=h-pad*1.7;
+  const x=i=>pad+(n<=1?0:(i/(n-1))*iw);
+  const y=v=>pad*0.6+ih-((v-min)/span)*ih;
+  const ptsFor=(from,to)=>allValues.slice(from,to+1).map((v,k)=>`${x(from+k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const oppY=y(opp).toFixed(1);
+  const histPts = histCount>0 ? ptsFor(0, histCount-1) : '';
+  // future line starts at the last history point (or first future point if no history) for visual continuity
+  const futStart = histCount>0 ? histCount-1 : 0;
+  const futPts = ptsFor(futStart, n-1);
+  const dots = allValues.map((v,i)=>{
+    const isHist = i < histCount;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.6" fill="${isHist?'var(--ink-faint)':'var(--accent)'}"/>` +
+      `<text x="${x(i).toFixed(1)}" y="${(y(v)-7).toFixed(1)}" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">${v.toFixed(0)}</text>`;
+  }).join('');
+  const yrs = allYears.map((yr,i)=>`<text x="${x(i).toFixed(1)}" y="${h-4}" font-size="9" text-anchor="middle" fill="${i<histCount?'var(--ink-faint)':'var(--ink-soft)'}" font-family="IBM Plex Mono, monospace">'${String(yr).slice(-2)}</text>`).join('');
+  const todayX = histCount>0 ? x(histCount-1).toFixed(1) : null;
+  const todayLine = todayX!=null ? `<line x1="${todayX}" y1="${pad*0.4}" x2="${todayX}" y2="${h-pad*0.9}" stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="2,2"/><text x="${todayX}" y="${pad*0.35}" font-size="8.5" text-anchor="middle" fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace">today</text>` : '';
+  return `<svg class="trajChart" viewBox="0 0 ${w} ${h}">
+    <line x1="${pad}" y1="${oppY}" x2="${w-pad}" y2="${oppY}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${w-pad}" y="${(+oppY-4)}" font-size="9" text-anchor="end" fill="var(--warn)" font-family="IBM Plex Mono, monospace">replacement (${opp.toFixed(1)})</text>
+    ${histPts?`<polyline points="${histPts}" fill="none" stroke="var(--ink-faint)" stroke-width="1.8"/>`:''}
+    <polyline points="${futPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    ${todayLine}
+    ${dots}${yrs}
+  </svg>`;
+}
+
+function rookieStatLine(proj){
+  if(!proj) return '';
+  const min=proj.MIN||0;
+  const per=(k,mult=1)=>((proj[k]||0)*min*mult);
+  const rows=[['PTS',per('PTS')],['REB',per('REB')],['AST',per('AST')],['STL',per('STL')],
+    ['BLK',per('BLK')],['3PM',per('FG3M')],['TOV',per('TOV')],['MIN',min]];
+  return `<div class="statline">${rows.map(([l,v])=>`<div class="s"><div class="v">${v.toFixed(1)}</div><div class="l">${l}</div></div>`).join('')}</div>`;
+}
+
+function compChips(list, withFant){
+  if(!list||!list.length) return '<span class="hint">no comps available</span>';
+  return `<div class="comps">${list.map(s=>`<div class="comp"><b>${s.p}</b> '${String(s.y).slice(-2)} · ${s.sim}%${withFant&&s.fant!=null?` · ${(s.fant*100).toFixed(0)}%ile`:''}${s.intl?' 🌐':''}</div>`).join('')}</div>`;
+}
+
+// rank of every player by keeper-count-aware asset value at the current K (1 = most valuable)
+function assetRanks(){
+  const arr = D.players.filter(p=>p.asset_k).map(p=>[p.id, p.asset_k[K]]).sort((a,b)=>b[1]-a[1]);
+  return new Map(arr.map((x,i)=>[x[0], i+1]));
+}
+function rowsFiltered(){
+  let r = D.players;
+  if(kind==='breakout'){
+    r = r.filter(p => p.p_break!=null);
+    if(brkType==='emergence'||brkType==='elevation'||brkType==='rookie') r = r.filter(p=>p.brk_tier===brkType);
+    else if(brkType==='radar') r = r.filter(p=>p.edge_fpg!=null && p.edge_fpg>=2);
+    else if(brkType==='bust') r = r.filter(p=>p.p_bust!=null);
+  }
+  else if(kind!=='all') r = r.filter(p => p.kind===kind);
+  if(q) r = r.filter(p => p.player.toLowerCase().includes(q.toLowerCase()));
+  const assetRank = assetRanks();
+  r = r.map(p => ({...p, _asset: p.asset_k?p.asset_k[K]:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory)}));
+  r.sort((a,b)=>{
+    let av,bv;
+    if(sort.k==='vor'){av=a._vor.vor;bv=b._vor.vor;}
+    else if(sort.k==='asset'){av=a._asset;bv=b._asset;}
+    else if(sort.k==='vor_brk'){av=a._vorB?a._vorB.vor:null;bv=b._vorB?b._vorB.vor:null;}
+    else if(sort.k==='sparkline'){av=a._trajDelta;bv=b._trajDelta;}
+    else if(sort.k==='player'){av=a.player;bv=b.player;}
+    else {av=a[sort.k];bv=b[sort.k];}
+    if(av==null) av=(sort.k==='adp'&&sort.asc)?Infinity:-Infinity; if(bv==null) bv=(sort.k==='adp'&&sort.asc)?Infinity:-Infinity;
+    if(typeof av==='string') return sort.asc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sort.asc ? av-bv : bv-av;
+  });
+  return r;
+}
+
+const seasonLbl=y=>`${y}-${String((y+1)%100).padStart(2,'0')}`;
+function renderHist(){
+  const yr=+brkYear;
+  let r=(H[brkYear]||[]).slice();
+  const all=r.slice();
+  if(brkType==='emergence'||brkType==='elevation'||brkType==='rookie') r=r.filter(p=>p.brk_tier===brkType);
+  else if(brkType==='radar') r=r.filter(p=>p.edge_fpg!=null && p.edge_fpg>=2);
+  else if(brkType==='bust') r=r.filter(p=>p.p_bust!=null);
+  if(q) r=r.filter(p=>p.player.toLowerCase().includes(q.toLowerCase()));
+  r.sort((a,b)=>{
+    let av=a[sort.k], bv=b[sort.k];
+    if(av==null) av=(sort.k==='adp'&&sort.asc)?Infinity:-Infinity; if(bv==null) bv=(sort.k==='adp'&&sort.asc)?Infinity:-Infinity;
+    if(typeof av==='string') return sort.asc?av.localeCompare(bv):bv.localeCompare(av);
+    return sort.asc?av-bv:bv-av;
+  });
+  // how well did the model's own ranking do that year (all tiers pooled, valid outcomes only)
+  const valid=all.filter(p=>p.hit!=null).sort((a,b)=>b.p_break-a.p_break);
+  const hits=n=>valid.slice(0,n).reduce((s,p)=>s+p.hit,0);
+  const totalHits=valid.reduce((s,p)=>s+p.hit,0);
+  document.getElementById('statbar').innerHTML=`
+    <div><b>${all.length}</b>candidates scored</div>
+    <div><b>${totalHits}</b>actually broke out (${(totalHits/Math.max(valid.length,1)*100).toFixed(0)}% base)</div>
+    <div><b>${hits(10)}/10</b>of model's top 10 broke out</div>
+    <div><b>${hits(25)}/25</b>of model's top 25 broke out</div>
+    <div><b>${r.length}</b>showing</div>`;
+  document.getElementById('legend').innerHTML=`<b>Walk-forward backtest:</b> what the model would have said after the ${seasonLbl(yr)} season, fit <i>only on earlier seasons</i>, next to what really happened in ${seasonLbl(yr+1)}. <b>✓ broke out</b> = Emerging: got within 1 pt of the ${oppCost(3).toFixed(1)} pts/g line with a +6 jump; Rookie: rookie-year pts/g within 1 pt of the line; Elevating: +6 pts/g jump (30+ GP either way). <b>↓</b> = an already-good player who dropped 6+ pts/g (bust). <b>n/a</b> = fewer than 30 games or off a roster. Edge vs ADP shown only 2020-23 (ADP-listed players). Early seasons have less training data, so they're rougher.`;
+  const cols=[{k:'player',t:'Player'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},{k:'fpg_last',t:`${seasonLbl(yr)} (pts/g)`},
+    {k:'brk_tier',t:'Type'},{k:'p_break',t:'Breakout chance'},{k:'proj_fpg',t:'Proj next (10–90%)'},{k:'p_bust',t:'Bust risk'},
+    {k:'adp',t:'ESPN ADP'},{k:'edge_fpg',t:'Edge vs ADP'},
+    {k:'fpg_next',t:`${seasonLbl(yr+1)} (pts/g)`},{k:'hit',t:'Result'},{k:'break_why',t:'Why',sortable:false}];
+  document.getElementById('hrow').innerHTML=cols.map(c=>`<th data-k="${c.k}" class="${sort.k===c.k?'sorted '+(sort.asc?'asc':''):''}" ${c.sortable===false?'data-sortable="false"':''}>${c.t}</th>`).join('');
+  const sg=v=>(v>=0?'+':'')+v.toFixed(1);
+  const body=r.map(p=>{
+    const teamCell=p.team?`<div class="teamCell">${p.team_logo?`<img src="${p.team_logo}" alt="" loading="lazy"/>`:''}${p.team}</div>`:'—';
+    const res = p.hit==null ? `<span class="hint" title="fewer than 30 games or not on a roster">n/a</span>`
+      : p.hit===1 ? `<b style="color:var(--good)">✓ ${p.d_next!=null?sg(p.d_next):'relevant'}</b>`
+      : p.bust_hit===1 ? `<b style="color:var(--warn)">↓ ${sg(p.d_next)}</b>` : `<span class="hint">— ${p.d_next!=null?sg(p.d_next):'missed'}</span>`;
+    return `<tr data-id="${p.id}">
+      <td data-label="Player">${p.player}</td><td data-label="Team">${teamCell}</td>
+      <td class="num" data-label="Age">${p.age!=null?p.age.toFixed(1):'—'}</td>
+      <td class="num" data-label="Last season">${fmt1(p.fpg_last)}</td>
+      <td data-label="Type"><span class="hint">${p.brk_tier==='elevation'?'good → great':p.brk_tier==='rookie'?'rookie (yr 1)':'→ relevant'}</span></td>
+      <td class="num" data-label="Breakout chance"><b>${(p.p_break*100).toFixed(0)}%</b></td>
+      <td class="num" data-label="Proj next">${p.proj_fpg!=null?`<b>${p.proj_fpg.toFixed(0)}</b> <span class="hint">${p.proj_lo.toFixed(0)}–${p.proj_hi.toFixed(0)}</span>`:'—'}</td>
+      <td class="num" data-label="Bust risk">${p.p_bust!=null?`<span style="color:${p.p_bust>=0.5?'var(--warn)':'inherit'}">${(p.p_bust*100).toFixed(0)}%</span>`:'<span class="hint">—</span>'}</td>
+      <td class="num" data-label="ESPN ADP">${p.adp!=null?p.adp.toFixed(0):'<span class="hint">—</span>'}</td>
+      <td class="num" data-label="Edge vs ADP">${p.edge_fpg!=null?`<b style="color:${p.edge_fpg>=2?'var(--good)':p.edge_fpg<=-2?'var(--warn)':'inherit'}">${sg(p.edge_fpg)}</b>`:'<span class="hint">—</span>'}</td>
+      <td class="num" data-label="Next season">${p.fpg_next!=null?fmt1(p.fpg_next):'<span class="hint">—</span>'}${p.gp_next!=null?` <span class="hint">${p.gp_next}gp</span>`:''}</td>
+      <td class="num" data-label="Result">${res}</td>
+      <td data-label="Why" style="white-space:normal;min-width:210px;max-width:300px"><span class="hint">${p.break_why||'—'}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('body').innerHTML=body||'<tr><td colspan="13" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+}
+function fillYearSelect(){
+  const sel=document.getElementById('brkYear');
+  const yrs=Object.keys(H||{}).map(Number).sort((a,b)=>b-a);
+  const m=D.breakout_meta;
+  sel.innerHTML=`<option value="live">${m.frozen?'🔒 '+m.live_season+' (frozen preseason ledger)':'Live: '+m.live_season+' preview (not frozen)'}</option>`+
+    yrs.map(y=>`<option value="${y}">${seasonLbl(y+1)} season (predicted after ${seasonLbl(y)})</option>`).join('');
+  sel.value=brkYear;
+}
+
+function render(){
+  if(kind==='breakout' && brkYear!=='live' && H){ renderHist(); return; }
+  const rows = rowsFiltered();
+  const cur = D.players.filter(p=>p.kind==='current').length;
+  const pro = D.players.filter(p=>p.kind==='prospect').length;
+  document.getElementById('statbar').innerHTML = `
+    <div><b>${cur}</b>current players</div>
+    <div><b>${pro}</b>prospects (not yet debuted)</div>
+    <div><b>${rows.length}</b>showing</div>`;
+  document.getElementById('legend').innerHTML = kind==='breakout' ? (()=>{
+    const m=D.breakout_meta, e=m.pools.emergence, l=m.pools.elevation, a=m.adp.listed, bu=m.bust, av=m.availability, te=m.total_edge, vt=m.vor_test, pr=m.projection;
+    const pc=v=>(v*100).toFixed(0)+'%';
+    const status = m.frozen ? `🔒 <b>Frozen ${new Date(m.frozen_at).toLocaleDateString()}</b> — these are the locked preseason predictions.`
+      : `⚠ <b>Not frozen yet</b> — this is a live preview that changes whenever data is refreshed. The ledger locks at the ${m.opener} season opener${new Date()>=new Date(m.opener)?' — <b>that date has passed; run freeze_breakout_ledger.py</b>':''}.`;
+    return `${status}<br>
+    <b>Breakout chance</b> = probability of a real +6 pts/g jump next season (30-game floor), from stats/role/situation only — <i>independent of ADP</i>. <b>Emerging</b> = crosses the ${oppCost(3).toFixed(1)} pts/g relevance line (landing within 1 pt counts); <b>Elevating</b> = already-good players who jump again. <b>Bust risk</b> = chance of a 6+ pts/g drop (elevating pool only).
+    <details style="margin-top:.4rem"><summary style="cursor:pointer;color:var(--ink-soft)">How to read the columns, and how well each one tested</summary>
+    <div style="margin-top:.4rem">
+    <b>Backtests</b> (2015-24, each year fit only on earlier years): Emerging AUC ${e.full.auc.toFixed(2)} (top-10% hit ${pc(e.full.top10)} vs ${pc(e.full.base)} base); Elevating AUC ${l.full.auc.toFixed(2)} (${pc(l.full.top10)} vs ${pc(l.full.base)}); Bust AUC ${bu.full.auc.toFixed(2)} (top-10% flagged dropped 6+ ${pc(bu.full.top10)} of the time vs ${pc(bu.full.base)}).<br>
+    <b>Proj next (10–90%)</b> = expected next-season pts/g and the range 80% of outcomes fell in (error ${pr.rmse.toFixed(1)} pts/g vs ${pr.rmse_naive.toFixed(1)} just repeating last year).<br>
+    <b>Proj GP</b> = expected games played from GP history/age/role (off by ~${av.rmse_games.toFixed(0)} games on average vs ~${av.rmse_games_naive_last_year.toFixed(0)} just repeating last year — availability is mostly luck).<br>
+    <b>Edge vs ADP</b> = model's expected pts/g minus what ESPN's draft price implies (ADP-listed players only). Top-10% edge picks beat ADP-implied output by +${a.top10_mean_surprise.toFixed(1)} pts/g (${pc(a.top10_hit_5)} beat it by 5+ vs ${pc(a.base_hit_5)} overall).
+    <b>Season-total edge</b> = same idea in <i>season-total points</i> (pts/g × games). Additional info only, and a humbler result: the per-game edge picks did <b>not</b> beat ADP in season totals (${te.top10_total_surprise_by_pergame_edge.toFixed(0)} pts vs ADP-implied), because injuries eat the per-game advantage; ranking by the total edge itself gave +${te.top10_total_surprise_by_total_edge.toFixed(0)} pts (small next to ~${te.rmse_total_adp_only.toFixed(0)} pts of random season-to-season noise). Read per-game edge and injury risk together.<br>
+    <b>VOR + breakout</b> = VOR after adding the breakout odds <i>beyond what age + output already imply</i> × how long a breakout's jump persists. Kept as a separate column because folding odds into projections only cut error ${((1-vt.h1.rmse_base_plus_breakout_odds/vt.h1.rmse_base)*100).toFixed(1)}% at 1 year and ${((1-vt.h3.rmse_base_plus_breakout_odds/vt.h3.rmse_base)*100).toFixed(1)}% at 3 years — too small to justify changing the core trajectories (tested against a simple proxy, not the Kalman model itself).<br>
+    <b>Rookies</b> (separate model on college/international profile): "breakout chance" = probability of being fantasy-relevant in year 1 (within 1 pt of the ${oppCost(3).toFixed(1)} line). Honest result: draft slot alone (AUC ${m.rookie.pick_only.auc.toFixed(2)}) already does nearly all the work; adding the college profile ${m.rookie.full.auc<m.rookie.pick_only.auc?'did not help':'helped little'} (best variant AUC ${m.rookie['pick+few'].auc.toFixed(2)}, error ${m.rookie['pick+few'].rmse.toFixed(1)} vs ${m.rookie.pick_only.rmse.toFixed(1)} pts/g). And ESPN's ADP was far more accurate on ADP-listed rookies (error ${m.rookie.adp.rmse_adp_only.toFixed(1)} vs our ${m.rookie.adp.rmse_model_only.toFixed(1)} pts/g, ${m.rookie.adp.n} rookies), so <b>no rookie edge vs ADP is shown</b> — treat ADP as the better guide to year-1 output, and this as a P(relevant) read.<br>
+    Situation signals used: changed teams, usage/minutes vacated at his new team. Head-coach changes were tested and did <b>not</b> help. Watchlist, not a lock.</div></details>`;})() : `<b>Asset value</b> = an overall, keeper-count-aware snapshot (the "what is this player worth to own" number): next season always counts, future seasons only count where he'd clear the keep cutoff for this many keepers per team (none at 0 = pure redraft; up to nearly everyone at 19 = full dynasty), weighted by career-survival odds and real historical outcome spread (young high-ceiling players carry upside, older players fade). Slide the keeper count to see young players rise and old high-scorers fall; <b>VOR</b> (below) stays the keep-vs-draft decision tool. <b>VOR</b> = value above opportunity cost, summed over each season your keeper trajectory stays above what you'd get back drafting fresh (stops at the first year it dips below) — <span class="kind rookie" style="font-size:.66rem">ROOKIE</span> not yet debuted (🌐 = international pathway), <span style="color:var(--accent)">●</span>/<span style="color:var(--warn)">●</span> injury-risk watch/chronic. Adjust the keeper count above to see value shift with league format.`;
+
+  const isBrk = kind==='breakout';
+  const cols = isBrk ? [
+    {k:'player',t:'Player'},{k:'pos',t:'Pos'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},
+    {k:'fpg_last',t:'Last season (pts/g)'},{k:'brk_tier',t:'Type'},{k:'p_break',t:'Breakout chance'},
+    {k:'proj_fpg',t:'Proj next (10–90%)'},{k:'p_bust',t:'Bust risk'},{k:'proj_gp',t:'Proj GP'},
+    {k:'adp',t:'ESPN ADP'},{k:'edge_fpg',t:'Edge vs ADP'},{k:'edge_total',t:'Season-total edge'},
+    {k:'break_why',t:'Why',sortable:false},{k:'vor',t:'VOR'},{k:'vor_brk',t:'VOR + breakout'},
+  ] : [
+    {k:'player',t:'Player'},{k:'pos',t:'Pos'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},
+    {k:'year0_ppg',t:'2026 PPG'},{k:'peak_ppg',t:'Peak PPG'},
+    {k:'sparkline',t:'Trajectory (5yr Δ)'},{k:'vor',t:'VOR'},{k:'asset',t:'Asset value'},
+  ];
+  const NC = cols.length;
+  document.getElementById('hrow').innerHTML = cols.map(c=>
+    `<th data-k="${c.k}" class="${sort.k===c.k?'sorted '+(sort.asc?'asc':''):''} ${c.sortable===false?'':''}" ${c.sortable===false?'data-sortable="false"':''}>${c.t}</th>`).join('');
+
+  const body = rows.map(p=>{
+    const id=p.id;
+    const isOpen=open.has(id);
+    const badge = p.kind==='prospect' ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
+    const injDot = (p.injury_risk==='watch'||p.injury_risk==='chronic') ? `<span class="injDot ${p.injury_risk}" title="injury risk: ${p.injury_risk} (recent seasons)"></span>` : '';
+    const liveStatus = (p.espn_injury_status && p.espn_injury_status!=='ACTIVE') ? `<span class="liveStatus" title="live ESPN status">${p.espn_injury_status}</span>` : '';
+    const teamCell = p.team
+      ? `<div class="teamCell">${p.team_logo?`<img src="${p.team_logo}" alt="" loading="lazy"/>`:''}${p.team}</div>`
+      : (p.kind==='prospect' ? `<span class="hint">${p.year?`draft '${String(p.year).slice(-2)}`:'—'}${p.pick?` · P${p.pick}`:(p.year?' · UDFA':'')}</span>` : '—');
+    let out = `<tr data-id="${id}">
+      <td data-label="Player">${p.player}${badge}${injDot}${liveStatus}</td>
+      <td data-label="Pos">${p.pos||'—'}</td>
+      <td data-label="Team">${teamCell}</td>
+      <td class="num" data-label="Age">${p.age!=null?p.age.toFixed(1):'—'}</td>
+      ${isBrk ? `
+      <td class="num" data-label="Last season">${fmt1(p.fpg_last)}</td>
+      <td data-label="Type"><span class="hint">${p.brk_tier==='elevation'?'good → great':p.brk_tier==='rookie'?'rookie (yr 1)':'→ relevant'}</span></td>
+      <td class="num" data-label="Breakout chance"><b>${(p.p_break*100).toFixed(0)}%</b></td>
+      <td class="num" data-label="Proj next">${p.proj_fpg!=null?`<b>${p.proj_fpg.toFixed(0)}</b> <span class="hint">${p.proj_lo.toFixed(0)}–${p.proj_hi.toFixed(0)}</span>`:'—'}</td>
+      <td class="num" data-label="Bust risk">${p.p_bust!=null?`<span style="color:${p.p_bust>=0.5?'var(--warn)':'inherit'}">${(p.p_bust*100).toFixed(0)}%</span>`:'<span class="hint">—</span>'}</td>
+      <td class="num" data-label="Proj GP">${p.proj_gp!=null?p.proj_gp.toFixed(0):'—'}</td>
+      <td class="num" data-label="ESPN ADP">${p.adp!=null?p.adp.toFixed(0):'<span class="hint">undrafted</span>'}</td>
+      <td class="num" data-label="Edge vs ADP">${p.edge_fpg!=null?`<b style="color:${p.edge_fpg>=2?'var(--good)':p.edge_fpg<=-2?'var(--warn)':'inherit'}">${p.edge_fpg>=0?'+':''}${p.edge_fpg.toFixed(1)}</b>`:'<span class="hint">—</span>'}</td>
+      <td class="num" data-label="Season-total edge">${p.edge_total!=null?`<span style="color:${p.edge_total>=100?'var(--good)':p.edge_total<=-100?'var(--warn)':'inherit'}">${p.edge_total>=0?'+':''}${p.edge_total.toFixed(0)}</span>`:'<span class="hint">—</span>'}</td>
+      <td data-label="Why" style="white-space:normal;min-width:210px;max-width:300px"><span class="hint">${p.break_why||'—'}</span></td>
+      <td class="num" data-label="VOR"><b>${p._vor.vor.toFixed(1)}</b></td>
+      <td class="num" data-label="VOR + breakout">${p._vorB?`<b>${p._vorB.vor.toFixed(1)}</b> <span class="hint">${(p._vorB.vor-p._vor.vor>=0?'+':'')+(p._vorB.vor-p._vor.vor).toFixed(1)}</span>`:'—'}</td>` : `
+      <td class="num" data-label="Yr-1 PPG">${fmt1(p.year0_ppg)} <span class="hint">${yearLabel(p.anchor_year,0)}</span></td>
+      <td class="num" data-label="Peak PPG">${fmt1(p.peak_ppg)} <span class="hint">${yearLabel(p.anchor_year,p.peak_year_index)}</span></td>
+      <td data-label="Trajectory">${sparkline(p.trajectory)}</td>
+      <td class="num" data-label="VOR"><b>${p._vor.vor.toFixed(1)}</b></td>
+      <td class="num" data-label="Asset value">${p._asset!=null?`<b>${p._asset.toFixed(1)}</b> <span class="hint">#${p._assetRank}</span>`:'<span class="hint">—</span>'}</td>
+`}
+    </tr>`;
+    if(isOpen){
+      const opp = oppCost(K);
+      let detail = `<div class="trajChart-wrap">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[])}</div>`;
+      if(p.kind==='prospect'){
+        detail += `<div class="detailGrid">
+          <div>
+            <div class="simwrap"><div class="lbl">Pre-NBA inputs</div>
+              <div class="inputs">
+                ${p.talent_pctile!=null?`<div class="i"><b>${(p.talent_pctile*100).toFixed(0)}%ile</b> talent (${p.data_source==='international'?'Game Score':'BPM'})</div>`:''}
+                ${p.draft_age!=null?`<div class="i"><b>${p.draft_age.toFixed(1)}</b> draft age</div>`:''}
+                ${p.breakout_age!=null?`<div class="i"><b>${p.breakout_age.toFixed(1)}</b> breakout age</div>`:''}
+                ${p.rec!=null?`<div class="i"><b>${p.rec.toFixed(0)}</b> recruit rank</div>`:''}
+                ${p.exp!=null?`<div class="i"><b>${p.exp}</b> class</div>`:''}
+                ${p.agility_pctile!=null?`<div class="i"><b>${(p.agility_pctile*100).toFixed(0)}%ile</b> agility</div>`:''}
+              </div>
+              ${p.low_conf?`<div class="note">⚠ ${p.low_conf_reason}</div>`:''}
+            </div>
+          </div>
+          <div>
+            <div class="simwrap"><div class="lbl">Projected rookie-season line (per game)</div>${rookieStatLine(p.rookie_proj)}</div>
+            <div class="simwrap"><div class="lbl">Prospect-profile comps</div>${compChips(p.similar, true)}</div>
+            <div class="simwrap"><div class="lbl">Stylistic comps ${p.style_low_conf?'<span class="hint">(cruder proxy for international)</span>':''}</div>${compChips(p.style_similar, false)}</div>
+          </div>
+        </div>`;
+      } else {
+        const curNote = p.had_output_b_prior
+          ? "Early-career projections use this player's individualized pre-NBA rookie-baseline prior, blended with real game data as it accumulates."
+          : "This player predates the prospect-model data range or has no resolvable pre-draft profile -- projected from real game history alone.";
+        detail += `<div class="simwrap"><div class="lbl">Projected ${yearLabel(p.anchor_year,0)} season line (per game)</div>${rookieStatLine(p.next_season_proj)}</div>
+          <div class="note" style="margin-top:.6rem">${curNote}</div>`;
+      }
+      out += `<tr class="detail"><td colspan="${NC}">${detail}</td></tr>`;
+    }
+    return out;
+  }).join('');
+  document.getElementById('body').innerHTML = body || '<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+}
+
+function renderAbout(){
+  document.getElementById('aboutPane').innerHTML = `
+    <h2>What changed</h2>
+    <p>This used to be a prospect ranking board -- a model trying to predict which rookies would become elite fantasy contributors, graded against a percentile score. After an exhaustive search (hand-built formulas, purpose-built ranking ML, tree ensembles, all validated on genuinely unseen draft classes), <b>nothing beat simply trusting real draft position</b> at that specific task. Rather than keep a ranking that can't out-perform what NBA front offices already collectively know, this hub was rebuilt around a different, more useful question: <b>given a prospect's real profile, what does a grounded multi-year trajectory and value estimate actually look like -- on the exact same scale as a real player already on your roster?</b></p>
+    <div class="warn-box">This does <b>not</b> claim to out-scout anyone. It's a data-grounded projection, not a "this player will be a star" call. Regularized models like this one systematically <b>undershoot true outliers</b> -- Wembanyama, Doncic, and Cooper Flagg's early real production all ran ahead of their model projections. Treat the numbers as a floor-ish, defensible baseline, not a ceiling.</div>
+
+    <h2>How the numbers are built</h2>
+    <p><b>Current players</b> use the same validated Kalman-filter engine as the rest of this league's valuation model: a separately-fit aging curve per stat (points, rebounds, assists, blocks, turnovers, 3PM, FTM, FTA, minutes), continuously updated against real game logs.</p>
+    <p><b>Prospects</b> (nobody in the NBA yet, or very early in their rookie year) don't have real game history to filter against. Instead, a real regression model ("Output B") projects their expected rookie-season per-minute rates directly from their pre-NBA profile -- college or international production, recruiting rank, combine testing, draft position -- validated against 704 real college rookies (2010-2025) and, separately, 52 real international rookies. That projection becomes the starting point, then ages forward using the exact same per-stat curves used for real players.</p>
+    <p>Real, honest validation numbers (R² over a "same number for every rookie" baseline, cross-validated by draft class): assists +0.52, rebounds +0.45, minutes +0.37, threes +0.38, blocks +0.28 (college); assists +0.64, blocks +0.57, rebounds +0.44 (international, smaller n=52 sample -- directional). <b>Steals has no real signal in either model</b> (consistent with an earlier, separate finding that even a full in-season Kalman filter for steals lost to a flat career rate) -- treat that one number skeptically.</p>
+
+    <h2>VOR and the keeper slider</h2>
+    <p>Value over opportunity cost: how much better a player's projected trajectory is than what you'd get back drafting fresh instead, summed year-by-year, stopping at the first season the trajectory dips below that bar. The opportunity-cost curve itself is fit from this league's own real keeper history, and depends on how many keepers exist league-wide -- drag the slider to see value shift for a shallower or deeper keeper format.</p>
+
+    <h2>Known gaps, disclosed</h2>
+    <ul>
+      <li>International prospects: smaller training sample (52 rookies) and a cruder feature set (no play-by-play advanced stats equivalent to college's) -- flagged with ⚠ in the detail view.</li>
+      <li>Triple-doubles aren't projected for prospects (no real prior exists pre-NBA) -- defaulted out rather than guessed.</li>
+      <li>Steals: essentially unpredictable from any static profile tested so far, in-season or pre-draft.</li>
+      <li>True outlier talents get undershot by design (regularization pulls toward the typical case).</li>
+    </ul>`;
+}
+
+function wire(){
+  document.getElementById('segView').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
+    document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
+    document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
+    if(b.dataset.v==='about') renderAbout();
+  });
+  document.getElementById('segKind').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
+    kind=b.dataset.v; document.getElementById('brkCtl').style.display = kind==='breakout'?'flex':'none'; if(kind==='breakout'){sort={k:'p_break',asc:false};} else if(['p_break','edge_fpg','adp','brk_tier','fpg_last','fpg_next','hit','p_bust','proj_fpg','proj_gp','edge_total','vor_brk'].includes(sort.k)){sort={k:'vor',asc:false};} render();
+  });
+  document.getElementById('brkYear').addEventListener('change', async e=>{
+    brkYear=e.target.value;
+    if(brkYear!=='live' && !H){ H=await fetch('breakout_history.json').then(r=>r.json()); fillYearSelect(); }
+    sort={k:'p_break',asc:false}; render();
+  });
+  document.getElementById('segBrk').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
+    brkType=b.dataset.v; sort = brkType==='radar' ? {k:'edge_fpg',asc:false} : brkType==='bust' ? {k:'p_bust',asc:false} : {k:'p_break',asc:false}; render();
+  });
+  document.getElementById('q').addEventListener('input', e=>{ q=e.target.value; render(); });
+  document.getElementById('kSlider').addEventListener('input', e=>{ K=+e.target.value; document.getElementById('kNum').value=K; render(); });
+  document.getElementById('kNum').addEventListener('input', e=>{
+    let v=+e.target.value; if(!Number.isFinite(v)) return;
+    v=Math.max(0,Math.min(19,Math.round(v)));
+    K=v; document.getElementById('kSlider').value=K; render();
+  });
+  document.getElementById('hrow').addEventListener('click', e=>{
+    const th=e.target.closest('th'); if(!th || th.dataset.sortable==='false' || !th.dataset.k) return;
+    if(sort.k===th.dataset.k) sort.asc=!sort.asc; else {sort.k=th.dataset.k; sort.asc=false;}
+    render();
+  });
+  document.getElementById('body').addEventListener('click', e=>{
+    const tr=e.target.closest('tr[data-id]'); if(!tr) return;
+    const id=tr.dataset.id;
+    if(open.has(id)) open.delete(id); else open.add(id);
+    render();
+  });
+}
+
+fetch('hub_data.json').then(r=>r.json()).then(data=>{
+  D=data;
+  document.getElementById('hSub').innerHTML = D.note;
+  document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
+  wire();
+  fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
+  render();
+}).catch(err=>{
+  document.getElementById('boardPane').innerHTML = `<div class="err">Couldn't load hub_data.json — ${err}</div>`;
+});
+</script>
+</body>
+</html>

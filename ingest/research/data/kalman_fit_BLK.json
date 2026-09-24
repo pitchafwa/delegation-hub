@@ -1,0 +1,32 @@
+{
+  "stat": "BLK",
+  "params": [
+    5.0906486413126604e-05,
+    47.74369268941541,
+    20.011362966283592,
+    0.002554548103816929,
+    -0.000613769217096023
+  ],
+  "multiyear_r2": 0.5702688949789929,
+  "naive_multiyear_r2": 0.45415711679003357,
+  "naive_multiyear_spearman": 0.7865505845132279,
+  "fitted_multiyear_spearman": 0.7919412949830995,
+  "elapsed_sec": 4411.8171927928925,
+  "param_names": [
+    "Q",
+    "R",
+    "peak_age",
+    "slope_up",
+    "slope_down"
+  ],
+  "horizons_used": [
+    {
+      "cutoff_season": "2018-19",
+      "target_season": "2022-23"
+    },
+    {
+      "cutoff_season": "2020-21",
+      "target_season": "2025-26"
+    }
+  ]
+}

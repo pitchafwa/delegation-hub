@@ -1,0 +1,6 @@
+PTS fit done in 3458s. Best Spearman: 0.7994
+Params (Q, R, peak_age, slope_up, slope_down): [0.00017565790927326786, 49.4456718248952, 26.560563310336924, -0.006177610762624664, -0.04361334493693547]
+Naive baseline Spearman: 0.7296
+AST fit done in 3660s. Best Spearman: 0.8422
+Params (Q, R, peak_age, slope_up, slope_down): [0.0001626419097261779, 35.61665774108005, 22.635092931417436, 0.013663723205771241, -2.5734289557377554e-05]
+Naive baseline Spearman: 0.8183

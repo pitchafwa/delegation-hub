@@ -1,0 +1,3 @@
+BLK fit done in 2024s. Best Spearman: 0.8128
+Params (Q, R, peak_age, slope_up, slope_down): [4.566317002987669e-05, 48.70946723262356, 20.280945651283947, 0.0008402834994278296, -0.00187604251084178]
+Naive baseline Spearman: 0.7988

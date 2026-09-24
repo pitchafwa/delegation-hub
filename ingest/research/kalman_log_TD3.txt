@@ -1,0 +1,3 @@
+TD3 fit done in 7471s. Best Spearman: 0.3467
+Params (Q, R, peak_age, slope_up, slope_down): [0.00026535925249757987, 22.060926517433295, 20.107991606952595, 0.0033745226320747584, -8.794328106859206e-05]
+Naive baseline Spearman: 0.4918

@@ -1,0 +1,3 @@
+REB fit done in 2013s. Best Spearman: 0.8665
+Params (Q, R, peak_age, slope_up, slope_down): [0.00018492745473179615, 44.80009087951227, 20.414896871462332, 1.898812962509988e-06, -0.012841245171534843]
+Naive baseline Spearman: 0.8504

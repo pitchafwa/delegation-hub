@@ -1,0 +1,22 @@
+[project]
+name = "fantasy-basketball-hub-ingest"
+version = "0.1.0"
+description = "Offline ESPN fantasy basketball data ingest for Tommy's dynasty strategy hub"
+requires-python = ">=3.11"
+dependencies = [
+    "espn-api>=0.45",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "nba_api>=1.5",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "pyarrow>=25.0.1",
+    "lxml>=6.1.3",
+    "beautifulsoup4>=4.15.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]

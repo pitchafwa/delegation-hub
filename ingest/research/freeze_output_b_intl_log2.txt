@@ -1,0 +1,26 @@
+Fitting international Output B on 52 rookies.
+Fit PTS (ridge) on 52 international rookies.
+Fit REB (ridge) on 52 international rookies.
+Fit AST (ridge) on 52 international rookies.
+Fit BLK (ridge) on 52 international rookies.
+Fit TOV (ridge) on 52 international rookies.
+Fit FG3M (ridge) on 52 international rookies.
+Fit FTM (ridge) on 52 international rookies.
+Fit FTA (ridge) on 52 international rookies.
+Fit STL (ridge) on 52 international rookies.
+Fit MIN (ridge) on 52 international rookies.
+
+Saved output_b_model_international.pkl (10 stats)
+
+Victor Wembanyama (draft 2023):
+  PTS   projected=0.5647  actual=0.7226
+  REB   projected=0.3049  actual=0.3585
+  AST   projected=0.0903  actual=0.1301
+  BLK   projected=0.0800  actual=0.1206
+  TOV   projected=0.0845  actual=0.1234
+  FG3M  projected=0.0460  actual=0.0608
+  FTM   projected=0.1016  actual=0.1386
+  FTA   projected=0.1419  actual=0.1742
+  STL   projected=0.0249  actual=0.0418
+  MIN   projected=22.0651  actual=29.6653
+Doncic: not found

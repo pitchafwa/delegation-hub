@@ -1,0 +1,32 @@
+{
+  "stat": "TOV",
+  "params": [
+    6.814568930792867e-06,
+    36.40559338320805,
+    31.14406809368642,
+    9.240169447138652e-05,
+    -0.00212912090543197
+  ],
+  "multiyear_r2": 0.47834829453565575,
+  "naive_multiyear_r2": 0.4434895661782027,
+  "naive_multiyear_spearman": 0.6738979378878525,
+  "fitted_multiyear_spearman": 0.7135908525504641,
+  "elapsed_sec": 3814.5651667118073,
+  "param_names": [
+    "Q",
+    "R",
+    "peak_age",
+    "slope_up",
+    "slope_down"
+  ],
+  "horizons_used": [
+    {
+      "cutoff_season": "2018-19",
+      "target_season": "2022-23"
+    },
+    {
+      "cutoff_season": "2020-21",
+      "target_season": "2025-26"
+    }
+  ]
+}

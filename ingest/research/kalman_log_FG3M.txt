@@ -1,0 +1,3 @@
+FG3M fit done in 1999s. Best Spearman: 0.8450
+Params (Q, R, peak_age, slope_up, slope_down): [0.0005273738823556411, 41.39892755532035, 27.298000848580962, 0.0005021589789784217, -0.005706450994235779]
+Naive baseline Spearman: 0.8046

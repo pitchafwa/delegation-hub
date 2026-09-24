@@ -1,0 +1,10 @@
+Projected 1042 prospects (college: 922, international: 120)
+
+Cooper Flagg: rookie_ppg=35.4  peak_ppg=42.8 (year 6)  VOR=53.5  years_above=7
+  trajectory: [35.4, 37.3, 39.1, 40.7, 42.2, 42.8, 42.6]
+
+Victor Wembanyama: rookie_ppg=34.0  peak_ppg=38.0 (year 5)  VOR=30.2  years_above=7
+  trajectory: [34.0, 35.4, 36.3, 37.5, 38.0, 37.9, 37.7]
+
+Luka Dončić: rookie_ppg=29.9  peak_ppg=34.8 (year 5)  VOR=0.0  years_above=0
+  trajectory: [29.9, 31.5, 33.0, 34.3, 34.8, 34.7, 34.5]
