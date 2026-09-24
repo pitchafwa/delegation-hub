@@ -27,7 +27,7 @@ corrupt the live dashboard.
 
 ## Daily waiver/start-sit optimizer
 
-**Research done 2026-09-24: see RESEARCH_start_sit_waivers.md** (league rules verified, what decides weeks, strategy ranking, proposed build). Build awaits Tommy's approval.
+**Research done 2026-09-24: see RESEARCH_start_sit_waivers.md** (league rules verified, what decides weeks, strategy ranking, proposed build). **Phase 1 BUILT 2026-09-24:** "This week" tab (dashboard) fed by ingest/research/build_week_plan.py -> dashboard/week_plan.json, refreshed daily by .github/workflows/refresh-league.yml. Cap-aware day-by-day lineup plan (DP over starts-so-far; goal is points not games), suggested add/drop sequence (top-120 dynasty assets never dropped), opponent projection/win chance. NOT yet backtested against 2025-26 weeks; assumptions to verify in week 1: matchup dates, add limit scaling, waiver behavior, DAY_TO_DAY=55% play chance, model+ESPN 50/50 level blend. Phase 2 (schedule-aware roster planning, lock-time reminders, playoff planner) not started.
 
 A morning-open tool: tells Tommy what waiver moves and starting-lineup
 changes to make that day to optimize points, specifically exploiting the

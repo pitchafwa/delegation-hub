@@ -1,4 +1,4 @@
-name: Refresh league rosters
+name: Refresh league rosters and weekly plan
 
 # Once a day, in GitHub's quiet overnight window (09:37 UTC = 5:37am ET in summer, 4:37am ET in winter).
 # The minute is deliberately :37, not :00/:05/:10/:15/:30 -- GitHub staff have confirmed scheduled workflows
@@ -39,12 +39,20 @@ jobs:
           SWID: ${{ secrets.SWID }}
         run: python research/pull_league_rosters.py
 
+      # Cap-aware weekly plan for every team (lineups by day, best adds, opponent projection). Reads the rosters/schedule/injuries just pulled.
+      - name: Build the weekly plan
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: python research/build_week_plan.py
+
       - name: Commit if changed
         id: commit
         run: |
           git config user.name "league-refresh-bot"
           git config user.email "league-refresh-bot@users.noreply.github.com"
-          git add dashboard/league_rosters.json
+          git add dashboard/league_rosters.json dashboard/week_plan.json
           if git diff --cached --quiet; then
             echo "pushed=false" >> "$GITHUB_OUTPUT"
           else

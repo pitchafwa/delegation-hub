@@ -137,6 +137,7 @@
   <div class="controls" style="margin-bottom:1rem">
     <div class="seg" id="segView">
       <button data-v="board" aria-pressed="true">Board</button>
+      <button data-v="week" id="weekBtn" style="display:none">This week</button>
       <button data-v="teams" id="teamsBtn" style="display:none">League teams</button>
       <button data-v="about">How it works</button>
     </div>
@@ -144,6 +145,7 @@
 
   <div id="aboutPane" style="display:none"></div>
   <div id="teamsPane" style="display:none"></div>
+  <div id="weekPane" style="display:none"></div>
   <div id="boardPane">
   <div class="statbar" id="statbar"></div>
 
@@ -179,7 +181,7 @@
 </div>
 
 <script>
-let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -567,6 +569,63 @@ function renderTeams(){
   document.getElementById('tNum').addEventListener('change',e=>{if(Number.isFinite(+e.target.value)) setK(+e.target.value);});
 }
 
+const fmtDay=iso=>new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'});
+const shortDay=iso=>new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
+function renderWeek(){
+  const pane=document.getElementById('weekPane');
+  const M=W.matchup;
+  if(weekTeam==null){ const me=W.teams.find(t=>t.abbrev===W.my_abbrev); weekTeam=(me||W.teams[0]).id; }
+  const T=W.teams.find(t=>t.id===weekTeam);
+  const O=W.teams.find(t=>t.id===T.opp);
+  const emptySlotDays=T.days.reduce((a,d)=>a+Math.max(0,(d.nba_teams>0?10:0)-d.start.length),0);
+  const gainVsAll=T.expected-T.start_everyone;
+  const dayRows=T.days.map(d=>{
+    let note='';
+    if(d.locked) note='<b style="color:var(--warn)">Cap reached: nothing counts from here</b>';
+    else if(d.sat>0) note=`<b style="color:var(--accent)">Sits ${d.sat} playing player${d.sat>1?'s':''} to protect the cap</b>`;
+    else if(d.starts_before<M.cap && d.starts_after>=M.cap && d.date!==M.days[M.days.length-1]) note='<span class="hint">crosses the cap today: later days are locked</span>';
+    else if(d.date===M.days[M.days.length-1] && d.starts_before<M.cap) note='<span class="hint">final day: may go over the cap</span>';
+    const chips=d.start.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%"><b>${esc(x.slot)}</b> ${esc(x.name)} <span class="hint">${x.ef}</span></span>`).join(' ');
+    const sat=d.bench_playing.filter((_,i)=>d.sat>0).map(x=>`<span class="comp" style="opacity:.6">${esc(x.name)} <span class="hint">${x.ef}</span></span>`).join(' ');
+    return `<tr><td style="text-align:left;white-space:nowrap">${fmtDay(d.date)}<div class="hint">${d.nba_teams/2} NBA games</div></td>
+      <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${chips||'<span class="hint">no one plays</span>'}</div>${sat?`<div class="comps" style="padding:.25rem 0 0"><span class="hint">sit:</span> ${sat}</div>`:''}${note?`<div class="note">${note}</div>`:''}</td>
+      <td class="num">${d.start.length}${d.start.length<10&&d.nba_teams>0&&!d.locked?` <span class="hint">(${10-d.start.length} empty)</span>`:''}</td>
+      <td class="num"><b>${d.pts.toFixed(0)}</b></td><td class="num">${d.starts_before.toFixed(0)} → ${d.starts_after.toFixed(0)}</td></tr>`;}).join('');
+  const addRows=T.adds.length?T.adds.map(a=>`<tr><td style="text-align:left"><b>${esc(a.add.name)}</b> <span class="hint">${esc(a.add.team)} · ${a.add.slots.filter(x=>x!=='UT').join('/')||'UT'}${a.add.status!=='ACTIVE'?' · '+esc(a.add.status):''}</span></td>
+      <td class="num">${a.add.level}</td><td style="text-align:left">${a.add.games.map(g=>shortDay(g)).join(' ')}</td>
+      <td style="text-align:left">${a.drop?esc(a.drop.name)+' <span class="hint">'+a.drop.level+'</span>':'<span class="hint">open roster spot</span>'}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td></tr>`).join('')
+    :'<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:1rem">no add improves this week by more than 1 point</td></tr>';
+  const seqRows=(T.sequence||[]).map((a,i)=>`<tr><td class="num">${i+1}</td><td style="text-align:left"><b>${esc(a.add.name)}</b> <span class="hint">${esc(a.add.team)} · ${a.add.slots.filter(x=>x!=='UT').join('/')||'UT'} · ${a.add.games.map(shortDay).join(' ')}</span></td>
+      <td style="text-align:left">${a.drop?esc(a.drop.name)+' <span class="hint">'+a.drop.level+'</span>':'<span class="hint">open roster spot</span>'}</td><td class="num">+${a.gain.toFixed(0)}</td><td class="num"><b>+${a.cum.toFixed(0)}</b></td></tr>`).join('');
+  const daysHdr=M.planned_days.map(shortDay);
+  const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${esc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:''}</td>
+      <td style="text-align:left">${esc(p.team)}</td><td style="text-align:left">${p.slots.filter(x=>x!=='UT').join('/')}</td><td class="num">${p.level}</td><td class="num">${p.asset_rank?'#'+p.asset_rank:'<span class="hint">—</span>'}</td>
+      <td style="text-align:left;font-family:'IBM Plex Mono',monospace;letter-spacing:.2em">${M.planned_days.map(d=>p.games.includes(d)?'●':'·').join('')}</td></tr>`).join('');
+  const wp=T.win_prob!=null?`${(T.win_prob*100).toFixed(0)}%`:'—';
+  pane.innerHTML=`
+    <div class="controls"><select id="weekSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${W.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
+      <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days) · updated ${new Date(W.generated).toLocaleString()}</span></div>
+    <div class="statbar" style="margin-bottom:1rem">
+      <div><b>${T.expected_total.toFixed(0)}</b>expected points${T.pts_so_far?` (${T.pts_so_far.toFixed(0)} banked)`:''}</div>
+      <div><b>${O?O.expected_total.toFixed(0):'—'}</b>${O?'vs '+esc(O.abbrev):'opponent'}</div>
+      <div><b>${wp}</b>win chance</div>
+      <div><b>${T.starts_so_far.toFixed(0)} / ${M.cap}</b>games-played cap used</div>
+      <div><b>${T.adds_used} / ${M.adds_limit}</b>adds used</div>
+    </div>
+    <div class="legend" style="margin:0 0 1rem">${gainVsAll>=0.5?`Following this plan is worth <b>+${gainVsAll.toFixed(0)} points</b> over simply starting everyone who plays, because it keeps games for better days once the cap matters. `:'The cap does not bind this week: starting everyone who plays is best. '}
+      ${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule; adds that play on those days are worth the most.`:''}
+      Numbers are expected fantasy points (chance of playing × projected points per game).</div>
+    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starting lineup (expected pts)</th><th>Starters</th><th>Day pts</th><th>Starts so far</th></tr></thead><tbody>${dayRows}</tbody></table></div>
+    ${seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves, in order (each uses one of ${M.adds_limit} weekly adds)</div>
+    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Gain</th><th>Total gain</th></tr></thead><tbody>${seqRows}</tbody></table></div>`:''}
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Best single adds, each on its own (they overlap, so don't add the gains)</div>
+    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th style="text-align:left">Games</th><th style="text-align:left">Drop</th><th>Gain</th></tr></thead><tbody>${addRows}</tbody></table></div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and schedule (● = plays that day: ${daysHdr.join(' ')})</div>
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Level</th><th>Asset rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>
+    <div class="legend" style="margin-top:1rem"><b>How this works.</b> League rule: only 40 started games count per 7-day matchup (scaled for other lengths), checked at the <i>start</i> of each day. Start a day under the cap and you can start anyone and go over; start it at or over and nothing else counts. The plan picks lineups day by day to maximize <i>points</i>, not games, so it may cross the cap early when a day is strong and later days are thin, or sit weak starters to save games for better days. <b>Level</b> = average of our season model and ESPN's projection (blended with the last 15 games once the season starts). Chance of playing: 94% for a healthy rotation player, 89% on the second night of a back-to-back (measured), 55% for day-to-day (an assumption), 0% for out or IR. Position eligibility comes from ESPN. Because this is a keeper league, players in the top 120 dynasty assets (at 5 keepers) are never suggested as drops. Opponent totals assume they also play their best lineups, and win chance uses a 253-point weekly spread measured last season. ${M.calendar_assumed?'<b>Matchup dates for 2026-27 are assumed</b> (6-day opener, then Monday–Sunday weeks) until ESPN publishes them in season. ':''}Games already tipped today can't be changed; late swaps are possible until each game starts.</div>`;
+  document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});
+}
+
 function renderAbout(){
   document.getElementById('aboutPane').innerHTML = `
     <h2>What changed</h2>
@@ -597,6 +656,8 @@ function wire(){
     document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
     document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
+    document.getElementById('weekPane').style.display = b.dataset.v==='week' ? '' : 'none';
+    if(b.dataset.v==='week') renderWeek();
     if(b.dataset.v==='about') renderAbout();
     if(b.dataset.v==='teams') renderTeams();
     if(b.dataset.v==='board') render();
@@ -642,6 +703,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
   wire();
   fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
+  fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display='';} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
