@@ -245,3 +245,8 @@ Payroll: Basketball-Reference committed 2026-27 payroll (prospect... payroll_202
 NOT top 5). Uncorrelated with the production measure across the 30 teams (rho -0.08). Cannot test as a predictor: no historical payroll (Spotrac 403, HoopsHype 402).
 Open: a historical payroll/cap-space series by team-season would let us test Tommy's "invested in others" idea properly. Incoming-class teams come from
 ingest/research/prospect_teams_2026.csv (transcribed from hashtagbasketball.com/keeper, 2026-09-24); 23 of 61 prospects have one.
+
+### Variant: team-situation boost as a year-1 baseline (carry-through) -- live at ?variant=carry (2026-09-24, Tommy's request to compare)
+CTX_MODE=carry (asset_value_v2.py / build_hub_data.py): opportunity applied to year 1 only; the boosted year-1 level shifts every later season equally (no fade).
+Default site keeps the measured fade (+3.8/+2.5/+1.9/+1.5/+1.0 pts/g per sd in yrs 1-5). Data says carry-through overstates later years (the effect decays historically).
+K=5 ranks fading -> carry: Boozer #44 -> #30, Dybantsa #26 -> #35, Peterson #39 -> #20, Acuff #95 -> #61. Year-1-to-peak growth: Dybantsa +20 -> +17, Boozer +11 -> +16, Peterson +6 -> +14.

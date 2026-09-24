@@ -21,6 +21,7 @@ Out-of-sample test vs "current output persists", then compared with the two anch
 Usage: python asset_value_v2.py -> data/asset_value.csv
 """
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -40,6 +41,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parent
 D = ROOT / "data"
 NTEAMS, H, REPL, LAST_YR, DELTA = 12, 6, 22.0, 2025, 0.92
+# how the rookie team-situation boost is used: "decay" = years 1-3 with the measured fade (default); "carry" = year 1 only, and that
+# boosted year-1 level becomes the baseline every later season builds on (level shift for all years). Variant files get a _carry suffix.
+CTX_MODE = os.environ.get("CTX_MODE", "decay")
+SFX = "_carry" if CTX_MODE == "carry" else ""
 
 # ------------------------------------------------------------------ vet panel with outcomes at +1..+6
 panel = pd.read_csv(D / "breakout_panel_ctx2.csv")
@@ -192,7 +197,7 @@ OPEN_CLIP = lambda x: np.clip(x, _omu - 2 * _osd, _omu + 2 * _osd)  # cap at +/-
 hd["open"] = OPEN_CLIP(np.array([_open.get((pid, int(c)), np.nan) for pid, c in zip(hd["PLAYER_ID"], hd["real_draft_year"])], dtype=float))
 hd["open_top"] = hd["open"] * (hd["real_draft_number"].fillna(61) <= 15)  # lottery picks get the minutes: their effect is larger
 PF = ["logpick", "dage", "talent", "is1"]
-PFH = lambda h: PF + ["open", "open_top"] if h <= 3 else PF  # rookie-team opportunity: +3.8/+2.5/+1.9 pts/g per sd in yrs 1/2/3, fading after (held-out gain in yrs 1-2)
+PFH = lambda h: PF + ["open", "open_top"] if (h == 1 if CTX_MODE == "carry" else h <= 3) else PF  # rookie-team opportunity: +3.8/+2.5/+1.9 pts/g per sd in yrs 1/2/3, fading after (held-out gain in yrs 1-2)
 pm, ps_, pres_res = {}, {}, {}
 for h in range(1, H + 1):
     t = hd[hd[f"pres{h}"].notna()]
@@ -284,10 +289,14 @@ for h in range(1, H + 1):
     a = A_p[:, h - 1] + (Bh - Bh0)                        # the team-situation effect applies to both engines
     E_p[:, h - 1] = np.where(np.isnan(A_p[:, h - 1]), Bh, (1 - lam) * Bh + lam * a)
 E_p[:, 6] = np.where(np.isnan(A_p[:, 6]), E_p[:, 5], E_p[:, 5] + (A_p[:, 6] - A_p[:, 5]))
+ADJ1 = pm[1].predict(Xp[PFH(1)]) - pm[1].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(1)])
+if CTX_MODE == "carry":
+    for _h in range(2, 8):
+        E_p[:, _h - 1] += ADJ1  # the boosted year-1 level is the baseline: every later season is shifted by the same amount
 _pc = pd.DataFrame({"PLAYER_ID": [int(q["id"][1:]) for q in pros], "team": pr_team, "open_fp": pr_open_raw, "open_z": (pr_open_raw - _omu) / _osd})
 for _h in (1, 2, 3):
-    _pc[f"adj{_h}"] = pm[_h].predict(Xp[PFH(_h)]) - pm[_h].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(_h)])
-_pc.to_csv(D / "prospect_context.csv", index=False)
+    _pc[f"adj{_h}"] = ADJ1 if CTX_MODE == "carry" else pm[_h].predict(Xp[PFH(_h)]) - pm[_h].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(_h)])
+_pc.to_csv(D / f"prospect_context{SFX}.csv", index=False)
 
 
 # expected next-season value per player (for keep cutoffs): E[pts/g_1] incl. absent as 0
@@ -394,7 +403,7 @@ Ks = (0, 1, 3, 5, 8, 19)  # shown in the printed diagnostics
 for k in range(20):       # all keeper counts the dashboard slider can pick
     res[f"av{k}"] = total_value(k)
 res["exp_y1"] = y1
-res.to_csv(D / "asset_value.csv", index=False)
+res.to_csv(D / f"asset_value{SFX}.csv", index=False)
 
 
 def ceiling_asset(C, k):
@@ -415,13 +424,13 @@ cp = pd.DataFrame(C_all, columns=[f"C{h}" for h in range(1, 8)])
 cp["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 for k in range(20):
     cp[f"CA{k}"] = ceiling_asset(C_all, k)
-cp.to_csv(D / "ceiling_paths.csv", index=False)
+cp.to_csv(D / f"ceiling_paths{SFX}.csv", index=False)
 up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, 8)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)
 for h in range(1, 8):
     up[f"K{h}"] = np.concatenate([kal_v[:, h - 1], A_p[:, h - 1]])
-up.to_csv(D / "unified_paths.csv", index=False)
+up.to_csv(D / f"unified_paths{SFX}.csv", index=False)
 
 
 def nn_(n):

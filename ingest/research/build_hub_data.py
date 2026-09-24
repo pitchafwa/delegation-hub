@@ -31,7 +31,10 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent
-OUT_PATH = ROOT.parent.parent / "dashboard" / "hub_data.json"
+import os as _os
+CTX_MODE = _os.environ.get("CTX_MODE", "decay")
+SFX = "_carry" if CTX_MODE == "carry" else ""
+OUT_PATH = ROOT.parent.parent / "dashboard" / f"hub_data{SFX}.json"
 
 OPP_FLOOR, OPP_AMP, OPP_TAU = 14.84, 20.37, 19.96
 HORIZON_YEARS = 7
@@ -157,15 +160,15 @@ def brk_shift(tier, k):
 current = current.merge(breakouts, on="PLAYER_ID", how="left")
 
 # keeper-count-aware asset value (asset_value_v2.py): one value per keeper count 0..19, picked live by the slider
-_av = pd.read_csv(ROOT / "data" / "asset_value.csv")
+_av = pd.read_csv(ROOT / "data" / f"asset_value{SFX}.csv")
 _avcols = [f"av{k}" for k in range(20)]
 # ONE projection path per player, shared by VOR / trajectory and Asset value (asset_value_v2.py):
 # veterans blend the Kalman path with an empirical forecast; prospects blend an empirical draft-slot model with the
 # calibrated Output B path. Tested out-of-sample (engine_blend_test.py, prospect_engine_test.py).
-_up = pd.read_csv(ROOT / "data" / "unified_paths.csv")
+_up = pd.read_csv(ROOT / "data" / f"unified_paths{SFX}.csv")
 UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 8)] for r in _up.itertuples()}
 # 90th-percentile career ("ceiling outcome") per player: path + asset value at each keeper count (asset_value_v2.py)
-_cp = pd.read_csv(ROOT / "data" / "ceiling_paths.csv")
+_cp = pd.read_csv(ROOT / "data" / f"ceiling_paths{SFX}.csv")
 CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 8)],
                            "asset": [round(float(getattr(r, f"CA{k}")), 1) for k in range(20)]} for r in _cp.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
@@ -285,7 +288,7 @@ def calibrate_prospect(traj, pick):
 
 # incoming-class team assignments (ESPN doesn't list them yet) and the team-situation adjustment used in the projection
 _pt = pd.read_csv(ROOT / "prospect_teams_2026.csv").set_index("player")["team"].to_dict()
-_pctx = {int(r.PLAYER_ID): r for r in pd.read_csv(ROOT / "data" / "prospect_context.csv").itertuples()}
+_pctx = {int(r.PLAYER_ID): r for r in pd.read_csv(ROOT / "data" / f"prospect_context{SFX}.csv").itertuples()}
 prospect_out = []
 for _, r in prospects.iterrows():
     _tm = r["pro_team"] if pd.notna(r.get("pro_team")) else _pt.get(r["player"])
@@ -368,6 +371,7 @@ out = {
             "history) -- adjust the keeper-count slider to see value shift.",
     "breakout_meta": {**_bval, "rookie": json.loads((ROOT / "data" / "rookie_breakout_validation.json").read_text(encoding="utf-8")), "opener": str(OPENER), "frozen": frozen,
                       "frozen_at": json.loads(LEDGER_META.read_text())["frozen_at"] if frozen else None},
+    "ctx_mode": CTX_MODE,
     "players": current_out + prospect_out,
 }
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
