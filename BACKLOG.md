@@ -27,6 +27,8 @@ corrupt the live dashboard.
 
 ## Daily waiver/start-sit optimizer
 
+**Research done 2026-09-24: see RESEARCH_start_sit_waivers.md** (league rules verified, what decides weeks, strategy ranking, proposed build). Build awaits Tommy's approval.
+
 A morning-open tool: tells Tommy what waiver moves and starting-lineup
 changes to make that day to optimize points, specifically exploiting the
 daily-lineup + limited-weekly-moves structure of ESPN fantasy basketball
