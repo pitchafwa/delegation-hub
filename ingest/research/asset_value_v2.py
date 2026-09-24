@@ -140,6 +140,7 @@ hd = u[(u["real_draft_year"] >= 2010)].copy()
 hd["logpick"] = np.log(hd["real_draft_number"].fillna(61).clip(1, 61))
 hd["dage"] = hd["draft_age"].fillna(hd["draft_age"].median())
 hd["talent"] = hd["talent_pctile"].fillna(hd["talent_pctile"].median())
+hd["is1"] = (hd["real_draft_number"] == 1).astype(float)  # #1 overall pick = its own tier (held-out validated)
 for h in range(1, H + 1):  # h=1 is the rookie season
     idx = pd.MultiIndex.from_arrays([hd["PLAYER_ID"], hd["real_draft_year"].astype(int) + h - 1])
     f, g, m = (sf[c].reindex(idx).to_numpy() for c in ("fpg", "GP", "mpg"))
@@ -147,7 +148,7 @@ for h in range(1, H + 1):  # h=1 is the rookie season
     obs = hd["real_draft_year"].to_numpy() + h - 1 <= LAST_YR
     hd[f"pres{h}"] = np.where(obs, present, np.nan)
     hd[f"v{h}"] = np.where(obs & (present == 1), f, np.nan)
-PF = ["logpick", "dage", "talent"]
+PF = ["logpick", "dage", "talent", "is1"]
 pm, ps_, pres_res = {}, {}, {}
 for h in range(1, H + 1):
     t = hd[hd[f"pres{h}"].notna()]
@@ -160,7 +161,7 @@ for h in range(1, H + 1):
 
 
 def prospect_value(picks, ages, h, c, mu=None):
-    X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages, "talent": pr_talent})
+    X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages, "talent": pr_talent, "is1": (np.asarray(picks) == 1).astype(float)})
     p = ps_[h].predict_proba(X[PF])[:, 1]
     mu = pm[h].predict(X[PF]) if mu is None else mu
     tier = np.digitize(picks, [4, 11, 31])
@@ -214,8 +215,11 @@ def cal_traj(traj, pick):
     if pick > 15:
         return list(traj)
     taper = float(np.clip((16 - pick) / 6.0, 0.0, 1.0))
-    return [max(v + taper * (_cal["coef"][str(min(k, _cal["max_k"]))][0] + _cal["coef"][str(min(k, _cal["max_k"]))][1] * float(np.log(pick))), 0.0)
-            for k, v in enumerate(traj)]
+    out = []
+    for k, v in enumerate(traj):
+        a, b, c = _cal["coef"][str(min(k, _cal["max_k"]))]
+        out.append(max(v + taper * (a + b * float(np.log(pick)) + c * float(pick == 1)), 0.0))
+    return out
 
 
 A_p = np.full((len(pros), 7), np.nan)
@@ -223,7 +227,7 @@ for i, (q, pk) in enumerate(zip(pros, pr_pick)):
     t = ptm.get(int(q["id"][1:]))
     if t:
         A_p[i, : min(7, len(t))] = cal_traj(t[:7], pk)
-Xp = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent})
+Xp = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent, "is1": (pr_pick == 1).astype(float)})
 lam = 0.4 * np.clip((16 - pr_pick) / 6.0, 0.0, 1.0)
 E_p = np.full((len(pros), 7), np.nan)
 for h in range(1, H + 1):
@@ -240,7 +244,7 @@ def mean_y1_vet():
 
 
 def mean_y1_pro():
-    X = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent})
+    X = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent, "is1": (pr_pick == 1).astype(float)})
     return E_p[:, 0] * ps_[1].predict_proba(X[PF])[:, 1]
 
 

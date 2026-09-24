@@ -213,3 +213,12 @@ draft slot in every model (transparent, off by default). Test: Boozer as a #1-pi
 justify more; the crowd's #15 requires believing he is a tier above any historical #1 pick.
 Known VOR quirk: VOR stops at the first year below the opportunity-cost line, so Boozer's VOR@K=3 is 0 (yr-1 31.8 vs 32.4 line) despite
 a rising path -- Asset value handles that case; a "stash-adjusted VOR" (net early sub-replacement years against later surplus) is an option.
+
+### Upside tools (ceiling scenarios / star odds / risk-appetite tilt): BUILT THEN REVERTED at Tommy's request (2026-09-24)
+Judged as adding confusion without a clear answer. (Findings kept: asset model's outcome spread is calibrated to history; a 48 pts/g rookie year is
+~97th pct for a top-3 pick; only 3 of 36 top-3 picks did it.)
+### What DID change instead: the #1 overall pick is its own tier
+Held-out (leave-one-class-out): #1 picks were under-projected by ~4-8 pts/g in both the empirical model and the calibrated Output-B path
+(actual avg 39/47/51 at rookie yr/yr 3/yr 5 vs model 34/41/43; median best season of the 13 #1 picks 2010-2025 = 51), while #2-3 were slightly
+over-projected. Adding a #1-pick term cuts #1-pick bias to ~0, improves top-3 RMSE (yr 5: 12.0 -> 11.5), leaves picks 4+ untouched.
+Dybantsa (#1, 2026): projected path 38 -> 53 by 2033 (was ~30 -> 45.5), asset rank #32 -> #21 at K=5. Boozer/Peterson (#3/#2) unchanged.

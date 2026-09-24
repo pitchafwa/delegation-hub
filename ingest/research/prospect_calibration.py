@@ -49,15 +49,20 @@ df["lp"] = np.log(df["pick"])
 print(f"training rows: {len(df)} (past picks 1-{PICKS}, classes 2010-2021)")
 
 
+def design(sub):
+    # the #1 overall pick is its own tier (held-out: without this term #1 picks are under-projected by ~5-7 pts/g
+    # and #2-3 slightly over-projected)
+    return np.column_stack([np.ones(len(sub)), sub["lp"], (sub["pick"] == 1).astype(float)])
+
+
 def fit_k(sub):
-    A = np.column_stack([np.ones(len(sub)), sub["lp"]])
-    return np.linalg.lstsq(A, sub["err"].to_numpy(), rcond=None)[0]
+    return np.linalg.lstsq(design(sub), sub["err"].to_numpy(), rcond=None)[0]
 
 
 coef = {k: fit_k(df[df["k"] == k]) for k in range(MAXK + 1)}
-print("bias(k, pick) = a + b*ln(pick):")
-for k, (a, b) in coef.items():
-    print(f"  k={k}: a={a:+.2f} b={b:+.2f}   -> pick 1: {a:+.1f}, pick 3: {a + b * np.log(3):+.1f}, pick 8: {a + b * np.log(8):+.1f}, pick 15: {a + b * np.log(15):+.1f}")
+print("bias(k, pick) = a + b*ln(pick) + c*[pick==1]:")
+for k, (a, b, c) in coef.items():
+    print(f"  k={k}: a={a:+.2f} b={b:+.2f} c={c:+.2f}   -> pick 1: {a + c:+.1f}, pick 2: {a + b * np.log(2):+.1f}, pick 3: {a + b * np.log(3):+.1f}, pick 8: {a + b * np.log(8):+.1f}, pick 15: {a + b * np.log(15):+.1f}")
 
 # leave-one-class-out validation
 print("\nleave-one-class-out (fit on other classes, correct the held-out class): RMSE of actual - forecast")
@@ -68,12 +73,11 @@ for k in range(MAXK + 1):
     err_new = np.full(len(sub), np.nan)
     for c in sub["cls"].unique():
         tr, te = sub[sub["cls"] != c], sub[sub["cls"] == c]
-        a, b = fit_k(tr)
-        err_new[(sub["cls"] == c).to_numpy()] = te["err"].to_numpy() - (a + b * te["lp"].to_numpy())
+        err_new[(sub["cls"] == c).to_numpy()] = te["err"].to_numpy() - design(te) @ fit_k(tr)
     r0, r1 = float(np.sqrt((sub["err"] ** 2).mean())), float(np.sqrt(np.nanmean(err_new ** 2)))
     val[k] = {"n": int(len(sub)), "rmse_before": r0, "rmse_after": r1, "bias_before": float(sub["err"].mean()), "bias_after": float(np.nanmean(err_new))}
     print(f"{k:2d} {len(sub):4d} {r0:13.2f} {r1:11.2f} {val[k]['bias_before']:+12.2f} {val[k]['bias_after']:+11.2f}")
 
-out = {"max_k": MAXK, "full_strength_through_pick": 10, "zero_at_pick": 16, "coef": {str(k): [float(a), float(b)] for k, (a, b) in coef.items()},
+out = {"max_k": MAXK, "full_strength_through_pick": 10, "zero_at_pick": 16, "coef": {str(k): [float(x) for x in v] for k, v in coef.items()},
        "loco_validation": {str(k): v for k, v in val.items()}, "training_rows": int(len(df))}
 (D / "prospect_calibration.json").write_text(json.dumps(out, indent=1), encoding="utf-8")

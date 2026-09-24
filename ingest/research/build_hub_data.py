@@ -272,8 +272,8 @@ def calibrate_prospect(traj, pick):
     taper = float(np.clip((16 - pick) / 6.0, 0.0, 1.0))  # full strength through pick 10, zero at 16+
     out = []
     for k, v in enumerate(traj):
-        a, b = _pc["coef"][str(min(k, _pc["max_k"]))]
-        out.append(round(max(v + taper * (a + b * float(np.log(pick))), 0.0), 1))
+        a, b, c = _pc["coef"][str(min(k, _pc["max_k"]))]
+        out.append(round(max(v + taper * (a + b * float(np.log(pick)) + c * float(pick == 1)), 0.0), 1))
     return out
 
 
