@@ -274,7 +274,8 @@ def smooth_tail(E, start=5):
 E_v = smooth_tail(E_v)
 ELITE_UPLIFT = float(os.environ.get("ELITE_UPLIFT", "3.0"))
 elite_v = (np.round(np.exp(live["logpick"].to_numpy())) <= 5) & (live_age_next <= 21.5)
-E_v[elite_v, :] += ELITE_UPLIFT
+# NOTE: the scouting prior is applied ONLY when pricing (asset value / ceiling asset value), never to the projected pts/g paths,
+# peaks or VOR shown on the site -- those stay the unadjusted model output.
 
 pt = pd.read_csv(D / "prospect_trajectories.csv")
 ptm = dict(zip(pt["PLAYER_ID"], pt["trajectory"].apply(ast.literal_eval)))
@@ -307,7 +308,9 @@ for h in range(1, H + 1):
     E_p[:, h - 1] = np.where(np.isnan(A_p[:, h - 1]), Bh, (1 - lam) * Bh + lam * a)
 E_p = smooth_tail(E_p)
 elite_p = (pr_pick <= 5) & (pr_age <= 21.5)
-E_p[elite_p, :] += ELITE_UPLIFT
+# price-side copies of the paths: the same projection plus the scouting prior for young top-5 picks
+EA_v = E_v + ELITE_UPLIFT * elite_v[:, None]
+EA_p = E_p + ELITE_UPLIFT * elite_p[:, None]
 ADJ1 = pm[1].predict(Xp[PFH(1)]) - pm[1].predict(Xp.assign(open=np.nan, open_top=np.nan)[PFH(1)])
 if CTX_MODE == "carry":
     for _h in range(2, H + 1):
@@ -321,12 +324,12 @@ _pc.to_csv(D / f"prospect_context{SFX}.csv", index=False)
 # expected next-season value per player (for keep cutoffs): E[pts/g_1] incl. absent as 0
 def mean_y1_vet():
     p = fc.s[1].predict_proba(live[F])[:, 1]
-    return E_v[:, 0] * p
+    return EA_v[:, 0] * p
 
 
 def mean_y1_pro():
     X = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent, "is1": (pr_pick == 1).astype(float)})
-    return E_p[:, 0] * ps_[1].predict_proba(X[PF])[:, 1]
+    return EA_p[:, 0] * ps_[1].predict_proba(X[PF])[:, 1]
 
 
 y1 = np.concatenate([mean_y1_vet(), mean_y1_pro()])
@@ -407,8 +410,8 @@ def total_value(k, delta=DELTA):
         if not np.isfinite(cut(k)) and h > 1:
             continue
         wgt = delta ** (h - 1)
-        v_vet += wgt * fc.value(live, live_age_next, h, c, mu=E_v[:, h - 1])
-        v_pro += wgt * prospect_value(pr_pick, pr_age, h, c, mu=E_p[:, h - 1])
+        v_vet += wgt * fc.value(live, live_age_next, h, c, mu=EA_v[:, h - 1])
+        v_pro += wgt * prospect_value(pr_pick, pr_age, h, c, mu=EA_p[:, h - 1])
     return np.concatenate([v_vet, v_pro])
 
 
@@ -437,10 +440,11 @@ def ceiling_asset(C, k):
 
 
 C_all = np.vstack([C_v, C_p])
+C_price = C_all + ELITE_UPLIFT * np.concatenate([elite_v, elite_p])[:, None]  # ceiling asset value is priced with the same prior; the path itself is not shifted
 cp = pd.DataFrame(C_all, columns=[f"C{h}" for h in range(1, H + 1)])
 cp["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 for k in range(20):
-    cp[f"CA{k}"] = ceiling_asset(C_all, k)
+    cp[f"CA{k}"] = ceiling_asset(C_price, k)
 cp.to_csv(D / f"ceiling_paths{SFX}.csv", index=False)
 up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, H + 1)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]

@@ -263,3 +263,8 @@ K=5 ranks fading -> carry: Boozer #44 -> #30, Dybantsa #26 -> #35, Peterson #39 
   Hashtag (0.839 -> 0.845) at some cost vs RotoWire (0.701 -> 0.635). elite_talent_shift_test.py. Disclosed in the site legend. Override lever unchanged.
 - MARKET RANK column (Hashtag Basketball crowdsourced dynasty rankings as of 2026-09-24, data/hashtag_dynasty_2026-09-24.csv) with our-minus-market gap; refresh by re-pasting the list.
 - Carry-through variant page (?variant=carry) removed.
+
+### Scouting prior moved to pricing only; market-gap sign flipped (2026-09-24, Tommy's request)
+The +3 pts/g prior for young top-5 picks now lives ONLY in asset value and ceiling asset value (EA_v/EA_p and C_price in asset_value_v2.py). Projected pts/g,
+peak year, trajectory chart, VOR and ceiling VOR/path are the unadjusted model output (Dybantsa year 1 = 33, Boozer 34). Asset ranks unchanged.
+Market gap shown as market rank minus our asset rank: + = we rank him HIGHER than the market (Dybantsa +11, Peterson +9), - = lower (Boozer -9, Wilson -21, Harper -37).
