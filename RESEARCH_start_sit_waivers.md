@@ -15,7 +15,7 @@ unverified it says so.
 | Lineup changes | Daily, and each player locks at **his own game's tip-off** (individual-game lock) → late swaps are possible until each game starts | read from settings |
 | Adds | `matchupAcquisitionLimit` = 1.143 per scoring period ≈ **8 adds per 7-day matchup**. Drops/trades presumably free | setting read; scaling for the 6- and 14-day periods and exact counting rules **unverified** |
 | Waivers | Traditional; claims process **Sundays 8am**; 24-hour waiver period | setting read; ESPN's help pages describe daily processing, so how a Sunday-only league treats players dropped mid-week is **unverified** — test with a real add/drop in the first week |
-| Games-played cap | Settings list a games-played limit (≈40 per 7-day matchup, on a slot id ESPN doesn't otherwise use) | **Not binding in practice:** in 2025-26 teams started up to 55 player-games in a week and every point counted (official totals = sum of all starters' points, checked for week 5 across all 12 teams). Treat as non-binding but re-check after week 1 |
+| Games-played cap | **40 started player-games per standard 7-day matchup**, scaled by length (≈34.3 for a 6-day week, 80 for a 14-day week). Checked at the **start of each day**: if you begin a day under the cap you may start anyone that day and go over; if you begin a day at or over it, nothing counts for the rest of the matchup. So a team at 39 entering Sunday can start 10 players and finish on 49 | **Confirmed** by ESPN's own help page (Games Played Limit) and by the league's 2025-26 lineups (see section 2b). Tommy's reading was exactly right; my first pass was wrong to call it non-binding |
 | Keepers | 3 in 2026, 5 planned later; keeper cost = a roster slot | from earlier work |
 
 ## 2. What actually decides weeks in this league (measured on 2025-26 lineups)
@@ -35,6 +35,17 @@ Script: `ingest/research/league_lineup_analysis.py`, `pull_league_history_2026.p
 * **Free-agent value.** Ranking 2025-26 players by fantasy pts/game: ranks 200–280 (roughly the free-agent pool, since 180–196
   players are rostered) average **21.6–25 pts/game** at 20–22 minutes. So filling an otherwise **empty** starting slot with a
   free agent is worth about **+22 points per game**, vs 38 for a typical started game.
+
+### 2b. The games cap, measured on the league's real lineups (`ingest/research/games_cap_check.py`, 2025-26)
+* In 7-day matchups, **every one of the 12 team-days that began at 40+ starts had zero starts** (lineup slots locked); every
+  day that began at ≤39 could start up to all 10. The highest weekly total in any 7-day matchup was **49 = 39 + 10**.
+* In the 6-day opening week totals cluster at 33–35 (cap ≈34.3) and the highest was 41; in the 14-day All-Star matchup
+  nobody got near the ~80 cap (best 55), so it does not bind there.
+* The cap rarely binds *early*: only **5 of 204** team-weeks crossed 40 before the final day (and each then lost the remaining
+  days' games). But **51%** of team-weeks finished above 40, nearly all by crossing it on the final day.
+* So the cap shapes strategy in two ways: it puts a ceiling of ~40–49 on any week, and it makes the *order* of starts matter:
+  low-value starts spent early can push you to the cap before better games later in the week are available.
+  For the average team (38.6 starts) volume is still the limit, not the cap.
 
 ## 3. What single-game information is worth (NBA game logs, out-of-sample)
 
@@ -60,7 +71,11 @@ Script: `ingest/research/league_lineup_analysis.py`, `pull_league_history_2026.p
 
 ## 4. The strategy this implies (ranked by size)
 
-1. **Fill every starting slot every day.** Worth ~36 pts per game recovered, ~4 games/week of leakage on average, far more
+0. **Plan the week as a budget of ~40 starts plus a final-day overflow of up to 10.** Never cross 40 before the last day unless you are
+   happy to forfeit the remaining days; aim to enter Sunday at ≤39 and use every slot that Sunday's slate allows (max 49); in a 6-day
+   week the target is ≈34 entering the last day. A game's real value is its points minus the cap's opportunity cost (the points of the
+   best game you'd otherwise be locked out of), so once you can reach the cap, quality of the starts matters more than filling every slot.
+1. **Fill every starting slot every day** (while you are below the cap). Worth ~36 pts per game recovered, ~4 games/week of leakage on average, far more
    for a careless week. This is a discipline/tools problem more than a modeling problem: an assignment of players to
    the 10 position slots each day that maximizes expected points, with the day's injury news applied and late swaps used.
 2. **Use the 8 weekly adds on idle slot-days.** Adds do not roll over. The typical roster has ~30 empty slot-days a
@@ -86,6 +101,12 @@ Script: `ingest/research/league_lineup_analysis.py`, `pull_league_history_2026.p
 8. **Not worth building now:** Vegas-driven projections (no measurable lift), paid player-prop feeds (NBA props need a
    $99/mo API tier), defense-vs-position tables.
 
+**Answer to "which approach first?"** Phase 1 ("this week": daily best lineup + adds) should come first, and it has to include the cap
+logic from the start. It captures the largest measured leaks (unfilled slots and lineup errors) and already ranks adds by schedule,
+which is most of what roster planning does; the cap makes the weekly plan a small optimization (choose which player-games to
+start, day by day, so the total lands at ≤39 entering the final day and as high as possible after it). Roster planning around
+the schedule follows as Phase 2.
+
 ## 5. Data we can get (free, CI-friendly)
 
 * ESPN league API (already wired in): rosters, lineup slots, injury status, free-agent pool, transactions, settings.
@@ -95,7 +116,7 @@ Script: `ingest/research/league_lineup_analysis.py`, `pull_league_history_2026.p
 
 ## 6. Proposed build (after Tommy's approval — nothing built yet)
 
-**Phase 1: "This week" tab.** For the selected team (default Tommy's): day-by-day lineup grid with the optimal assignment,
+**Phase 1: "This week" tab.** For the selected team (default Tommy's: DRNK, "Most of us Can't Legally Drink"): day-by-day lineup grid with the optimal assignment,
 idle slot-days highlighted, adds remaining, ranked add/drop suggestions with points gained per add, plus the opponent's
 projected total and a win-probability read. Expected points per player-game = P(plays) × recency-weighted level (season model
 blended with an EWMA of recent games) with small home/back-to-back/blowout adjustments. Refreshed daily by the existing
@@ -117,6 +138,7 @@ each team actually scored; verify the add-limit and waiver behavior in week 1.
 * [RotoWire — NBA projected minutes explained](https://www.rotowire.com/basketball/article/nba-projected-minutes-explained-fantasy-basketball-97473)
 * [theScore — Can a streaming strategy work in fantasy basketball?](https://www.thescore.com/news/1085822)
 * [ESPN — Rules: Roster settings (games-played limits, acquisition limits)](https://www.espn.com/espn/print?id=4333729)
+* [ESPN Fan Support — Games Played Limit](https://support.espn.com/hc/en-us/articles/360056369011-Games-Played-Limit)
 * [ESPN Fan Support — Waiver period](https://support.espn.com/hc/en-us/articles/360012531592-Waiver-Period)
 * [OddsPapi — Odds API pricing comparison](https://oddspapi.io/blog/odds-api-pricing-2026-comparison/)
 * Scripts (all in `ingest/research/`): `league_lineup_analysis.py`, `pull_league_history_2026.py`, `vegas_environment_test.py`, `pull_espn_game_odds.py`, `rest_absence_test.py`, `form_window_test.py`
