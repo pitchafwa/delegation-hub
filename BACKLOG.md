@@ -195,3 +195,21 @@ pick is controlled, t=0.7), but adding talent_pctile lowers held-out (leave-one-
 Boozer K=5 rank #59 -> #48 (dynasty crowd #15). Remaining gap = model still treats him as a top-3 pick with a good profile, not a
 consensus generational talent; the crowd is pricing scouting/hype we can't measure. Any further move toward the crowd would be a
 judgment call, not a validated fix.
+
+### UNIFIED projection engine (2026-09-24) -- Tommy's Boozer / Rollins / Fears inconsistency
+Problem: Asset value ran on its own models while the trajectory/VOR columns used the Kalman path, so the two disagreed
+(Fears and Rollins ranked above Boozer while showing worse projections). Fix: ONE path per player feeds both.
+Held-out tests (leak-free; grading set = players rated relevant at the forecast date):
+  Veterans (engine_blend_test.py): blend beats either alone at every horizon (RMSE h1 6.66 Kalman / 6.39 ridge / 6.32 blend; h4 10.41/10.17/10.01).
+    Kalman runs ~4-5 pts/g LOW for breakout-jump players (+10 pts/g last year; the Rollins case) and for age<=21 (+3.9); ridge is ~unbiased.
+    Rule: 75% empirical / 25% Kalman next season, 50/50 after. (Extra rules for jump/young players added nothing on RMSE.)
+  Prospects (prospect_engine_test.py, leave-one-class-out incl. refitting Output B): picks 1-15 -- calibrated Output B path and the
+    empirical pick/age/talent model are about equally accurate, blend slightly best; picks 16-30 -- the Output-B-based path is 4-9 pts/g
+    too optimistic by yr 3-5, the empirical model is unbiased. Rule: 40% Output B path for picks <=10 tapering to 0 at 16+, else empirical.
+Result @ K=3/5: Boozer #41/#39, Fears #58/#53, Rollins #67/#64 (at 0 keepers Rollins/Fears are ahead of Boozer -- honest: they project better NEXT season).
+Agreement with anchors improved (dynasty 0.827 @K=5; ESPN ADP 0.865 @K=0).
+SCOUTING LEVER: ingest/research/prospect_overrides.json {"Name": {"equivalent_pick": n, "note": "..."}} values a prospect as a different
+draft slot in every model (transparent, off by default). Test: Boozer as a #1-pick-equivalent -> #23 at K=5 (path 36 -> 50). The data cannot
+justify more; the crowd's #15 requires believing he is a tier above any historical #1 pick.
+Known VOR quirk: VOR stops at the first year below the opportunity-cost line, so Boozer's VOR@K=3 is 0 (yr-1 31.8 vs 32.4 line) despite
+a rising path -- Asset value handles that case; a "stash-adjusted VOR" (net early sub-replacement years against later surplus) is an option.

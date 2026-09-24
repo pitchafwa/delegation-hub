@@ -11,6 +11,12 @@ For a player x and horizon h (seasons out):
    Keepers cost nothing in this league (12 teams), only a roster slot.
 Incoming prospects: same structure keyed on draft slot, draft age and pre-NBA talent percentile (small but consistent held-out gain), outcomes = past draftees.
 
+UNIFIED PROJECTION (one path per player, feeding BOTH VOR and Asset value; see engine_blend_test.py and
+prospect_engine_test.py for the held-out tests behind the weights):
+  veterans:  E_h = w*ridge_h + (1-w)*Kalman_h,  w = 0.75 for next season, 0.5 after
+  prospects: E_h = (1-L)*empirical_h + L*(Output B trajectory + ceiling calibration),  L = 0.4 for picks <=10, tapering to 0 at 16+
+Optional transparent scouting lever: ingest/research/prospect_overrides.json {"Name": {"equivalent_pick": n}}.
+
 Out-of-sample test vs "current output persists", then compared with the two anchors.
 Usage: python asset_value_v2.py -> data/asset_value.csv
 """
@@ -81,11 +87,12 @@ class Forecaster:
             b = AGEB(pv["AGE"].to_numpy())
             self.res[h] = {g: r[b == g] for g in range(4)}
 
-    def value(self, X, age, h, c):
-        """A_h(c) per row; c scalar"""
+    def value(self, X, age, h, c, mu=None):
+        """A_h(c) per row; c scalar; mu optionally overrides the ridge mean (used for the unified path)"""
         if h not in self.m:
             return np.zeros(len(X))
-        mu = self.m[h].predict(X[F]); ps = self.s[h].predict_proba(X[F])[:, 1]
+        mu = self.m[h].predict(X[F]) if mu is None else mu
+        ps = self.s[h].predict_proba(X[F])[:, 1]
         b = AGEB(age)
         out = np.zeros(len(X))
         for g in range(4):
@@ -152,9 +159,10 @@ for h in range(1, H + 1):
     pres_res[h] = {g_: r[tier == g_] for g_ in range(4)}
 
 
-def prospect_value(picks, ages, h, c):
+def prospect_value(picks, ages, h, c, mu=None):
     X = pd.DataFrame({"logpick": np.log(np.clip(picks, 1, 61)), "dage": ages, "talent": pr_talent})
-    mu, p = pm[h].predict(X[PF]), ps_[h].predict_proba(X[PF])[:, 1]
+    p = ps_[h].predict_proba(X[PF])[:, 1]
+    mu = pm[h].predict(X[PF]) if mu is None else mu
     tier = np.digitize(picks, [4, 11, 31])
     out = np.zeros(len(X))
     for g_ in range(4):
@@ -168,25 +176,72 @@ def prospect_value(picks, ages, h, c):
 # bring in the hub's prospects
 hub = json.loads((ROOT.parent.parent / "dashboard" / "hub_data.json").read_text(encoding="utf-8"))["players"]
 pros = [q for q in hub if q["kind"] == "prospect"]
-pr_pick = np.array([q["pick"] if q.get("pick") else 61 for q in pros], dtype=float)
+_ovr_path = ROOT / "prospect_overrides.json"
+OVR = json.loads(_ovr_path.read_text(encoding="utf-8")) if _ovr_path.exists() else {}
+pr_pick_actual = np.array([q["pick"] if q.get("pick") else 61 for q in pros], dtype=float)
+pr_pick = np.array([float(OVR.get(q["player"], {}).get("equivalent_pick", a)) for q, a in zip(pros, pr_pick_actual)], dtype=float)
+for q, a, e in zip(pros, pr_pick_actual, pr_pick):
+    if a != e:
+        print(f"  OVERRIDE: {q['player']} valued as pick #{e:.0f} instead of #{a:.0f} ({OVR[q['player']].get('note', '')})")
 pr_age = np.array([q["age"] if q.get("age") else 20.5 for q in pros], dtype=float)
 pr_talent = np.array([q["talent_pctile"] if q.get("talent_pctile") is not None else hd["talent"].median() for q in pros], dtype=float)
 
 
-def expected_y1(vet, pro):
-    """expected next-season pts/g (present-weighted) to set the league keep cutoffs"""
-    return None
+# ------------------------------------------------------------------ UNIFIED projection paths
+import ast
+
+kt = pd.read_csv(D / "current_player_trajectories.csv")
+ktm = dict(zip(kt["PLAYER_ID"], kt["trajectory"].apply(ast.literal_eval)))
+kal_v = np.full((len(live), 7), np.nan)
+for i, pid in enumerate(live["PLAYER_ID"]):
+    t = ktm.get(pid)
+    if t:
+        kal_v[i, : min(7, len(t))] = t[:7]
+W_VET = lambda h: 0.75 if h == 1 else 0.5
+E_v = np.full((len(live), 7), np.nan)
+for h in range(1, H + 1):
+    ridge_mu = fc.m[h].predict(live[F])
+    a = kal_v[:, h - 1]
+    E_v[:, h - 1] = np.where(np.isnan(a), ridge_mu, W_VET(h) * ridge_mu + (1 - W_VET(h)) * a)
+E_v[:, 6] = np.where(np.isnan(kal_v[:, 6]), E_v[:, 5], kal_v[:, 6] + (E_v[:, 5] - kal_v[:, 5]))
+
+pt = pd.read_csv(D / "prospect_trajectories.csv")
+ptm = dict(zip(pt["PLAYER_ID"], pt["trajectory"].apply(ast.literal_eval)))
+_cal = json.loads((D / "prospect_calibration.json").read_text(encoding="utf-8"))
+
+
+def cal_traj(traj, pick):
+    if pick > 15:
+        return list(traj)
+    taper = float(np.clip((16 - pick) / 6.0, 0.0, 1.0))
+    return [max(v + taper * (_cal["coef"][str(min(k, _cal["max_k"]))][0] + _cal["coef"][str(min(k, _cal["max_k"]))][1] * float(np.log(pick))), 0.0)
+            for k, v in enumerate(traj)]
+
+
+A_p = np.full((len(pros), 7), np.nan)
+for i, (q, pk) in enumerate(zip(pros, pr_pick)):
+    t = ptm.get(int(q["id"][1:]))
+    if t:
+        A_p[i, : min(7, len(t))] = cal_traj(t[:7], pk)
+Xp = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent})
+lam = 0.4 * np.clip((16 - pr_pick) / 6.0, 0.0, 1.0)
+E_p = np.full((len(pros), 7), np.nan)
+for h in range(1, H + 1):
+    Bh = pm[h].predict(Xp[PF])
+    a = A_p[:, h - 1]
+    E_p[:, h - 1] = np.where(np.isnan(a), Bh, (1 - lam) * Bh + lam * a)
+E_p[:, 6] = np.where(np.isnan(A_p[:, 6]), E_p[:, 5], E_p[:, 5] + (A_p[:, 6] - A_p[:, 5]))
 
 
 # expected next-season value per player (for keep cutoffs): E[pts/g_1] incl. absent as 0
 def mean_y1_vet():
-    mu = fc.m[1].predict(live[F]); p = fc.s[1].predict_proba(live[F])[:, 1]
-    return mu * p
+    p = fc.s[1].predict_proba(live[F])[:, 1]
+    return E_v[:, 0] * p
 
 
 def mean_y1_pro():
     X = pd.DataFrame({"logpick": np.log(np.clip(pr_pick, 1, 61)), "dage": pr_age, "talent": pr_talent})
-    return pm[1].predict(X[PF]) * ps_[1].predict_proba(X[PF])[:, 1]
+    return E_p[:, 0] * ps_[1].predict_proba(X[PF])[:, 1]
 
 
 y1 = np.concatenate([mean_y1_vet(), mean_y1_pro()])
@@ -202,8 +257,8 @@ def total_value(k, delta=DELTA):
         if not np.isfinite(cut(k)) and h > 1:
             continue
         wgt = delta ** (h - 1)
-        v_vet += wgt * fc.value(live, live_age_next, h, c)
-        v_pro += wgt * prospect_value(pr_pick, pr_age, h, c)
+        v_vet += wgt * fc.value(live, live_age_next, h, c, mu=E_v[:, h - 1])
+        v_pro += wgt * prospect_value(pr_pick, pr_age, h, c, mu=E_p[:, h - 1])
     return np.concatenate([v_vet, v_pro])
 
 
@@ -216,6 +271,12 @@ for k in range(20):       # all keeper counts the dashboard slider can pick
     res[f"av{k}"] = total_value(k)
 res["exp_y1"] = y1
 res.to_csv(D / "asset_value.csv", index=False)
+up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, 8)])
+up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
+up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)
+for h in range(1, 8):
+    up[f"K{h}"] = np.concatenate([kal_v[:, h - 1], A_p[:, h - 1]])
+up.to_csv(D / "unified_paths.csv", index=False)
 
 
 def nn_(n):

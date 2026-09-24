@@ -159,11 +159,19 @@ current = current.merge(breakouts, on="PLAYER_ID", how="left")
 # keeper-count-aware asset value (asset_value_v2.py): one value per keeper count 0..19, picked live by the slider
 _av = pd.read_csv(ROOT / "data" / "asset_value.csv")
 _avcols = [f"av{k}" for k in range(20)]
+# ONE projection path per player, shared by VOR / trajectory and Asset value (asset_value_v2.py):
+# veterans blend the Kalman path with an empirical forecast; prospects blend an empirical draft-slot model with the
+# calibrated Output B path. Tested out-of-sample (engine_blend_test.py, prospect_engine_test.py).
+_up = pd.read_csv(ROOT / "data" / "unified_paths.csv")
+UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 8)] for r in _up.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
 current_out = []
 for _, r in current.iterrows():
     pos = r["espn_position"] if pd.notna(r.get("espn_position")) else r.get("POSITION")
     hist = history_by_player.get(r["PLAYER_ID"], {"years": [], "values": []})
+    _uni = UNIFIED.get(int(r["PLAYER_ID"]))
+    _traj_c = _uni if _uni else [round(float(v), 1) for v in r["trajectory"]]
+    _fc = float(np.clip(_traj_c[0] / r["trajectory"][0], 0.6, 1.6)) if (_uni and r["trajectory"][0] > 0) else 1.0
     current_out.append({
         "kind": "current",
         "id": f"c{int(r['PLAYER_ID'])}",
@@ -177,14 +185,16 @@ for _, r in current.iterrows():
         "anchor_year": CURRENT_SEASON_END_YEAR,
         "history_years": hist["years"],
         "history_values": hist["values"],
-        "year0_ppg": r["current_year_ppg"],
-        "peak_ppg": r["peak_ppg"],
-        "peak_year_index": int(r["peak_year_index"]),
-        "trajectory": r["trajectory"],
+        "year0_ppg": _traj_c[0],
+        "peak_ppg": max(_traj_c),
+        "peak_year_index": int(np.argmax(_traj_c)),
+        "trajectory": _traj_c,
+        "trajectory_kalman": [round(float(v), 1) for v in r["trajectory"]],
+        "unified_projection": bool(_uni),
         "had_output_b_prior": bool(r["had_output_b_prior"]),
         "injury_risk": risk_tier(r["PLAYER_ID"]),
         "espn_injury_status": r["injury_status"] if pd.notna(r.get("injury_status")) else None,
-        "next_season_proj": {k: round_or_none(v, 4) for k, v in r["next_season_proj"].items()},
+        "next_season_proj": {k: round_or_none(v * (_fc if k != "MIN" else 1.0), 4) for k, v in r["next_season_proj"].items()},
         "p_break": round_or_none(r["p_break"], 3),
         "p_break_base": round_or_none(r["p_baseline"], 3),
         "fpg_last": round_or_none(r["fpg_last"], 1),
@@ -195,7 +205,7 @@ for _, r in current.iterrows():
         # expected trajectory once breakout odds BEYOND what age+output already imply are folded in
         # (excess odds x how much a breakout persists); dashboard computes a separate "VOR + breakout" from it
         "trajectory_brk": (
-            [round(v + (r["p_break"] - r["p_baseline"]) * brk_shift(r["tier"], i), 2) for i, v in enumerate(r["trajectory"])]
+            [round(v + (r["p_break"] - r["p_baseline"]) * brk_shift(r["tier"], i), 2) for i, v in enumerate(_traj_c)]
             if pd.notna(r.get("p_break")) else None),
         "adp": round_or_none(r["adp"], 1),
         "edge_fpg": round_or_none(r["edge_fpg"], 1),
@@ -270,7 +280,9 @@ def calibrate_prospect(traj, pick):
 prospect_out = []
 for _, r in prospects.iterrows():
     _pick = int(r["pick_filled"]) if r["pick_filled"] < 61 else None
-    _traj = calibrate_prospect(r["trajectory"], _pick)
+    _cal_traj = calibrate_prospect(r["trajectory"], _pick)
+    _uni_p = UNIFIED.get(int(r["PLAYER_ID"]))
+    _traj = _uni_p if _uni_p else _cal_traj
     _f = (_traj[0] / r["trajectory"][0]) if r["trajectory"][0] > 0 else 1.0
     _proj = {k: (round_or_none(v * _f, 4) if k != "MIN" else round_or_none(v, 4)) for k, v in r["rookie_proj"].items()}
     pos = r["espn_position"] if pd.notna(r.get("espn_position")) else r["pos_display"]
@@ -297,6 +309,8 @@ for _, r in prospects.iterrows():
         "peak_year_index": int(np.argmax(_traj)),
         "trajectory": _traj,
         "trajectory_uncalibrated": [round(float(v), 1) for v in r["trajectory"]],
+        "trajectory_kalman": _cal_traj,
+        "unified_projection": bool(_uni_p),
         "rookie_proj": _proj,
         "talent_pctile": round_or_none(r["talent_pctile"], 3),
         "bpm": round_or_none(r["bpm"], 2) if r["data_source"] == "college" else None,

@@ -91,43 +91,49 @@ def old_slope(stat, age):
 
 
 # ---- filter at each origin, per stat
-rows = []
-t0 = time.time()
-for stat in KSTATS:
-    Q, R, peak, su, sd = params[stat]
-    is_min = stat == "MIN"
-    for oy in ORIGINS:
-        fit = df[df["sy"] <= oy]
-        pid = fit["PLAYER_ID"].to_numpy(); days = fit["DAYS_SINCE_LAST"].to_numpy(dtype=float); age = fit["AGE_AT_GAME"].to_numpy(dtype=float)
-        mins = fit["MIN"].to_numpy(dtype=float)
-        obs = mins if is_min else fit[stat].to_numpy(dtype=float)
-        gain = np.ones_like(mins) if is_min else mins
-        x0 = float(mins.sum()) / len(mins) if is_min else float(obs.sum()) / max(float(gain.sum()), 1.0)
-        post = run_filter_all_players(pid, days, age, gain, obs, Q, R, peak, su, sd, x0)
-        f2 = fit.assign(_post=post)
-        last = f2.groupby("PLAYER_ID").tail(1)
-        last = last[last["sy"] == oy].set_index("PLAYER_ID")
-        m_season = fit[fit["sy"] == oy].groupby("PLAYER_ID")["MIN"].sum()
-        last = last[m_season.reindex(last.index).fillna(0) >= 800]
-        nstart = season_start.get(oy + 1, pd.NaT)
-        for h in range(1, MAXH + 1):
-            ty = oy + h
-            if ty > LAST_SEASON:
-                continue
-            ta = act.xs(ty, level="sy") if ty in act.index.get_level_values("sy") else None
-            if ta is None:
-                continue
-            common = last.index.intersection(ta.index)
-            if len(common) < 30:
-                continue
-            gap = ((nstart - last.loc[common, "GAME_DATE"]).dt.days.clip(lower=0) / 365.0).to_numpy() if pd.notna(nstart) else np.full(len(common), 0.5)
-            era = float(league[stat].get(ty, np.nan) - league[stat].get(oy, np.nan))
-            rows.append(pd.DataFrame({
-                "stat": stat, "origin": oy, "h": h, "PLAYER_ID": common, "b": last.loc[common, "_post"].to_numpy(),
-                "y": ta.loc[common, stat].to_numpy(), "w": ta.loc[common, "minutes"].to_numpy(), "age0": last.loc[common, "AGE_AT_GAME"].to_numpy(),
-                "gap": gap, "era": era}))
-    print(f"  filter runs done for {stat} ({time.time()-t0:.0f}s)", flush=True)
-R = pd.concat(rows, ignore_index=True)
+CACHE = D / "_aging_rows.pkl"
+if CACHE.exists() and "--refresh" not in sys.argv:
+    R = pd.read_pickle(CACHE)
+else:
+    rows = []
+    t0 = time.time()
+    for stat in KSTATS:
+        Q, R, peak, su, sd = params[stat]
+        is_min = stat == "MIN"
+        for oy in ORIGINS:
+            fit = df[df["sy"] <= oy]
+            pid = fit["PLAYER_ID"].to_numpy(); days = fit["DAYS_SINCE_LAST"].to_numpy(dtype=float); age = fit["AGE_AT_GAME"].to_numpy(dtype=float)
+            mins = fit["MIN"].to_numpy(dtype=float)
+            obs = mins if is_min else fit[stat].to_numpy(dtype=float)
+            gain = np.ones_like(mins) if is_min else mins
+            x0 = float(mins.sum()) / len(mins) if is_min else float(obs.sum()) / max(float(gain.sum()), 1.0)
+            post = run_filter_all_players(pid, days, age, gain, obs, Q, R, peak, su, sd, x0)
+            f2 = fit.assign(_post=post)
+            last = f2.groupby("PLAYER_ID").tail(1)
+            last = last[last["sy"] == oy].set_index("PLAYER_ID")
+            m_season = fit[fit["sy"] == oy].groupby("PLAYER_ID")["MIN"].sum()
+            last = last[m_season.reindex(last.index).fillna(0) >= 800]
+            nstart = season_start.get(oy + 1, pd.NaT)
+            for h in range(1, MAXH + 1):
+                ty = oy + h
+                if ty > LAST_SEASON:
+                    continue
+                ta = act.xs(ty, level="sy") if ty in act.index.get_level_values("sy") else None
+                if ta is None:
+                    continue
+                common = last.index.intersection(ta.index)
+                if len(common) < 30:
+                    continue
+                gap = ((nstart - last.loc[common, "GAME_DATE"]).dt.days.clip(lower=0) / 365.0).to_numpy() if pd.notna(nstart) else np.full(len(common), 0.5)
+                era = float(league[stat].get(ty, np.nan) - league[stat].get(oy, np.nan))
+                rows.append(pd.DataFrame({
+                    "stat": stat, "origin": oy, "h": h, "PLAYER_ID": common, "b": last.loc[common, "_post"].to_numpy(),
+                    "y": ta.loc[common, stat].to_numpy(), "w": ta.loc[common, "minutes"].to_numpy(), "age0": last.loc[common, "AGE_AT_GAME"].to_numpy(),
+                    "gap": gap, "era": era}))
+        print(f"  filter runs done for {stat} ({time.time()-t0:.0f}s)", flush=True)
+    R = pd.concat(rows, ignore_index=True)
+
+    R.to_pickle(CACHE)
 print(f"regression rows: {len(R)} across {R['origin'].nunique()} origins")
 
 
