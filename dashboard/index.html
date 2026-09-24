@@ -137,11 +137,13 @@
   <div class="controls" style="margin-bottom:1rem">
     <div class="seg" id="segView">
       <button data-v="board" aria-pressed="true">Board</button>
+      <button data-v="teams" id="teamsBtn" style="display:none">League teams</button>
       <button data-v="about">How it works</button>
     </div>
   </div>
 
   <div id="aboutPane" style="display:none"></div>
+  <div id="teamsPane" style="display:none"></div>
   <div id="boardPane">
   <div class="statbar" id="statbar"></div>
 
@@ -166,6 +168,7 @@
   </div>
   <div class="controls">
     <input type="search" id="q" placeholder="filter by name…" />
+    <select id="ownerSel" style="display:none;padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem"></select>
     <div class="kbox"><span>Keepers/team:</span><input type="range" id="kSlider" min="0" max="19" value="5" step="1" /><input type="number" id="kNum" min="0" max="19" step="1" value="5" /></div>
   </div>
 
@@ -176,7 +179,7 @@
 </div>
 
 <script>
-let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, sort={k:'asset',asc:false}, open=new Set();
+let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -186,6 +189,16 @@ function computeVOR(traj, k){
   return {vor: Math.round(total*10)/10, years};
 }
 const fmt1=v=>v==null?'—':v.toFixed(1);
+const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let OWNER=new Map();  // hub player id -> {abbrev,name,team,slot}
+function initLeague(){
+  OWNER=new Map();
+  for(const t of L.teams) for(const r of t.roster) if(r.id) OWNER.set(r.id,{abbrev:t.abbrev,name:t.name,team:t.id,slot:r.slot});
+  const sel=document.getElementById('ownerSel');
+  sel.innerHTML='<option value="all">All players</option><option value="fa">Free agents</option><option value="rostered">Rostered</option>'+L.teams.map(t=>`<option value="t${t.id}">${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('');
+  sel.style.display=''; document.getElementById('teamsBtn').style.display='';
+  sel.addEventListener('change',e=>{ownerFilter=e.target.value; render();});
+}
 const yearLabel=(anchorYear,k)=>`'${String(anchorYear+k).slice(-2)}`;
 
 // 5-year change (not the full 7) -- year 6-7 is often just a slow decline
@@ -297,12 +310,17 @@ function rowsFiltered(){
   }
   else if(kind!=='all') r = r.filter(p => p.kind===kind);
   if(q) r = r.filter(p => p.player.toLowerCase().includes(q.toLowerCase()));
+  if(L && ownerFilter!=='all'){
+    r = r.filter(p => { const o=OWNER.get(p.id);
+      return ownerFilter==='fa' ? !o : ownerFilter==='rostered' ? !!o : (o && 't'+o.team===ownerFilter); });
+  }
   const assetRank = assetRanks();
-  r = r.map(p => ({...p, _asset: p.asset_k?p.asset_k[K]:null, _market: p.market_rank!=null?p.market_rank:null, _mgap: (p.market_rank!=null&&assetRank.get(p.id))?p.market_rank-assetRank.get(p.id):null, _ceilVor: p.ceil_path?computeVOR(p.ceil_path, K).vor:null, _ceilAsset: p.ceil_asset_k?p.ceil_asset_k[K]:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory)}));
+  r = r.map(p => ({...p, _owner: OWNER.get(p.id)||null, _asset: p.asset_k?p.asset_k[K]:null, _market: p.market_rank!=null?p.market_rank:null, _mgap: (p.market_rank!=null&&assetRank.get(p.id))?p.market_rank-assetRank.get(p.id):null, _ceilVor: p.ceil_path?computeVOR(p.ceil_path, K).vor:null, _ceilAsset: p.ceil_asset_k?p.ceil_asset_k[K]:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory)}));
   r.sort((a,b)=>{
     let av,bv;
     if(sort.k==='vor'){av=a._vor.vor;bv=b._vor.vor;}
     else if(sort.k==='asset'){av=a._asset;bv=b._asset;}
+    else if(sort.k==='owner'){av=a._owner?a._owner.abbrev:null;bv=b._owner?b._owner.abbrev:null;}
     else if(sort.k==='market'){av=a._market!=null?-a._market:null;bv=b._market!=null?-b._market:null;}
     else if(sort.k==='ceil_vor'){av=a._ceilVor;bv=b._ceilVor;}
     else if(sort.k==='ceil_asset'){av=a._ceilAsset;bv=b._ceilAsset;}
@@ -410,11 +428,13 @@ function render(){
     {k:'player',t:'Player'},{k:'pos',t:'Pos'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},
     {k:'fpg_last',t:'Last season'},{k:'brk_tier',t:'Type'},{k:'p_break',t:'Breakout chance'},
     {k:'proj_fpg',t:'Proj next (10–90%)'},{k:'p_bust',t:'Bust risk'},{k:'edge_fpg',t:'Edge vs ADP'},
+    ...(L?[{k:'owner',t:'Owner'}]:[]),
   ] : [
     {k:'player',t:'Player'},{k:'pos',t:'Pos'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},
     {k:'year0_ppg',t:'2026 PPG'},{k:'peak_ppg',t:'Peak PPG'},
     {k:'sparkline',t:'Trajectory (5yr Δ)'},{k:'vor',t:'VOR'},{k:'asset',t:'Asset'},{k:'market',t:'MKT'},
     {k:'ceil_vor',t:'90PCT VOR'},{k:'ceil_asset',t:'90PCT AST'},
+    ...(L?[{k:'owner',t:'Owner'}]:[]),
   ];
   const NC = cols.length;
   document.getElementById('hrow').innerHTML = cols.map(c=>
@@ -441,6 +461,7 @@ function render(){
       <td class="num" data-label="Proj next">${p.proj_fpg!=null?`<b>${p.proj_fpg.toFixed(0)}</b> <span class="hint">${p.proj_lo.toFixed(0)}–${p.proj_hi.toFixed(0)}</span>`:'—'}</td>
       <td class="num" data-label="Bust risk">${p.p_bust!=null?`<span style="color:${p.p_bust>=0.5?'var(--warn)':'inherit'}">${(p.p_bust*100).toFixed(0)}%</span>`:'<span class="hint">—</span>'}</td>
       <td class="num" data-label="Edge vs ADP">${p.edge_fpg!=null?`<b style="color:${p.edge_fpg>=2?'var(--good)':p.edge_fpg<=-2?'var(--warn)':'inherit'}">${p.edge_fpg>=0?'+':''}${p.edge_fpg.toFixed(1)}</b>`:'<span class="hint">—</span>'}</td>
+      ${L?`<td data-label="Owner" style="text-align:left">${p._owner?`<span title="${esc(p._owner.name)}">${esc(p._owner.abbrev)}</span>`:'<span class="hint">FA</span>'}</td>`:''}
 ` : `
       <td class="num" data-label="Yr-1 PPG">${fmt1(p.year0_ppg)} <span class="hint">${yearLabel(p.anchor_year,0)}</span></td>
       <td class="num" data-label="Peak PPG">${fmt1(p.peak_ppg)} <span class="hint">${yearLabel(p.anchor_year,p.peak_year_index)}</span></td>
@@ -450,6 +471,7 @@ function render(){
       <td class="num" data-label="MKT">${p._market!=null?`<b>#${p._market}</b>${p._mgap!=null?` <span class="hint" title="market rank minus our asset rank; + means we rank him higher than the market does">${p._mgap>0?'+':''}${p._mgap}</span>`:''}`:'<span class="hint">—</span>'}</td>
       <td class="num" data-label="90PCT VOR">${p._ceilVor!=null?p._ceilVor.toFixed(1):'<span class="hint">—</span>'}</td>
       <td class="num" data-label="90PCT AST">${p._ceilAsset!=null?p._ceilAsset.toFixed(1):'<span class="hint">—</span>'}</td>
+      ${L?`<td data-label="Owner" style="text-align:left">${p._owner?`<span title="${esc(p._owner.name)}">${esc(p._owner.abbrev)}</span>`:'<span class="hint">FA</span>'}</td>`:''}
 `}
     </tr>`;
     if(isOpen){
@@ -506,6 +528,45 @@ function render(){
   document.getElementById('body').innerHTML = body || '<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
 }
 
+function renderTeams(){
+  const pane=document.getElementById('teamsPane');
+  const ranks=assetRanks(), byId=new Map(D.players.map(p=>[p.id,p]));
+  const teams=L.teams.map(t=>{
+    const rows=t.roster.map(r=>{const p=r.id?byId.get(r.id):null; return {r,p,asset:p&&p.asset_k?p.asset_k[K]:0};}).sort((a,b)=>b.asset-a.asset);
+    const keep=rows.slice(0,K).reduce((s,x)=>s+x.asset,0);
+    return {t,rows,keep,total:rows.reduce((s,x)=>s+x.asset,0),rookies:rows.filter(x=>x.p&&x.p.kind==='prospect').length};
+  }).sort((a,b)=>b.keep-a.keep);
+  if(teamSel==null || !teams.find(x=>x.t.id===teamSel)) teamSel=teams[0].t.id;
+  const cur=teams.find(x=>x.t.id===teamSel);
+  const league=teams.map((x,i)=>`<tr data-team="${x.t.id}" style="${x.t.id===teamSel?'background:var(--surface-2)':''}">
+    <td class="num">${i+1}</td><td style="text-align:left">${esc(x.t.name)} <span class="hint">${esc(x.t.abbrev)}</span></td>
+    <td class="num"><b>${x.keep.toFixed(0)}</b></td><td class="num">${x.total.toFixed(0)}</td><td class="num">${x.rookies||'—'}</td>
+    <td style="text-align:left">${x.rows[0]&&x.rows[0].p?esc(x.rows[0].p.player):'—'}</td></tr>`).join('');
+  const roster=cur.rows.map((x,i)=>{
+    const p=x.p, keepRow=i<K;
+    const vor=p?computeVOR(p.trajectory,K).vor:null;
+    const mk=p&&p.market_rank!=null?`#${p.market_rank}`:'—';
+    return `<tr style="${i===K-1?'border-bottom:2px solid var(--accent)':''}">
+      <td style="text-align:left">${keepRow?'<span class="kind rookie" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">KEEP</span> ':''}${esc(p?p.player:x.r.name)}${p&&p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${x.r.injury&&x.r.injury!=='ACTIVE'?` <span class="liveStatus">${esc(x.r.injury)}</span>`:''}${x.r.slot==='IR'?' <span class="hint">IR</span>':''}</td>
+      <td style="text-align:left">${p?esc(p.team||'—'):'—'}</td><td style="text-align:left">${p?esc(p.pos||'—'):'—'}</td>
+      <td class="num">${p&&p.age!=null?p.age.toFixed(1):'—'}</td>
+      <td class="num">${p?fmt1(p.year0_ppg):'—'}</td><td class="num">${p?fmt1(p.peak_ppg):'—'}</td>
+      <td class="num">${vor!=null?`<b>${vor.toFixed(1)}</b>`:'—'}</td>
+      <td class="num">${p&&p.asset_k?`<b>${p.asset_k[K].toFixed(1)}</b> <span class="hint">#${ranks.get(p.id)}</span>`:'<span class="hint">no valuation</span>'}</td>
+      <td class="num">${mk}</td></tr>`;}).join('');
+  pane.innerHTML=`
+    <div class="controls"><div class="kbox"><span>Keepers/team:</span><input type="range" id="tSlider" min="0" max="19" value="${K}" step="1" /><input type="number" id="tNum" min="0" max="19" step="1" value="${K}" /></div>
+      <span class="hint">Rosters as of ${new Date(L.generated).toLocaleString()}. The top ${K} assets on each team are marked KEEP.</span></div>
+    <div class="tablewrap" style="margin-bottom:1rem"><table id="leagueTbl"><thead><tr><th>#</th><th style="text-align:left">Team</th><th>Keeper value</th><th>Total asset</th><th>Rookies</th><th style="text-align:left">Best asset</th></tr></thead><tbody>${league}</tbody></table></div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">${esc(cur.t.name)} · roster</div>
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Age</th><th>2026 PPG</th><th>Peak PPG</th><th>VOR</th><th>Asset</th><th>MKT</th></tr></thead><tbody>${roster}</tbody></table></div>
+    <div class="legend" style="margin-top:1rem"><b>Keeper value</b> = sum of a team's top ${K} asset values (keepers cost nothing, only a slot, so the best ${K} assets are who you'd keep; position eligibility isn't considered). Click a team to see its roster.</div>`;
+  document.getElementById('leagueTbl').addEventListener('click',e=>{const tr=e.target.closest('tr[data-team]'); if(!tr) return; teamSel=+tr.dataset.team; renderTeams();});
+  const setK=v=>{K=Math.max(0,Math.min(19,Math.round(v))); document.getElementById('kSlider').value=K; document.getElementById('kNum').value=K; renderTeams();};
+  document.getElementById('tSlider').addEventListener('input',e=>setK(+e.target.value));
+  document.getElementById('tNum').addEventListener('change',e=>{if(Number.isFinite(+e.target.value)) setK(+e.target.value);});
+}
+
 function renderAbout(){
   document.getElementById('aboutPane').innerHTML = `
     <h2>What changed</h2>
@@ -535,7 +596,10 @@ function wire(){
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
     document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
+    document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
     if(b.dataset.v==='about') renderAbout();
+    if(b.dataset.v==='teams') renderTeams();
+    if(b.dataset.v==='board') render();
   });
   document.getElementById('segKind').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
@@ -577,6 +641,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
   wire();
+  fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
