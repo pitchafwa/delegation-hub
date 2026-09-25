@@ -600,8 +600,8 @@ for t in lg.teams:
     plans[t.team_id] = total + so_far[t.team_id]["pts"]
     tc = counters.get(t.team_id, {})
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
-    activated = {m["id"] for m in ir_moves if m["action"] in ("activate", "activate_swap")}      # never suggest dropping a player the IR advice just told you to activate
-    moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8), extra_protect=activated)
+    # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
+    moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
         _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(max(adds_left, 1), 8))
