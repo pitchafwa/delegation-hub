@@ -22,8 +22,8 @@ import injury_common as C
 
 sys.stdout.reconfigure(encoding="utf-8")
 THRESH = 0.30
-CUTS = [0.27, 0.36, 0.48, 0.62]
-LABELS = ["Low", "Below average", "Average", "Elevated", "High"]
+PCTS = [0.15, 0.35, 0.65, 0.85]        # tiers are RELATIVE to other rotation players: bottom 15%, next 20%, middle 30%, next 20%, top 15%
+LABELS = ["Low", "Below typical", "Typical", "Elevated", "High"]
 sb = pd.read_csv(C.D / "player_season_base.csv")
 sb["yr"] = sb.SEASON.str[:4].astype(int)
 sb = sb.sort_values("GP", ascending=False).drop_duplicates(["PLAYER_ID", "yr"])
@@ -99,8 +99,7 @@ for pid in pids:
     Z = (X[BASE] - mu) / sd
     p = float(clf.predict_proba(Z)[:, 1][0])
     exp_missed = float(np.clip(reg.predict(Z)[0], 0, 0.9) * 82)
-    tier = int(np.digitize(p, CUTS))
-    e = ep[(ep.pid == pid) & (ep.yr >= LAST - 1) & (ep.n_out >= 3)]
+    e = ep[(ep.pid == pid) & (ep.yr >= LAST - 2) & (ep.n_out >= 3)]         # three seasons of reports for recurrence tags
     tags = []
     for (part, side), g in e[e.side != ""].groupby(["part", "side"]):
         if len(g) >= 2:
@@ -108,13 +107,26 @@ for pid in pids:
     for part, g in e[e.side == ""].groupby("part"):
         if len(g) >= 3:
             tags.append(f"recurring {part} x{len(g)}")
+    bad = [k for k in range(0, 5) if (pid, LAST - k) in S.index and S.loc[(pid, LAST - k)].missed >= 0.25]
+    seen = [k for k in range(0, 5) if (pid, LAST - k) in S.index]
+    if len(bad) >= 3:
+        tags.append(f"history: missed 25%+ of games in {len(bad)} of the last {len(seen)} seasons")
     late = ep[(ep.pid == pid) & (ep.yr == LAST) & (ep.end >= last_day - pd.Timedelta(days=10)) & (ep.n_out >= 5)]
     if len(late) and ((late.major == 1).any() or (late.n_out >= 25).any()):
         lp = late.sort_values("n_out").iloc[-1]
         tags.append(f"returning: still out at end of last season ({(lp.side + ' ') if lp.side else ''}{lp.part})")
-    out.append(dict(PLAYER_ID=pid, injury_p=round(p, 3), injury_tier=tier, injury_label=LABELS[tier], injury_missed=round(exp_missed, 0),
+    out.append(dict(PLAYER_ID=pid, injury_p=round(p, 3), injury_tier=-1, injury_label="", injury_missed=round(exp_missed, 0),
                     m1=round(f["m1"], 2), age=round(f["age"], 1), tags=json.dumps(tags)))
 R = pd.DataFrame(out)
+_cuts = R.injury_p.quantile(PCTS).tolist()
+R["injury_tier"] = np.digitize(R.injury_p, _cuts)
+R["injury_label"] = R.injury_tier.map(dict(enumerate(LABELS)))
+print("tier cut points on P(miss 30%+):", [round(c, 3) for c in _cuts], "| typical player:", round(R.injury_p.median(), 3), "expected games missed", R.injury_missed.median())
+_lastseason = sb[(sb.yr == LAST) & (sb.mpg >= 15) & (sb.GP >= 5)]
+json.dump({"cuts": _cuts, "labels": LABELS, "season": f"{LAST}-{str(LAST + 1)[2:]}", "n_rotation": int(len(_lastseason)),
+           "typical_missed": float(round(_lastseason.missed.median() * 82)), "typical_share_25plus": float(round((_lastseason.missed >= 0.30).mean(), 3))},
+          open(C.D / "injury_risk_meta.json", "w"))
+print("last completed season, rotation players (15+ mpg): median games missed", round(_lastseason.missed.median() * 82), "| share missing 25+ games", round((_lastseason.missed >= 0.30).mean(), 3))
 R.to_csv(C.D / "injury_risk_v4.csv", index=False)
 print(f"wrote injury_risk_v4.csv for {len(R)} players; tier counts:\n{R.injury_label.value_counts().reindex(LABELS).to_string()}")
 print("tagged recurring:", (R.tags.str.contains("recurring")).sum(), " returning:", (R.tags.str.contains("returning")).sum())

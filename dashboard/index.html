@@ -652,8 +652,9 @@ function render(){
     const id=p.id;
     const isOpen=open.has(id);
     const badge = p.kind==='prospect' ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
-    const INJL=['Low','Below average','Average','Elevated','High'];
-    const injTip=p.injury_tier!=null?`Injury risk: ${INJL[p.injury_tier]} · about ${(p.injury_p*100).toFixed(0)}% chance of missing 30%+ of next season, expect roughly ${p.injury_missed} games missed${(p.injury_tags||[]).length?' · '+p.injury_tags.join('; '):''}`:'';
+    const INJL=['Low','Below typical','Typical','Elevated','High'], IM=D.injury_meta||{};
+    const injTyp=IM.typical_missed!=null?` (a typical rotation player in ${IM.season}: about ${IM.typical_missed} games missed, ${(IM.typical_share_25plus*100).toFixed(0)}% missed 25+)`:'';
+    const injTip=p.injury_tier!=null?`Injury risk: ${INJL[p.injury_tier]} compared with other rotation players · about ${(p.injury_p*100).toFixed(0)}% chance of missing 30%+ of next season, roughly ${p.injury_missed} games${injTyp}${(p.injury_tags||[]).length?' · '+p.injury_tags.join('; '):''}`:'';
     const injDot = p.injury_tier!=null ? (p.injury_tier===2?'':`<span class="injDot t${p.injury_tier}" title="${esc(injTip)}"></span>`) : ((p.injury_risk==='watch'||p.injury_risk==='chronic') ? `<span class="injDot ${p.injury_risk}" title="injury risk: ${p.injury_risk} (recent seasons)"></span>` : '');
     const liveStatus = (p.espn_injury_status && p.espn_injury_status!=='ACTIVE') ? `<span class="liveStatus" title="live ESPN status">${p.espn_injury_status}</span>` : '';
     const teamCell = p.team
@@ -727,7 +728,7 @@ function render(){
           <div>
             <div class="simwrap"><div class="lbl">Projected ${yearLabel(p.anchor_year,0)} season line (per game)</div>${rookieStatLine(p.next_season_proj).replace('class="statline"','class="statline g4"')}</div>
             <div class="note" style="margin-top:.6rem">${curNote}</div>
-            ${p.injury_tier!=null?`<div class="simwrap"><div class="lbl">Injury risk</div><div class="note"><span class="injTier t${p.injury_tier}">${INJL[p.injury_tier].toUpperCase()}</span> about <b>${(p.injury_p*100).toFixed(0)}%</b> chance of missing 30%+ of next season (roughly <b>${p.injury_missed}</b> games) from games missed in the last three seasons, age and minutes.${(p.injury_tags||[]).length?`<div style="margin-top:.35rem">${p.injury_tags.map(t=>`<span class="comp">${esc(t)}</span>`).join(' ')}</div>`:''}</div></div>`:''}
+            ${p.injury_tier!=null?`<div class="simwrap"><div class="lbl">Injury risk</div><div class="note"><span class="injTier t${p.injury_tier}">${INJL[p.injury_tier].toUpperCase()}</span> about <b>${(p.injury_p*100).toFixed(0)}%</b> chance of missing 30%+ of next season (roughly <b>${p.injury_missed}</b> games) (any reason, rest included), from games missed in the last three seasons, age and minutes. Compared with other rotation players: <b>${INJL[p.injury_tier].toLowerCase()}</b>.${(function(){const m=D.injury_meta||{}; return m.typical_missed!=null?` <span class="hint">A typical rotation player missed about ${m.typical_missed} games in ${m.season}, and ${(m.typical_share_25plus*100).toFixed(0)}% missed 25 or more.</span>`:'';})()}${(p.injury_tags||[]).length?`<div style="margin-top:.35rem">${p.injury_tags.map(t=>`<span class="comp">${esc(t)}</span>`).join(' ')}</div>`:''}</div></div>`:''}
           </div>
           <div class="dr">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[], p.ceil_path||null, 600, 240)}</div>
         </div>`;

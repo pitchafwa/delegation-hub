@@ -95,6 +95,7 @@ sig_count = trailing.groupby("PLAYER_ID")["significant_miss"].sum()
 # five-tier injury risk + material-injury tags (build_injury_risk.py); falls back to nothing if that file has not been built
 _INJ4 = {}
 _p4 = ROOT / "data" / "injury_risk_v4.csv"
+INJ_META = json.load(open(ROOT / "data" / "injury_risk_meta.json")) if (ROOT / "data" / "injury_risk_meta.json").exists() else None
 if _p4.exists():
     for _r in pd.read_csv(_p4).itertuples():
         _INJ4[int(_r.PLAYER_ID)] = dict(tier=int(_r.injury_tier), p=float(_r.injury_p), missed=int(_r.injury_missed), tags=json.loads(_r.tags))
@@ -394,6 +395,7 @@ except FileNotFoundError:
 out = {
     "generated": pd.Timestamp.now().isoformat(),
     "opportunity_cost": {"floor": OPP_FLOOR, "amp": OPP_AMP, "tau": OPP_TAU},
+    "injury_meta": INJ_META,
     "horizon_years": HORIZON_YEARS,
     "default_keepers": 3,
     "note": "VOR is computed live in the browser from each player's raw trajectory + the "

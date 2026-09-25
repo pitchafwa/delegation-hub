@@ -55,3 +55,13 @@ state = first day listed / listed before and played his last game / listed befor
 game log (`availability_state.py`; 54 of 60 sampled historical cases matched the study labels, the rest are report duplicates). Everything falls back to the flat rates if a
 step fails. Tomorrow's designations use the pooled rate for that status. Untested live until the season starts (no reports in the offseason).
 Caveats: episodes are defined from report listings, body part comes from the printed reason, and the 2025-26 11AM reports are thin (61 days). Results are descriptive, not causal.
+
+## 5. Follow-up on the tiers (2026-09-26, after "LaMelo is below average?")
+* **The base rate is genuinely high.** Among rotation players (15+ mpg), 44% missed 25+ games in 2025-26 (median 20 games missed; 32% in 2022-23, rising every year), counting rest,
+  load management and coaching decisions as well as injuries. So a typical player IS close to a coin flip to miss a third of a season. The old labels hid that, so tiers are now
+  RELATIVE to other rotation players (Low bottom 15%, Below typical next 20%, Typical middle 30%, Elevated next 20%, High top 15%) and every tooltip states the typical rate.
+* **Long history is only weakly informative.** Players who were healthy last year but missed 35%+ in the two years before (n=97) missed 25+ games 32% of the time next year vs 29% for
+  players healthy in all three. The model gives last season most of the weight for that reason, which is why LaMelo (72 GP last year, but 3 of the last 5 seasons over 25% missed) is
+  Below typical. His history now shows as tags: "history: missed 25%+ of games in N of the last 5 seasons" (N of 3+) and recurring injuries over three seasons (his: right ankle x4, left ankle x2).
+* **Injury-only outcome** (game days listed Out with an injury/illness reason): weaker to predict (AUC 0.60, or 0.63 adding injury days out in the last two seasons), so the tiers stay on total games
+  missed, the thing that costs a fantasy manager, with injury details as tags. `injury_risk_v5_test.py` has the comparison.
