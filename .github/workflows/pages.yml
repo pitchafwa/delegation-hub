@@ -25,6 +25,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # stamp the deployed page with this commit so a stale cached copy can detect it and reload itself once
+      - name: Stamp build id
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::12}/" dashboard/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

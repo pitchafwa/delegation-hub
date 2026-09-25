@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fantasy Hub</title>
 <meta name="theme-color" content="#0f1318" />
+<meta name="build" content="__BUILD__" />
 <link rel="icon" href="favicon.ico" sizes="48x48 32x32 16x16" />
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
@@ -329,11 +330,11 @@
   <div class="controls" style="display:none">
     <div class="seg" id="segView" style="display:none !important">
       <button data-v="week" id="weekBtn" aria-pressed="true">This week</button>
-      <button data-v="sched" id="schedBtn" style="display:none">Schedule</button>
+      <button data-v="sched" id="schedBtn">Schedule</button>
       <button data-v="board">Board</button>
-      <button data-v="teams" id="teamsBtn" style="display:none">Teams</button>
-      <button data-v="trades" id="tradesBtn" style="display:none">Trades</button>
-      <button data-v="draft" id="draftBtn" style="display:none">Draft</button>
+      <button data-v="teams" id="teamsBtn">Teams</button>
+      <button data-v="trades" id="tradesBtn">Trades</button>
+      <button data-v="draft" id="draftBtn">Draft</button>
       <button data-v="about">About</button>
     </div>
   </div>
@@ -937,6 +938,7 @@ function collapseLegends(root){
     l.querySelector('details.lg').addEventListener('toggle',e=>{ legendState[key]=e.target.open; });
   });
 }
+const activeView=()=>{const b=document.querySelector('#segView button[aria-pressed="true"]'); return b?b.dataset.v:null;};
 function setView(v){
   const b=document.querySelector(`#segView button[data-v="${v}"]`); if(b && b.style.display!=='none') b.click();
 }
@@ -1366,7 +1368,13 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    if(!D && ['board','teams','trades','draft'].includes(b.dataset.v)) return;   // board data still loading
+    const READY={week:()=>!!W,sched:()=>!!SP,board:()=>!!D,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),about:()=>true};
+    if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
+      [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
+      ['board','about','teams','week','trades','sched','draft'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
+      const pn=document.getElementById(b.dataset.v+'Pane'); if(pn&&!pn.innerText.trim()) pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
+      renderNav(); return;
+    }
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
     document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
@@ -1427,20 +1435,22 @@ function wire(){
    parallel and everything else after it. If the weekly plan is unavailable, fall back to the Board. */
 wire();
 renderNav();
+(function(){ try{ const mine=(document.querySelector('meta[name=build]')||{}).content; if(!mine||mine==='__BUILD__') return;
+  fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!=='__BUILD__'&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
 new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});
 fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{
-  if(w&&w.teams){ W=w; setView('week'); } else throw new Error('no plan');
+  if(w&&w.teams){ W=w; if(activeView()==='week') setView('week'); } else throw new Error('no plan');
 }).catch(()=>{ document.getElementById('weekBtn').style.display='none'; document.getElementById('weekPane').style.display='none'; document.getElementById('boardPane').style.display='';
   document.getElementById('segView').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x.dataset.v==='board')); if(D) render(); });
-fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; document.getElementById('schedBtn').style.display='';} }).catch(()=>{});
+fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched') setView('sched');} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
-  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
-  fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
+  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render(); if(activeView()==='teams') setView('teams');} }).catch(()=>{});
+  fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; if(activeView()==='draft') setView('draft'); pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
-  fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
+  fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; if(activeView()==='trades') setView('trades');} }).catch(()=>{});
   fetch('breakout_history.json',{cache:'no-cache'}).then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
