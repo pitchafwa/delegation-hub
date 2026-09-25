@@ -65,3 +65,7 @@ Caveats: episodes are defined from report listings, body part comes from the pri
   Below typical. His history now shows as tags: "history: missed 25%+ of games in N of the last 5 seasons" (N of 3+) and recurring injuries over three seasons (his: right ankle x4, left ankle x2).
 * **Injury-only outcome** (game days listed Out with an injury/illness reason): weaker to predict (AUC 0.60, or 0.63 adding injury days out in the last two seasons), so the tiers stay on total games
   missed, the thing that costs a fantasy manager, with injury details as tags. `injury_risk_v5_test.py` has the comparison.
+* **Persistence (added after "Embiid hasn't played half a season in 3 years").** Sporadic bad seasons barely predict, but PERSISTENT ones do: players who missed 40%+ of games in each of the previous three seasons
+  (n=105 player-seasons) missed 25+ games 71% of the time next year (74% at 50%+, n=58) vs 44.6% overall. The model now has persistence features (worst of the last three seasons, their mean,
+  count of 40%+ seasons); out-of-sample AUC 0.699-0.700 vs 0.697 and that group is calibrated (predicted 71% vs actual 71%). Embiid moved from Typical (56%) to Elevated (62%); his high minutes
+  when healthy and age 33 keep him below the group average, and the evidence for high-minute players in that group is thin (n=17, actual 59%). A "missed 40%+ of games in each of the last 3 seasons" tag marks these players.

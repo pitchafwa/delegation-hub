@@ -32,7 +32,7 @@ sb["missed"] = (1 - sb.GP / sb.len).clip(lower=0)
 sb["mpg"] = sb.MIN / sb.GP
 S = sb.set_index(["PLAYER_ID", "yr"])
 LAST = int(max(y for y in sb.yr.unique() if sb[sb.yr == y].GP.max() >= 70))      # latest COMPLETED season (2025 = 2025-26); we predict the one after
-BASE = ["m1", "m2", "m3", "age", "mpg", "m2_na", "m3_na"]
+BASE = ["m1", "m2", "m3", "age", "mpg", "m2_na", "m3_na", "mn3", "mean3", "n40"]      # mn3/mean3/n40 = persistence: a player bad in EVERY recent season (Embiid) vs one bad once
 
 
 def feats(pid, t, age_now=None):
@@ -66,6 +66,9 @@ D = pd.DataFrame(rows)
 for c in ("m2", "m3"):
     D[c + "_na"] = D[c].isna() * 1.0
     D[c] = D[c].fillna(D.m1)
+D["mn3"] = D[["m1", "m2", "m3"]].min(axis=1)
+D["mean3"] = D[["m1", "m2", "m3"]].mean(axis=1)
+D["n40"] = (D[["m1", "m2", "m3"]] >= 0.4).sum(axis=1)
 mu, sd = D[BASE].mean(), D[BASE].std().replace(0, 1)
 clf = LogisticRegression(C=0.5, max_iter=3000).fit((D[BASE] - mu) / sd, D.y)
 reg = Ridge(alpha=5.0).fit((D[BASE] - mu) / sd, D.miss)
@@ -96,6 +99,9 @@ for pid in pids:
     X = pd.DataFrame([{**f, "m2_na": float(np.isnan(f["m2"])), "m3_na": float(np.isnan(f["m3"]))}])
     X["m2"] = X.m2.fillna(X.m1)
     X["m3"] = X.m3.fillna(X.m1)
+    X["mn3"] = X[["m1", "m2", "m3"]].min(axis=1)
+    X["mean3"] = X[["m1", "m2", "m3"]].mean(axis=1)
+    X["n40"] = (X[["m1", "m2", "m3"]] >= 0.4).sum(axis=1)
     Z = (X[BASE] - mu) / sd
     p = float(clf.predict_proba(Z)[:, 1][0])
     exp_missed = float(np.clip(reg.predict(Z)[0], 0, 0.9) * 82)
@@ -107,6 +113,8 @@ for pid in pids:
     for part, g in e[e.side == ""].groupby("part"):
         if len(g) >= 3:
             tags.append(f"recurring {part} x{len(g)}")
+    if float(X["mn3"].iat[0]) >= 0.40:
+        tags.append("missed 40%+ of games in each of the last 3 seasons")
     bad = [k for k in range(0, 5) if (pid, LAST - k) in S.index and S.loc[(pid, LAST - k)].missed >= 0.25]
     seen = [k for k in range(0, 5) if (pid, LAST - k) in S.index]
     if len(bad) >= 3:
