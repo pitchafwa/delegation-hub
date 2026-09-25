@@ -445,7 +445,7 @@ if new_rows:
             w.writeheader()
         w.writerows(new_rows)
 
-def search_moves(r, total, c0):
+def search_moves(r, total, c0, steps=4):
     """best single adds and a greedy add/drop sequence for roster r (see the per-team notes in the module docstring)"""
     non_ir = [p for p in r if not p["ir"]]
     moves = []
@@ -469,24 +469,11 @@ def search_moves(r, total, c0):
                           "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                           "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
     moves.sort(key=lambda x: -x["gain"])
-    # ADD TIMING: what each of the best adds is worth if made on each remaining day (adds are capped per matchup and unspent adds expire,
-    # so the question is which to make now and which can wait, or should wait).
-    fa_map = {f["espn_id"]: f for f in fa_players}
-    by_id = {p["espn_id"]: p for p in r}
-    for mv in moves[:8]:
-        f = fa_map[mv["add"]["id"]]
-        dr = by_id.get(mv["drop"]["id"]) if mv["drop"] else None
-        base_r = [p for p in r if p is not dr]
-        row = []
-        for d in plan_days:
-            g = plan_team(base_r + [dict(f, **{"from": d})], c0) - total - future_cost(dr, f)
-            row.append({"date": d.isoformat(), "gain": round(g, 1)})
-        mv["by_day"] = row
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
     fa_by_id = {f["espn_id"]: f for f in fa_players}
     prot = protected_ids(r)
     seq, r2, cur, used = [], list(r), total, set()
-    for step in range(4):
+    for step in range(steps):
         best_step = None
         for mv in moves[:25]:
             f = fa_by_id[mv["add"]["id"]]
@@ -502,13 +489,17 @@ def search_moves(r, total, c0):
         if not best_step or best_step[0] < MIN_NET_GAIN:
             break
         g, f, dr, wk = best_step
+        # ADD TIMING for this step: its net gain if made on each remaining day (earlier steps assumed made already). Adds are capped per matchup and
+        # unspent adds expire, so this shows what waiting costs
+        base_r = [p for p in r2 if p is not dr]
+        by_day = [{"date": d.isoformat(), "gain": round(plan_team(base_r + [dict(f, **{"from": d})], c0) - cur - future_cost(dr, f), 1)} for d in plan_days]
         r2 = [p for p in r2 if p is not dr] + [f]
         cur += wk
         used.add(f["espn_id"])
         seq.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
                     "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
-                    "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1)})
+                    "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1), "by_day": by_day})
     return moves, seq
 
 
@@ -560,10 +551,11 @@ for t in lg.teams:
     total, rows, naive = plan_team(r, c0, detail=True)
     plans[t.team_id] = total + so_far[t.team_id]["pts"]
     tc = counters.get(t.team_id, {})
-    moves, seq = search_moves(r, total, c0)
+    adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
+    moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
-        _m0, seq0 = search_moves(r_orig, total0, c0)
+        _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(max(adds_left, 1), 8))
         unlock = (total + (seq[-1]["cum"] if seq else 0.0)) - (total0 + (seq0[-1]["cum"] if seq0 else 0.0))
         for m in ir_moves:
             m["unlocks"] = round(unlock, 1)
