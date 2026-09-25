@@ -1,0 +1,77 @@
+name: Game-day plan refresh
+
+# Injury designations settle through the afternoon (the NBA's official report is due about 5pm ET for 7pm games; teams update up to 90 minutes before
+# tip). The overnight run cannot see those, so this re-runs ONLY the parts that depend on them: rosters (ESPN's injury status) and the weekly plan
+# (which also reads the NBA's official injury report). Two runs at odd minutes (GitHub drops or delays the round ones):
+#   19:07 UTC = 3:07pm ET in summer time / 2:07pm in winter   -> midday update
+#   22:07 UTC = 6:07pm ET in summer time / 5:07pm in winter   -> just after the official report, still before the 7pm tips
+# Scheduled runs are best-effort; the page shows when the plan was generated.
+on:
+  schedule:
+    - cron: "7 19 * * *"
+    - cron: "7 22 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: refresh-league
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet espn-api pandas python-dotenv requests scipy pdfplumber
+
+      - name: Pull rosters from ESPN
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: python research/pull_league_rosters.py
+
+      - name: Build the weekly plan
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python research/build_week_plan.py
+
+      - name: Build the schedule plan
+        working-directory: ingest
+        run: python research/build_schedule_plan.py
+
+      - name: Commit if changed
+        id: commit
+        run: |
+          git config user.name "league-refresh-bot"
+          git config user.email "league-refresh-bot@users.noreply.github.com"
+          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/schedule_plan.json
+          git add dashboard/projection_log.csv 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Game-day plan refresh"
+            git pull --rebase --quiet
+            git push
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Redeploy the site
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

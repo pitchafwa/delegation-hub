@@ -204,6 +204,8 @@ def level_on(pl, d):
 def p_play(pl, d):
     if not plays(pl["team"], d):
         return 0.0
+    if pl.get("from") and d < pl["from"]:         # add-timing what-ifs: he joins the roster on this date
+        return 0.0
     if pl["ir"] or pl["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
         return 0.0
     tier = "rotation" if pl["level"] >= ROTATION_LEVEL else "bench"
@@ -460,6 +462,19 @@ def search_moves(r, total, c0):
                           "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                           "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
     moves.sort(key=lambda x: -x["gain"])
+    # ADD TIMING: what each of the best adds is worth if made on each remaining day (adds are capped per matchup and unspent adds expire,
+    # so the question is which to make now and which can wait, or should wait).
+    fa_map = {f["espn_id"]: f for f in fa_players}
+    by_id = {p["espn_id"]: p for p in r}
+    for mv in moves[:8]:
+        f = fa_map[mv["add"]["id"]]
+        dr = by_id.get(mv["drop"]["id"]) if mv["drop"] else None
+        base_r = [p for p in r if p is not dr]
+        row = []
+        for d in plan_days:
+            g = plan_team(base_r + [dict(f, **{"from": d})], c0) - total - future_cost(dr, f)
+            row.append({"date": d.isoformat(), "gain": round(g, 1)})
+        mv["by_day"] = row
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
     fa_by_id = {f["espn_id"]: f for f in fa_players}
     prot = protected_ids(r)
@@ -567,6 +582,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
+       "fa_pool": [{"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"]} for f in fa_players],
        "teams": out_teams}
 OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

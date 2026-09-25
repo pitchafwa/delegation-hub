@@ -106,6 +106,12 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
+  .heat{border-collapse:collapse;font-size:.72rem;font-family:"IBM Plex Mono",monospace}.heat th,.heat td{padding:.16rem .28rem;text-align:center;border:1px solid var(--bg)}
+  .heat th{color:var(--ink-faint);font-weight:500;position:sticky;top:0;background:var(--bg)}.heat th.po{color:var(--accent);font-weight:700}
+  .heat td.tm{text-align:left;font-weight:600;padding-right:.5rem;position:sticky;left:0;background:var(--bg)}.heat td.mine{outline:1px solid var(--accent)}
+  .heat td.cur,.heat th.cur{box-shadow:inset 0 0 0 2px var(--ink-soft)}
+  .heatWrap{overflow-x:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px}
+  .addTime td.best{background:color-mix(in srgb,var(--good) 22%,transparent);font-weight:600}
   #draftTbl th.cbh,#draftTbl td.cbc{width:1.6rem;min-width:0;padding-left:.25rem;padding-right:.25rem;text-align:center}
   #draftTbl tr.goneRow td{opacity:.42;cursor:default}
   #draftTbl tr.goneRow td.cbc{opacity:.8}
@@ -306,6 +312,7 @@
   <div class="controls" style="margin-bottom:1rem">
     <div class="seg" id="segView">
       <button data-v="week" id="weekBtn" style="display:none">This week</button>
+      <button data-v="sched" id="schedBtn" style="display:none">Schedule</button>
       <button data-v="board" aria-pressed="true">Board</button>
       <button data-v="teams" id="teamsBtn" style="display:none">Teams</button>
       <button data-v="trades" id="tradesBtn" style="display:none">Trades</button>
@@ -317,6 +324,7 @@
   <div id="aboutPane" style="display:none"></div>
   <div id="teamsPane" style="display:none"></div>
   <div id="weekPane" style="display:none"></div>
+  <div id="schedPane" style="display:none"></div>
   <div id="tradesPane" style="display:none"></div>
   <div id="draftPane" style="display:none"></div>
   <div id="boardPane">
@@ -355,7 +363,7 @@
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, SP=null, schedTeam=null, schedSort='playoffs', dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -806,6 +814,16 @@ function renderWeek(){
       <td class="num">${a.add.level}</td><td style="text-align:left">${a.add.games.map(g=>shortDay(g)).join(' ')}</td>
       <td style="text-align:left">${a.drop?esc(a.drop.name)+' <span class="hint">'+a.drop.level+(a.drop.asset_rank?' · asset #'+a.drop.asset_rank:'')+'</span>'+(a.drop.flag==='solid'?' <span class="liveStatus" title="projects 28+ points a game: a real contributor this season. The net gain already subtracts an estimate of what you would lose in later weeks.">solid contributor</span>':''):'<span class="hint">open roster spot</span>'}</td><td class="num"><b>+${a.gain.toFixed(0)}</b><div class="hint">wk +${a.week_gain.toFixed(0)}${a.future_cost>0.5?' / later −'+a.future_cost.toFixed(0):''}</div></td></tr>`).join('')
     :'<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:1rem">no add improves this week by more than 1 point</td></tr>';
+  const fmtDow=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'});
+  const timed=(T.adds||[]).filter(a=>a.by_day&&a.by_day.length).slice(0,6);
+  const addsLeft=M.adds_limit-T.adds_used;
+  const timeRows=timed.map(a=>{
+    const g=a.by_day.map(x=>x.gain), mx=Math.max(...g), bi=g.indexOf(mx);
+    const verdict=g[0]>=mx-2?(g.length>1&&g[0]-g[1]>=5?`<b style="color:var(--good)">add now</b> <span class="hint">waiting a day costs ${(g[0]-g[1]).toFixed(0)}</span>`:'<b style="color:var(--good)">add now</b> <span class="hint">waiting costs little</span>'):`<b>wait until ${fmtDow(a.by_day[bi].date)}</b> <span class="hint">+${(mx-g[0]).toFixed(0)} vs now</span>`;
+    return `<tr class="addTime"><td style="text-align:left"><b>${esc(a.add.name)}</b> <span class="hint">${esc(a.add.team)}</span></td>${a.by_day.map((x,i)=>`<td class="num ${i===bi?'best':''}">${x.gain.toFixed(0)}</td>`).join('')}<td style="text-align:left">${verdict}</td></tr>`;}).join('');
+  const timeHtml=timed.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Add timing: net gain if the add is made on each day · ${addsLeft} of ${M.adds_limit} adds left</div>
+    <div class="tablewrap" style="margin-bottom:.4rem"><table class="addTimeTbl"><thead><tr><th style="text-align:left">Add</th>${M.planned_days.map(d=>`<th>${fmtDow(d)}</th>`).join('')}<th style="text-align:left">Timing</th></tr></thead><tbody>${timeRows}</tbody></table></div>
+    <div class="legend" style="margin:0 0 1.2rem"><b>Budget rule.</b> Adds do not roll over, so an unspent add is wasted. ${addsLeft>=3?'Spend them freely on moves that clear the bar above, but keep <b>one add in reserve</b> for a mid-week injury to a starter.':(addsLeft>0?`Only ${addsLeft} left: spend them on the highest net gains above, and skip anything marginal.`:'No adds left this matchup.')} A player whose value drops fast if you wait (his team plays early in the week) should be added first; one whose games come later can wait for the injury news. Waiver-wire claims on recently dropped players may not be instant, so check ESPN before relying on a same-day add.</div>`:'';
   const seqRows=(T.sequence||[]).map((a,i)=>`<tr><td class="num">${i+1}</td><td style="text-align:left"><b>${esc(a.add.name)}</b> <span class="hint">${esc(a.add.team)} · ${a.add.slots.filter(x=>x!=='UT').join('/')||'UT'} · ${a.add.games.map(shortDay).join(' ')}</span></td>
       <td style="text-align:left">${a.drop?esc(a.drop.name)+' <span class="hint">'+a.drop.level+(a.drop.asset_rank?' · asset #'+a.drop.asset_rank:'')+'</span>'+(a.drop.flag==='solid'?' <span class="liveStatus" title="projects 28+ points a game: a real contributor this season. The net gain already subtracts an estimate of what you would lose in later weeks.">solid contributor</span>':''):'<span class="hint">open roster spot</span>'}</td><td class="num"><b>+${a.gain.toFixed(0)}</b><div class="hint">wk +${a.week_gain.toFixed(0)}${a.future_cost>0.5?' / later −'+a.future_cost.toFixed(0):''}</div></td><td class="num">+${a.cum.toFixed(0)}</td></tr>`).join('');
   const irm=T.ir_moves||[];
@@ -838,6 +856,7 @@ function renderWeek(){
     ${irHtml}
     ${seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves, in order (each uses one of ${M.adds_limit} weekly adds)</div>
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th></tr></thead><tbody>${seqRows}</tbody></table></div>`:''}
+    ${timeHtml}
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Best single adds, each on its own (they overlap, so don't add the gains)</div>
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th style="text-align:left">Games</th><th style="text-align:left">Drop</th><th>Gain</th></tr></thead><tbody>${addRows}</tbody></table></div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and schedule (● = plays that day: ${daysHdr.join(' ')})</div>
@@ -849,7 +868,7 @@ function renderWeek(){
 
 const isMobile=()=>window.matchMedia('(max-width:720px)').matches;
 function mobileTables(pane){
-  pane.querySelectorAll('table').forEach(t=>{
+  pane.querySelectorAll('table:not(.heat)').forEach(t=>{
     const heads=[...t.querySelectorAll('thead th')].map(h=>h.textContent.trim());
     if(!heads.length) return;
     t.classList.add('mcards');
@@ -882,6 +901,57 @@ function signalsHtml(T){
     <div><div class="hint" style="margin-bottom:.2rem">Sell-high (yours)</div>${(T.sell_high||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div>
     <div><div class="hint" style="margin-bottom:.2rem">Buy-low (other teams)</div>${(T.buy_low||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div></div>
     <div class="note" style="margin-top:.5rem">Tested on 2021-24 seasons (out of sample): the reversion model barely beats "normal aging alone" (error ${st.mae_persistence} to ${st.mae_model} pts/g). What holds up: big jumps above expectation fall back a bit (about 2 pts/g); players whose minutes jumped 4+ tend to give some back; big slumps do <b>not</b> reliably rebound, and injury-shortened seasons do <b>not</b> reliably bounce back. Treat these as tie-breakers, not reasons to trade.</div></details>`;
+}
+function renderSchedule(){
+  const pane=document.getElementById('schedPane'); if(!SP) return;
+  const cal=SP.calendar, cur=SP.current_week, avg=SP.avg_games;
+  if(schedTeam==null){ const me=SP.teams.find(t=>t.abbrev===SP.my_abbrev); schedTeam=(me||SP.teams[0]).id; }
+  const T=SP.teams.find(t=>t.id===schedTeam);
+  const mineTeams=new Set(T.players.filter(p=>!p.ir).map(p=>p.team));
+  const sum=(row,ids)=>ids.reduce((a,i)=>a+row[i-1].g,0);
+  let names=Object.keys(SP.nba);
+  const key={playoffs:t=>-sum(SP.nba[t],SP.playoff_weeks),next4:t=>-sum(SP.nba[t],SP.next4),team:t=>0};
+  names.sort((a,b)=>(key[schedSort](a)-key[schedSort](b))||a.localeCompare(b));
+  const fd=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  const color=(g,a)=>{ const d=g-a; if(Math.abs(d)<0.6) return ''; return d>0?`background:color-mix(in srgb,var(--accent) ${Math.min(55,d*22)}%,transparent)`:`background:color-mix(in srgb,var(--warn) ${Math.min(55,-d*22)}%,transparent)`; };
+  const head=cal.map(w=>`<th class="${w.playoff?'po':''} ${w.id===cur?'cur':''}" title="${fd(w.start)} – ${fd(w.end)} · ${w.days} days · cap ${w.cap}${w.playoff?' · PLAYOFFS':''}">${w.id}</th>`).join('');
+  const heatRows=names.map(t=>`<tr><td class="tm ${mineTeams.has(t)?'mine':''}">${esc(t)}</td>${SP.nba[t].map((c,i)=>`<td class="${cal[i].id===cur?'cur':''}" style="${color(c.g,avg[i]*(cal[i].days/ (cal[i].days)))}" title="${esc(t)} · week ${i+1}: ${c.g} games${c.b?', '+c.b+' back-to-back'+(c.b>1?'s':''):''}">${c.g}</td>`).join('')}</tr>`).join('');
+  const avgRow=`<tr><td class="tm">avg</td>${avg.map(a=>`<td class="hint">${a.toFixed(1)}</td>`).join('')}</tr>`;
+  const NX=SP.next4, PO=SP.playoff_weeks;
+  const gcell=(p,ids)=>ids.map(i=>`<td class="num" style="${color(p.games[i-1],avg[i-1])}">${p.games[i-1]}</td>`).join('');
+  const xfmt=v=>`<td class="num" style="color:var(--${v>0.4?'good':(v<-0.4?'warn':'ink-faint')})">${v>0?'+':''}${v.toFixed(1)}</td>`;
+  const rosterRows=T.players.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${esc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.status!=='ACTIVE'&&!p.ir?` <span class="liveStatus">${esc(p.status)}</span>`:''}</td><td style="text-align:left">${esc(p.team)}</td><td class="num">${p.level}</td>${gcell(p,NX)}${xfmt(p.x4)}${gcell(p,PO)}${xfmt(p.xp)}<td style="text-align:left;white-space:normal">${p.flags.map(f=>`<span class="comp">${esc(f)}</span>`).join(' ')}</td></tr>`).join('');
+  const NXh=NX.map(i=>`<th>Wk ${i}</th>`).join(''), POh=PO.map(i=>`<th>Wk ${i}</th>`).join('');
+  const projRows=SP.teams.slice().sort((a,b)=>PO.reduce((s,i)=>s+b.proj[i],0)-PO.reduce((s,i)=>s+a.proj[i],0)).map((t,i)=>{
+    const n4=NX.reduce((s,k)=>s+t.proj[k],0), po=PO.reduce((s,k)=>s+t.proj[k],0);
+    return `<tr class="${t.id===T.id?'':''}"><td class="num">${i+1}</td><td style="text-align:left"><b>${esc(t.abbrev)}</b> <span class="hint">${esc(t.name)}</span></td><td class="num">${n4.toFixed(0)}</td><td class="num"><b>${po.toFixed(0)}</b></td></tr>`;}).join('');
+  const PP=SP.playoffs, isMe=T.abbrev===SP.my_abbrev;
+  const gtxt=g=>g.join('·');
+  const faRows=PP.fa_adds.slice(0,8).map(a=>`<tr><td style="text-align:left"><b>${esc(a.name)}</b> <span class="hint">${esc(a.team)}</span></td><td class="num">${a.level}</td><td class="num">${gtxt(a.games)}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td><td style="text-align:left" class="hint">${a.drop?'for '+esc(a.drop):''}</td></tr>`).join('');
+  const trRows=PP.trade_targets.slice(0,10).map(a=>`<tr><td style="text-align:left"><b>${esc(a.name)}</b> <span class="hint">${esc(a.team)} · ${esc(a.owner)}</span></td><td class="num">${a.level}</td><td class="num">${gtxt(a.games)}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td><td class="num hint">${a.asset_rank?'#'+a.asset_rank:'—'}</td></tr>`).join('');
+  const stRows=PP.streamers_next_week.slice(0,8).map(a=>`<tr><td style="text-align:left"><b>${esc(a.name)}</b> <span class="hint">${esc(a.team)}</span></td><td class="num">${a.level}</td><td class="num">${a.games}</td><td class="num"><b>${a.pts.toFixed(0)}</b></td></tr>`).join('');
+  const H=t=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .4rem">${t}</div>`;
+  pane.innerHTML=`
+    <div class="controls"><select id="schedSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${SP.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
+      <select id="schedSortSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${[['playoffs','Sort NBA teams: playoff games'],['next4','Sort NBA teams: next 4 weeks'],['team','Sort NBA teams: A–Z']].map(([k,t])=>`<option value="${k}" ${schedSort===k?'selected':''}>${t}</option>`).join('')}</select>
+      <span class="hint">updated ${new Date(SP.generated).toLocaleString()}</span></div>
+    ${H('NBA games per fantasy week (blue = more than average, orange = fewer; outlined teams are on the selected roster)')}
+    <div class="heatWrap"><table class="heat"><thead><tr><th></th>${head}</tr></thead><tbody>${heatRows}${avgRow}</tbody></table></div>
+    <div class="hint" style="margin-top:.3rem">Week 1 has 6 days and week 17 has 14 (All-Star). Weeks ${PO.join(', ')} are the playoffs. Hover a cell for back-to-backs.</div>
+    ${H('Roster schedule: games over the next 4 weeks and the playoffs (± = games vs an average team)')}
+    <div class="tablewrap"><table class="schedTbl"><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th>Level</th>${NXh}<th>± 4wk</th>${POh}<th>± playoffs</th><th style="text-align:left">Flags</th></tr></thead><tbody>${rosterRows}</tbody></table></div>
+    ${H('Projected points: next 4 weeks and playoff weeks '+PO.join('–')+' (current rosters, all teams)')}
+    <div class="tablewrap"><table><thead><tr><th>#</th><th style="text-align:left">Team</th><th>Next 4 wks</th><th>Playoffs</th></tr></thead><tbody>${projRows}</tbody></table></div>
+    ${H('Playoff planner for '+esc(SP.my_abbrev)+': best free-agent adds by points gained in weeks '+PO.join('–'))}
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th>Games wk ${PO.join('·')}</th><th>Playoff gain</th><th style="text-align:left">Swap</th></tr></thead><tbody>${faRows||'<tr><td colspan="5" class="hint" style="padding:1rem">no free-agent data yet</td></tr>'}</tbody></table></div>
+    ${H('Trade targets by playoff points added to '+esc(SP.my_abbrev))}
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th>Level</th><th>Games wk ${PO.join('·')}</th><th>Playoff gain</th><th>Asset rk</th></tr></thead><tbody>${trRows}</tbody></table></div>
+    ${H('Streamers for the current week (level × games)')}
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Free agent</th><th>Level</th><th>Games</th><th>Expected pts</th></tr></thead><tbody>${stRows}</tbody></table></div>
+    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Heat map</b>: games each NBA team plays in each fantasy week; a light week is a chance to bench a star or stash a player, a heavy playoff schedule is a reason to hold or trade for a player. <b>Roster ±</b> = games over the next 4 weeks (or the three playoff weeks) minus the league average. <b>Projected points</b> run the same cap-aware daily lineup solver as the This week tab for every future week using each roster as it stands now, with the measured later-game play rate (85% for rotation players, lower for bench players); a player who is out now counts as absent for 2 weeks and then at 60% availability (return dates are unknown). <b>Playoff gain</b> = points added across weeks ${PO.join('–')} by adding that player (for a free agent, replacing your weakest non-protected player). It does not know who your playoff opponents will be. <b>Caveats:</b> the NBA schedule is provisional (ESPN still shows Cup knockout games as TBD and is missing some dates), and the fantasy-week calendar is our inference until ESPN publishes it in season. Both refresh daily.</div>`;
+  document.getElementById('schedSel').addEventListener('change',e=>{schedTeam=+e.target.value; renderSchedule();});
+  document.getElementById('schedSortSel').addEventListener('change',e=>{schedSort=e.target.value; renderSchedule();});
+  mobileTables(pane); collapseLegends(pane);
 }
 function renderTrades(){
   const pane=document.getElementById('tradesPane');
@@ -1220,6 +1290,8 @@ function wire(){
     document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
     document.getElementById('weekPane').style.display = b.dataset.v==='week' ? '' : 'none';
     document.getElementById('tradesPane').style.display = b.dataset.v==='trades' ? '' : 'none';
+    document.getElementById('schedPane').style.display = b.dataset.v==='sched' ? '' : 'none';
+    if(b.dataset.v==='sched') renderSchedule();
     document.getElementById('draftPane').style.display = b.dataset.v==='draft' ? '' : 'none';
     if(b.dataset.v==='draft') renderDraft();
     if(b.dataset.v==='trades') renderTrades();
@@ -1276,6 +1348,7 @@ fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
   fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
+  fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; document.getElementById('schedBtn').style.display='';} }).catch(()=>{});
   fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
   fetch('breakout_history.json',{cache:'no-cache'}).then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();

@@ -1,4 +1,4 @@
-# Start/sit Phase 2 — plan (prepared 2026-09-24)
+# Start/sit Phase 2 — plan (prepared 2026-09-24; features 1-4 BUILT 2026-09-25)
 
 Phase 1 ("This week": today's lineup, adds, opponent) is live. Phase 2 answers the questions Phase 1 can't: **who should I hold, add or
 target so the next several weeks (and the playoffs) score more?** This is the plan and what is already in place; nothing below is built
@@ -50,3 +50,19 @@ except the schedule data.
 ## Validation plan
 Every Phase 2 feature gets a replay on 2025-26 like the Phase 1 backtests (`backtest_weekly_planner.py`) before it is trusted, and a
 live shadow log (`projection_log.csv`) once the season starts.
+
+
+## Build status (2026-09-25)
+* Built: (1) Schedule tab heat map, (2) roster schedule value (games over the next 4 weeks and the playoffs, +/- vs average, flags),
+  (3) playoff planner (projected points weeks 20-22 for every team, best free-agent adds and trade targets by playoff points, streamers),
+  (4) add timing on the This week tab (net gain of each top add if made on each remaining day, with a budget rule). Code:
+  `ingest/research/build_schedule_plan.py` (schedule_plan.json) and the add-timing block in `build_week_plan.py` (`by_day`, `fa_pool`).
+  Not yet validated by a 2025-26 replay (the plan's rule); the shadow log will score it in season.
+* Assumptions to verify in season: the fantasy-week calendar, "OUT now" players absent 2 weeks then 60% availability, whether adds of
+  recently dropped players are instant (waivers process Sundays), the reserve-one-add heuristic (not measured).
+* Injury-timing fix: `.github/workflows/refresh-gameday.yml` re-runs rosters + weekly plan + schedule plan at 19:07 and 22:07 UTC
+  (about 3pm and 6pm ET in summer time, 2pm and 5pm ET in winter), after the NBA's official injury report (due ~5pm ET). Known gap: it cannot
+  help 12-3pm tips, and the plan for "today" still lists players whose game has already started.
+* DFS projections (`probe_dfs_projections.py`): DraftKings is the closest format (r = 0.993 per game vs league points; league = 1.206 x DK).
+  Cannot be verified until slates exist (Oct 20). On that day run the probe, read the saved HTML, write the parser, and add a `dk_proj` column to
+  `projection_log.csv` so it can be scored against ESPN + recent form before it drives any decision.
