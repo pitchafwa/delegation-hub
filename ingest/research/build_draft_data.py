@@ -43,6 +43,8 @@ teams = []
 for t in lg.teams:
     teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(),
                   "roster": [{"id": p.playerId, "name": p.name, "slot": p.lineupSlot} for p in t.roster]})
+_tp = Path(__file__).resolve().parent / "draft_trades.json"
+trades = json.load(open(_tp, encoding="utf-8")).get("picks", []) if _tp.exists() else []
 my = next((t for t in teams if t["abbrev"] == MY_ABBREV), teams[0])
 
 
@@ -67,7 +69,7 @@ filled_k = sum(1 for p in picks if p["keeperSlot"] and p["player"])
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_id": my["id"], "my_abbrev": my["abbrev"],
        "draft": {"date_ms": ds.get("date"), "keeper_deadline_ms": ds.get("keeperDeadlineDate"), "keepers_now": ds.get("keeperCount"), "keepers_future": ds.get("keeperCountFuture"),
                  "type": ds.get("type"), "seconds_per_pick": ds.get("timePerSelection"), "in_progress": bool(dd.get("inProgress")), "drafted": bool(dd.get("drafted")),
-                 "keeper_slots": n_kslots, "keeper_slots_filled": filled_k, "picks": picks},
+                 "keeper_slots": n_kslots, "keeper_slots_filled": filled_k, "trades": trades, "picks": picks},
        "teams": teams, "players": {str(k): v for k, v in players.items()}}
 (HUB / "draft_data.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 sizes = sorted(len(t["roster"]) for t in teams)

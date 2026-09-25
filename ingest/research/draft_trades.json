@@ -1,0 +1,6 @@
+{
+  "_note": "Traded DRAFT picks that ESPN's board does not show. real_round counts only the rounds actually drafted (board rounds 1-3 are keeper rounds, so real round 4 = board round 7). from/to are ESPN team ids.",
+  "picks": [
+    {"real_round": 4, "from": 6, "to": 12, "note": "Savion's (CAST) 4th-round pick, traded to DRNK last year"}
+  ]
+}
