@@ -106,6 +106,9 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
+  #draftTbl th.cbh,#draftTbl td.cbc{width:1.6rem;min-width:0;padding-left:.25rem;padding-right:.25rem;text-align:center}
+  #draftTbl tr.goneRow td{opacity:.42;cursor:default}
+  #draftTbl tr.goneRow td.cbc{opacity:.8}
   .profCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem .95rem;margin:.6rem 0 1rem}
   .profHd{font-weight:600;margin-bottom:.2rem}
   .profTbl{border-collapse:collapse;width:100%;font-size:.82rem;margin-top:.3rem}.profTbl th,.profTbl td{padding:.22rem .3rem;border-top:1px solid var(--line);white-space:normal}
@@ -352,7 +355,7 @@
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, dHide=true, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -955,7 +958,7 @@ function draftModel(){
     const slots=new Set(e.slots&&e.slots.length?e.slots:(h&&h.pos?String(h.pos).split(/[\/,]/).flatMap(t=>POSSLOTS[t.trim()]||[]):['UT']));
     slots.add('UT');
     return {id:String(e.espn_id),name:e.name,team:h&&h.team||e.team||'',pos:h&&h.pos||[...slots].filter(x=>x!=='UT'&&x!=='G'&&x!=='F').join('/'),age:h?h.age:null,adp:h&&h.adp!=null?h.adp:null,rk:e.redraft_rank||null,
-      vor:h&&h.trajectory?computeVOR(h.trajectory,K).vor:null,asset:h&&h.asset_k?h.asset_k[K]:0,asset5:h&&h.asset_k?h.asset_k[5]:0,mkt:h&&h.market_rank!=null?h.market_rank:null,ours:h?h.year0_ppg:null,
+      vor:h&&h.trajectory?computeVOR(h.trajectory,K).vor:null,asset:h&&h.asset_k?h.asset_k[K]:0,asset5:h&&h.asset_k?h.asset_k[5]:0,mkt:h&&h.market_rank!=null?h.market_rank:null,bkt:h&&h.p_break!=null?h.p_break:null,ours:h?h.year0_ppg:null,
       espn:e.avg||null,ef,slots,status:e.status,hub:h,kind:h?h.kind:null}; };
   const all=new Map(); byEspn.forEach((e,id)=>all.set(id,mk(e)));
   // who is a keeper (real once ESPN fills the keeper picks; otherwise projected as each team's top-3 by asset)
@@ -1062,31 +1065,52 @@ function renderDraft(){
   rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
     if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
     return dsort.asc?av-bv:bv-av; });
+  const gonePl=new Map();   // id -> {p, tag, manual}
+  if(dShowDrafted){
+    const tn=id=>{const t=DR.teams.find(t=>t.id===id); return t?t.abbrev:'?';};
+    const inPool=new Set(M.pool.map(x=>x.id));
+    M.all.forEach((p,id)=>{ if(inPool.has(id)) return;
+      if(dq&&!p.name.toLowerCase().includes(dq.toLowerCase())) return; if(dpos!=='all'&&!p.slots.has(dpos)) return;
+      const tk=M.taken.get(id), kt=M.kept.get(id);
+      if(!tk&&kt==null) return;
+      gonePl.set(id,{p,tag:tk?(tk.manual?(tk.team===DR.my_id?'drafted by you':'drafted (marked)'):'drafted · '+tn(tk.team)):'kept · '+tn(kt),manual:!!(tk&&tk.manual),mine:!!(tk&&tk.team===DR.my_id)||kt===DR.my_id}); });
+    const baseV=lineupValue(withRepl(M.mine)).value, base5=M.mine.map(x=>x.asset5).sort((x,y)=>y-x).slice(0,5).reduce((x,y)=>x+y,0);
+    gonePl.forEach(g=>{ const p=g.p; const mine=M.mine.filter(x=>x.id!==p.id);   // sort key only: where he would have ranked (shown as a dash)
+      const bv=lineupValue(withRepl(mine)).value, b5=mine.map(x=>x.asset5).sort((x,y)=>y-x).slice(0,5).reduce((x,y)=>x+y,0);
+      p.fit=(lineupValue(withRepl(mine.concat([p]))).value-bv)*73; p.dyn=mine.concat([p]).map(x=>x.asset5).sort((x,y)=>y-x).slice(0,5).reduce((x,y)=>x+y,0)-b5; p.score=p.fit+M.w*73*p.dyn; p.fills=''; rows.push(p); });
+    rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
+      if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
+      return dsort.asc?av-bv:bv-av; });
+  }
   const shown=rows.slice(0,dLimit);
   const L=lineupValue(M.mine), LV=lineupValue(withRepl(M.mine)).value;
   const nextMine=PI.mineLeft[0], after=PI.mineLeft[1];
   const afterIdx=after?PI.picks.indexOf(after):-1;
   const AV=simulateAvail(M,PI);
   const gap=nextMine?PI.picks.indexOf(nextMine):null;
-  const banner=M.real?`<span class="hint">Keepers are final (from ESPN). ${M.kept.size} kept.</span>`:`<span class="liveStatus" title="ESPN has not filled the keeper picks yet, so each team's top-${DR.draft.keepers_now||3} assets are assumed kept">PROJECTED keepers</span> <span class="hint">the pool is a guess until ESPN shows the real keepers (due Sun 9/27, 5pm ET)</span>`;
+  const liveTag=dLive?'<span class="liveStatus" style="background:var(--good);color:#fff">LIVE from ESPN</span> ':'';
+  const banner=liveTag+(M.real?`<span class="hint">Keepers are final (from ESPN). ${M.kept.size} kept.</span>`:`<span class="liveStatus" title="ESPN has not filled the keeper picks yet, so each team's top-${DR.draft.keepers_now||3} assets are assumed kept">PROJECTED keepers</span> <span class="hint">the pool is a guess until ESPN shows the real keepers (due Sun 9/27, 5pm ET)</span>`);
   const core=M.mine.slice().sort((a,b)=>b.asset5-a.asset5).slice(0,5);
   const trs=shown.map(p=>{
-    const open=dOpen===p.id;
+    const G=gonePl.get(p.id);
+    const open=dOpen===p.id&&!G;
     let gone=afterIdx>=0&&p.poolRank!=null&&p.poolRank<=afterIdx?'<span class="hint" title="his ADP says he is likely gone before your following pick">take?</span>':'';
     if(AV&&AV.has(p.id)){ const a=AV.get(p.id); gone=`<span class="hint" title="Simulated chance he is still available at your next pick, using each team's draft tendencies">${a>=0.97?'≥97':(a<=0.03?'≤3':Math.round(a*100))}% left</span>`; }
     else if(AV) gone='<span class="hint" title="Simulated chance he is still available at your next pick">≥97% left</span>';
+    if(G) gone='';
     const inj=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'';
     const fmt=(v,d=0)=>v==null?'<span class="hint">—</span>':Number(v).toFixed(d);
-    const row=`<tr data-id="${p.id}"><td>${esc(p.name)}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
+    const lock=!!G&&!G.manual, liveLock=DR.draft.in_progress&&dLive;
+    const cb=(kind,on)=>`<td class="cbc"><input type="checkbox" class="dcb" data-id="${p.id}" data-act="${kind}" ${on?'checked':''} ${(lock||(liveLock&&!G))?'disabled':''} /></td>`;
+    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${esc(p.name)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
       <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
-      <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
-      <td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td></tr>`;
+      <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
+      ${G?'<td class="num hint">—</td><td class="num hint">—</td><td class="num hint">—</td>':`<td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td>`}</tr>`;
     if(!open) return row;
     const why=`Adds <b>${(p.fit/73).toFixed(1)}</b> pts/g to your best lineup${p.fills&&p.fills!=='bench'?` (he would start at <b>${esc(p.fills)}</b>)`:' (he would sit on your bench)'} — about <b>${p.fit.toFixed(0)}</b> season points. Dynasty: ${p.dyn>0?`raises your top-5 keeper assets for next year by <b>${p.dyn.toFixed(0)}</b>`:'does not make your top 5 keepers next year'}. Score = lineup points + ${M.w.toFixed(2)} × 73 × dynasty (${M.myDrafted<dDynPicks?'dynasty-heavy phase: your first '+dDynPicks+' picks':'points phase'}).`;
-    const btns=DR.draft.in_progress&&dLive?'':`<button class="dbtn" data-act="mine" data-id="${p.id}">I drafted him</button> <button class="dbtn" data-act="other" data-id="${p.id}">Someone else did</button>`;
-    return row+`<tr class="detail"><td colspan="14"><div class="note" style="margin:.2rem 0">${why}</div><div style="margin-top:.4rem">${btns}</div></td></tr>`;
+    return row+`<tr class="detail"><td colspan="17"><div class="note" style="margin:.2rem 0">${why}</div><div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
   }).join('');
-  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="14"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
+  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="17"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
   const rosterHtml=`<details class="dTeam" ${isMobile()?'':'open'}>
       <summary class="dHd">Your team <span class="hint">${M.mine.length} players · about ${Math.round(LV*3.3)} pts/week with replacement-level fill-ins</span></summary>
       ${L.assign.map(a=>`<div class="dSlot"><b>${a.slot}</b>${a.pl&&!a.pl.repl?`<span>${esc(a.pl.name)} <span class="hint">${a.pl.ef.toFixed(1)}${M.kept.get(a.pl.id)===DR.my_id?' · keeper':''}</span></span>`:'<span class="hint">empty: draft a '+a.slot+'</span>'}</div>`).join('')}
@@ -1111,26 +1135,42 @@ function renderDraft(){
         <details class="dSet" ${isMobile()?'':'open'}><summary class="hint" style="cursor:pointer;padding:.3rem 0">Draft strategy settings (dynasty-first picks and weights)</summary><div class="controls" style="gap:1rem">
           <label class="kbox" style="gap:.5rem"><span>Dynasty-first picks:</span><input type="number" id="dDyn" min="0" max="12" value="${dDynPicks}" style="width:3rem" /></label>
           <label class="kbox" style="gap:.5rem"><span>Dynasty weight early / later:</span><input type="number" id="dWE" min="0" max="1" step="0.05" value="${dWEarly}" style="width:3.6rem" /> <input type="number" id="dWL" min="0" max="1" step="0.02" value="${dWLate}" style="width:3.6rem" /></label>
+          <button class="dbtn" id="dShow" type="button">${dShowDrafted?'Hide drafted / kept':'Show drafted / kept'}</button>
           <button class="dbtn" id="dReset" type="button">Reset my manual marks</button>
         </div></details>
         <div class="tablewrap"><table id="draftTbl"><thead><tr>
-          ${[['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t])=>`<th data-k="${k}" class="${dsort.k===k?'sorted '+(dsort.asc?'asc':''):''}">${t}</th>`).join('')}
-        </tr></thead><tbody>${trs||'<tr><td colspan="14" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
+          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
+        </tr></thead><tbody>${trs||'<tr><td colspan="17" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
       </div>
       <div class="dSide">${rosterHtml}</div>
     </div>
-    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>% left</b> = simulated chance he is still on the board at your next pick (or, when you are on the clock, your following pick): every team picks in order from the ADP list with noise, nudged by that owner's draft profile (young/rookie/injury tendencies, owners with 2+ seasons of history only). It updates as picks come in, and is a rough guide, not a forecast. Without the profile data it falls back to <b>take?</b> (his ADP says he will probably be gone before your following pick). In a live draft the page reads ESPN's picks when served by the local draft server; otherwise tap a player and mark him drafted.</div>`;
+    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>% left</b> = simulated chance he is still on the board at your next pick (or, when you are on the clock, your following pick): every team picks in order from the ADP list with noise, nudged by that owner's draft profile (young/rookie/injury tendencies, owners with 2+ seasons of history only). It updates as picks come in, and is a rough guide, not a forecast. Without the profile data it falls back to <b>take?</b> (his ADP says he will probably be gone before your following pick). Tick <b>Me</b> / <b>Oth</b> to mark a player drafted by hand. <b>BKT</b> = the model's chance he breaks out this season.</div>
+    <div class="legend" style="margin-top:.8rem"><b>Turning on live draft updates (do this on draft night).</b> The website on GitHub cannot read your private ESPN league, so during the draft you open a copy that runs on your own PC. The PC must stay on and awake, and your phone must be on the same Wi-Fi.
+      <ol style="margin:.4rem 0 0 1.2rem;padding:0;line-height:1.5">
+        <li>On your PC, open a <b>PowerShell</b> window (Start menu, type PowerShell, Enter).</li>
+        <li>Paste this and press Enter: <code>cd "C:\Users\tommy\OneDrive\Documents\Claude\fantasy-basketball-hub\ingest\research"; .\run_draft_server.ps1 -Lan</code> (leave off <code>-Lan</code> if you only need it on the PC).</li>
+        <li>Wait about 10 seconds until it prints a line like <code>Draft server running. Open http://192.168.1.23:4180</code> (with <code>-Lan</code> it shows your PC's Wi-Fi address; without it, <code>localhost</code>). Write that address down and do not close this window: closing it stops live updates.</li>
+        <li>On the PC, open <code>http://localhost:4180</code> in your browser. On your iPhone, open the printed <code>192.168…:4180</code> address in Safari (same Wi-Fi).</li>
+        <li>Click <b>Draft</b>. When it is connected, a green <b>LIVE from ESPN</b> label appears at the top of the tab. Picks then appear about every 5 seconds, drafted players drop off the list by themselves, and the <b>% left</b> and score columns recompute.</li>
+        <li>If it can't reach the server, check the PowerShell window is still open, then refresh the page (on an iPhone, close the tab and reopen it). Windows may ask to allow Python through the firewall the first time: choose <b>Private networks</b> and Allow.</li>
+        <li>When the draft ends, click the PowerShell window and press <b>Ctrl+C</b> to stop it. Then go back to the normal GitHub address.</li>
+      </ol>
+      <div class="hint" style="margin-top:.4rem">Before the draft starts, ESPN's board has no picks, so the live page just shows "draft not started". Ticking Me / Oth by hand still works as a backup at any time.</div></div>`;
   // events
   document.getElementById('dq').addEventListener('input',e=>{dq=e.target.value; dLimit=60; renderDraft(); const el=document.getElementById('dq'); el.focus(); el.setSelectionRange(dq.length,dq.length);});
   document.getElementById('dpos').addEventListener('change',e=>{dpos=e.target.value; dLimit=60; renderDraft();});
   document.getElementById('dSortSel').addEventListener('change',e=>{dsort.k=e.target.value; dsort.asc=(dsort.k==='name'||dsort.k==='age'); renderDraft();});
   ['dDyn','dWE','dWL'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{ const v=+e.target.value; if(id==='dDyn') dDynPicks=v; else if(id==='dWE') dWEarly=v; else dWLate=v; renderDraft(); }));
+  document.getElementById('dShow').addEventListener('click',()=>{ dShowDrafted=!dShowDrafted; dLimit=60; renderDraft(); });
   document.getElementById('dReset').addEventListener('click',()=>{ manualSave({}); renderDraft(); });
   document.querySelector('#draftTbl thead').addEventListener('click',e=>{ const th=e.target.closest('th'); if(!th) return; const k=th.dataset.k; if(dsort.k===k) dsort.asc=!dsort.asc; else {dsort.k=k; dsort.asc=(k==='name'||k==='age');} renderDraft(); });
   document.querySelector('#draftTbl tbody').addEventListener('click',e=>{
+    const cbx=e.target.closest('.dcb'); if(cbx){ const m=manualLoad(); const id=cbx.dataset.id;
+      if(cbx.checked) m[id]=cbx.dataset.act==='mine'?'mine':'other'; else delete m[id]; manualSave(m); dOpen=null; renderDraft(); return; }
     const b=e.target.closest('.dbtn'); if(b){ const m=manualLoad(); m[b.dataset.id]=b.dataset.act==='mine'?'mine':'other'; manualSave(m); dOpen=null; renderDraft(); return; }
     if(e.target.closest('#dMore')){ dLimit+=60; renderDraft(); return; }
-    const tr=e.target.closest('tr[data-id]'); if(!tr) return; dOpen=(dOpen===tr.dataset.id)?null:tr.dataset.id; renderDraft(); });
+    if(e.target.closest('td.cbc')) return;
+    const tr=e.target.closest('tr[data-id]'); if(!tr||tr.classList.contains('goneRow')) return; dOpen=(dOpen===tr.dataset.id)?null:tr.dataset.id; renderDraft(); });
   mobileTables(pane);
   pane.querySelectorAll('#draftTbl').forEach(t=>t.classList.add('draftTbl'));
   collapseLegends(pane);
