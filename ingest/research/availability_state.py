@@ -107,3 +107,22 @@ def state_for(key, espn_id, today, prior):
     if dates is None:
         return None
     return "played" if dates.get(g, 0) > 0 else "missed"
+
+
+def out_streak(key, today, max_days=7):
+    """number of consecutive listings as Out ending today (today counts as 1), read from the previous days' 5:30 PM reports; capped at max_days + 1"""
+    n = 0
+    for k in range(1, max_days + 1):
+        d = today - timedelta(days=k)
+        rows = _prior_cache.get(d)
+        if rows is None:
+            rows = _report(d)
+        st = [s for g, kk, s in rows if kk == key]
+        if not st:
+            if not rows:              # no report that day (off day league-wide): skip it
+                continue
+            break
+        if st[-1] != "Out":
+            break
+        n += 1
+    return n + 1

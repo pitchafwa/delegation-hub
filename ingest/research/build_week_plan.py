@@ -206,7 +206,8 @@ def make_player(p, on_roster_slot=None):
 
 def level_on(pl, d):
     """projected points per game on date d: sportsbook-prop-derived when we have it for that day, else the base level"""
-    return pl.get("lvl_by_date", {}).get(d.isoformat(), pl["level"])
+    iso = d.isoformat()
+    return pl.get("lvl_by_date", {}).get(iso, pl["level"] + pl.get("boost", {}).get(iso, 0.0))
 
 
 def p_play(pl, d):
@@ -330,7 +331,8 @@ def plan_team(roster, c0=0.0, detail=False):
         m = 0 if locked else best(di, c)[1]
         chosen = [cands[order[k]][1] for k in range(m)]
         slots = assign_slots(chosen)
-        starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2), "props": d.isoformat() in pl.get("lvl_by_date", {})}
+        starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2), "props": d.isoformat() in pl.get("lvl_by_date", {}),
+                     "boost": round(pl.get("boost", {}).get(d.isoformat(), 0.0), 1)}
                     for k, (pl, s) in enumerate(zip(chosen, slots))]
         benched = [{"id": cands[order[k]][1]["espn_id"], "name": cands[order[k]][1]["name"], "ef": round(cands[order[k]][0], 1)} for k in range(m, len(order))]
         c_after = c + (cnt[m] if not locked else 0)
@@ -447,6 +449,94 @@ for _pl in [x for rr in rosters.values() for x in rr] + fa_players:
         except Exception:
             _pl["avail_state"] = None
 
+# ---------- USAGE FLOW: when a rotation player is out, his teammates pick up his production (usage_flow.py; 14 seasons of box scores, tested out of time on 2024-26).
+# Adds a per-day boost to every teammate's level (rostered players and free agents alike), so lineups, adds, drops and timing all see it.
+USAGE = {"enabled": False, "absent": 0, "boosted": 0}
+OPPORTUNITIES = []
+try:
+    import usage_flow as UF
+    all_pl = [x for rr in rosters.values() for x in rr] + fa_players
+    kof = lambda name: norm(name).replace(" ", "")
+    espn_by_key = {kof(pl["name"]): pl for pl in all_pl}
+    # real NBA rosters from ESPN (the hub still lists retired players), matched by name to the hub's per-player projections
+    nba_roster = {}
+    try:
+        _tj = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams", timeout=30).json()
+        for _t in [x["team"] for x in _tj["sports"][0]["leagues"][0]["teams"]]:
+            _rj = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{_t['id']}/roster", timeout=30).json()
+            for _a in _rj.get("athletes", []):
+                nba_roster[kof(_a["fullName"])] = canon(_t["abbreviation"])
+    except Exception as _ex:
+        print("ESPN NBA rosters unavailable, using the hub's teams:", _ex)
+    team_players = {}
+    for hp in hub["players"]:
+        nsp = hp.get("next_season_proj") if hp.get("kind") == "current" else hp.get("rookie_proj")
+        if not nsp or (nsp.get("MIN") or 0) < 8 or not hp.get("year0_ppg") or hp["year0_ppg"] < 6:
+            continue
+        key = kof(hp["player"])
+        team = (espn_by_key.get(key) or {}).get("team") or nba_roster.get(key) or (canon(hp.get("team") or "") if not nba_roster else "")
+        if not team or (nba_roster and key not in nba_roster and key not in espn_by_key):
+            continue
+        pos = UF.pos_probs(nsp["REB"] * 36, nsp["AST"] * 36, nsp["BLK"] * 36, nsp["STL"] * 36, nsp.get("FG3M", 0) * 36)
+        team_players.setdefault(team, []).append({"id": key, "name": hp["player"], "fp": float(hp["year0_ppg"]), "mpg": float(nsp["MIN"]), "pos": pos})
+    tp_by_key = {p["id"]: (tm, p) for tm, lst in team_players.items() for p in lst}
+    listed_by_key = {}
+    for (gd_, k_), st_ in OFFICIAL.items():
+        listed_by_key.setdefault(k_, {})[gd_] = st_
+    forced = {kof(n.strip()) for n in os.environ.get("USAGE_TEST_OUT", "").split(",") if n.strip()}       # testing only: pretend these players are OUT
+    absent = []
+    for k_ in set(listed_by_key) | {k for k, pl in espn_by_key.items() if pl["status"] in ("OUT", "INJURY_RESERVE") or pl["ir"]} | forced:
+        if k_ not in tp_by_key:
+            continue
+        tm_, pp_ = tp_by_key[k_]
+        if pp_["mpg"] < 12:
+            continue
+        lst = dict(listed_by_key.get(k_, {}))
+        pl_ = espn_by_key.get(k_)
+        today_st = lst.get(today.isoformat())
+        espn_out = bool(pl_ and (pl_["status"] in ("OUT", "INJURY_RESERVE") or pl_["ir"]))
+        if k_ in forced:
+            for d_ in plan_days:
+                lst[d_.isoformat()] = "Out"
+            today_st = "Out"
+        status0 = "Out" if (today_st == "Out" or (espn_out and today_st in (None, "Out"))) else (today_st if today_st in ("Doubtful", "Questionable") else "none")
+        if status0 == "none" and not any(v in ("Out", "Doubtful", "Questionable") for v in lst.values()):
+            continue
+        streak = AV.out_streak(kof(pp_["name"]), today) if AV else 1
+        if pl_ and pl_["ir"]:
+            streak = max(streak, 15)
+        elif espn_out and today_st is None:
+            streak = max(streak, 8)       # ESPN says out and the report does not list him: a long-term absence
+        absent.append({"id": k_, "team": tm_, "status0": status0, "streak": streak, "listed": lst, "p_today": 0.5 if today_st == "Questionable" else 0.0})
+    tgn = lambda team, d: sum(1 for dd in plan_days if dd < d and plays(team, dd))
+    boosts = UF.plan_boosts(plan_days, team_players, absent, plays, tgn)
+    nb = 0
+    for pl_ in all_pl:
+        k_ = kof(pl_["name"])
+        for d_ in plan_days:
+            b_ = boosts.get((k_, d_.isoformat()))
+            if b_ and pl_["level"] > 0:
+                pl_.setdefault("boost", {})[d_.isoformat()] = round(b_["delta"], 1)
+                pl_.setdefault("boost_why", set()).update(b_["because"])
+                nb += 1
+    owner_of = {kof(pp_["name"]): tm_ab for tm_ab, rr in [(t.team_abbrev, rosters[t.team_id]) for t in lg.teams] for pp_ in rr}
+    for a_ in sorted(absent, key=lambda a: -tp_by_key[a["id"]][1]["fp"])[:8]:
+        tm_, pp_ = tp_by_key[a_["id"]]
+        if pp_["mpg"] < 22 or a_["status0"] == "none":
+            continue
+        ben = []
+        for pl_ in all_pl:
+            if pl_["team"] == tm_ and kof(pl_["name"]) != a_["id"] and pl_.get("boost"):
+                mx_ = max(pl_["boost"].values())
+                if mx_ >= 2.0 and pp_["name"] in pl_.get("boost_why", set()):
+                    ben.append({"name": pl_["name"], "owner": owner_of.get(kof(pl_["name"])) or "FA", "delta": mx_, "level": pl_["level"], "espn_id": pl_["espn_id"]})
+        ben.sort(key=lambda b: -b["delta"])
+        OPPORTUNITIES.append({"absent": {"name": pp_["name"], "team": tm_, "status": a_["status0"], "streak": a_["streak"], "fp": round(pp_["fp"], 1)}, "beneficiaries": ben[:6]})
+    USAGE = {"enabled": True, "absent": len(absent), "boosted": nb}
+    print("usage flow:", USAGE)
+except Exception as ex:                        # never let this break the plan
+    print("usage flow unavailable:", repr(ex))
+
 # ---------- sportsbook player props (optional): market projections for today/tomorrow, converted to league scoring
 props_meta = {"enabled": False}
 ODDS_KEY = os.environ.get("ODDS_API_KEY")
@@ -513,6 +603,7 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
         if best_move and best_move[0] >= MIN_NET_GAIN:
             g, dr, wk = best_move
             moves.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
+                                  "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
                                   "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
                           "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                           "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
@@ -545,6 +636,7 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
         cur += wk
         used.add(f["espn_id"])
         seq.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
+                            "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
                     "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                     "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1), "by_day": by_day})
@@ -620,7 +712,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -636,7 +728,8 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"]} for f in fa_players],
+       "fa_pool": [{"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
+       "usage": USAGE, "opportunities": OPPORTUNITIES,
        "teams": out_teams}
 OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

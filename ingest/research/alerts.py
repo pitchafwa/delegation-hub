@@ -283,6 +283,27 @@ def run_check():
             push("Dynasty free agent available", body + "\nA bench spot is enough to stash him. Check the Dynasty list on This week.", priority=3, tags=["star"])
     except Exception as ex:
         print("free-agent check failed:", ex)
+    # ---- injury beneficiaries: only when the weekly plan itself recommends the add (it names the drop and the net gain)
+    if can_send and (FORCE or not in_quiet()):
+        sent_b = s.setdefault("benef_sent", {})
+        for m in (T.get("sequence") or []):
+            add = m["add"]
+            fresh = [n for n in (add.get("boost_why") or []) if next((o["absent"]["streak"] for o in (W.get("opportunities") or []) if o["absent"]["name"] == n), 99) < 8]
+            boost_pts = add.get("boost", 0) * len(add.get("games", []))
+            # only NEWS (someone recently ruled out) and only when the boost is a real part of why the plan wants him
+            if add.get("boost", 0) < 2.5 or not fresh or boost_pts < 0.25 * m["week_gain"] or m["gain"] < 15 or not m.get("drop"):
+                continue
+            key = f"{TODAY.isoformat()}:{add['id']}"
+            if key in sent_b:
+                continue
+            why = " and ".join(fresh[:2])
+            by = m.get("by_day") or []
+            g0 = by[0]["gain"] if by else m["gain"]
+            wait = f" Waiting a day costs {by[0]['gain'] - by[1]['gain']:.0f}." if len(by) > 1 and by[0]["gain"] - by[1]["gain"] >= 3 else ""
+            push("Injury opportunity: add " + add["name"], f"{why} out: {add['name']} ({add['team']}) gains about +{add['boost']:.0f} pts/g. Plan: add him, drop {m['drop']['name']}, net +{g0:.0f} this week.{wait}" + chr(10) + "The other injuries are in the This week tab.", priority=4, tags=["chart_with_upwards_trend"])
+            sent_b[key] = 1
+        for k in [k for k in sent_b if not k.startswith(TODAY.isoformat())]:
+            sent_b.pop(k)
     # ---- lineup check before the first tip of the day
     tip = first_tip(W, T)
     if tip and can_send and tip - timedelta(minutes=90) <= NOW < tip:
