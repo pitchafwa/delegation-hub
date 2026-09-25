@@ -155,6 +155,7 @@ def b2b(team, d):
 
 
 # ---------- players
+RECENT_FORM_MAX = 0.0   # 0 = use ESPN's projection as-is (Tommy's call). ESPN only publishes a season-average per game, so a value like 0.45 would tilt it toward the last 15 games
 STATUS_P = {"ACTIVE": 0.94, "DAY_TO_DAY": 0.55, "OUT": 0.0, "INJURY_RESERVE": 0.0, "SUSPENSION": 0.0}
 
 
@@ -167,7 +168,7 @@ def make_player(p, on_roster_slot=None):
     l15 = p.stats.get(f"{SEASON_ID}_last_15") or {}
     gp15 = (l15.get("total") or {}).get("GP") or 0
     if gp15 >= 3 and l15.get("applied_avg"):
-        w = 0.45 * min(gp15, 15) / 15.0
+        w = RECENT_FORM_MAX * min(gp15, 15) / 15.0
         base = w * l15["applied_avg"] + (1 - w) * base
         src += "+recent"
     return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)],
