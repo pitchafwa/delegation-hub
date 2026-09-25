@@ -44,6 +44,14 @@ jobs:
         working-directory: ingest
         run: python research/pull_nba_schedule.py
 
+      # Draft board, keepers and ESPN projections for the Draft tab (ESPN only)
+      - name: Refresh the draft data
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: python research/build_draft_data.py
+
       # Cap-aware weekly plan for every team (lineups by day, best adds, opponent projection). Reads the rosters/schedule/injuries just pulled.
       - name: Build the weekly plan
         working-directory: ingest
@@ -58,7 +66,7 @@ jobs:
         run: |
           git config user.name "league-refresh-bot"
           git config user.email "league-refresh-bot@users.noreply.github.com"
-          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/nba_schedule.json
+          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/nba_schedule.json dashboard/draft_data.json
           git add dashboard/projection_log.csv 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "pushed=false" >> "$GITHUB_OUTPUT"

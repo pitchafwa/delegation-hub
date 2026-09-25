@@ -106,6 +106,18 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
+  .dStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:.4rem 0 1rem;font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--ink-soft)}
+  .dStrip b{display:block;font:600 1.1rem/1.1 "IBM Plex Sans",sans-serif;color:var(--ink)}
+  .dTop{display:grid;grid-template-columns:1fr 300px;gap:1.2rem;align-items:start}
+  .dSide{position:sticky;top:.6rem}
+  .dTeam{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem}
+  .dHd{font-weight:600;margin-bottom:.4rem;cursor:pointer}
+  #dpos,#dSortSel{padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem}
+  .dSlot{display:flex;gap:.5rem;padding:.22rem 0;border-top:1px solid var(--line);font-size:.84rem}.dSlot b{min-width:2rem;font-family:"IBM Plex Mono",monospace;color:var(--accent)}
+  .dSub{font-size:.76rem;color:var(--ink-soft);margin-top:.5rem}
+  .dbtn{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:8px;padding:.4rem .7rem;font:inherit;font-size:.8rem;cursor:pointer;min-height:38px}
+  #draftTbl th{white-space:normal}#draftTbl td{padding:.4rem .4rem}
+  @media(max-width:900px){.dTop{grid-template-columns:1fr}.dSide{position:static;order:-1}}
   .tradeCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin-bottom:.7rem}
   .tradeHd{display:flex;align-items:baseline;gap:.4rem;padding-bottom:.35rem;border-bottom:1px solid var(--line);margin-bottom:.35rem}
   .tradeScore{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--good);font-size:1.05rem}
@@ -168,6 +180,15 @@
     table.mcards td:first-child::before{display:none}
     table.mcards td[data-label="Games"]{grid-column:1/-1}
     /* Week: day plan */
+    .dStrip{grid-template-columns:repeat(2,1fr)}
+    table.draftTbl td[data-label="Team"],table.draftTbl td[data-label="Pos"],table.draftTbl td[data-label="Age"]{font-size:.8rem;color:var(--ink-soft)}
+    table.draftTbl td[data-label="Team"]::before,table.draftTbl td[data-label="Pos"]::before,table.draftTbl td[data-label="Age"]::before{display:none}
+    table.draftTbl td[data-label="Score"]{order:4}table.draftTbl td[data-label="Lineup fit"]{order:5}table.draftTbl td[data-label="Dynasty fit"]{order:6}table.draftTbl td[data-label="ADP"]{order:7}
+    table.draftTbl td[data-label="Redraft rk"]{order:8}table.draftTbl td[data-label="VOR"]{order:9}table.draftTbl td[data-label="Asset"]{order:10}table.draftTbl td[data-label="MKT"]{order:11}
+    table.draftTbl td[data-label="Our proj"]{order:12}table.draftTbl td[data-label="ESPN proj"]{order:13}
+    table.draftTbl tr.detail,table.draftTbl tr.moreRow{display:block;grid-column:auto}
+    table.draftTbl tbody tr.detail td{grid-column:1/-1;display:block}
+    table.draftTbl tbody tr.detail{background:var(--surface-2)}
     table.dayTbl tbody tr{grid-template-columns:repeat(3,1fr)}
     table.dayTbl td[data-label="Day"]{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:.98rem}
     table.dayTbl td[data-label^="Starting"]{grid-column:1/-1;padding:.35rem 0 !important}
@@ -280,6 +301,7 @@
       <button data-v="board" aria-pressed="true">Board</button>
       <button data-v="teams" id="teamsBtn" style="display:none">Teams</button>
       <button data-v="trades" id="tradesBtn" style="display:none">Trades</button>
+      <button data-v="draft" id="draftBtn" style="display:none">Draft</button>
       <button data-v="about">About</button>
     </div>
   </div>
@@ -288,6 +310,7 @@
   <div id="teamsPane" style="display:none"></div>
   <div id="weekPane" style="display:none"></div>
   <div id="tradesPane" style="display:none"></div>
+  <div id="draftPane" style="display:none"></div>
   <div id="boardPane">
   <div class="statbar" id="statbar"></div>
 
@@ -324,7 +347,7 @@
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, dHide=true, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -868,6 +891,165 @@ function renderTrades(){
   collapseLegends(pane);
 }
 
+/* ===================== DRAFT ASSISTANT ===================== */
+const DSLOTS=['PG','SG','SF','PF','C','G','F','UT','UT','UT'];
+const nname=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\b(jr|sr|ii|iii|iv)\b\.?/gi,'').toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+/g,' ').trim();
+const POSSLOTS={PG:['PG','G','UT'],SG:['SG','G','UT'],SF:['SF','F','UT'],PF:['PF','F','UT'],C:['C','UT']};
+function manualLoad(){ try{return JSON.parse(localStorage.getItem('draftManual')||'{}');}catch(e){return {};} }
+function manualSave(m){ try{localStorage.setItem('draftManual',JSON.stringify(m));}catch(e){} }
+/* best lineup for a set of players {ef, slots:Set}: greedy by expected points with a matching check (a matroid, so greedy is optimal) */
+function lineupValue(players){
+  const list=players.slice().sort((a,b)=>b.ef-a.ef), match={}; const accepted=[];
+  const go=(pi,seen)=>{ for(let si=0;si<DSLOTS.length;si++){ if(seen.has(si)||!list[pi].slots.has(DSLOTS[si])) continue; seen.add(si); if(match[si]===undefined||go(match[si],seen)){ match[si]=pi; return true; } } return false; };
+  list.forEach((pl,i)=>{ if(go(i,new Set())) accepted.push(i); });
+  const inLineup=new Set(accepted); const bench=list.filter((_,i)=>!inLineup.has(i));
+  const value=accepted.reduce((a,i)=>a+list[i].ef,0)+0.2*bench.slice(0,3).reduce((a,x)=>a+x.ef,0);
+  const assign=DSLOTS.map((sl,si)=>({slot:sl,pl:match[si]!==undefined?list[match[si]]:null}));
+  return {value,assign,bench};
+}
+const DREPL=21;   // expected points/g of a replacement-level (late-round or free-agent) player after availability
+function withRepl(players){ const out=players.slice(); let i=0; while(out.length<13){ out.push({id:'repl'+(i++),name:'(replacement)',ef:DREPL,slots:new Set(DSLOTS),repl:true}); } return out; }
+function draftModel(){
+  const hubByName=new Map(D.players.map(p=>[nname(p.player),p]));
+  const teams=DR.teams, myId=DR.my_id, picks=DR.draft.picks;
+  const byEspn=new Map(); Object.values(DR.players).forEach(e=>byEspn.set(String(e.espn_id),e));
+  const mk=e=>{ const h=hubByName.get(nname(e.name))||null;
+    const ef=e.avg?e.avg*Math.min(1,(e.gp||70)/82):(h?h.year0_ppg*0.9:0);
+    const slots=new Set(e.slots&&e.slots.length?e.slots:(h&&h.pos?String(h.pos).split(/[\/,]/).flatMap(t=>POSSLOTS[t.trim()]||[]):['UT']));
+    slots.add('UT');
+    return {id:String(e.espn_id),name:e.name,team:h&&h.team||e.team||'',pos:h&&h.pos||[...slots].filter(x=>x!=='UT'&&x!=='G'&&x!=='F').join('/'),age:h?h.age:null,adp:h&&h.adp!=null?h.adp:null,rk:e.redraft_rank||null,
+      vor:h&&h.trajectory?computeVOR(h.trajectory,K).vor:null,asset:h&&h.asset_k?h.asset_k[K]:0,asset5:h&&h.asset_k?h.asset_k[5]:0,mkt:h&&h.market_rank!=null?h.market_rank:null,ours:h?h.year0_ppg:null,
+      espn:e.avg||null,ef,slots,status:e.status,hub:h,kind:h?h.kind:null}; };
+  const all=new Map(); byEspn.forEach((e,id)=>all.set(id,mk(e)));
+  // who is a keeper (real once ESPN fills the keeper picks; otherwise projected as each team's top-3 by asset)
+  const keptPicks=picks.filter(x=>x.player&&x.r<=(DR.draft.keepers_now||3));
+  const real=keptPicks.length>0, kept=new Map(); // espnId -> teamId
+  if(real) keptPicks.forEach(x=>kept.set(String(x.player),x.team));
+  else teams.forEach(t=>{ const ps=t.roster.map(r=>all.get(String(r.id))).filter(Boolean).sort((a,b)=>(b.asset||0)-(a.asset||0)); ps.slice(0,DR.draft.keepers_now||3).forEach(p=>kept.set(p.id,t.id)); });
+  const taken=new Map(); // espnId -> {team,n}
+  picks.filter(x=>x.player&&x.r>(DR.draft.keepers_now||3)).forEach(x=>taken.set(String(x.player),{team:x.team,n:x.n}));
+  const man=manualLoad();
+  Object.keys(man).forEach(id=>{ if(!taken.has(id)) taken.set(id,{team:man[id]==='mine'?myId:-1,n:null,manual:true}); });
+  const pool=[...all.values()].filter(p=>!kept.has(p.id)&&!taken.has(p.id));
+  const mine=[...all.values()].filter(p=>(kept.get(p.id)===myId)||(taken.has(p.id)&&taken.get(p.id).team===myId));
+  return {all,pool,mine,kept,taken,real,man};
+}
+function draftAdvice(M){
+  const base=lineupValue(withRepl(M.mine)).value;
+  const baseTop5=M.mine.map(p=>p.asset5).sort((a,b)=>b-a).slice(0,5).reduce((a,b)=>a+b,0);
+  const myDrafted=[...M.taken.values()].filter(t=>t.team===DR.my_id).length;
+  const w=myDrafted<dDynPicks?dWEarly:dWLate;
+  M.w=w; M.myDrafted=myDrafted;
+  M.pool.forEach(p=>{
+    const lv=lineupValue(withRepl(M.mine.concat([p])));
+    p.fit=(lv.value-base)*73;                       // season points from a better lineup (per-game gain x ~73 games)
+    const top5=M.mine.concat([p]).map(x=>x.asset5).sort((a,b)=>b-a).slice(0,5).reduce((a,b)=>a+b,0);
+    p.dyn=top5-baseTop5;                            // change in next year's top-5 keeper assets
+    p.score=p.fit+w*73*p.dyn;
+    const a=lineupValue(M.mine.concat([p])).assign.find(x=>x.pl&&x.pl.id===p.id); p.fills=a?a.slot:'bench';
+  });
+}
+function draftPicksInfo(M){
+  const kr=DR.draft.keepers_now||3;   // rounds 1..K are the keeper rounds (ESPN pre-creates them; last year keepers filled rounds 1-6)
+  const picks=DR.draft.picks.filter(x=>x.r>kr&&!x.player).sort((a,b)=>a.n-b.n);   // undrafted picks in the real draft rounds
+  const mineLeft=picks.filter(x=>x.team===DR.my_id);
+  const done=DR.draft.picks.filter(x=>x.r>kr&&x.player).length+[...M.taken.values()].filter(t=>t.manual).length;
+  const cur=picks.length?picks[Math.min(done,picks.length-1)]:null;
+  return {picks,mineLeft,done,cur};
+}
+function renderDraft(){
+  const pane=document.getElementById('draftPane');
+  const M=draftModel(); draftAdvice(M);
+  const PI=draftPicksInfo(M);
+  const teamName=id=>{const t=DR.teams.find(t=>t.id===id); return t?t.abbrev:'?';};
+  // position filter + search + hide taken
+  let rows=M.pool.filter(p=>(!dq||p.name.toLowerCase().includes(dq.toLowerCase()))&&(dpos==='all'||p.slots.has(dpos)));
+  const get=(p,k)=>k==='name'?p.name:(p[k]==null?-Infinity:p[k]);
+  rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
+    if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
+    return dsort.asc?av-bv:bv-av; });
+  const shown=rows.slice(0,dLimit);
+  const L=lineupValue(M.mine), LV=lineupValue(withRepl(M.mine)).value;
+  const nextMine=PI.mineLeft[0], after=PI.mineLeft[1];
+  const gap=nextMine&&PI.cur?Math.max(0,nextMine.n-PI.cur.n):null;
+  const banner=M.real?`<span class="hint">Keepers are final (from ESPN). ${M.kept.size} kept.</span>`:`<span class="liveStatus" title="ESPN has not filled the keeper picks yet, so each team's top-${DR.draft.keepers_now||3} assets are assumed kept">PROJECTED keepers</span> <span class="hint">the pool is a guess until ESPN shows the real keepers (due Sun 9/27, 5pm ET)</span>`;
+  const core=M.mine.slice().sort((a,b)=>b.asset5-a.asset5).slice(0,5);
+  const trs=shown.map(p=>{
+    const open=dOpen===p.id;
+    const gone=after&&p.adp!=null&&p.adp<=after.n?'<span class="hint" title="his ADP says he is likely gone before your following pick">take?</span>':'';
+    const inj=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'';
+    const fmt=(v,d=0)=>v==null?'<span class="hint">—</span>':Number(v).toFixed(d);
+    const row=`<tr data-id="${p.id}"><td>${esc(p.name)}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
+      <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
+      <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
+      <td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td></tr>`;
+    if(!open) return row;
+    const why=`Adds <b>${(p.fit/73).toFixed(1)}</b> pts/g to your best lineup${p.fills&&p.fills!=='bench'?` (he would start at <b>${esc(p.fills)}</b>)`:' (he would sit on your bench)'} — about <b>${p.fit.toFixed(0)}</b> season points. Dynasty: ${p.dyn>0?`raises your top-5 keeper assets for next year by <b>${p.dyn.toFixed(0)}</b>`:'does not make your top 5 keepers next year'}. Score = lineup points + ${M.w.toFixed(2)} × 73 × dynasty (${M.myDrafted<dDynPicks?'dynasty-heavy phase: your first '+dDynPicks+' picks':'points phase'}).`;
+    const btns=DR.draft.in_progress&&dLive?'':`<button class="dbtn" data-act="mine" data-id="${p.id}">I drafted him</button> <button class="dbtn" data-act="other" data-id="${p.id}">Someone else did</button>`;
+    return row+`<tr class="detail"><td colspan="14"><div class="note" style="margin:.2rem 0">${why}</div><div style="margin-top:.4rem">${btns}</div></td></tr>`;
+  }).join('');
+  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="14"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
+  const rosterHtml=`<details class="dTeam" ${isMobile()?'':'open'}>
+      <summary class="dHd">Your team <span class="hint">${M.mine.length} players · about ${Math.round(LV*3.3)} pts/week with replacement-level fill-ins</span></summary>
+      ${L.assign.map(a=>`<div class="dSlot"><b>${a.slot}</b>${a.pl&&!a.pl.repl?`<span>${esc(a.pl.name)} <span class="hint">${a.pl.ef.toFixed(1)}${M.kept.get(a.pl.id)===DR.my_id?' · keeper':''}</span></span>`:'<span class="hint">empty: draft a '+a.slot+'</span>'}</div>`).join('')}
+      ${L.bench.filter(x=>!x.repl).length?`<div class="dSub">Bench: ${L.bench.filter(x=>!x.repl).map(x=>esc(x.name)).join(', ')}</div>`:''}
+      <div class="dSub"><b>Next year's top 5 keepers</b> (assets at 5 keepers): ${core.length?core.map(x=>esc(x.name)+' '+x.asset5.toFixed(0)).join(' · '):'—'}</div>
+    </details>`;
+  pane.innerHTML=`
+    <div class="controls"><span>${banner}</span></div>
+    <div class="dStrip">
+      <div><b>${PI.cur?'#'+PI.cur.n+' · '+esc(teamName(PI.cur.team)):'—'}</b>on the clock ${DR.draft.in_progress?'':'<span class="hint">(draft not started)</span>'}</div>
+      <div><b>${nextMine?'#'+nextMine.n:'—'}</b>your next pick ${gap!=null?`<span class="hint">(${gap} away)</span>`:''}</div>
+      <div><b>${PI.mineLeft.length}</b>picks left for you</div>
+      <div><b>${M.pool.length}</b>players available</div>
+    </div>
+    <div class="dTop">
+      <div class="dMain">
+        <div class="controls">
+          <input type="search" id="dq" placeholder="search players…" value="${esc(dq)}" />
+          <select id="dpos"><option value="all">All positions</option>${['PG','SG','SF','PF','C','G','F'].map(x=>`<option value="${x}" ${dpos===x?'selected':''}>${x}</option>`).join('')}</select>
+          <select id="dSortSel" class="mobileOnly">${[['score','Sort: Score'],['fit','Sort: Lineup fit'],['dyn','Sort: Dynasty fit'],['adp','Sort: ADP'],['rk','Sort: Redraft rank'],['vor','Sort: VOR'],['asset','Sort: Asset'],['mkt','Sort: MKT'],['ours','Sort: Our proj'],['espn','Sort: ESPN proj'],['age','Sort: Age'],['name','Sort: Name']].map(([k,t])=>`<option value="${k}" ${dsort.k===k?'selected':''}>${t}</option>`).join('')}</select>
+        </div>
+        <details class="dSet" ${isMobile()?'':'open'}><summary class="hint" style="cursor:pointer;padding:.3rem 0">Draft strategy settings (dynasty-first picks and weights)</summary><div class="controls" style="gap:1rem">
+          <label class="kbox" style="gap:.5rem"><span>Dynasty-first picks:</span><input type="number" id="dDyn" min="0" max="12" value="${dDynPicks}" style="width:3rem" /></label>
+          <label class="kbox" style="gap:.5rem"><span>Dynasty weight early / later:</span><input type="number" id="dWE" min="0" max="1" step="0.05" value="${dWEarly}" style="width:3.6rem" /> <input type="number" id="dWL" min="0" max="1" step="0.02" value="${dWLate}" style="width:3.6rem" /></label>
+          <button class="dbtn" id="dReset" type="button">Reset my manual marks</button>
+        </div></details>
+        <div class="tablewrap"><table id="draftTbl"><thead><tr>
+          ${[['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t])=>`<th data-k="${k}" class="${dsort.k===k?'sorted '+(dsort.asc?'asc':''):''}">${t}</th>`).join('')}
+        </tr></thead><tbody>${trs||'<tr><td colspan="14" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
+      </div>
+      <div class="dSide">${rosterHtml}</div>
+    </div>
+    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>take?</b> = his ADP says he will probably be gone before your following pick. In a live draft the page reads ESPN's picks when served by the local draft server; otherwise tap a player and mark him drafted.</div>`;
+  // events
+  document.getElementById('dq').addEventListener('input',e=>{dq=e.target.value; dLimit=60; renderDraft(); const el=document.getElementById('dq'); el.focus(); el.setSelectionRange(dq.length,dq.length);});
+  document.getElementById('dpos').addEventListener('change',e=>{dpos=e.target.value; dLimit=60; renderDraft();});
+  document.getElementById('dSortSel').addEventListener('change',e=>{dsort.k=e.target.value; dsort.asc=(dsort.k==='name'||dsort.k==='age'); renderDraft();});
+  ['dDyn','dWE','dWL'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{ const v=+e.target.value; if(id==='dDyn') dDynPicks=v; else if(id==='dWE') dWEarly=v; else dWLate=v; renderDraft(); }));
+  document.getElementById('dReset').addEventListener('click',()=>{ manualSave({}); renderDraft(); });
+  document.querySelector('#draftTbl thead').addEventListener('click',e=>{ const th=e.target.closest('th'); if(!th) return; const k=th.dataset.k; if(dsort.k===k) dsort.asc=!dsort.asc; else {dsort.k=k; dsort.asc=(k==='name'||k==='age');} renderDraft(); });
+  document.querySelector('#draftTbl tbody').addEventListener('click',e=>{
+    const b=e.target.closest('.dbtn'); if(b){ const m=manualLoad(); m[b.dataset.id]=b.dataset.act==='mine'?'mine':'other'; manualSave(m); dOpen=null; renderDraft(); return; }
+    if(e.target.closest('#dMore')){ dLimit+=60; renderDraft(); return; }
+    const tr=e.target.closest('tr[data-id]'); if(!tr) return; dOpen=(dOpen===tr.dataset.id)?null:tr.dataset.id; renderDraft(); });
+  mobileTables(pane);
+  pane.querySelectorAll('#draftTbl').forEach(t=>t.classList.add('draftTbl'));
+  collapseLegends(pane);
+}
+let dLimit=60;
+async function pollDraftLive(){
+  try{
+    if(window.__noLive) return;
+    const r=await fetch('draft_live.json?_='+Date.now()); if(!r.ok){ window.__noLive=true; return; } const j=await r.json();
+    if(!j.picks) return; dLive=true; let changed=false;
+    const byN=new Map(j.picks.map(x=>[x.n,x]));
+    DR.draft.picks.forEach(x=>{ const y=byN.get(x.n); if(y&&(y.player!==x.player||y.keeper!==x.keeper)){ x.player=y.player; x.keeper=y.keeper; changed=true; } });
+    DR.draft.in_progress=!!j.inProgress;
+    if(changed&&document.getElementById('draftPane').style.display!=='none') renderDraft();
+  }catch(e){}
+}
+
 function renderAbout(){
   document.getElementById('aboutPane').innerHTML = `
     <h2>What changed</h2>
@@ -900,6 +1082,8 @@ function wire(){
     document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
     document.getElementById('weekPane').style.display = b.dataset.v==='week' ? '' : 'none';
     document.getElementById('tradesPane').style.display = b.dataset.v==='trades' ? '' : 'none';
+    document.getElementById('draftPane').style.display = b.dataset.v==='draft' ? '' : 'none';
+    if(b.dataset.v==='draft') renderDraft();
     if(b.dataset.v==='trades') renderTrades();
     if(b.dataset.v==='week') renderWeek();
     if(b.dataset.v==='about') renderAbout();
@@ -952,6 +1136,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   wire();
   fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
   fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
+  fetch('draft_data.json').then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('trade_ideas.json').then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
