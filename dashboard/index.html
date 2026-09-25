@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fantasy Hub</title>
 <meta name="theme-color" content="#0f1318" />
+<link rel="icon" href="favicon.ico" sizes="48x48 32x32 16x16" />
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<meta name="apple-mobile-web-app-title" content="Fantasy Hub" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
@@ -317,9 +322,9 @@
 
   <div class="controls" style="margin-bottom:1rem">
     <div class="seg" id="segView">
-      <button data-v="week" id="weekBtn" style="display:none">This week</button>
+      <button data-v="week" id="weekBtn" aria-pressed="true">This week</button>
       <button data-v="sched" id="schedBtn" style="display:none">Schedule</button>
-      <button data-v="board" aria-pressed="true">Board</button>
+      <button data-v="board">Board</button>
       <button data-v="teams" id="teamsBtn" style="display:none">Teams</button>
       <button data-v="trades" id="tradesBtn" style="display:none">Trades</button>
       <button data-v="draft" id="draftBtn" style="display:none">Draft</button>
@@ -329,11 +334,11 @@
 
   <div id="aboutPane" style="display:none"></div>
   <div id="teamsPane" style="display:none"></div>
-  <div id="weekPane" style="display:none"></div>
+  <div id="weekPane"><div class="hint" style="padding:1rem">Loading this week's plan…</div></div>
   <div id="schedPane" style="display:none"></div>
   <div id="tradesPane" style="display:none"></div>
   <div id="draftPane" style="display:none"></div>
-  <div id="boardPane">
+  <div id="boardPane" style="display:none">
   <div class="statbar" id="statbar"></div>
 
   <div class="controls">
@@ -386,7 +391,7 @@ function initLeague(){
   for(const t of L.teams) for(const r of t.roster) if(r.id) OWNER.set(r.id,{abbrev:t.abbrev,name:t.name,team:t.id,slot:r.slot});
   const sel=document.getElementById('ownerSel');
   sel.innerHTML='<option value="all">All players</option><option value="fa">Free agents</option><option value="rostered">Rostered</option>'+L.teams.map(t=>`<option value="t${t.id}">${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('');
-  sel.style.display=''; document.getElementById('teamsBtn').style.display=''; try{ if(localStorage.getItem('hubView')==='teams') setTimeout(()=>setView('teams'),0); }catch(e){}
+  sel.style.display=''; document.getElementById('teamsBtn').style.display=''; 
   sel.addEventListener('change',e=>{ownerFilter=e.target.value; render();});
 }
 const yearLabel=(anchorYear,k)=>`'${String(anchorYear+k).slice(-2)}`;
@@ -1320,6 +1325,7 @@ function renderAbout(){
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
+    if(!D && ['board','teams','trades','draft'].includes(b.dataset.v)) return;   // board data still loading
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
     document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
@@ -1334,7 +1340,7 @@ function wire(){
     if(b.dataset.v==='week') renderWeek();
     if(b.dataset.v==='about') renderAbout();
     if(b.dataset.v==='teams') renderTeams();
-    if(b.dataset.v==='board') render();
+    if(b.dataset.v==='board' && D) render();
     try{localStorage.setItem('hubView',b.dataset.v);}catch(e){}
   });
   document.getElementById('segKind').addEventListener('click', e=>{
@@ -1375,16 +1381,21 @@ function wire(){
   });
 }
 
+/* Load order: the tab bar is wired at once and This week (small file) is fetched first and shown as soon as it arrives; the 2.4 MB board data loads in
+   parallel and everything else after it. If the weekly plan is unavailable, fall back to the Board. */
+wire();
+fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{
+  if(w&&w.teams){ W=w; setView('week'); } else throw new Error('no plan');
+}).catch(()=>{ document.getElementById('weekBtn').style.display='none'; document.getElementById('weekPane').style.display='none'; document.getElementById('boardPane').style.display='';
+  document.getElementById('segView').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x.dataset.v==='board')); if(D) render(); });
+fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; document.getElementById('schedBtn').style.display='';} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
-  wire();
   fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
-  fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
   fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
-  fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; document.getElementById('schedBtn').style.display='';} }).catch(()=>{});
   fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
   fetch('breakout_history.json',{cache:'no-cache'}).then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
