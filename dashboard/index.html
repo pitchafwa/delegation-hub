@@ -266,8 +266,8 @@
 
   <div class="controls" style="margin-bottom:1rem">
     <div class="seg" id="segView">
-      <button data-v="board" aria-pressed="true">Board</button>
       <button data-v="week" id="weekBtn" style="display:none">This week</button>
+      <button data-v="board" aria-pressed="true">Board</button>
       <button data-v="teams" id="teamsBtn" style="display:none">League teams</button>
       <button data-v="about">How it works</button>
     </div>
@@ -882,7 +882,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
   wire();
   fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
-  fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||(!sv&&isMobile())) setView('week');} }).catch(()=>{});
+  fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
