@@ -88,6 +88,10 @@ try:
             status["steps"]["freeze_ledger"] = {"ok": False, "seconds": 0, "note": "candidates newer than first tip"}
     ledger_frozen = LEDGER_CSV.exists()
 
+    # 0b. pick up the GitHub Action's latest rosters / weekly plan (the trade finder reads them)
+    pl = subprocess.run(["git", "pull", "--rebase", "--autostash", "--quiet"], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    say("git pull: " + ("ok" if pl.returncode == 0 else f"failed ({(pl.stderr or '').strip()[:120]})"))
+
     # 1. inputs
     run("hashtag_mkt", "pull_hashtag_dynasty.py")
     run("espn_adp", "pull_espn_adp.py", "2027")
@@ -121,6 +125,7 @@ try:
     # 4. dashboard data
     if model_ok:
         run("build_hub_data", "build_hub_data.py", critical=True)
+        run("build_trades", "build_trades.py")            # reads hub_data, league rosters, weekly plan and the Hashtag values
     else:
         finish(False, "model chain failed; nothing published")
         sys.exit(1)
@@ -131,7 +136,7 @@ try:
     else:
         def git(*g):
             return subprocess.run(["git", *g], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        git("add", "dashboard/hub_data.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
+        git("add", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
             "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json")
         if git("diff", "--cached", "--quiet").returncode == 0:
             say("nothing changed: no commit")

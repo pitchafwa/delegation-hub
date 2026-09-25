@@ -106,6 +106,14 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
+  .tradeCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin-bottom:.7rem}
+  .tradeHd{display:flex;align-items:baseline;gap:.4rem;padding-bottom:.35rem;border-bottom:1px solid var(--line);margin-bottom:.35rem}
+  .tradeScore{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--good);font-size:1.05rem}
+  .tradeRow{padding:.12rem 0;font-size:.92rem}.tradeRow.small{font-size:.8rem;color:var(--ink-soft)}
+  .tradeRow .lbl{display:inline-block;min-width:4.3rem;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+  .tradeCtl{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.2rem 0 .9rem}
+  .tradeCtl label{font-size:.78rem;color:var(--ink-soft);display:block}.tradeCtl input{width:100%}
+  @media(max-width:720px){.tradeCtl{grid-template-columns:1fr}}
   .irBox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-bottom:1.2rem}
   .irRow{padding:.35rem 0;border-top:1px solid var(--line);font-size:.86rem}.irRow:first-child{border-top:0}
   .moreRow td{padding:0 !important;border:0 !important}
@@ -270,14 +278,16 @@
     <div class="seg" id="segView">
       <button data-v="week" id="weekBtn" style="display:none">This week</button>
       <button data-v="board" aria-pressed="true">Board</button>
-      <button data-v="teams" id="teamsBtn" style="display:none">League teams</button>
-      <button data-v="about">How it works</button>
+      <button data-v="teams" id="teamsBtn" style="display:none">Teams</button>
+      <button data-v="trades" id="tradesBtn" style="display:none">Trades</button>
+      <button data-v="about">About</button>
     </div>
   </div>
 
   <div id="aboutPane" style="display:none"></div>
   <div id="teamsPane" style="display:none"></div>
   <div id="weekPane" style="display:none"></div>
+  <div id="tradesPane" style="display:none"></div>
   <div id="boardPane">
   <div class="statbar" id="statbar"></div>
 
@@ -314,7 +324,7 @@
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -812,6 +822,46 @@ function setView(v){
   const b=document.querySelector(`#segView button[data-v="${v}"]`); if(b && b.style.display!=='none') b.click();
 }
 
+function renderTrades(){
+  const pane=document.getElementById('tradesPane');
+  const meta=TR.meta;
+  if(tradeTeam==null){ const me=TR.teams.find(t=>t.abbrev===(W&&W.my_abbrev)); tradeTeam=(me||TR.teams[0]).id; }
+  const T=TR.teams.find(t=>t.id===tradeTeam);
+  const k2p=meta.asset_to_points;
+  const score=i=>i.me[0]+tradeW*k2p*i.me[1];
+  const nm=n=>esc(n);
+  const buildCards=()=>{ const ideas=T.ideas.filter(i=>i.ratio>=tradeRatio).sort((a,b)=>score(b)-score(a)).slice(0,25);
+  return ideas.map(i=>{
+    const P=meta.teams[i.p];
+    const before=new Set(i.kbefore), after=new Set(i.kafter);
+    const keepTxt=i.kafter.map(n=>before.has(n)?nm(n):`<b style="color:var(--good)">${nm(n)}</b>`).join(', ');
+    const lost=i.kbefore.filter(n=>!after.has(n));
+    const thPts=i.them[0], thKeep=i.them[1];
+    const themLine=(thPts>=0&&thKeep>=0)?'<span style="color:var(--good)">helps them too</span>':`for them: season ${thPts>=0?'+':''}${thPts}, keeper ${thKeep>=0?'+':''}${thKeep}`;
+    return `<div class="tradeCard">
+      <div class="tradeHd"><span class="hint">with</span> <b>${esc(P.name)}</b> <span class="hint">${esc(P.abbrev)}</span><span class="tradeScore">+${score(i).toFixed(0)}</span></div>
+      <div class="tradeRow"><span class="lbl">You give</span> ${i.give.map(nm).join(' + ')}</div>
+      <div class="tradeRow"><span class="lbl">You get</span> <b>${i.get.map(nm).join(' + ')}</b></div>
+      <div class="tradeRow small">Your season <b>${i.me[0]>=0?'+':''}${i.me[0]}</b> pts · keeper value <b>${i.me[1]>=0?'+':''}${i.me[1]}</b></div>
+      <div class="tradeRow small">Keepers after: ${keepTxt}${lost.length?` <span class="hint">(out: ${lost.map(nm).join(', ')})</span>`:''}</div>
+      <div class="tradeRow small hint">Market: they receive ${i.mk[0]} vs give ${i.mk[1]} (${i.ratio}×) · ${themLine}</div>
+    </div>`;}).join('') || '<div class="hint" style="padding:1rem">No ideas at these settings. Lower the fairness minimum.</div>'; };
+  pane.innerHTML=`
+    <div class="controls"><select id="tradeSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${TR.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
+      <span class="hint">Trade ideas · updated ${new Date(meta.generated).toLocaleString()} · ${meta.K} keepers assumed</span></div>
+    <div class="tradeCtl">
+      <label>Weight on keeper value <b id="twv">${tradeW.toFixed(2)}</b><input type="range" id="tw" min="0" max="0.4" step="0.01" value="${tradeW}"></label>
+      <label>Least fair to them I'll offer <b id="trv">${tradeRatio.toFixed(2)}</b>×<input type="range" id="tr" min="0.8" max="1.4" step="0.01" value="${tradeRatio}"></label>
+    </div>
+    <div class="legend" style="margin:0 0 1rem"><b>Your keepers now:</b> ${T.keepers.map(nm).join(', ')}. Ideas are ranked by how much they raise <i>your</i> value; the number top-right is season points plus weighted keeper value.</div>
+    <div id="tradeCards">${buildCards()}</div>
+    <div class="legend" style="margin-top:1rem"><b>How this works (first version, not backtested).</b> Only ${meta.K} players are kept, so a player is worth different amounts to different teams. <b>Market</b> = Hashtag's crowd dynasty value above a replaceable player; a trade "looks fair" to the other side when they receive about as much market value as they give (the × number). <b>Your season</b> = change in your lineup strength (best 10 players plus a quarter of the next 5, over about ${meta.weeks_left} weeks, with replacement-level fill-ins). <b>Keeper value</b> = change in the total dynasty asset value of your top ${meta.K}, converted to points at the weight above (1 asset point ≈ ${k2p} points of output; the default 0.10 discounts the ten-year horizon heavily). A team's season value is zero-sum in most trades, so the edge comes mostly from keeper fit and from IR or depth quirks. Not modeled yet: positions, schedules, injuries beyond status, and whether an owner will actually say yes.</div>`;
+  document.getElementById('tradeSel').addEventListener('change',e=>{tradeTeam=+e.target.value; renderTrades();});
+  document.getElementById('tw').addEventListener('input',e=>{tradeW=+e.target.value; document.getElementById('twv').textContent=tradeW.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
+  document.getElementById('tr').addEventListener('input',e=>{tradeRatio=+e.target.value; document.getElementById('trv').textContent=tradeRatio.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
+  collapseLegends(pane);
+}
+
 function renderAbout(){
   document.getElementById('aboutPane').innerHTML = `
     <h2>What changed</h2>
@@ -843,6 +893,8 @@ function wire(){
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
     document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
     document.getElementById('weekPane').style.display = b.dataset.v==='week' ? '' : 'none';
+    document.getElementById('tradesPane').style.display = b.dataset.v==='trades' ? '' : 'none';
+    if(b.dataset.v==='trades') renderTrades();
     if(b.dataset.v==='week') renderWeek();
     if(b.dataset.v==='about') renderAbout();
     if(b.dataset.v==='teams') renderTeams();
@@ -894,6 +946,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   wire();
   fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
   fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
+  fetch('trade_ideas.json').then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
