@@ -922,12 +922,12 @@ function draftModel(){
       espn:e.avg||null,ef,slots,status:e.status,hub:h,kind:h?h.kind:null}; };
   const all=new Map(); byEspn.forEach((e,id)=>all.set(id,mk(e)));
   // who is a keeper (real once ESPN fills the keeper picks; otherwise projected as each team's top-3 by asset)
-  const keptPicks=picks.filter(x=>x.player&&x.r<=(DR.draft.keepers_now||3));
+  const keptPicks=picks.filter(x=>x.player&&(x.keeper||x.keeperSlot));
   const real=keptPicks.length>0, kept=new Map(); // espnId -> teamId
   if(real) keptPicks.forEach(x=>kept.set(String(x.player),x.team));
   else teams.forEach(t=>{ const ps=t.roster.map(r=>all.get(String(r.id))).filter(Boolean).sort((a,b)=>(b.asset||0)-(a.asset||0)); ps.slice(0,DR.draft.keepers_now||3).forEach(p=>kept.set(p.id,t.id)); });
   const taken=new Map(); // espnId -> {team,n}
-  picks.filter(x=>x.player&&x.r>(DR.draft.keepers_now||3)).forEach(x=>taken.set(String(x.player),{team:x.team,n:x.n}));
+  picks.filter(x=>x.player&&!(x.keeper||x.keeperSlot)).forEach(x=>taken.set(String(x.player),{team:x.team,n:x.n}));
   const man=manualLoad();
   Object.keys(man).forEach(id=>{ if(!taken.has(id)) taken.set(id,{team:man[id]==='mine'?myId:-1,n:null,manual:true}); });
   const pool=[...all.values()].filter(p=>!kept.has(p.id)&&!taken.has(p.id));
@@ -950,10 +950,11 @@ function draftAdvice(M){
   });
 }
 function draftPicksInfo(M){
-  const kr=DR.draft.keepers_now||3;   // rounds 1..K are the keeper rounds (ESPN pre-creates them; last year keepers filled rounds 1-6)
-  const picks=DR.draft.picks.filter(x=>x.r>kr&&!x.player).sort((a,b)=>a.n-b.n);   // undrafted picks in the real draft rounds
+  // The draft starts at pick 1 (12 teams, snake). Until ESPN shows the real keepers, only the first 15 - keepers rounds are real picks (15-man rosters).
+  const maxRound=M.real?99:15-(DR.draft.keepers_now||3);
+  const picks=DR.draft.picks.filter(x=>!x.player&&!x.keeper&&x.r<=maxRound).sort((a,b)=>a.n-b.n);   // undrafted real picks
   const mineLeft=picks.filter(x=>x.team===DR.my_id);
-  const done=DR.draft.picks.filter(x=>x.r>kr&&x.player).length+[...M.taken.values()].filter(t=>t.manual).length;
+  const done=[...M.taken.values()].filter(t=>t.manual).length;      // picks already filled by ESPN are gone from `picks`; manual marks advance the clock
   const cur=picks.length?picks[Math.min(done,picks.length-1)]:null;
   return {picks,mineLeft,done,cur};
 }
