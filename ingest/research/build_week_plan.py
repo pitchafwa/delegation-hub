@@ -90,7 +90,29 @@ def hub_player(espn_id, name):
 
 _ranked = sorted([p for p in hub["players"] if p.get("asset_k")], key=lambda p: -p["asset_k"][5])
 ASSET_RANK = {p["id"]: i + 1 for i, p in enumerate(_ranked)}
-PROTECT_TOP = 120          # players in the top 120 dynasty assets (at 5 keepers) are never suggested as drops: this is a keeper league
+# ---- who may be suggested as a DROP (this is a keeper league: a good week must never cost a long-term asset)
+PROTECT_TOP = 150          # top-150 dynasty assets (at 5 keepers): never dropped
+PROTECT_LEVEL = 35         # projected 35+ pts/g: never dropped, valued or not (catches stars without a valuation, e.g. after a long injury)
+UNVALUED_PROTECT_LEVEL = 28  # players our model can't value (no asset rank): never dropped at 28+ pts/g
+SCRUTINY_TOP = 250         # ranks 151-250 (solid contributors) may be suggested only for a big gain, and are flagged
+SCRUTINY_GAIN = 30         # points of expected gain required to even suggest a scrutiny-tier drop
+NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / "never_drop.json")).get("names", [])} if (Path(__file__).resolve().parent / "never_drop.json").exists() else set()
+
+
+def drop_tier(p):
+    """'never' | 'scrutiny' | 'ok'. Injury status and a short schedule this week never lower a player's protection."""
+    r, lvl = p["asset_rank"], p["level"]
+    if norm(p["name"]) in NEVER_DROP:
+        return "never"
+    if (r and r <= PROTECT_TOP) or lvl >= PROTECT_LEVEL or (r is None and lvl >= UNVALUED_PROTECT_LEVEL):
+        return "never"
+    if p.get("kind") == "prospect" and (r is None or r <= 300):
+        return "never"          # rookies not yet in the NBA are dynasty stashes with no games this week, i.e. a 'free' drop that isn't
+    if (r and r <= SCRUTINY_TOP) or lvl >= 28:
+        return "scrutiny"
+    return "ok"
+
+
 
 today = datetime.now(ET).date()
 mp_id, mp_start, mp_end = matchup_for(max(today, SEASON_START))
@@ -146,7 +168,7 @@ def make_player(p, on_roster_slot=None):
         src += "+recent"
     return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)],
             "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "hub_id": hp["id"] if hp else None,
-            "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None}
+            "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None}
 
 
 def p_play(pl, d):
@@ -337,18 +359,20 @@ for t in lg.teams:
         if not any(p_play(f, d) > 0 for d in plan_days):
             continue
         drops = [None] if len(non_ir) < 15 else []
-        drops += [p for p in non_ir if not (p["asset_rank"] and p["asset_rank"] <= PROTECT_TOP)]
+        drops += [p for p in non_ir if drop_tier(p) != "never"]
         best_move = None
         for dr in drops:
             new = [p for p in r if p is not dr] + [f]
             gain = plan_team(new, c0) - total
+            if dr is not None and drop_tier(dr) == "scrutiny" and gain < SCRUTINY_GAIN:
+                continue
             if best_move is None or gain > best_move[0]:
                 best_move = (gain, dr)
         if best_move and best_move[0] > 1.0:
             g, dr = best_move
             moves.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
                                   "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                          "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"]} if dr else None), "gain": round(g, 1)})
+                          "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "tier": drop_tier(dr)} if dr else None), "gain": round(g, 1)})
     moves.sort(key=lambda x: -x["gain"])
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
     fa_by_id = {f["espn_id"]: f for f in fa_players}
@@ -360,9 +384,11 @@ for t in lg.teams:
             if f["espn_id"] in used:
                 continue
             nonir2 = [p for p in r2 if not p["ir"]]
-            drops2 = ([None] if len(nonir2) < 15 else []) + [p for p in nonir2 if not (p["asset_rank"] and p["asset_rank"] <= PROTECT_TOP) and p["espn_id"] not in used]
+            drops2 = ([None] if len(nonir2) < 15 else []) + [p for p in nonir2 if drop_tier(p) != "never" and p["espn_id"] not in used]
             for dr in drops2:
                 g = plan_team([p for p in r2 if p is not dr] + [f], c0) - cur
+                if dr is not None and drop_tier(dr) == "scrutiny" and g < SCRUTINY_GAIN:
+                    continue
                 if best_step is None or g > best_step[0]:
                     best_step = (g, f, dr)
         if not best_step or best_step[0] < 3.0:
@@ -373,14 +399,14 @@ for t in lg.teams:
         used.add(f["espn_id"])
         seq.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                    "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"]} if dr else None), "gain": round(g, 1), "cum": round(cur - total, 1)})
+                    "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "tier": drop_tier(dr)} if dr else None), "gain": round(g, 1), "cum": round(cur - total, 1)})
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq,
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "asset_rank": p["asset_rank"], "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "asset_rank": p["asset_rank"], "drop": drop_tier(p), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
