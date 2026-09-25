@@ -1148,7 +1148,7 @@ function renderDraft(){
     <div class="legend" style="margin-top:.8rem"><b>Turning on live draft updates (do this on draft night).</b> The website on GitHub cannot read your private ESPN league, so during the draft you open a copy that runs on your own PC. The PC must stay on and awake, and your phone must be on the same Wi-Fi.
       <ol style="margin:.4rem 0 0 1.2rem;padding:0;line-height:1.5">
         <li>On your PC, open a <b>PowerShell</b> window (Start menu, type PowerShell, Enter).</li>
-        <li>Paste this and press Enter: <code>cd "C:\Users\tommy\OneDrive\Documents\Claude\fantasy-basketball-hub\ingest\research"; .\run_draft_server.ps1 -Lan</code> (leave off <code>-Lan</code> if you only need it on the PC).</li>
+        <li>Paste this and press Enter: <code>cd "C:/Users/tommy/OneDrive/Documents/Claude/fantasy-basketball-hub/ingest/research"; powershell -ExecutionPolicy Bypass -File ./run_draft_server.ps1 -Lan</code> (leave off <code>-Lan</code> if you only need it on the PC).</li>
         <li>Wait about 10 seconds until it prints a line like <code>Draft server running. Open http://192.168.1.23:4180</code> (with <code>-Lan</code> it shows your PC's Wi-Fi address; without it, <code>localhost</code>). Write that address down and do not close this window: closing it stops live updates.</li>
         <li>On the PC, open <code>http://localhost:4180</code> in your browser. On your iPhone, open the printed <code>192.168…:4180</code> address in Safari (same Wi-Fi).</li>
         <li>Click <b>Draft</b>. When it is connected, a green <b>LIVE from ESPN</b> label appears at the top of the tab. Picks then appear about every 5 seconds, drafted players drop off the list by themselves, and the <b>% left</b> and score columns recompute.</li>
