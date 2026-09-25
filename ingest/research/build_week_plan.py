@@ -365,6 +365,13 @@ if past:
                             so_far[t["teamId"]]["starts"] += 1
                             so_far[t["teamId"]]["pts"] += st[0].get("appliedTotal") or 0
 
+weekly_actual = {t.team_id: {} for t in lg.teams}      # completed matchups: real points per team (used to scale future-week projections)
+for m in raw.get("schedule", []):
+    if m.get("matchupPeriodId", 99) < mp_id and "away" in m and m.get("winner") not in (None, "UNDECIDED"):
+        for side in ("home", "away"):
+            tp = m[side].get("totalPoints")
+            if tp is not None:
+                weekly_actual[m[side]["teamId"]][str(m["matchupPeriodId"])] = round(tp, 1)
 counters = {tm["id"]: tm.get("transactionCounter") or {} for tm in lg.espn_request.league_get(params={"view": "mTeam"}).get("teams", [])}
 _c0 = float(os.environ.get("WEEK_C0", 0))     # testing only: pretend every team already has this many starts
 for _k in so_far:
@@ -565,7 +572,7 @@ for t in lg.teams:
     dropped = {m["drop"]["id"] for m in seq if m["drop"]}
     r_after = [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
-    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "days_after": rows_after, "expected_after": round(total_after, 1),
+    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}), "days_after": rows_after, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
