@@ -1343,7 +1343,7 @@ function renderAbout(){
 
 /* Two-level navigation: four groups on the bottom bar (phones) or top bar, and a row of sub-tabs for the active group.
    The original seven view buttons stay in a hidden #segView that still owns the panes; the nav just presses them. */
-const NAV=[['week','Week',[['week','This week'],['sched','Schedule']]],['players','Players',[['board','Board'],['draft','Draft']]],['league','League',[['teams','Teams'],['trades','Trades']]],['about','About',[['about','About']]]];
+const NAV=[['week','Week',[['week','This week']]],['players','Players',[['board','Board'],['draft','Draft']]],['league','League',[['teams','Teams'],['trades','Trades'],['sched','Schedule']]],['about','About',[['about','About']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
