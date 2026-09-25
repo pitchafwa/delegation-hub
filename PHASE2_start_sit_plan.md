@@ -66,3 +66,20 @@ live shadow log (`projection_log.csv`) once the season starts.
 * DFS projections (`probe_dfs_projections.py`): DraftKings is the closest format (r = 0.993 per game vs league points; league = 1.206 x DK).
   Cannot be verified until slates exist (Oct 20). On that day run the probe, read the saved HTML, write the parser, and add a `dk_proj` column to
   `projection_log.csv` so it can be scored against ESPN + recent form before it drives any decision.
+
+## Backtest results (2025-26, this league; `ingest/research/backtest_phase2.py`, run 2026-09-26)
+* **A. Schedule-aware forecasts** (roster fixed at the start of an anchor week, forecast a later week; 168/156/144/120 team-weeks for 1/2/4/6 weeks ahead):
+  MAE in points per team-week (1 wk / 4 wk ahead): schedule-aware solver 207 / 212; blind (no schedule) 334 / 318; "same as the anchor week's real points" 246 / 316;
+  hybrid (anchor week's real points x solver ratio target/anchor) 178 / 191. Explaining which weeks are big or small for a team (within-team correlation,
+  1 wk ahead): solver 0.71, hybrid 0.65, blind 0.02, persistence 0.21. The solver over-forecasts by about 77-98 points a week (5-7%).
+  => the schedule is what explains a team's week-to-week swings; in season, use the hybrid for totals.
+* **B. Playoff-week ranking** (12 teams, one season): from week 16 / 19 the rank correlation with real playoff points was solver 0.46 / 0.22,
+  persistence 0.70 / 0.72, hybrid 0.73 / 0.75. The fixed-roster forecast is worse than "how the team has actually been scoring" for ranking teams
+  (it misses manager quality and roster changes). Use the playoff projected-points table as a schedule guide, not a power ranking.
+* **C. Add timing** (152 team-weeks with a suggested add, day-by-day replay with real box scores): predicted vs realized gain by day of the week is well
+  calibrated (day 1: 73 vs 73; day 4: 35 vs 37; day 7: 14 vs 17); across (add, day) pairs r = 0.54. Waiting one day costs about 12 points realized
+  (13 predicted). The model's timing verdict never beat "add on day 1" (+72.6 both), the oracle best day was +76.4. => "add now" is nearly always right;
+  the table's value is showing the cost of waiting. The reserve-one-add rule cannot be tested with this data.
+* **D. Games in the week do not change availability**: rotation players' play rate was 82.7% / 83.7% / 80.8% in 2 / 3 / 4-game weeks, so games count is
+  linear, which is what the extra-games (+/-) columns assume.
+* Not tested: streamers before a light week, the trade-target ranking by playoff games, week-1 calendar assumptions.
