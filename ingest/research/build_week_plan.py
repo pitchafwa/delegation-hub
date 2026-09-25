@@ -560,7 +560,12 @@ for t in lg.teams:
         unlock = (total + (seq[-1]["cum"] if seq else 0.0)) - (total0 + (seq0[-1]["cum"] if seq0 else 0.0))
         for m in ir_moves:
             m["unlocks"] = round(unlock, 1)
-    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id),
+    # the lineup plan above assumes NO adds; also plan the week as if every suggested move were made, so the page can show both
+    fa_map2 = {f["espn_id"]: f for f in fa_players}
+    dropped = {m["drop"]["id"] for m in seq if m["drop"]}
+    r_after = [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
+    total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
+    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "days_after": rows_after, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
