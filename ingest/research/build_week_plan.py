@@ -28,6 +28,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 from espn_api.basketball import League
@@ -90,28 +91,32 @@ def hub_player(espn_id, name):
 
 _ranked = sorted([p for p in hub["players"] if p.get("asset_k")], key=lambda p: -p["asset_k"][5])
 ASSET_RANK = {p["id"]: i + 1 for i, p in enumerate(_ranked)}
-# ---- who may be suggested as a DROP (this is a keeper league: a good week must never cost a long-term asset)
-PROTECT_TOP = 150          # top-150 dynasty assets (at 5 keepers): never dropped
-PROTECT_LEVEL = 35         # projected 35+ pts/g: never dropped, valued or not (catches stars without a valuation, e.g. after a long injury)
-UNVALUED_PROTECT_LEVEL = 28  # players our model can't value (no asset rank): never dropped at 28+ pts/g
-SCRUTINY_TOP = 250         # ranks 151-250 (solid contributors) may be suggested only for a big gain, and are flagged
-SCRUTINY_GAIN = 30         # points of expected gain required to even suggest a scrutiny-tier drop
+# ---- who may be suggested as a DROP. Keeper league: only 5 players are kept, so a non-keeper's value is what he produces THIS season.
+KEEPER_PROTECT = 6         # each team's top-6 dynasty assets (5 keepers + a margin) are never suggested as drops
+PROTECT_LEVEL = 35         # projects 35+ pts/g: never dropped, valued or not (catches stars our model can't value, e.g. after a long injury)
+ROS_WEEKS = 6              # if the player you drop is better than the one you add, count that gap for this many future weeks (before you could re-stream)
+GAMES_PER_WEEK = 3.3
+MIN_NET_GAIN = 10          # a move must be worth at least this many points AFTER subtracting the future cost
+SOLID_LEVEL = 28           # drops at/above this projection are flagged 'solid contributor'
 NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / "never_drop.json")).get("names", [])} if (Path(__file__).resolve().parent / "never_drop.json").exists() else set()
 
 
-def drop_tier(p):
-    """'never' | 'scrutiny' | 'ok'. Injury status and a short schedule this week never lower a player's protection."""
-    r, lvl = p["asset_rank"], p["level"]
-    if norm(p["name"]) in NEVER_DROP:
-        return "never"
-    if (r and r <= PROTECT_TOP) or lvl >= PROTECT_LEVEL or (r is None and lvl >= UNVALUED_PROTECT_LEVEL):
-        return "never"
-    if p.get("kind") == "prospect" and (r is None or r <= 300):
-        return "never"          # rookies not yet in the NBA are dynasty stashes with no games this week, i.e. a 'free' drop that isn't
-    if (r and r <= SCRUTINY_TOP) or lvl >= 28:
-        return "scrutiny"
-    return "ok"
+def protected_ids(roster):
+    valued = sorted([p for p in roster if p["asset_rank"]], key=lambda p: p["asset_rank"])
+    keep = {p["espn_id"] for p in valued[:KEEPER_PROTECT]}
+    keep |= {p["espn_id"] for p in roster if p["level"] >= PROTECT_LEVEL or norm(p["name"]) in NEVER_DROP}
+    return keep
 
+
+def future_cost(dr, add):
+    """points of production lost in later weeks by swapping dr for add (only if dr is the better player). Injury/short schedule this week don't matter."""
+    if dr is None:
+        return 0.0
+    return max(0.0, dr["level"] - add["level"]) * GAMES_PER_WEEK * ROS_WEEKS
+
+
+def drop_flag(p):
+    return "solid" if p["level"] >= SOLID_LEVEL else ""
 
 
 today = datetime.now(ET).date()
@@ -157,9 +162,8 @@ def make_player(p, on_roster_slot=None):
     hp = hub_player(p.playerId, p.name)
     espn_proj = (p.stats.get(f"{SEASON_ID}_projected") or {}).get("applied_avg")
     ours = hp.get("year0_ppg") if hp else None
-    parts = [v for v in (ours, espn_proj) if v]
-    base = sum(parts) / len(parts) if parts else 0.0
-    src = "model+ESPN" if len(parts) == 2 else ("model" if ours else ("ESPN" if espn_proj else "none"))
+    base = espn_proj if espn_proj else (ours or 0.0)          # ESPN's projection first; our model only when ESPN has none
+    src = "ESPN" if espn_proj else ("model" if ours else "none")
     l15 = p.stats.get(f"{SEASON_ID}_last_15") or {}
     gp15 = (l15.get("total") or {}).get("GP") or 0
     if gp15 >= 3 and l15.get("applied_avg"):
@@ -167,8 +171,13 @@ def make_player(p, on_roster_slot=None):
         base = w * l15["applied_avg"] + (1 - w) * base
         src += "+recent"
     return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)],
-            "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "hub_id": hp["id"] if hp else None,
+            "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None,
             "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None}
+
+
+def level_on(pl, d):
+    """projected points per game on date d: sportsbook-prop-derived when we have it for that day, else the base level"""
+    return pl.get("lvl_by_date", {}).get(d.isoformat(), pl["level"])
 
 
 def p_play(pl, d):
@@ -209,7 +218,7 @@ def day_options(roster, d):
     for pl in roster:
         p = p_play(pl, d)
         if p > 0:
-            cands.append((p * pl["level"], pl, p))
+            cands.append((p * level_on(pl, d), pl, p))
     cands.sort(key=lambda x: -x[0])
     acc = slot_matcher(cands)
     vals, cnt, order = [0.0], [0], []
@@ -279,7 +288,7 @@ def plan_team(roster, c0=0.0, detail=False):
         m = 0 if locked else best(di, c)[1]
         chosen = [cands[order[k]][1] for k in range(m)]
         slots = assign_slots(chosen)
-        starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2)}
+        starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2), "props": d.isoformat() in pl.get("lvl_by_date", {})}
                     for k, (pl, s) in enumerate(zip(chosen, slots))]
         benched = [{"id": cands[order[k]][1]["espn_id"], "name": cands[order[k]][1]["name"], "ef": round(cands[order[k]][0], 1)} for k in range(m, len(order))]
         c_after = c + (cnt[m] if not locked else 0)
@@ -345,6 +354,52 @@ def week_games(pl):
 fa_players.sort(key=lambda p: -(p["level"] * week_games(p)))
 fa_players = fa_players[:60]
 
+# ---------- sportsbook player props (optional): market projections for today/tomorrow, converted to league scoring
+props_meta = {"enabled": False}
+ODDS_KEY = os.environ.get("ODDS_API_KEY")
+if ODDS_KEY:
+    try:
+        import props_projection as PP
+        prop_dates = [d for d in plan_days if (d - today).days <= 1]
+        props, pm = PP.fetch_player_props(ODDS_KEY, prop_dates)
+        n_used = 0
+        for pl in [x for rr in rosters.values() for x in rr] + fa_players:
+            byd = props.get(norm(pl["name"]))
+            if not byd:
+                continue
+            for dt, means in byd.items():
+                lvl, used = PP.fantasy(means, pl.get("espn_avg"), pl.get("espn_level"))
+                if lvl > 0 and used:
+                    pl.setdefault("lvl_by_date", {})[dt] = round(lvl, 1)
+                    n_used += 1
+        props_meta = {"enabled": True, "events": pm["events"], "players_with_props": pm["players"], "player_days_used": n_used, "credits_remaining": pm["remaining"]}
+        print("props:", props_meta)
+    except Exception as ex:
+        props_meta = {"enabled": False, "error": str(ex)[:120]}
+        print("props unavailable:", ex)
+
+# ---------- shadow log: today's projections from each source, so they can be scored against real results once games are played
+import csv
+LOG = HUB / "projection_log.csv"
+seen_log = set()
+if LOG.exists():
+    with open(LOG, encoding="utf-8") as fh:
+        seen_log = {(r["date"], r["espn_id"]) for r in csv.DictReader(fh)}
+new_rows = []
+for pl in [x for rr in rosters.values() for x in rr] + fa_players:
+    key = (today.isoformat(), str(pl["espn_id"]))
+    if today in days and plays(pl["team"], today) and key not in seen_log and pl["level"] > 0:
+        new_rows.append({"date": today.isoformat(), "espn_id": pl["espn_id"], "name": pl["name"], "team": pl["team"], "status": pl["status"],
+                         "espn": pl["espn_level"] or "", "model": pl["model_level"] or "", "props": pl.get("lvl_by_date", {}).get(today.isoformat(), "")})
+    seen_log.add(key)
+if new_rows:
+    fresh = not LOG.exists()
+    with open(LOG, "a", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(new_rows[0].keys()))
+        if fresh:
+            w.writeheader()
+        w.writerows(new_rows)
+
 out_teams = []
 plans = {}
 for t in lg.teams:
@@ -359,23 +414,25 @@ for t in lg.teams:
         if not any(p_play(f, d) > 0 for d in plan_days):
             continue
         drops = [None] if len(non_ir) < 15 else []
-        drops += [p for p in non_ir if drop_tier(p) != "never"]
+        prot = protected_ids(r)
+        drops += [p for p in non_ir if p["espn_id"] not in prot]
         best_move = None
         for dr in drops:
             new = [p for p in r if p is not dr] + [f]
-            gain = plan_team(new, c0) - total
-            if dr is not None and drop_tier(dr) == "scrutiny" and gain < SCRUTINY_GAIN:
-                continue
-            if best_move is None or gain > best_move[0]:
-                best_move = (gain, dr)
-        if best_move and best_move[0] > 1.0:
-            g, dr = best_move
+            wk = plan_team(new, c0) - total
+            net = wk - future_cost(dr, f)
+            if best_move is None or net > best_move[0]:
+                best_move = (net, dr, wk)
+        if best_move and best_move[0] >= MIN_NET_GAIN:
+            g, dr, wk = best_move
             moves.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
                                   "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                          "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "tier": drop_tier(dr)} if dr else None), "gain": round(g, 1)})
+                          "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
+                          "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
     moves.sort(key=lambda x: -x["gain"])
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
     fa_by_id = {f["espn_id"]: f for f in fa_players}
+    prot = protected_ids(r)
     seq, r2, cur, used = [], list(r), total, set()
     for step in range(4):
         best_step = None
@@ -384,29 +441,29 @@ for t in lg.teams:
             if f["espn_id"] in used:
                 continue
             nonir2 = [p for p in r2 if not p["ir"]]
-            drops2 = ([None] if len(nonir2) < 15 else []) + [p for p in nonir2 if drop_tier(p) != "never" and p["espn_id"] not in used]
+            drops2 = ([None] if len(nonir2) < 15 else []) + [p for p in nonir2 if p["espn_id"] not in prot and p["espn_id"] not in used]
             for dr in drops2:
-                g = plan_team([p for p in r2 if p is not dr] + [f], c0) - cur
-                if dr is not None and drop_tier(dr) == "scrutiny" and g < SCRUTINY_GAIN:
-                    continue
+                wk = plan_team([p for p in r2 if p is not dr] + [f], c0) - cur
+                g = wk - future_cost(dr, f)
                 if best_step is None or g > best_step[0]:
-                    best_step = (g, f, dr)
-        if not best_step or best_step[0] < 3.0:
+                    best_step = (g, f, dr, wk)
+        if not best_step or best_step[0] < MIN_NET_GAIN:
             break
-        g, f, dr = best_step
+        g, f, dr, wk = best_step
         r2 = [p for p in r2 if p is not dr] + [f]
-        cur += g
+        cur += wk
         used.add(f["espn_id"])
         seq.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                    "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "tier": drop_tier(dr)} if dr else None), "gain": round(g, 1), "cum": round(cur - total, 1)})
+                    "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
+                    "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1)})
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq,
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "asset_rank": p["asset_rank"], "drop": drop_tier(p), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -420,7 +477,7 @@ for tm in out_teams:
 
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_abbrev": MY_ABBREV,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
-                   "cap": round(cap, 1), "adds_limit": adds_limit, "calendar_assumed": True,
+                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
        "teams": out_teams}
 OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")

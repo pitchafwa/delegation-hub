@@ -142,3 +142,13 @@ each team actually scored; verify the add-limit and waiver behavior in week 1.
 * [ESPN Fan Support — Waiver period](https://support.espn.com/hc/en-us/articles/360012531592-Waiver-Period)
 * [OddsPapi — Odds API pricing comparison](https://oddspapi.io/blog/odds-api-pricing-2026-comparison/)
 * Scripts (all in `ingest/research/`): `league_lineup_analysis.py`, `pull_league_history_2026.py`, `vegas_environment_test.py`, `pull_espn_game_odds.py`, `rest_absence_test.py`, `form_window_test.py`
+
+## Update 2026-09-24 (later): drop rules, projection source, props
+* **Drop rules (keeper league, 5 keepers):** each team's top-6 dynasty assets and anyone projecting 35+ are never suggested as drops; every other
+  suggestion is scored NET of a future cost = max(0, dropped level - added level) x 3.3 games x 6 weeks. Injury/short schedule this week never reduces it.
+* **Single-game projections:** ESPN's projection first (blended with the last 15 games in season); our model only as a fallback.
+* **Sportsbook player props -> league scoring:** `ingest/research/props_projection.py` converts lines + over/under prices into stat means
+  (negative-binomial with variance fitted on 2023-26 logs) and scores them with the league formula; FTM/FTA/TD3 (no prop markets) come from ESPN's
+  stat line. Needs `ODDS_API_KEY` (The Odds API; player props for NBA, ~7 credits per game per day). Free data sources for props are thin: ESPN has none;
+  historical prop archives are paid. So the plan logs ESPN / model / props projections for every player each game day to
+  `dashboard/projection_log.csv` (shadow mode) so the sources can be scored against real results after a few weeks before we trust any one.
