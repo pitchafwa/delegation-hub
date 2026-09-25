@@ -30,20 +30,28 @@ These match the numbers already in the plan (which came from one partial season)
   Questionable is 45%.
 
 ## 2. Recurrence (does the same body part come back?)
-* A prior episode (3+ game days out) in the same body-part group over the previous two seasons roughly doubles the chance of a new one this season: 23% vs 11.5% with
-  only other-group history and 7.4% with none. Holding the TOTAL number of prior episodes equal, the odds ratio for same-group history is 1.57; each extra prior
-  episode of any kind adds only 1.13. So "injury-prone" is mostly body-part specific, and a broken thumb after a broken rib is only weakly predictive.
-* **Same side.** Among players who have one episode of a part then another: 79% are on the SAME side (50% would be no effect): knee 82% (n=196), ankle 74%, hamstring 77%,
-  calf 67%, foot 97%. Within six months of the previous episode it is 89%. Your hamstring-on-the-same-leg hunch holds.
-* **Longer when it recurs on the same side:** median 13 game days out (mean 19.4) vs 8 (mean 14.2) for a first episode. Opposite-side recurrences are no longer (13.1 mean).
-* Season level: last season's games missed predicts next season's only weakly (R-squared 0.05, MAE 15.0 vs 15.5 for "everyone misses 22"), and adding injury counts,
-  repeat parts, or major injuries did NOT improve it (14.99). Injury history is worth a few games a year, not a big risk score, and not more than games missed already says.
+A first pass counted listing fragments (a player skipped for a few days by the report) as separate episodes, which overstated recurrence. Fragments with no game played in
+between are now merged, so a new episode needs a real return to play. Corrected results:
+* A prior episode (3+ game days out) in the same body-part group over the previous two seasons roughly doubles the chance of a new one this season: 22% vs 11.5% with only
+  other-group history and 7.4% with none. Holding the TOTAL number of prior episodes equal, the odds ratio for same-group history is 1.45; each extra prior episode of any kind adds only 1.15.
+  So "injury-prone" is mostly body-part specific, and a broken thumb after a broken rib is only weakly predictive.
+* **Same side.** Among players with two episodes of the same part: 71% are on the SAME side (50% = no effect): knee 73% (n=119), ankle 68%, hamstring 74%. Within six months of the
+  previous episode it is 82%. Your hamstring-on-the-same-leg hunch holds, less strongly than the first pass said.
+* **Longer when it recurs: NOT supported** after merging (first episodes average 17.5 game days out, same-side recurrences 13.9). The earlier "5 games longer" was an artifact.
+* Season level: last season's games missed predicts next season's only weakly (R-squared 0.05); injury counts, repeat parts and major injuries did NOT improve it.
 
-## What this suggests building (not built yet)
-1. **Plan availability**: replace the flat Questionable rate with the state table above (needs each listed player's last-game participation and whether he was
-   listed the day before: previous day's report plus ESPN's per-player game log).
-2. **Board injury risk**: flag players with a repeat SAME-side episode in the past two seasons (e.g. "left hamstring x3"), worth roughly +11 points of probability of another
-   3+ game absence in that region and about 5 extra games when it happens (about 2-3 games a season); ignore unrelated injuries.
-3. Do not weight injury type in day-to-day availability: the data says it does not help.
-Caveats: episodes are defined from report listings (a long absence is one episode; a gap over 7 days starts a new one), body part comes from the printed reason, and 2025-26
-11AM reports are thin (61 days). The recurrence and side results are descriptive, not causal.
+## 3. Five-tier injury risk for the board (built)
+Predicted chance of missing 30%+ of next season from games missed in the last three seasons, age and minutes (logistic, leave-one-season-out over 1,362 player-seasons,
+2022-23 to 2025-26): AUC 0.686 vs 0.628 for the old rule (count of seasons with 25%+ missed), calibrated (top quintile predicted 73%, actual 72%). Tiers: Low, Below average,
+Average, Elevated, High (cut points 27%, 36%, 48%, 62%); players under 15 mpg get no tier (their missed games are mostly coaching decisions). Injury DETAILS (episodes, days out,
+repeats, big injuries, still-out-at-season-end) did not improve the season-level prediction (AUC 0.677-0.686), so they are TAGS on the player: "recurring <side> <part> xN" (2+ episodes
+in two seasons) and "returning: still out at end of last season" (31% missed half of the first ~16 games vs 18% otherwise, though the history already captures most of that).
+Script: `build_injury_risk.py` (coefficients from `injury_risk_model.py`); the board shows a coloured dot (green = low, gold = elevated, red = high, none = average) with the reason in the tooltip and a
+detail line when a player is opened.
+
+## 4. Plan availability (built)
+`availability_table.json` (from `build_availability_table.py`) gives P(play) by official status x rotation/bench x state, and `build_week_plan.py` uses it for today's game:
+state = first day listed / listed before and played his last game / listed before and missed it, worked out from the previous 7 days of official reports plus ESPN's per-player
+game log (`availability_state.py`; 54 of 60 sampled historical cases matched the study labels, the rest are report duplicates). Everything falls back to the flat rates if a
+step fails. Tomorrow's designations use the pooled rate for that status. Untested live until the season starts (no reports in the offseason).
+Caveats: episodes are defined from report listings, body part comes from the printed reason, and the 2025-26 11AM reports are thin (61 days). Results are descriptive, not causal.

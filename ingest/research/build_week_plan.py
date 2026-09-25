@@ -177,6 +177,13 @@ try:
 except Exception as ex:                       # never let a missing report break the plan
     OFFICIAL, OFFICIAL_AT = {}, None
     print("official injury report unavailable:", ex)
+try:
+    import availability_state as AV
+    PRIOR = AV.prior_listings(today)
+    print(f"availability: {len(PRIOR)} players listed in the previous 7 days' official reports")
+except Exception as ex:                       # never let this break the plan: falls back to the flat rates in OFFICIAL_P
+    AV, PRIOR = None, {}
+    print("availability state unavailable:", ex)
 STATUS_P = {"ACTIVE": 0.94, "DAY_TO_DAY": 0.55, "OUT": 0.0, "INJURY_RESERVE": 0.0, "SUSPENSION": 0.0}
 
 
@@ -212,6 +219,10 @@ def p_play(pl, d):
     tier = "rotation" if pl["level"] >= ROTATION_LEVEL else "bench"
     off = pl.get("official", {}).get(d.isoformat())
     if off:                                       # the league's own designation for that game
+        if AV is not None:                        # conditioned on whether he played his last game (5 seasons of reports): Questionable 81% / 42% / 45%
+            v = AV.p_table(off, tier, pl.get("avail_state") if d == today else None)
+            if v is not None:
+                return v
         return OFFICIAL_P[tier].get(off, 0.9)
     if d == today:                                # status known this morning, no designation listed
         p = OFFICIAL_P[tier]["Questionable"] if pl["status"] == "DAY_TO_DAY" else 0.94
@@ -429,6 +440,12 @@ for (_gd, _kk), _st in OFFICIAL.items():
     _by_key.setdefault(_kk, {})[_gd] = _st
 for _pl in [x for rr in rosters.values() for x in rr] + fa_players:
     _pl["official"] = _by_key.get(norm(_pl["name"]).replace(" ", ""), {})
+    _td = _pl["official"].get(today.isoformat())
+    if AV is not None and _td in ("Questionable", "Probable", "Available", "Doubtful"):
+        try:
+            _pl["avail_state"] = AV.state_for(norm(_pl["name"]).replace(" ", ""), _pl["espn_id"], today, PRIOR)
+        except Exception:
+            _pl["avail_state"] = None
 
 # ---------- sportsbook player props (optional): market projections for today/tomorrow, converted to league scoring
 props_meta = {"enabled": False}
@@ -602,7 +619,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 

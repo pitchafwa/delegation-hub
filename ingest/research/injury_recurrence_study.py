@@ -28,7 +28,35 @@ r["new"] = (r.gap.isna() | (r.gap > 7)).astype(int)
 r["epi"] = r.groupby(["player_key", "part"]).new.cumsum()
 r["out"] = (r.status == "Out") * 1
 ep = r.groupby(["player_key", "part", "epi"]).agg(start=("gd", "min"), end=("gd", "max"), n_out=("out", "sum"), n_rows=("out", "size"), group=("group", "first"),
-                                                     side=("side", lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""), season=("season", "first")).reset_index()
+                                                     side=("side", lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""), season=("season", "first"), major=("tier", lambda x: int(x.isin(["major", "recovery"]).any()))).reset_index()
+# MERGE fragments: two listings of the same player and body part with NO game played in between are the same absence (he never came back), even if the
+# report skipped a few days.  Only a real return (at least one game played) makes the next listing a new episode.
+_lg = C.load_logs()
+_lg = _lg[_lg.MIN > 0]
+_played = {k: np.sort(v.gd.values) for k, v in _lg.groupby("key")}
+def _n_played(pk, a, b):
+    arr = _played.get(pk)
+    if arr is None:
+        return 0
+    return int(np.searchsorted(arr, np.datetime64(b), side="left") - np.searchsorted(arr, np.datetime64(a), side="right"))
+ep = ep.sort_values(["player_key", "part", "start"]).reset_index(drop=True)
+merged = []
+for (pk, part), grp in ep.groupby(["player_key", "part"], sort=False):
+    cur = None
+    for row in grp.itertuples(index=False):
+        if cur is not None and _n_played(pk, cur["end"], row.start) == 0:
+            cur["end"] = max(cur["end"], row.end)
+            cur["n_out"] += row.n_out
+            cur["n_rows"] += row.n_rows
+            cur["major"] = max(cur["major"], row.major)
+        else:
+            if cur is not None:
+                merged.append(cur)
+            cur = row._asdict()
+    merged.append(cur)
+n_before = len(ep)
+ep = pd.DataFrame(merged)
+print(f"merged listing fragments with no game played in between: {n_before:,} -> {len(ep):,} episodes")
 ep["days"] = (ep.end - ep.start).dt.days + 1
 MIN_OUT = 3
 big = ep[ep.n_out >= MIN_OUT].copy()

@@ -1,0 +1,137 @@
+{
+ "note": "P(play) by official status | rotation (20+ mpg over previous 15) or bench | state; from NBA injury reports 2021-22 to 2025-26",
+ "table": {
+  "Available|bench|all": {
+   "p": 0.703,
+   "n": 872
+  },
+  "Available|bench|first": {
+   "p": 0.712,
+   "n": 98
+  },
+  "Available|bench|missed": {
+   "p": 0.461,
+   "n": 361
+  },
+  "Available|bench|played": {
+   "p": 0.914,
+   "n": 413
+  },
+  "Available|rotation|all": {
+   "p": 0.937,
+   "n": 2549
+  },
+  "Available|rotation|first": {
+   "p": 0.955,
+   "n": 279
+  },
+  "Available|rotation|missed": {
+   "p": 0.799,
+   "n": 652
+  },
+  "Available|rotation|played": {
+   "p": 0.99,
+   "n": 1618
+  },
+  "Doubtful|bench|all": {
+   "p": 0.027,
+   "n": 337
+  },
+  "Doubtful|bench|first": {
+   "p": 0.016,
+   "n": 83
+  },
+  "Doubtful|bench|missed": {
+   "p": 0.022,
+   "n": 238
+  },
+  "Doubtful|bench|played": {
+   "p": 0.083,
+   "n": 16
+  },
+  "Doubtful|rotation|all": {
+   "p": 0.027,
+   "n": 1166
+  },
+  "Doubtful|rotation|first": {
+   "p": 0.013,
+   "n": 188
+  },
+  "Doubtful|rotation|missed": {
+   "p": 0.017,
+   "n": 876
+  },
+  "Doubtful|rotation|played": {
+   "p": 0.12,
+   "n": 102
+  },
+  "Probable|bench|all": {
+   "p": 0.757,
+   "n": 902
+  },
+  "Probable|bench|first": {
+   "p": 0.767,
+   "n": 160
+  },
+  "Probable|bench|missed": {
+   "p": 0.546,
+   "n": 341
+  },
+  "Probable|bench|played": {
+   "p": 0.934,
+   "n": 401
+  },
+  "Probable|rotation|all": {
+   "p": 0.919,
+   "n": 3424
+  },
+  "Probable|rotation|first": {
+   "p": 0.88,
+   "n": 489
+  },
+  "Probable|rotation|missed": {
+   "p": 0.784,
+   "n": 769
+  },
+  "Probable|rotation|played": {
+   "p": 0.978,
+   "n": 2166
+  },
+  "Questionable|bench|all": {
+   "p": 0.424,
+   "n": 2749
+  },
+  "Questionable|bench|first": {
+   "p": 0.36,
+   "n": 755
+  },
+  "Questionable|bench|missed": {
+   "p": 0.293,
+   "n": 1407
+  },
+  "Questionable|bench|played": {
+   "p": 0.81,
+   "n": 587
+  },
+  "Questionable|rotation|all": {
+   "p": 0.547,
+   "n": 8590
+  },
+  "Questionable|rotation|first": {
+   "p": 0.446,
+   "n": 1912
+  },
+  "Questionable|rotation|missed": {
+   "p": 0.417,
+   "n": 3982
+  },
+  "Questionable|rotation|played": {
+   "p": 0.811,
+   "n": 2696
+  },
+  "Out|any|all": {
+   "p": 0.004,
+   "n": 69220
+  }
+ }
+}

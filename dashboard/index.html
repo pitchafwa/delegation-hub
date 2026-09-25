@@ -74,6 +74,9 @@
   .teamCell img{width:18px;height:18px;object-fit:contain}
   .injDot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:.35rem}
   .injDot.watch{background:var(--accent)} .injDot.chronic{background:var(--warn)}
+  .injDot.t0{background:var(--good)} .injDot.t1{background:color-mix(in srgb,var(--good) 55%,transparent)} .injDot.t3{background:var(--accent)} .injDot.t4{background:var(--warn)}
+  .injTier{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.62rem;font-weight:600;padding:.05rem .35rem;border-radius:4px;margin-right:.35rem;background:color-mix(in srgb,var(--ink-faint) 22%,transparent)}
+  .injTier.t0,.injTier.t1{background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--good)} .injTier.t3{background:color-mix(in srgb,var(--accent) 25%,transparent);color:var(--accent)} .injTier.t4{background:color-mix(in srgb,var(--warn) 25%,transparent);color:var(--warn)}
   .liveStatus{font-family:"IBM Plex Mono",monospace;font-size:.62rem;font-weight:600;padding:.04rem .32rem;border-radius:4px;margin-left:.35rem;background:color-mix(in srgb, var(--warn) 20%, transparent);color:var(--warn)}
   .ic{margin-left:.25rem;font-size:.82rem}
   .detail td{background:var(--surface-2);border-top:0;white-space:normal}
@@ -649,7 +652,9 @@ function render(){
     const id=p.id;
     const isOpen=open.has(id);
     const badge = p.kind==='prospect' ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
-    const injDot = (p.injury_risk==='watch'||p.injury_risk==='chronic') ? `<span class="injDot ${p.injury_risk}" title="injury risk: ${p.injury_risk} (recent seasons)"></span>` : '';
+    const INJL=['Low','Below average','Average','Elevated','High'];
+    const injTip=p.injury_tier!=null?`Injury risk: ${INJL[p.injury_tier]} · about ${(p.injury_p*100).toFixed(0)}% chance of missing 30%+ of next season, expect roughly ${p.injury_missed} games missed${(p.injury_tags||[]).length?' · '+p.injury_tags.join('; '):''}`:'';
+    const injDot = p.injury_tier!=null ? (p.injury_tier===2?'':`<span class="injDot t${p.injury_tier}" title="${esc(injTip)}"></span>`) : ((p.injury_risk==='watch'||p.injury_risk==='chronic') ? `<span class="injDot ${p.injury_risk}" title="injury risk: ${p.injury_risk} (recent seasons)"></span>` : '');
     const liveStatus = (p.espn_injury_status && p.espn_injury_status!=='ACTIVE') ? `<span class="liveStatus" title="live ESPN status">${p.espn_injury_status}</span>` : '';
     const teamCell = p.team
       ? `<div class="teamCell">${p.team_logo?`<img src="${p.team_logo}" alt="" loading="lazy"/>`:''}${p.team}</div>`
@@ -722,6 +727,7 @@ function render(){
           <div>
             <div class="simwrap"><div class="lbl">Projected ${yearLabel(p.anchor_year,0)} season line (per game)</div>${rookieStatLine(p.next_season_proj).replace('class="statline"','class="statline g4"')}</div>
             <div class="note" style="margin-top:.6rem">${curNote}</div>
+            ${p.injury_tier!=null?`<div class="simwrap"><div class="lbl">Injury risk</div><div class="note"><span class="injTier t${p.injury_tier}">${INJL[p.injury_tier].toUpperCase()}</span> about <b>${(p.injury_p*100).toFixed(0)}%</b> chance of missing 30%+ of next season (roughly <b>${p.injury_missed}</b> games) from games missed in the last three seasons, age and minutes.${(p.injury_tags||[]).length?`<div style="margin-top:.35rem">${p.injury_tags.map(t=>`<span class="comp">${esc(t)}</span>`).join(' ')}</div>`:''}</div></div>`:''}
           </div>
           <div class="dr">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[], p.ceil_path||null, 600, 240)}</div>
         </div>`;
@@ -852,7 +858,7 @@ function renderWeek(){
   const irHtml=irm.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and IR moves · ${T.roster_spots.non_ir}/${T.roster_spots.of} roster spots, ${T.roster_spots.ir_used}/${T.roster_spots.ir_of} IR</div>
     <div class="irBox">${irm.map(m=>`<div class="irRow">${irLine(m)}</div>`).join('')}${unlock&&unlock.unlocks>0.5?`<div class="note" style="margin-top:.4rem">Making these moves and then using the freed spots is worth about <b>+${unlock.unlocks.toFixed(0)} points</b> this week compared with leaving them as they are (the plan and adds below already assume the moves are made).</div>`:''}</div>`:'';
   const daysHdr=M.planned_days.map(shortDay);
-  const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${esc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.official?` <span class="liveStatus" title="official NBA injury report designation for today">${esc(p.official)}</span>`:(p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'')}</td>
+  const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${esc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.official?` <span class="liveStatus" title="official NBA injury report designation for today${p.avail_state?' · '+({first:'first day listed',played:'played his last game',missed:'missed his last game'})[p.avail_state]:''}">${esc(p.official)}</span>`:(p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'')}</td>
       <td style="text-align:left">${esc(p.team)}</td><td style="text-align:left">${p.slots.filter(x=>x!=='UT').join('/')}</td><td class="num">${p.level}</td><td class="num">${p.protected?'<span class="hint" title="never suggested as a drop">keep</span> ':''}${p.asset_rank?'#'+p.asset_rank:'<span class="hint">—</span>'}</td>
       <td style="text-align:left;font-family:'IBM Plex Mono',monospace;letter-spacing:.2em">${M.planned_days.map(d=>p.games.includes(d)?'●':'·').join('')}</td></tr>`).join('');
   const wp=T.win_prob!=null?`${(T.win_prob*100).toFixed(0)}%`:'—';

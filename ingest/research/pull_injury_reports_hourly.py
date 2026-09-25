@@ -23,7 +23,7 @@ D = Path(__file__).resolve().parent / "data"
 URL = "https://ak-static.cms.nba.com/referee/injury/Injury-Report_{d}_{s}.pdf"
 UA = {"User-Agent": "Mozilla/5.0"}
 SEASONS = {"2021-22": (date(2021, 10, 19), date(2022, 4, 10)), "2022-23": (date(2022, 10, 18), date(2023, 4, 9)), "2023-24": (date(2023, 10, 24), date(2024, 4, 14)),
-           "2024-25": (date(2024, 10, 22), date(2025, 4, 13)), "2025-26": (date(2025, 10, 21), date(2026, 4, 12))}
+           "2024-25": (date(2024, 10, 22), date(2025, 4, 13)), "2025-26": (date(2025, 10, 21), date(2026, 4, 12)), "2026-27": (date(2026, 10, 20), date(2027, 4, 11))}
 SLOTS = ("11AM", "05PM")
 STATUS = {"Out", "Doubtful", "Questionable", "Probable", "Available"}
 SUFFIX = re.compile(r"(Jr\.|Sr\.|II|III|IV)$")
@@ -164,11 +164,20 @@ def job(args):
 
 def main():
     test = len(sys.argv) > 1 and sys.argv[1] == "test"
+    update = len(sys.argv) > 1 and sys.argv[1] == "update"      # in season: only report dates after the newest one already saved
+    old = None
+    start_after = None
+    if update:
+        old = pd.read_csv(D / "injury_reports_hourly.csv")
+        start_after = date.fromisoformat(old.report_date.max())
     jobs = []
     for season, (a, b) in SEASONS.items():
         if test and season != "2024-25":
             continue
         d = a + timedelta(days=30) if test else a
+        if update:
+            d = max(a, start_after + timedelta(days=1))
+            b = min(b, date.today())
         while d <= b:
             for s in SLOTS:
                 jobs.append((d, s))
@@ -186,7 +195,12 @@ def main():
                     out.append(r)
             if i % 200 == 0:
                 print(i, len(out), "rows", err, "errors", flush=True)
+    if update and not out:
+        print("no new reports")
+        return
     df = pd.DataFrame(out, columns=["report_date", "slot", "game_date", "matchup", "team", "player_key", "player_name", "status", "reason"])
+    if update:
+        df = pd.concat([old, df], ignore_index=True).drop_duplicates(["report_date", "slot", "game_date", "player_key", "status", "reason"])
     df.to_csv(D / ("injury_reports_hourly_test.csv" if test else "injury_reports_hourly.csv"), index=False)
     print("rows", len(df), "report-days", df.groupby(["report_date", "slot"]).ngroups, "errors", err)
     print(df.head(12).to_string())

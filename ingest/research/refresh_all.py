@@ -117,6 +117,13 @@ try:
             model_ok = False
             say(f"!! model chain aborted: {e}. hub_data will NOT be rebuilt from a half-updated model.")
 
+    # 2b. injury tiers and tags (in season: pull the newest official reports, rebuild episodes, refit tiers). Non-critical: the old files stay if it fails.
+    if in_season:
+        run("injury_reports", "pull_injury_reports_hourly.py", "update")
+        run("injury_rows", "injury_playrate_study.py")
+        run("injury_episodes", "injury_recurrence_study.py")
+    run("injury_risk", "build_injury_risk.py")
+
     # 3. breakout models
     if not ledger_frozen:
         run("breakout_model", "breakout_model.py")

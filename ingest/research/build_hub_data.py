@@ -92,6 +92,14 @@ trailing["significant_miss"] = trailing["missed_frac"] > 0.25
 sig_count = trailing.groupby("PLAYER_ID")["significant_miss"].sum()
 
 
+# five-tier injury risk + material-injury tags (build_injury_risk.py); falls back to nothing if that file has not been built
+_INJ4 = {}
+_p4 = ROOT / "data" / "injury_risk_v4.csv"
+if _p4.exists():
+    for _r in pd.read_csv(_p4).itertuples():
+        _INJ4[int(_r.PLAYER_ID)] = dict(tier=int(_r.injury_tier), p=float(_r.injury_p), missed=int(_r.injury_missed), tags=json.loads(_r.tags))
+
+
 def risk_tier(pid):
     n = sig_count.get(pid, 0)
     if n == 0:
@@ -219,6 +227,10 @@ for _, r in current.iterrows():
         "unified_projection": bool(_uni),
         "had_output_b_prior": bool(r["had_output_b_prior"]),
         "injury_risk": risk_tier(r["PLAYER_ID"]),
+        "injury_tier": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("tier"),
+        "injury_p": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("p"),
+        "injury_missed": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("missed"),
+        "injury_tags": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("tags") or [],
         "espn_injury_status": r["injury_status"] if pd.notna(r.get("injury_status")) else None,
         "next_season_proj": {k: round_or_none(v * (_fc if k != "MIN" else 1.0), 4) for k, v in r["next_season_proj"].items()},
         "p_break": round_or_none(r["p_break"], 3),
