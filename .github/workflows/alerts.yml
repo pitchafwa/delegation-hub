@@ -1,0 +1,66 @@
+name: Phone alerts (ntfy)
+
+# PRIMARY trigger is cron-job.org calling the workflow_dispatch API (see alerts/SETUP.md): GitHub's own scheduler is best-effort and drops or delays runs.
+# The schedule below is only a BACKUP; a shared state file (alerts/state.json) and the one-run-at-a-time rule stop duplicate notifications.
+# Backup times use odd minutes on purpose (round minutes are the most delayed). The script itself only sends the daily brief between 8:25am and noon ET,
+# the weekly brief between 9:25am and 1pm ET on the first day of a matchup, and never repeats a notification.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check | daily | weekly | test"
+        default: "check"
+  schedule:
+    - cron: "17,47 12-23 * * *"
+    - cron: "17,47 0-2 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .github/workflows/alerts.yml
+
+      - name: Install dependencies
+        run: pip install --quiet espn-api pandas python-dotenv requests pdfplumber
+
+      - name: Run
+        working-directory: ingest
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            python research/alerts.py check || true
+            python research/alerts.py daily || true
+            python research/alerts.py weekly || true
+          else
+            python research/alerts.py "${{ inputs.mode }}"
+          fi
+
+      - name: Save state
+        run: |
+          git config user.name "alerts-bot"
+          git config user.email "alerts-bot@users.noreply.github.com"
+          git add alerts/state.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "alerts state" --quiet
+            git pull --rebase --quiet
+            git push --quiet
+          fi
