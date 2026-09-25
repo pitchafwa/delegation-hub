@@ -106,6 +106,10 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
+  .profCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem .95rem;margin:.6rem 0 1rem}
+  .profHd{font-weight:600;margin-bottom:.2rem}
+  .profTbl{border-collapse:collapse;width:100%;font-size:.82rem;margin-top:.3rem}.profTbl th,.profTbl td{padding:.22rem .3rem;border-top:1px solid var(--line);white-space:normal}
+  .profYr{font-size:.8rem;padding:.35rem 0;border-top:1px solid var(--line)}
   .dStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:.4rem 0 1rem;font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--ink-soft)}
   .dStrip b{display:block;font:600 1.1rem/1.1 "IBM Plex Sans",sans-serif;color:var(--ink)}
   .dTop{display:grid;grid-template-columns:1fr 300px;gap:1.2rem;align-items:start}
@@ -269,6 +273,7 @@
     #teamsPane>.controls{order:1}
     #teamsPane>.teamPick{order:2;margin:.2rem 0 .6rem}
     #teamsPane>.teamPick select{width:100%;padding:.5rem .7rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
+    #teamsPane>.rosterProfile{order:3}
     #teamsPane>.rosterHdr{order:3}
     #teamsPane>.rosterWrap{order:4}
     #teamsPane>.leagueHdr{order:5;font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .5rem}
@@ -347,7 +352,7 @@
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, dHide=true, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, dHide=true, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -707,6 +712,25 @@ function render(){
   collapseLegends(document.getElementById('boardPane'));
 }
 
+function profileHtml(teamId){
+  if(!PROF) return '';
+  const t=PROF.teams.find(x=>x.id===teamId); if(!t) return '';
+  const L=PROF.league, m=t.metrics;
+  const conf={none:'no history (new owner this year)',low:'low confidence',medium:'medium confidence',high:'high confidence'}[t.confidence];
+  const yrTxt=t.seasons?`${t.seasons} season${t.seasons>1?'s':''} of drafts by the current owner (${t.years[0]}-${String(t.years[t.years.length-1]).slice(2)})`:'This owner has not drafted in this league before';
+  const pct=v=>v==null?'—':(v*100).toFixed(0)+'%', one=v=>v==null?'—':v.toFixed(1);
+  const rowsDef=[['Age of drafted players',m.age_mean,L.age_mean,one],['Age of first 4 picks',m.age_early,L.age_early,one],['Rookies among picks',m.rookie_share,L.rookie_share,pct],
+    ['Guards among picks',m.guard_share,L.guard_share,pct],['Bigs among picks',m.big_share,L.big_share,pct],['Bigs in first 4 rounds',m.big_early,L.big_early,pct],
+    ['Injury gambles',m.injury_gamble,L.injury_gamble,pct],['Reach in first 4 rounds (− = earlier than production)',m.reach_early,L.reach_early,one],
+    ['Age of keepers',m.keeper_age,L.keeper_age,one],['Keepers kept again the next year',m.keeper_repeat,L.keeper_repeat,pct]];
+  const tbl=t.seasons?`<table class="profTbl"><thead><tr><th style="text-align:left">Tendency</th><th>This team</th><th>League</th></tr></thead><tbody>${rowsDef.map(r=>`<tr><td style="text-align:left">${r[0]}</td><td class="num"><b>${r[3](r[1])}</b></td><td class="num hint">${r[3](r[2])}</td></tr>`).join('')}</tbody></table>`:'';
+  const tags=t.tags.length?t.tags.map(g=>`<span class="comp" title="${g.z>0?'+':''}${g.z} standard deviations from the league average">${esc(g.label)}</span>`).join(' '):(t.seasons?'<span class="hint">no strong tendencies: drafts close to the league average</span>':'');
+  const seasons=(t.by_season||[]).slice().reverse().map(y=>`<div class="profYr"><b>${y.year-1}-${String(y.year).slice(2)}</b> · kept ${y.keepers.map(k=>esc(k.name)).join(', ')||'—'}<br><span class="hint">first picks:</span> ${y.early.map(e=>esc(e.name)+(e.pick?' ('+e.pick+')':'')).join(', ')||'—'}</div>`).join('');
+  return `<div class="profCard"><div class="profHd">Draft profile <span class="hint">${esc(yrTxt)} · ${conf}</span></div>
+    <div class="comps" style="padding:.3rem 0 .5rem">${tags}</div>${tbl}
+    ${seasons?`<details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">What they kept and drafted early, by season</summary>${seasons}</details>`:''}
+    <div class="note" style="margin-top:.4rem">Built from this league's ESPN drafts (2020-21 to 2025-26). "Reach" compares when a player was drafted with the order of last season's league-scored points (or ESPN ADP when available). Tendencies are relative to the league average, and only the current owner's seasons count.</div></div>`;
+}
 function renderTeams(){
   const pane=document.getElementById('teamsPane');
   const ranks=assetRanks(), byId=new Map(D.players.map(p=>[p.id,p]));
@@ -739,6 +763,7 @@ function renderTeams(){
     <div class="mobileOnly teamPick"><select id="teamPickSel" aria-label="Choose a team">${teams.map(x=>`<option value="${x.t.id}" ${x.t.id===teamSel?'selected':''}>${esc(x.t.name)} (${esc(x.t.abbrev)})</option>`).join('')}</select></div>
     <div class="mobileOnly leagueHdr">League ranking by keeper value (tap a team to see its roster)</div>
     <div class="tablewrap leagueWrap" style="margin-bottom:1rem"><table id="leagueTbl"><thead><tr><th>#</th><th style="text-align:left">Team</th><th>Keeper value</th><th>Total asset</th><th>Rookies</th><th style="text-align:left">Best asset</th></tr></thead><tbody>${league}</tbody></table></div>
+    <div class="rosterProfile">${profileHtml(teamSel)}</div>
     <div class="rosterHdr" style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">${esc(cur.t.name)} · roster</div>
     <div class="tablewrap rosterWrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Age</th><th>2026 PPG</th><th>Peak PPG</th><th>VOR</th><th>Asset</th><th>MKT</th></tr></thead><tbody>${roster}</tbody></table></div>
     <div class="legend" style="margin-top:1rem"><b>Keeper value</b> = sum of a team's top ${K} asset values (keepers cost nothing, only a slot, so the best ${K} assets are who you'd keep; position eligibility isn't considered). Click a team to see its roster.</div>`;
@@ -1156,6 +1181,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
   fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
   fetch('draft_data.json').then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
+  fetch('team_profiles.json').then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
   fetch('trade_ideas.json').then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
