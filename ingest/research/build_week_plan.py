@@ -91,6 +91,7 @@ def hub_player(espn_id, name):
 
 _ranked = sorted([p for p in hub["players"] if p.get("asset_k")], key=lambda p: -p["asset_k"][5])
 ASSET_RANK = {p["id"]: i + 1 for i, p in enumerate(_ranked)}
+ASSET_HP = {p["id"]: p["asset_k"][5] for p in hub["players"] if p.get("asset_k") and len(p["asset_k"]) > 5}
 # ---- who may be suggested as a DROP. Keeper league: only 5 players are kept, so a non-keeper's value is what he produces THIS season.
 KEEPER_PROTECT = 6         # each team's top-6 dynasty assets (5 keepers + a margin) are never suggested as drops
 PROTECT_LEVEL = 35         # projects 35+ pts/g: never dropped, valued or not (catches stars our model can't value, e.g. after a long injury)
@@ -386,6 +387,36 @@ for _p in fa_players:
 fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days)]
 
 
+# ---------- DYNASTY ADDS: free agents with long-term value (keeper-league asset value at 5 keepers), whether or not they help this week.
+# Scans a wide free-agent list; remembers when each player first appeared so 'newly available' (dropped by a team) can be flagged.
+def asset5(hp):
+    return (hp["asset_k"][5] if hp and hp.get("asset_k") and len(hp["asset_k"]) > 5 else 0.0) or 0.0
+
+
+DYN_MIN_ASSET = 6.0
+dyn_pool = []
+for _p in lg.free_agents(size=400):
+    _hp = hub_player(_p.playerId, _p.name)
+    _a = asset5(_hp)
+    if _hp and _a >= DYN_MIN_ASSET:
+        dyn_pool.append({"id": _p.playerId, "name": _p.name, "team": canon(_p.proTeam or ""), "pos": [x for x in _p.eligibleSlots if x in ("PG", "SG", "SF", "PF", "C")],
+                         "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
+                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1)})
+dyn_pool.sort(key=lambda x: -x["asset"])
+SEEN_PATH = HUB / "fa_seen.json"
+_seen_old = json.load(open(SEEN_PATH, encoding="utf-8")) if SEEN_PATH.exists() else None
+_now_ids = {str(x["id"]) for x in dyn_pool}
+_seen_new = {k: v for k, v in (_seen_old or {}).items() if k in _now_ids}      # players who left the pool are forgotten; if they return they are 'new' again
+for x in dyn_pool:
+    k = str(x["id"])
+    if k not in _seen_new:
+        _seen_new[k] = today.isoformat()
+    x["first_seen"] = _seen_new[k]
+    x["new"] = bool(_seen_old is not None and (today - date.fromisoformat(_seen_new[k])).days <= 7)
+SEEN_PATH.write_text(json.dumps(_seen_new), encoding="utf-8")
+print(f"dynasty free agents: {len(dyn_pool)} with asset >= {DYN_MIN_ASSET}; top:", [(x['name'], x['asset']) for x in dyn_pool[:5]])
+
+
 def week_games(pl):
     return sum(1 for d in plan_days if p_play(pl, d) > 0)
 
@@ -564,7 +595,8 @@ for t in lg.teams:
     dropped = {m["drop"]["id"] for m in seq if m["drop"]}
     r_after = [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
-    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}), "days_after": rows_after, "expected_after": round(total_after, 1),
+    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
+                      "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"])) for x in dyn_pool[:15]], "days_after": rows_after, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
