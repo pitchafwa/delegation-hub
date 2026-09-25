@@ -164,12 +164,13 @@
     h1{font-size:1.35rem;margin-bottom:.5rem}
     .sub{display:none}
     /* bottom tab bar: thumb reach */
-    #segView{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;border:0;border-top:1px solid var(--line-strong);border-radius:0;
+    #navTop{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;border:0;border-top:1px solid var(--line-strong);border-radius:0;
       background:var(--surface);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -6px 18px rgba(0,0,0,.18)}
-    #segView button{flex:1;min-height:56px;padding:.35rem .2rem;font-size:.78rem;border:0;background:transparent;color:var(--ink-soft);border-left:1px solid var(--line)}
-    #segView button:first-child{border-left:0}
-    #segView button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600}
-    .controls:has(#segView){margin-bottom:0 !important}
+    #navTop button{flex:1;min-height:56px;padding:.35rem .2rem;font-size:.82rem;border:0;background:transparent;color:var(--ink-soft);border-left:1px solid var(--line)}
+    #navTop button:first-child{border-left:0}
+    #navTop button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600}
+    .controls:has(#navTop){margin-bottom:0 !important}
+    #navSub{display:flex;width:100%}#navSub button{flex:1;padding:.55rem .4rem;font-size:.86rem}
     /* controls */
     .controls{gap:.5rem}
     .controls .hint{order:9;flex-basis:100%}
@@ -323,8 +324,10 @@
   <h1>Fantasy Hub</h1>
   <div class="sub" id="hSub"></div>
 
-  <div class="controls" style="margin-bottom:1rem">
-    <div class="seg" id="segView">
+  <div class="controls" style="margin-bottom:.5rem"><div class="seg" id="navTop"></div></div>
+  <div class="controls" id="navSubWrap" style="margin-bottom:1rem"><div class="seg" id="navSub"></div></div>
+  <div class="controls" style="display:none">
+    <div class="seg" id="segView" style="display:none !important">
       <button data-v="week" id="weekBtn" aria-pressed="true">This week</button>
       <button data-v="sched" id="schedBtn" style="display:none">Schedule</button>
       <button data-v="board">Board</button>
@@ -893,10 +896,10 @@ function renderWeek(){
     ${T.days_after&&(T.sequence||[]).length?`<label class="kbox" style="margin:0 0 .5rem;gap:.5rem"><input type="checkbox" id="weekAfterCb" ${weekAfter?'checked':''} /> <span>Show plan after suggested moves <span class="hint">(${T.expected.toFixed(0)} now, ${T.expected_after.toFixed(0)} with all ${(T.sequence||[]).length} moves)</span></span></label>`:''}
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starting lineup (expected pts)</th><th>Starters</th><th>Day pts</th><th>Starts so far</th></tr></thead><tbody>${dayRows}</tbody></table></div>
     ${irHtml}
-    ${oppHtml}
     ${seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: your full plan for this week, in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th><th style="text-align:left">Timing (net gain if made on each day)</th></tr></thead><tbody>${seqRows}</tbody></table></div>
     ${budgetHtml}`:''}
+    ${oppHtml}
     ${dynHtml}
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Other free agents worth a look, each judged on its own (alternatives to the plan above; they overlap, so don't add the gains)</div>
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th style="text-align:left">Games</th><th style="text-align:left">Drop</th><th>Gain</th></tr></thead><tbody>${addRows}</tbody></table></div>
@@ -1336,6 +1339,30 @@ function renderAbout(){
     </ul>`;
 }
 
+/* Two-level navigation: four groups on the bottom bar (phones) or top bar, and a row of sub-tabs for the active group.
+   The original seven view buttons stay in a hidden #segView that still owns the panes; the nav just presses them. */
+const NAV=[['week','Week',[['week','This week'],['sched','Schedule']]],['players','Players',[['board','Board'],['draft','Draft']]],['league','League',[['teams','Teams'],['trades','Trades']]],['about','About',[['about','About']]]];
+const lastInGroup={};
+function renderNav(){
+  const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
+  const avail=v=>{const b=btn(v); return !!b&&b.style.display!=='none';};
+  const pressed=document.querySelector('#segView button[aria-pressed="true"]');
+  const act=pressed?pressed.dataset.v:'week';
+  const grp=NAV.find(g=>g[2].some(x=>x[0]===act))||NAV[0];
+  lastInGroup[grp[0]]=act;
+  const top=document.getElementById('navTop'), sub=document.getElementById('navSub'), wrap=document.getElementById('navSubWrap');
+  if(!top) return;
+  top.innerHTML=NAV.filter(g=>g[2].some(x=>avail(x[0]))).map(g=>`<button data-g="${g[0]}" aria-pressed="${g===grp}">${g[1]}</button>`).join('');
+  const views=grp[2].filter(x=>avail(x[0]));
+  sub.innerHTML=views.map(x=>`<button data-v="${x[0]}" aria-pressed="${x[0]===act}">${x[1]}</button>`).join('');
+  wrap.style.display=views.length>1?'':'none';
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('#navTop button'), v=e.target.closest('#navSub button');
+  if(g){ const grp=NAV.find(x=>x[0]===g.dataset.g); const b0=document.querySelector(`#segView button[data-v="${lastInGroup[grp[0]]||grp[2][0][0]}"]`);
+    const ok=b0&&b0.style.display!=='none'?b0:grp[2].map(x=>document.querySelector(`#segView button[data-v="${x[0]}"]`)).find(b=>b&&b.style.display!=='none'); if(ok) ok.click(); }
+  if(v){ const b=document.querySelector(`#segView button[data-v="${v.dataset.v}"]`); if(b) b.click(); }
+});
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
@@ -1356,6 +1383,7 @@ function wire(){
     if(b.dataset.v==='teams') renderTeams();
     if(b.dataset.v==='board' && D) render();
     try{localStorage.setItem('hubView',b.dataset.v);}catch(e){}
+    renderNav(); window.scrollTo(0,0);
   });
   document.getElementById('segKind').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
@@ -1398,6 +1426,8 @@ function wire(){
 /* Load order: the tab bar is wired at once and This week (small file) is fetched first and shown as soon as it arrives; the 2.4 MB board data loads in
    parallel and everything else after it. If the weekly plan is unavailable, fall back to the Board. */
 wire();
+renderNav();
+new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});
 fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{
   if(w&&w.teams){ W=w; setView('week'); } else throw new Error('no plan');
 }).catch(()=>{ document.getElementById('weekBtn').style.display='none'; document.getElementById('weekPane').style.display='none'; document.getElementById('boardPane').style.display='';
