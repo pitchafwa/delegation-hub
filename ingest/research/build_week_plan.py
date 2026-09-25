@@ -493,7 +493,7 @@ if new_rows:
             w.writeheader()
         w.writerows(new_rows)
 
-def search_moves(r, total, c0, steps=4):
+def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
     """best single adds and a greedy add/drop sequence for roster r (see the per-team notes in the module docstring)"""
     non_ir = [p for p in r if not p["ir"]]
     moves = []
@@ -501,7 +501,7 @@ def search_moves(r, total, c0, steps=4):
         if not any(p_play(f, d) > 0 for d in plan_days):
             continue
         drops = [None] if len(non_ir) < 15 else []
-        prot = protected_ids(r)
+        prot = protected_ids(r) | set(extra_protect)
         drops += [p for p in non_ir if p["espn_id"] not in prot]
         best_move = None
         for dr in drops:
@@ -519,7 +519,7 @@ def search_moves(r, total, c0, steps=4):
     moves.sort(key=lambda x: -x["gain"])
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
     fa_by_id = {f["espn_id"]: f for f in fa_players}
-    prot = protected_ids(r)
+    prot = protected_ids(r) | set(extra_protect)
     seq, r2, cur, used = [], list(r), total, set()
     for step in range(steps):
         best_step = None
@@ -600,7 +600,8 @@ for t in lg.teams:
     plans[t.team_id] = total + so_far[t.team_id]["pts"]
     tc = counters.get(t.team_id, {})
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
-    moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
+    activated = {m["id"] for m in ir_moves if m["action"] in ("activate", "activate_swap")}      # never suggest dropping a player the IR advice just told you to activate
+    moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8), extra_protect=activated)
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
         _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(max(adds_left, 1), 8))
