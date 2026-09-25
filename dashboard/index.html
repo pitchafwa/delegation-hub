@@ -870,6 +870,16 @@ function setView(v){
   const b=document.querySelector(`#segView button[data-v="${v}"]`); if(b && b.style.display!=='none') b.click();
 }
 
+function signalsHtml(T){
+  const st=TR.meta.signal_study||{};
+  const row=r=>`<div class="tradeRow small"><b>${esc(r.name)}</b> ${r.team?`<span class="hint">${esc(r.team)}</span>`:''} · ${r.fpg} pts/g${r.hist!=null?` (before: ${r.hist})`:''} · expected ${r.extra>0?'+':''}${r.extra} beyond normal aging${r.why.length?`<br><span class="hint">${r.why.map(esc).join('; ')}</span>`:''}</div>`;
+  if(!(T.sell_high||[]).length&&!(T.buy_low||[]).length) return '';
+  return `<details class="profCard" style="margin:.4rem 0 1rem"><summary style="cursor:pointer;font-weight:600">Sell-high on your roster · buy-low elsewhere <span class="hint">(mild evidence, see note)</span></summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-top:.5rem">
+    <div><div class="hint" style="margin-bottom:.2rem">Sell-high (yours)</div>${(T.sell_high||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div>
+    <div><div class="hint" style="margin-bottom:.2rem">Buy-low (other teams)</div>${(T.buy_low||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div></div>
+    <div class="note" style="margin-top:.5rem">Tested on 2021-24 seasons (out of sample): the reversion model barely beats "normal aging alone" (error ${st.mae_persistence} to ${st.mae_model} pts/g). What holds up: big jumps above expectation fall back a bit (about 2 pts/g); players whose minutes jumped 4+ tend to give some back; big slumps do <b>not</b> reliably rebound, and injury-shortened seasons do <b>not</b> reliably bounce back. Treat these as tie-breakers, not reasons to trade.</div></details>`;
+}
 function renderTrades(){
   const pane=document.getElementById('tradesPane');
   const meta=TR.meta;
@@ -891,12 +901,13 @@ function renderTrades(){
     const thPts=i.them[0], thKeep=i.them[1];
     const themLine=(thPts>=0&&thKeep>=0)?'<span style="color:var(--good)">helps them too</span>':`for them: season ${thPts>=0?'+':''}${thPts}, keeper ${thKeep>=0?'+':''}${thKeep}`;
     return `<div class="tradeCard">
-      <div class="tradeHd"><span class="hint">with</span> <b>${esc(P.name)}</b> <span class="hint">${esc(P.abbrev)}</span><span class="tradeScore">+${score(i).toFixed(0)}</span></div>
+      <div class="tradeHd"><span class="hint">with</span> <b>${esc(P.name)}</b> <span class="hint">${esc(P.abbrev)} · ${esc(P.window||'')}${(P.tags&&P.tags.length)?' · '+P.tags.map(esc).join(', '):''}</span><span class="tradeScore">+${score(i).toFixed(0)}</span></div>
       <div class="tradeRow"><span class="lbl">You give</span> ${i.give.map(nm).join(' + ')}</div>
       <div class="tradeRow"><span class="lbl">You get</span> <b>${i.get.map(nm).join(' + ')}</b></div>
       <div class="tradeRow small">Your season <b>${i.me[0]>=0?'+':''}${i.me[0]}</b> pts · keeper value <b>${i.me[1]>=0?'+':''}${i.me[1]}</b></div>
       <div class="tradeRow small">Keepers after: ${keepTxt}${lost.length?` <span class="hint">(out: ${lost.map(nm).join(', ')})</span>`:''}</div>
-      <div class="tradeRow small hint">Market: they receive ${i.mk[0]} vs give ${i.mk[1]} · <b>${i.ratioNow.toFixed(2)}×</b> with the star premium (${i.ratio_lin}× plain) · ${themLine}</div>
+      ${(i.why&&i.why.length)?`<div class="tradeRow small" style="color:var(--good)">Why they might say yes: ${i.why.map(esc).join('; ')}</div>`:''}
+      <div class="tradeRow small hint">Their view: they receive ${i.mk[0]} vs give ${i.mk[1]} · <b>${i.ratioNow.toFixed(2)}×</b> with the star premium (${i.ratio_lin}× plain) · ${themLine}</div>
     </div>`;}).join('') || '<div class="hint" style="padding:1rem">No ideas at these settings. Lower the fairness minimum.</div>'; };
   pane.innerHTML=`
     <div class="controls"><select id="tradeSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${TR.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
@@ -907,8 +918,9 @@ function renderTrades(){
       <label>Star premium <b id="tsv">${tradeS.toFixed(2)}</b> <span class="hint">(0 = plain sum)</span><input type="range" id="ts" min="0" max="1" step="0.05" value="${tradeS}"></label>
     </div>
     <div class="legend" style="margin:0 0 1rem"><b>Your keepers now:</b> ${T.keepers.map(nm).join(', ')}. Ideas are ranked by how much they raise <i>your</i> value; the number top-right is season points plus weighted keeper value.</div>
+    ${signalsHtml(T)}
     <div id="tradeCards">${buildCards()}</div>
-    <div class="legend" style="margin-top:1rem"><b>How this works (first version, not backtested).</b> Only ${meta.K} players are kept, so a player is worth different amounts to different teams. <b>Market</b> = Hashtag's crowd dynasty value above a replaceable player; a trade "looks fair" to the other side when the value they receive is at least about what they give up. <b>Market value blends Hashtag's dynasty ranking with ESPN's draft ADP</b> (owners here draft by ADP, so current production matters as much as youth), converted to price with Hashtag's own rank-to-value curve. A <b>KeepTradeCut-style star premium</b> (slider) is then applied: owners prefer one star to several mid players ("four quarters don't equal a dollar"), so each player's value is weighted by how close he is to the best asset in the trade and in the league (a 1,500 star counts about 4× a 750 player, not 2×). The × number is the ratio after that premium; the plain-sum ratio is in brackets. The premium's exact constants are our own guess at KTC's published shape (10%–42% of value); KTC doesn't publish theirs. <b>Your season</b> = change in your lineup strength (best 10 players plus a quarter of the next 5, over about ${meta.weeks_left} weeks, with replacement-level fill-ins). <b>Keeper value</b> = change in the total dynasty asset value of your top ${meta.K}, converted to points at the weight above (1 asset point ≈ ${k2p} points of output; the default 0.10 discounts the ten-year horizon heavily). A team's season value is zero-sum in most trades, so the edge comes mostly from keeper fit and from IR or depth quirks. Not modeled yet: positions, schedules, injuries beyond status, and whether an owner will actually say yes.</div>`;
+    <div class="legend" style="margin-top:1rem"><b>How this works (first version, not backtested).</b> Only ${meta.K} players are kept, so a player is worth different amounts to different teams. <b>Market</b> = Hashtag's crowd dynasty value above a replaceable player; a trade "looks fair" to the other side when the value they receive is at least about what they give up. <b>Market value blends Hashtag's dynasty ranking with ESPN's draft ADP</b> (owners here draft by ADP, so current production matters as much as youth), converted to price with Hashtag's own rank-to-value curve. A <b>KeepTradeCut-style star premium</b> (slider) is then applied: owners prefer one star to several mid players ("four quarters don't equal a dollar"), so each player's value is weighted by how close he is to the best asset in the trade and in the league (a 1,500 star counts about 4× a 750 player, not 2×). The × number is the ratio after that premium; the plain-sum ratio is in brackets. The premium's exact constants are our own guess at KTC's published shape (10%–42% of value); KTC doesn't publish theirs. <b>Your season</b> = change in your lineup strength (best 10 players plus a quarter of the next 5, over about ${meta.weeks_left} weeks, with replacement-level fill-ins). <b>Keeper value</b> = change in the total dynasty asset value of your top ${meta.K}, converted to points at the weight above (1 asset point ≈ ${k2p} points of output; the default 0.10 discounts the ten-year horizon heavily). A team's season value is zero-sum in most trades, so the edge comes mostly from keeper fit and from IR or depth quirks. <b>Who says yes:</b> each idea is priced from the <i>other team's</i> point of view. Their draft profile shifts what they pay for youth, rookies, and injured players (only teams with 2+ seasons of history); their window (contender, middle, rebuilding, from projected roster strength) shifts production versus youth; and owners who anchor on last season's numbers overpay for a spike and underpay for a slump. These are modest, hand-set adjustments (roughly 3-15%), not fitted from past trades. Not modeled yet: positions, schedules, and whether an owner will actually say yes.</div>`;
   document.getElementById('tradeSel').addEventListener('change',e=>{tradeTeam=+e.target.value; renderTrades();});
   document.getElementById('tw').addEventListener('input',e=>{tradeW=+e.target.value; document.getElementById('twv').textContent=tradeW.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
   document.getElementById('ts').addEventListener('input',e=>{tradeS=+e.target.value; document.getElementById('tsv').textContent=tradeS.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
@@ -1000,6 +1012,45 @@ function draftPicksInfo(M){
   const mineLeft=picks.filter(x=>x.team===DR.my_id);
   return {picks,mineLeft,done:sched.length-remaining.length+manual,cur:picks[0]||null,total:sched.length};
 }
+/* Availability simulation: each team ahead of your pick chooses by ADP order (with noise that grows deeper in the list), nudged by that owner's draft profile
+   (youth, rookies, injury gambles; only owners with 2+ seasons of history). Repeated 400 times -> chance each player is still on the board at your pick. */
+function traitsFor(teamId){
+  if(!PROF) return null;
+  const ts=PROF.teams.filter(t=>t.seasons>=2); const t=PROF.teams.find(x=>x.id===teamId);
+  if(!t||t.seasons<2) return null;
+  const z=k=>{ const v=ts.map(x=>x.metrics[k]).filter(x=>x!=null); if(v.length<3||t.metrics[k]==null) return 0; const m=v.reduce((a,b)=>a+b,0)/v.length, sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/v.length)||1; return Math.max(-2,Math.min(2,(t.metrics[k]-m)/sd)); };
+  return {youth:-(z('age_mean')+z('age_early'))/2, rookie:z('rookie_share'), injury:z('injury_gamble')};
+}
+let simCache={sig:'',res:null};
+function simulateAvail(M,PI){
+  let nextMine=PI.mineLeft[0]; if(!nextMine) return null;
+  let gap=PI.picks.indexOf(nextMine);
+  if(gap<=0){ nextMine=PI.mineLeft[1]; if(!nextMine) return null; gap=PI.picks.indexOf(nextMine); }   // on the clock now: look ahead to your following pick
+  if(gap<=0) return null;
+  const sig=[M.pool.length,gap,PI.picks.slice(0,gap).map(x=>x.team).join(','),!!PROF].join('|');
+  if(simCache.sig===sig) return simCache.res;
+  const pool=M.pool.filter(p=>p.adp!=null).sort((a,b)=>a.adp-b.adp).slice(0,gap+60);
+  const N=400, cnt=new Map(pool.map(p=>[p.id,0]));
+  const tr=new Map(); PI.picks.slice(0,gap).forEach(x=>{ if(!tr.has(x.team)) tr.set(x.team,traitsFor(x.team)); });
+  // base utility = negative rank within the pool; owner nudges in "rank positions"
+  const base=pool.map((p,i)=>{ const yn=p.age==null?0:Math.max(-1,Math.min(1,(26-p.age)/6)); return {p,i,yn,rk:p.kind==='prospect',inj:p.status&&p.status!=='ACTIVE'}; });
+  const gum=()=>-Math.log(-Math.log(Math.random()+1e-12)+1e-12);
+  for(let s=0;s<N;s++){
+    const gone=new Set();
+    for(let g=0;g<gap;g++){
+      const T=tr.get(PI.picks[g].team)||null; let best=null,bv=-1e9,seen=0;
+      for(const b of base){ if(gone.has(b.p.id)) continue; seen++;
+        if(seen>40) break;
+        let u=-seen; if(T){ u+=3.0*T.youth*b.yn+2.0*T.rookie*(b.rk?1:0)+2.0*T.injury*(b.inj?1:0); }
+        u+=gum()*(1.5+0.12*seen);
+        if(u>bv){bv=u;best=b.p.id;} }
+      if(best!=null) gone.add(best);
+    }
+    pool.forEach(p=>{ if(!gone.has(p.id)) cnt.set(p.id,cnt.get(p.id)+1); });
+  }
+  const res=new Map(); cnt.forEach((v,k)=>res.set(k,v/N));
+  simCache={sig,res}; return res;
+}
 function renderDraft(){
   const pane=document.getElementById('draftPane');
   const M=draftModel(); draftAdvice(M);
@@ -1015,12 +1066,15 @@ function renderDraft(){
   const L=lineupValue(M.mine), LV=lineupValue(withRepl(M.mine)).value;
   const nextMine=PI.mineLeft[0], after=PI.mineLeft[1];
   const afterIdx=after?PI.picks.indexOf(after):-1;
+  const AV=simulateAvail(M,PI);
   const gap=nextMine?PI.picks.indexOf(nextMine):null;
   const banner=M.real?`<span class="hint">Keepers are final (from ESPN). ${M.kept.size} kept.</span>`:`<span class="liveStatus" title="ESPN has not filled the keeper picks yet, so each team's top-${DR.draft.keepers_now||3} assets are assumed kept">PROJECTED keepers</span> <span class="hint">the pool is a guess until ESPN shows the real keepers (due Sun 9/27, 5pm ET)</span>`;
   const core=M.mine.slice().sort((a,b)=>b.asset5-a.asset5).slice(0,5);
   const trs=shown.map(p=>{
     const open=dOpen===p.id;
-    const gone=afterIdx>=0&&p.poolRank!=null&&p.poolRank<=afterIdx?'<span class="hint" title="his ADP says he is likely gone before your following pick">take?</span>':'';
+    let gone=afterIdx>=0&&p.poolRank!=null&&p.poolRank<=afterIdx?'<span class="hint" title="his ADP says he is likely gone before your following pick">take?</span>':'';
+    if(AV&&AV.has(p.id)){ const a=AV.get(p.id); gone=`<span class="hint" title="Simulated chance he is still available at your next pick, using each team's draft tendencies">${a>=0.97?'≥97':(a<=0.03?'≤3':Math.round(a*100))}% left</span>`; }
+    else if(AV) gone='<span class="hint" title="Simulated chance he is still available at your next pick">≥97% left</span>';
     const inj=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'';
     const fmt=(v,d=0)=>v==null?'<span class="hint">—</span>':Number(v).toFixed(d);
     const row=`<tr data-id="${p.id}"><td>${esc(p.name)}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
@@ -1065,7 +1119,7 @@ function renderDraft(){
       </div>
       <div class="dSide">${rosterHtml}</div>
     </div>
-    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>take?</b> = his ADP says he will probably be gone before your following pick. In a live draft the page reads ESPN's picks when served by the local draft server; otherwise tap a player and mark him drafted.</div>`;
+    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>% left</b> = simulated chance he is still on the board at your next pick (or, when you are on the clock, your following pick): every team picks in order from the ADP list with noise, nudged by that owner's draft profile (young/rookie/injury tendencies, owners with 2+ seasons of history only). It updates as picks come in, and is a rough guide, not a forecast. Without the profile data it falls back to <b>take?</b> (his ADP says he will probably be gone before your following pick). In a live draft the page reads ESPN's picks when served by the local draft server; otherwise tap a player and mark him drafted.</div>`;
   // events
   document.getElementById('dq').addEventListener('input',e=>{dq=e.target.value; dLimit=60; renderDraft(); const el=document.getElementById('dq'); el.focus(); el.setSelectionRange(dq.length,dq.length);});
   document.getElementById('dpos').addEventListener('change',e=>{dpos=e.target.value; dLimit=60; renderDraft();});
