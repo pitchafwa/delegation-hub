@@ -135,7 +135,9 @@ current = current.merge(
     bio[["PERSON_ID", "POSITION", "TEAM_ABBREVIATION", "ROSTER_STATUS"]].rename(columns={"PERSON_ID": "PLAYER_ID"}),
     on="PLAYER_ID", how="left",
 )
-current = current[current["ROSTER_STATUS"] == 1.0].copy()
+_espn_now = set(pd.read_csv(ROOT / "data" / "espn_adp.csv").query("season_id == 2027")["PLAYER_ID"].dropna().astype(int))
+# keep unsigned free agents (Cam Thomas, Jaden Ivey...) when ESPN still lists them for this season: the league can roster them
+current = current[(current["ROSTER_STATUS"] == 1.0) | current["PLAYER_ID"].isin(_espn_now)].copy()
 print(f"Current players: {n_before} -> {len(current)} after filtering to real active roster status "
       f"(drops retired/inactive players like Shaquille O'Neal)", flush=True)
 current = current.merge(espn_pos[["PLAYER_ID", "espn_position", "injury_status"]], on="PLAYER_ID", how="left")

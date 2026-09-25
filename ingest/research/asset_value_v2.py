@@ -134,6 +134,25 @@ print(pd.DataFrame(rows).groupby(["h", "c"]).mean().round(3).to_string())
 # ------------------------------------------------------------------ live vets
 fc = Forecaster(POOL[POOL["yr"] < LAST_YR])
 live = POOL[POOL["yr"] == LAST_YR].reset_index(drop=True)
+# Players who missed (most of) last season have no qualifying LAST_YR row and used to get no valuation at all. Re-anchor them on their most recent
+# qualifying season (up to 3 back): same features, age and experience advanced by the seasons missed. (Their injury history is not penalised beyond
+# what the age/level features already carry.)
+_stale = []
+for _gap in (1, 2, 3):
+    _r = POOL[(POOL["yr"] == LAST_YR - _gap) & ~POOL["PLAYER_ID"].isin(live["PLAYER_ID"]) & ~POOL["PLAYER_ID"].isin([x["PLAYER_ID"].iloc[0] for x in _stale] if _stale else [])].copy()
+    if len(_r):
+        _r["AGE"] = _r["AGE"] + _gap
+        if "exp" in _r.columns:
+            _r["exp"] = _r["exp"] + _gap
+        _r["yr"] = LAST_YR
+        _r["stale_gap"] = _gap
+        _stale.extend([g for _, g in _r.groupby("PLAYER_ID")])
+if _stale:
+    _st = pd.concat(_stale)
+    _cur = set(pd.read_csv(D / "espn_adp.csv").query("season_id == @LAST_YR + 2")["PLAYER_ID"].dropna().astype(int))
+    _st = _st[_st["PLAYER_ID"].isin(_cur)]        # only players still in the current ESPN pool (drops retired / out of the league)
+    print(f"re-anchored {len(_st)} players who missed last season on an earlier qualifying season")
+    live = pd.concat([live, _st], ignore_index=True)
 live_age_next = live["AGE"].to_numpy() + 1
 
 from build_breakout_context import situation_features  # noqa: E402
