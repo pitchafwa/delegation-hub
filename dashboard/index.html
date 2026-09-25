@@ -1196,7 +1196,7 @@ function wire(){
   });
   document.getElementById('brkYear').addEventListener('change', async e=>{
     brkYear=e.target.value;
-    if(brkYear!=='live' && !H){ H=await fetch('breakout_history.json').then(r=>r.json()); fillYearSelect(); }
+    if(brkYear!=='live' && !H){ H=await fetch('breakout_history.json',{cache:'no-cache'}).then(r=>r.json()); fillYearSelect(); }
     sort={k:'p_break',asc:false}; render();
   });
   document.getElementById('segBrk').addEventListener('click', e=>{
@@ -1227,17 +1227,17 @@ function wire(){
   });
 }
 
-fetch('hub_data.json').then(r=>r.json()).then(data=>{
+fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
   wire();
-  fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
-  fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
-  fetch('draft_data.json').then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
-  fetch('team_profiles.json').then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
-  fetch('trade_ideas.json').then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
-  fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
+  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
+  fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||!sv) setView('week');} }).catch(()=>{});
+  fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; document.getElementById('draftBtn').style.display=''; pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
+  fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
+  fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; document.getElementById('tradesBtn').style.display='';} }).catch(()=>{});
+  fetch('breakout_history.json',{cache:'no-cache'}).then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
   document.getElementById('boardPane').innerHTML = `<div class="err">Couldn't load hub_data.json — ${err}</div>`;
