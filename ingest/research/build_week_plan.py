@@ -155,7 +155,7 @@ def b2b(team, d):
 
 
 # ---------- players
-RECENT_FORM_MAX = 0.0   # 0 = use ESPN's projection as-is (Tommy's call). ESPN only publishes a season-average per game, so a value like 0.45 would tilt it toward the last 15 games
+RECENT_FORM_MAX = 0.45  # weight on the last-15-game average once 15 games are in (measured best: ~50/50 recent vs long-run). Interim until a true per-game projection source is found; 0 = ESPN as-is
 STATUS_P = {"ACTIVE": 0.94, "DAY_TO_DAY": 0.55, "OUT": 0.0, "INJURY_RESERVE": 0.0, "SUSPENSION": 0.0}
 
 
