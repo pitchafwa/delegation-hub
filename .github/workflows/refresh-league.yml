@@ -39,6 +39,11 @@ jobs:
           SWID: ${{ secrets.SWID }}
         run: python research/pull_league_rosters.py
 
+      # Full-season NBA schedule from ESPN's public scoreboard (about 3 minutes; provisional until the NBA finalizes Cup games)
+      - name: Refresh the NBA schedule
+        working-directory: ingest
+        run: python research/pull_nba_schedule.py
+
       # Cap-aware weekly plan for every team (lineups by day, best adds, opponent projection). Reads the rosters/schedule/injuries just pulled.
       - name: Build the weekly plan
         working-directory: ingest
@@ -53,7 +58,8 @@ jobs:
         run: |
           git config user.name "league-refresh-bot"
           git config user.email "league-refresh-bot@users.noreply.github.com"
-          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/projection_log.csv 2>/dev/null || git add dashboard/league_rosters.json dashboard/week_plan.json
+          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/nba_schedule.json
+          git add dashboard/projection_log.csv 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "pushed=false" >> "$GITHUB_OUTPUT"
           else

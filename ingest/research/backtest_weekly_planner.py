@@ -243,6 +243,8 @@ def team_on_sched(p, d):
 
 # ---------------- PART 2: adds
 KEEPER_PROTECT, PROTECT_LEVEL, GAMES_PER_WEEK, ROS_WEEKS, MIN_NET = 6, 35, 3.3, 6, 10
+import os
+FA_ANCHOR, FA_SHRINK = 22.0, float(os.environ.get("FA_SHRINK", "1.0"))
 played_fp = {(n, d.date()): v for n, sub in series.items() for d, v in zip(sub.GAME_DATE, sub.fp)}
 
 
@@ -303,6 +305,7 @@ def backtest_adds():
             if len(past) < 8 or past.GAME_DATE.dt.date.max() < d0 - timedelta(days=10):
                 continue
             pl = mk_player(n, d0, dates, pos_by_name[n])
+            pl["level"] = FA_ANCHOR + FA_SHRINK * (pl["level"] - FA_ANCHOR)   # regression to the mean for the free agents we pick because they look good
             if sum(pl["sched"].values()) == 0:
                 continue
             pool.append(pl)
