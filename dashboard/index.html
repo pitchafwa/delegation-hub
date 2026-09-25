@@ -105,27 +105,157 @@
   #aboutPane p,#aboutPane li{color:var(--ink-soft);font-size:.92rem}
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
+  .mobileOnly{display:none}
+  .moreRow td{padding:0 !important;border:0 !important}
+  #moreBtn{width:100%;min-height:48px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:12px;font:inherit;font-weight:600;cursor:pointer}
+  .comp .nm{white-space:nowrap}
+  /* ================= MOBILE (phones) ================= */
   @media(max-width:720px){
-    .wrap{padding:1.2rem .7rem 3rem}
-    h1{font-size:1.6rem}
-    .sub{font-size:.86rem}
-    .statbar{gap:.8rem 1.3rem;font-size:.7rem;padding:.8rem .9rem}
-    .controls{gap:.4rem} .controls .hint{order:9;flex-basis:100%}
-    .seg{flex-wrap:wrap}
+    body{font-size:15px}
+    .wrap{padding:.8rem .65rem 6.2rem}
+    h1{font-size:1.35rem;margin-bottom:.5rem}
+    .sub{display:none}
+    /* bottom tab bar: thumb reach */
+    #segView{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;border:0;border-top:1px solid var(--line-strong);border-radius:0;
+      background:var(--surface);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -6px 18px rgba(0,0,0,.18)}
+    #segView button{flex:1;min-height:56px;padding:.35rem .2rem;font-size:.78rem;border:0;background:transparent;color:var(--ink-soft);border-left:1px solid var(--line)}
+    #segView button:first-child{border-left:0}
+    #segView button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600}
+    .controls:has(#segView){margin-bottom:0 !important}
+    /* controls */
+    .controls{gap:.5rem}
+    .controls .hint{order:9;flex-basis:100%}
+    input[type=search],select{font-size:16px !important;min-height:44px}
     input[type=search]{min-width:0;flex-basis:100%;order:1}
+    #segKind{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    #segKind::-webkit-scrollbar{display:none}
+    #segKind button{white-space:nowrap;min-height:44px;flex:0 0 auto}
+    #segBrk{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+    #segBrk button{white-space:nowrap;min-height:40px;flex:0 0 auto}
+    #segKind .hint,#segBrk .hint{display:none}
+    #ownerSel{flex:1;min-width:0}
+    .kbox{width:100%;padding:.55rem .8rem}
+    .kbox input[type=range]{flex:1;width:auto;min-height:32px}
+    .kbox input[type=number]{width:3.6rem;font-size:16px}
+    .seg{flex-wrap:wrap}
+    /* summary bars */
+    .statbar{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem .6rem;font-size:.62rem;padding:.7rem .75rem}
+    .statbar b{font-size:1.05rem}
+    #weekPane .statbar{grid-template-columns:repeat(2,1fr)}
+    #weekPane .statbar>div:first-child,#weekPane .statbar>div:nth-child(5){grid-column:span 1}
+    .legend{font-size:.74rem}
+    .legend details>summary,.legend>details>summary{cursor:pointer;color:var(--ink-soft);font-weight:600;padding:.4rem 0}
+
+    /* ---- generic card tables (JS adds .mcards + data-labels to tables in the Week and Teams panes) ---- */
+    .tablewrap{border:0;background:transparent;overflow:visible}
+    table.mcards,table.mcards tbody,table.mcards tr,table.mcards td{display:block;width:100%}
+    table.mcards thead{display:none}
+    table.mcards tbody tr{display:grid;grid-template-columns:repeat(4,1fr);gap:.15rem .5rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      margin-bottom:.55rem;padding:.6rem .75rem;text-align:left}
+    table.mcards td{border:0 !important;padding:.1rem 0 !important;text-align:left !important;white-space:normal !important;font-size:.9rem;display:block;min-width:0}
+    table.mcards td::before{content:attr(data-label);display:block;font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+    table.mcards td:first-child{grid-column:1/-1;font-family:"Zilla Slab",serif;font-size:1.05rem;font-weight:500;padding-bottom:.3rem !important;border-bottom:1px solid var(--line) !important;margin-bottom:.2rem}
+    table.mcards td:first-child::before{display:none}
+    table.mcards td[data-label="Games"]{grid-column:1/-1}
+    /* Week: day plan */
+    table.dayTbl tbody tr{grid-template-columns:repeat(3,1fr)}
+    table.dayTbl td[data-label="Day"]{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:.98rem}
+    table.dayTbl td[data-label^="Starting"]{grid-column:1/-1;padding:.35rem 0 !important}
+    table.dayTbl td[data-label^="Starting"]::before{display:none}
+    table.dayTbl .comps{display:grid !important;grid-template-columns:1fr 1fr;gap:.3rem !important}
+    table.dayTbl .comp{white-space:nowrap !important;overflow:hidden;text-overflow:ellipsis;font-size:.7rem;padding:.3rem .4rem;min-height:30px}
+    /* Week: suggested moves (# / Add / Drop / Net gain / cumulative) */
+    table.moveTbl tbody tr{grid-template-columns:1.7rem 1fr auto}
+    table.moveTbl td[data-label="#"]{grid-column:1;grid-row:1;border:0 !important;font-family:"IBM Plex Mono",monospace;font-size:.85rem;color:var(--accent);font-weight:600}
+    table.moveTbl td[data-label="#"]::before{display:none}
+    table.moveTbl td[data-label="Add"]{grid-column:2;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:.95rem;border:0 !important;margin:0;padding:0 !important}
+    table.moveTbl td[data-label="Add"]::before,table.moveTbl td[data-label="Net gain"]::before{display:none}
+    table.moveTbl td[data-label="Net gain"]{grid-column:3;grid-row:1;text-align:right !important;font-size:1.05rem}
+    table.moveTbl td[data-label="Drop"]{grid-column:2/4;grid-row:2}
+    table.moveTbl td[data-label^="This week"]{grid-column:2/4;grid-row:3}
+    /* Week: single adds */
+    table.addTbl tbody tr{grid-template-columns:1fr 1fr auto}
+    table.addTbl td[data-label="Add"]{grid-column:1/3;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:.95rem;border:0 !important;margin:0;padding:0 !important}
+    table.addTbl td[data-label="Add"]::before,table.addTbl td[data-label="Gain"]::before{display:none}
+    table.addTbl td[data-label="Gain"]{grid-column:3;grid-row:1;text-align:right !important;font-size:1.05rem}
+    table.addTbl td[data-label="Level"]{grid-column:1;grid-row:2}
+    table.addTbl td[data-label="Games"]{grid-column:2/4;grid-row:2}
+    table.addTbl td[data-label="Drop"]{grid-column:1/-1;grid-row:3}
+    /* Week: roster */
+    table.rosterTbl td[data-label="Games"]{letter-spacing:.25em;font-family:"IBM Plex Mono",monospace}
+    /* Teams: league table */
+    table.leagueTbl tbody tr{grid-template-columns:repeat(3,1fr)}
+    table.leagueTbl td[data-label="#"]{display:none}
+    table.leagueTbl td[data-label="Team"]{grid-column:1/-1}
+    table.leagueTbl td[data-label="Best asset"]{grid-column:1/-1}
+
+    /* ---- Board: player cards as a compact metric grid ---- */
     #boardPane .tablewrap{border:0;background:transparent;overflow:visible}
     #boardPane table,#boardPane tbody,#boardPane tr,#boardPane td{display:block;width:100%}
     #boardPane thead{display:none}
-    #boardPane tbody tr{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem;padding:.5rem .7rem}
-    #boardPane tbody tr:hover{background:var(--surface)}
-    #boardPane tbody tr.detail{border-top:0;border-radius:0 0 10px 10px;margin-top:-.6rem}
-    #boardPane td{border:0;text-align:left !important;padding:.18rem 0;display:flex;justify-content:space-between;gap:1rem;font-size:.9rem}
-    #boardPane td:first-child{display:block;font-family:"Zilla Slab",serif;font-size:1.05rem;font-weight:500;padding-bottom:.35rem;border-bottom:1px solid var(--line);margin-bottom:.3rem}
+    #boardPane tbody tr:not(.detail){display:grid;grid-template-columns:repeat(4,1fr);gap:.1rem .5rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:.55rem;padding:.6rem .75rem}
+    #boardPane tbody tr:not(.detail):active{background:var(--surface-2)}
+    #boardPane tbody tr.detail{border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;margin:-.55rem 0 .55rem;padding:.6rem .5rem;background:var(--surface-2)}
+    #boardPane tbody tr:not(.detail) td{border:0 !important;text-align:left !important;padding:.1rem 0 !important;display:block;font-size:.95rem;min-width:0;white-space:normal}
+    #boardPane td::before{content:attr(data-label);display:block;font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);align-self:auto}
+    #boardPane td:first-child{grid-column:1/-1;font-family:"Zilla Slab",serif;font-size:1.12rem;font-weight:500;padding-bottom:.15rem !important}
     #boardPane td:first-child::before{content:none}
-    #boardPane tbody tr:not(.detail) td:nth-child(3){display:none}
-    #boardPane td::before{content:attr(data-label);font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);align-self:center}
-    #boardPane .detail td{display:block}#boardPane .detail td::before{content:none}
-    .detailGrid{grid-template-columns:1fr}
+    #boardPane td[data-label="Pos"],#boardPane td[data-label="Team"],#boardPane td[data-label="Age"]{grid-column:span 1;font-size:.8rem;color:var(--ink-soft)}
+    #boardPane td[data-label="Pos"]::before,#boardPane td[data-label="Team"]::before,#boardPane td[data-label="Age"]::before{display:none}
+    #boardPane td[data-label="Team"]{grid-column:span 2}
+    #boardPane td[data-label="Trajectory"]{grid-column:1/-1;padding-top:.25rem !important}
+    #boardPane td[data-label="Trajectory"] .sparkCell{justify-content:flex-start}
+    #boardPane td[data-label="Trajectory"] .spark{width:120px}
+    #boardPane td[data-label="Why"]{grid-column:1/-1}
+    #boardPane td[data-label="Type"]{grid-column:span 2}
+    #boardPane td[data-label="Proj next"]{grid-column:span 2}
+    #boardPane td.num b{font-size:1.02rem}
+    /* card order: identity, then Asset | VOR | MKT | Owner, then 2026 | Peak | 90PCT VOR | 90PCT AST, then trajectory */
+    #boardPane td[data-label="Pos"]{order:1}#boardPane td[data-label="Team"]{order:2}#boardPane td[data-label="Age"]{order:3}
+    #boardPane td[data-label="Asset"]{order:4}#boardPane td[data-label="VOR"]{order:5}#boardPane td[data-label="MKT"]{order:6}#boardPane td[data-label="Owner"]{order:7}
+    #boardPane td[data-label="Yr-1 PPG"]{order:8}#boardPane td[data-label="Peak PPG"]{order:9}#boardPane td[data-label="90PCT VOR"]{order:10}#boardPane td[data-label="90PCT AST"]{order:11}
+    #boardPane td[data-label="Trajectory"]{order:12}
+    #boardPane td[data-label="Asset"] b,#boardPane td[data-label="VOR"] b{font-size:1.2rem}
+    #boardPane .moreRow{display:block;background:transparent;border:0;padding:0;margin:.2rem 0 1rem}
+    #boardPane .moreRow td{display:block !important}#boardPane .moreRow td::before{content:none}
+    .mobileOnly{display:flex;gap:.4rem}
+    #sortSel{flex:1;min-width:0;padding:.4rem .6rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
+    #sortDir{min-width:48px;min-height:44px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:1.1rem}
+    table.dayTbl .comp{display:flex !important;gap:.3rem;align-items:baseline}
+    table.dayTbl .comp .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+    table.moveTbl td[data-label^="This week"]{display:flex !important;gap:.5rem;align-items:baseline;font-size:.78rem;color:var(--ink-soft)}
+    table.moveTbl td[data-label^="This week"]::before{content:"running total";display:inline}
+    table.rosterTbl td[data-label="Games"]{padding-top:.25rem !important}
+    /* compact control stack on phones: search, then filter + sort side by side, then keepers */
+    #boardPane .statbar{display:none}
+    input[type=search]{order:1}
+    #ownerSel{order:2;flex:1 1 42%;min-width:0}
+    #sortBox.mobileOnly{order:3;flex:1 1 52%}
+    .kbox{order:4}
+    #boardPane .controls .kbox{margin-top:0}
+    /* Teams pane: keepers, team picker, roster, then the league ranking */
+    #teamsPane{display:flex;flex-direction:column}
+    #teamsPane>.controls{order:1}
+    #teamsPane>.teamPick{order:2;margin:.2rem 0 .6rem}
+    #teamsPane>.teamPick select{width:100%;padding:.5rem .7rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
+    #teamsPane>.rosterHdr{order:3}
+    #teamsPane>.rosterWrap{order:4}
+    #teamsPane>.leagueHdr{order:5;font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .5rem}
+    #teamsPane>.leagueWrap{order:6}
+    #teamsPane>.legend{order:7}
+    table.leagueTbl td[data-label="Team"]{font-family:"Zilla Slab",serif;font-size:1.05rem;font-weight:500}
+    table.leagueTbl td[data-label="Team"]::before{display:none}
+    table.leagueTbl tbody tr{cursor:pointer}
+    #boardPane .detail td{display:block !important}#boardPane .detail td::before{content:none}
+    /* detail panel: chart first, everything stacked */
+    .detailGrid{grid-template-columns:1fr !important;gap:.7rem}
+    .detailGrid .dr{order:-1}
+    .statline.g4{grid-template-columns:repeat(4,1fr)}
+    .inputs.g3{grid-template-columns:repeat(2,1fr)}
+    .comps.g2{grid-template-columns:1fr 1fr}
+    .teambox{font-size:.8rem}
+    #aboutPane p,#aboutPane li{font-size:.92rem}
+    footer{margin-top:1.4rem;font-size:.66rem}
   }
 </style>
 </head>
@@ -172,6 +302,7 @@
     <input type="search" id="q" placeholder="filter by name…" />
     <select id="ownerSel" style="display:none;padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem"></select>
     <div class="kbox"><span>Keepers/team:</span><input type="range" id="kSlider" min="0" max="19" value="5" step="1" /><input type="number" id="kNum" min="0" max="19" step="1" value="5" /></div>
+    <div class="mobileOnly" id="sortBox"><select id="sortSel" aria-label="Sort by"></select><button id="sortDir" type="button" aria-label="Reverse sort order">↓</button></div>
   </div>
 
   <div class="tablewrap"><table id="tbl"><thead><tr id="hrow"></tr></thead><tbody id="body"></tbody></table></div>
@@ -181,7 +312,7 @@
 </div>
 
 <script>
-let D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -198,7 +329,7 @@ function initLeague(){
   for(const t of L.teams) for(const r of t.roster) if(r.id) OWNER.set(r.id,{abbrev:t.abbrev,name:t.name,team:t.id,slot:r.slot});
   const sel=document.getElementById('ownerSel');
   sel.innerHTML='<option value="all">All players</option><option value="fa">Free agents</option><option value="rostered">Rostered</option>'+L.teams.map(t=>`<option value="t${t.id}">${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('');
-  sel.style.display=''; document.getElementById('teamsBtn').style.display='';
+  sel.style.display=''; document.getElementById('teamsBtn').style.display=''; try{ if(localStorage.getItem('hubView')==='teams') setTimeout(()=>setView('teams'),0); }catch(e){}
   sel.addEventListener('change',e=>{ownerFilter=e.target.value; render();});
 }
 const yearLabel=(anchorYear,k)=>`'${String(anchorYear+k).slice(-2)}`;
@@ -388,6 +519,7 @@ function renderHist(){
     </tr>`+(open.has(p.id)?`<tr class="detail"><td colspan="10"><div class="detailGrid" style="--lc:1fr"><div><div class="simwrap"><div class="lbl">Why he was flagged</div><div class="teambox">${p.break_why||'—'}</div></div>${p.adp!=null?`<div class="note">ESPN ADP: ${p.adp.toFixed(0)}</div>`:''}</div></div></td></tr>`:'');
   }).join('');
   document.getElementById('body').innerHTML=body||'<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+  collapseLegends(document.getElementById('boardPane'));
 }
 function fillYearSelect(){
   const sel=document.getElementById('brkYear');
@@ -442,7 +574,16 @@ function render(){
   document.getElementById('hrow').innerHTML = cols.map(c=>
     `<th data-k="${c.k}" class="${sort.k===c.k?'sorted '+(sort.asc?'asc':''):''} ${c.sortable===false?'':''}" ${c.sortable===false?'data-sortable="false"':''}>${c.t}</th>`).join('');
 
-  const body = rows.map(p=>{
+  const sig=[kind,q,sort.k,sort.asc,ownerFilter,brkType,brkYear].join('|');
+  if(sig!==lastSig){ rowLimit=60; lastSig=sig; }
+  const shownRows = isMobile() ? rows.slice(0,rowLimit) : rows;
+  const moreRow = (isMobile() && rows.length>rowLimit) ? `<tr class="moreRow"><td colspan="${NC}"><button id="moreBtn" type="button">Show ${Math.min(60,rows.length-rowLimit)} more · ${rows.length-rowLimit} left</button></td></tr>` : '';
+  const sortSel=document.getElementById('sortSel');
+  if(sortSel){
+    sortSel.innerHTML=cols.filter(c=>c.sortable!==false).map(c=>`<option value="${c.k}" ${c.k===sort.k?'selected':''}>Sort: ${c.t}</option>`).join('');
+    document.getElementById('sortDir').textContent=sort.asc?'↑':'↓';
+  }
+  const body = shownRows.map(p=>{
     const id=p.id;
     const isOpen=open.has(id);
     const badge = p.kind==='prospect' ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
@@ -527,7 +668,8 @@ function render(){
     }
     return out;
   }).join('');
-  document.getElementById('body').innerHTML = body || '<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+  document.getElementById('body').innerHTML = (body ? body + moreRow : '') || '<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+  collapseLegends(document.getElementById('boardPane'));
 }
 
 function renderTeams(){
@@ -559,11 +701,15 @@ function renderTeams(){
   pane.innerHTML=`
     <div class="controls"><div class="kbox"><span>Keepers/team:</span><input type="range" id="tSlider" min="0" max="19" value="${K}" step="1" /><input type="number" id="tNum" min="0" max="19" step="1" value="${K}" /></div>
       <span class="hint">Rosters as of ${new Date(L.generated).toLocaleString()}. The top ${K} assets on each team are marked KEEP.</span></div>
-    <div class="tablewrap" style="margin-bottom:1rem"><table id="leagueTbl"><thead><tr><th>#</th><th style="text-align:left">Team</th><th>Keeper value</th><th>Total asset</th><th>Rookies</th><th style="text-align:left">Best asset</th></tr></thead><tbody>${league}</tbody></table></div>
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">${esc(cur.t.name)} · roster</div>
-    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Age</th><th>2026 PPG</th><th>Peak PPG</th><th>VOR</th><th>Asset</th><th>MKT</th></tr></thead><tbody>${roster}</tbody></table></div>
+    <div class="mobileOnly teamPick"><select id="teamPickSel" aria-label="Choose a team">${teams.map(x=>`<option value="${x.t.id}" ${x.t.id===teamSel?'selected':''}>${esc(x.t.name)} (${esc(x.t.abbrev)})</option>`).join('')}</select></div>
+    <div class="mobileOnly leagueHdr">League ranking by keeper value (tap a team to see its roster)</div>
+    <div class="tablewrap leagueWrap" style="margin-bottom:1rem"><table id="leagueTbl"><thead><tr><th>#</th><th style="text-align:left">Team</th><th>Keeper value</th><th>Total asset</th><th>Rookies</th><th style="text-align:left">Best asset</th></tr></thead><tbody>${league}</tbody></table></div>
+    <div class="rosterHdr" style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">${esc(cur.t.name)} · roster</div>
+    <div class="tablewrap rosterWrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Age</th><th>2026 PPG</th><th>Peak PPG</th><th>VOR</th><th>Asset</th><th>MKT</th></tr></thead><tbody>${roster}</tbody></table></div>
     <div class="legend" style="margin-top:1rem"><b>Keeper value</b> = sum of a team's top ${K} asset values (keepers cost nothing, only a slot, so the best ${K} assets are who you'd keep; position eligibility isn't considered). Click a team to see its roster.</div>`;
+  document.getElementById('teamPickSel').addEventListener('change',e=>{teamSel=+e.target.value; renderTeams();});
   document.getElementById('leagueTbl').addEventListener('click',e=>{const tr=e.target.closest('tr[data-team]'); if(!tr) return; teamSel=+tr.dataset.team; renderTeams();});
+  mobileTables(pane); collapseLegends(pane);
   const setK=v=>{K=Math.max(0,Math.min(19,Math.round(v))); document.getElementById('kSlider').value=K; document.getElementById('kNum').value=K; renderTeams();};
   document.getElementById('tSlider').addEventListener('input',e=>setK(+e.target.value));
   document.getElementById('tNum').addEventListener('change',e=>{if(Number.isFinite(+e.target.value)) setK(+e.target.value);});
@@ -585,7 +731,7 @@ function renderWeek(){
     else if(d.sat>0) note=`<b style="color:var(--accent)">Sits ${d.sat} playing player${d.sat>1?'s':''} to protect the cap</b>`;
     else if(d.starts_before<M.cap && d.starts_after>=M.cap && d.date!==M.days[M.days.length-1]) note='<span class="hint">crosses the cap today: later days are locked</span>';
     else if(d.date===M.days[M.days.length-1] && d.starts_before<M.cap) note='<span class="hint">final day: may go over the cap</span>';
-    const chips=d.start.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%"><b>${esc(x.slot)}</b> ${esc(x.name)} <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
+    const chips=d.start.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%"><b>${esc(x.slot)}</b> <span class="nm">${esc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
     const sat=d.bench_playing.filter((_,i)=>d.sat>0).map(x=>`<span class="comp" style="opacity:.6">${esc(x.name)} <span class="hint">${x.ef}</span></span>`).join(' ');
     return `<tr><td style="text-align:left;white-space:nowrap">${fmtDay(d.date)}<div class="hint">${d.nba_teams/2} NBA games</div></td>
       <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${chips||'<span class="hint">no one plays</span>'}</div>${sat?`<div class="comps" style="padding:.25rem 0 0"><span class="hint">sit:</span> ${sat}</div>`:''}${note?`<div class="note">${note}</div>`:''}</td>
@@ -624,6 +770,33 @@ function renderWeek(){
     <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Level</th><th>Asset rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>
     <div class="legend" style="margin-top:1rem"><b>How this works.</b> League rule: only 40 started games count per 7-day matchup (scaled for other lengths), checked at the <i>start</i> of each day. Start a day under the cap and you can start anyone and go over; start it at or over and nothing else counts. The plan picks lineups day by day to maximize <i>points</i>, not games, so it may cross the cap early when a day is strong and later days are thin, or sit weak starters to save games for better days. <b>Level</b> = ESPN's projected fantasy points per game for the player. ESPN publishes one season-average number per player, not one per game, so once the season starts it is blended with the player's last 15 games (up to 45% weight) as a stand-in for a true per-game projection; our own model is only a fallback when ESPN has none. Chance of playing is measured, not guessed: for today's game the league's official injury designation sets it (rotation players: available 96%, probable 92%, questionable 57%, doubtful 4%, out 0%; bench players lower), a healthy player with no designation is 94% (89% on the second night of a back-to-back), and for later days it is 85% for rotation players, 81% at 15–20 points a game and 61% below that (they can get hurt or rest). Free agents' projections are shrunk 40% toward replacement level before ranking adds, because the ones who look best are partly lucky (backtest). Position eligibility comes from ESPN. <b>Drops:</b> with only 5 keepers, a non-keeper's value is what he produces this season. So each team's top 6 dynasty assets (and anyone projecting 35+ a game) are never suggested as drops, and every suggestion's gain is <i>net</i>: this week's points gained minus an estimate of what you'd lose in later weeks if the player you drop is better than the one you add (the gap × about 3 games a week × 6 weeks). Injuries and light schedules this week don't reduce that cost. Add names to ingest/research/never_drop.json to protect anyone else. Opponent totals assume they also play their best lineups, and win chance uses a 253-point weekly spread measured last season. ${M.calendar_assumed?'<b>Matchup dates for 2026-27 are assumed</b> (6-day opener, then Monday–Sunday weeks) until ESPN publishes them in season. ':''}Games already tipped today can't be changed; late swaps are possible until each game starts.</div>`;
   document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});
+  mobileTables(pane); collapseLegends(pane);
+}
+
+const isMobile=()=>window.matchMedia('(max-width:720px)').matches;
+function mobileTables(pane){
+  pane.querySelectorAll('table').forEach(t=>{
+    const heads=[...t.querySelectorAll('thead th')].map(h=>h.textContent.trim());
+    if(!heads.length) return;
+    t.classList.add('mcards');
+    if(heads[0]==='Day') t.classList.add('dayTbl');
+    else if(heads[0]==='#' && heads.includes('Net gain')) t.classList.add('moveTbl');
+    else if(heads[0]==='#') t.classList.add('leagueTbl');
+    else if(heads[0]==='Add') t.classList.add('addTbl');
+    else if(heads[0]==='Player' && heads.includes('Asset rank')) t.classList.add('rosterTbl');
+    t.querySelectorAll('tbody tr').forEach(tr=>{
+      [...tr.children].forEach((td,i)=>{ if(!td.hasAttribute('colspan') && heads[i]!=null) td.setAttribute('data-label',heads[i]); });
+    });
+  });
+}
+function collapseLegends(root){
+  root.querySelectorAll('.legend').forEach(l=>{
+    if(l.querySelector(':scope > details.lg')) return;
+    l.innerHTML=`<details class="lg" ${isMobile()?'':'open'}><summary>How to read this</summary>${l.innerHTML}</details>`;
+  });
+}
+function setView(v){
+  const b=document.querySelector(`#segView button[data-v="${v}"]`); if(b && b.style.display!=='none') b.click();
 }
 
 function renderAbout(){
@@ -661,6 +834,7 @@ function wire(){
     if(b.dataset.v==='about') renderAbout();
     if(b.dataset.v==='teams') renderTeams();
     if(b.dataset.v==='board') render();
+    try{localStorage.setItem('hubView',b.dataset.v);}catch(e){}
   });
   document.getElementById('segKind').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
@@ -677,6 +851,8 @@ function wire(){
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
     brkType=b.dataset.v; sort = brkType==='radar' ? {k:'edge_fpg',asc:false} : brkType==='bust' ? {k:'p_bust',asc:false} : {k:'p_break',asc:false}; render();
   });
+  document.getElementById('sortSel').addEventListener('change', e=>{ sort.k=e.target.value; sort.asc=(sort.k==='player'||sort.k==='age'); render(); });
+  document.getElementById('sortDir').addEventListener('click', ()=>{ sort.asc=!sort.asc; render(); });
   document.getElementById('q').addEventListener('input', e=>{ q=e.target.value; render(); });
   document.getElementById('kSlider').addEventListener('input', e=>{ K=+e.target.value; document.getElementById('kNum').value=K; render(); });
   document.getElementById('kNum').addEventListener('input', e=>{
@@ -690,6 +866,7 @@ function wire(){
     render();
   });
   document.getElementById('body').addEventListener('click', e=>{
+    if(e.target.closest('#moreBtn')){ rowLimit+=60; render(); return; }
     const tr=e.target.closest('tr[data-id]'); if(!tr) return;
     const id=tr.dataset.id;
     if(open.has(id)) open.delete(id); else open.add(id);
@@ -703,7 +880,7 @@ fetch('hub_data.json').then(r=>r.json()).then(data=>{
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
   wire();
   fetch('league_rosters.json').then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render();} }).catch(()=>{});
-  fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display='';} }).catch(()=>{});
+  fetch('week_plan.json').then(r=>r.ok?r.json():null).then(w=>{ if(w&&w.teams){W=w; document.getElementById('weekBtn').style.display=''; let sv=null; try{sv=localStorage.getItem('hubView');}catch(e){} if(sv==='week'||(!sv&&isMobile())) setView('week');} }).catch(()=>{});
   fetch('breakout_history.json').then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
