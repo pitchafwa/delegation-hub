@@ -41,7 +41,7 @@ df = pd.read_csv(ROOT / "data" / "kalman_input.csv")
 df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 df = df.sort_values(["PLAYER_ID", "GAME_DATE"]).reset_index(drop=True)
 
-TODAY = pd.Timestamp("2026-09-18")
+TODAY = pd.Timestamp.today().normalize()
 NEXT_SEASON_START = pd.Timestamp("2026-10-20")
 
 player_ids = df["PLAYER_ID"].to_numpy()

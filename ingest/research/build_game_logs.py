@@ -54,8 +54,9 @@ bulk_std = pd.DataFrame({
 })
 
 recent_frames = []
-for season in ["2024-25", "2025-26"]:
-    df = pd.read_csv(GL_DIR / f"nba_api_{season}.csv")
+for _f in sorted(GL_DIR.glob("nba_api_*.csv")):          # every nba_api season file (the current season is added by pull_recent_gamelogs.py)
+    season = _f.stem.replace("nba_api_", "")
+    df = pd.read_csv(_f)
     recent_frames.append(pd.DataFrame({
         "PLAYER_ID": df["PLAYER_ID"], "PLAYER_NAME": df["PLAYER_NAME"], "SEASON": season,
         "GAME_ID": df["GAME_ID"], "GAME_DATE": df["GAME_DATE"], "TEAM": df["TEAM_ABBREVIATION"],

@@ -34,7 +34,8 @@ n2n = dict(zip((bio["PLAYER_FIRST_NAME"] + " " + bio["PLAYER_LAST_NAME"]).apply(
 
 flt = {"players": {"limit": 600, "sortPercOwned": {"sortPriority": 1, "sortAsc": False}}}
 rows = []
-for season in [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2027]:
+SEASONS = [int(x) for x in sys.argv[1:]] or [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2027]   # pass e.g. `2027` to refresh only the live season
+for season in SEASONS:
     r = requests.get(f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/{season}/players",
                      params={"view": "kona_player_info"}, headers={"x-fantasy-filter": json.dumps(flt)},
                      cookies=cookies, timeout=60)
@@ -57,7 +58,11 @@ for season in [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2027]:
     print(season, "players:", n, flush=True)
     time.sleep(1)
 out = pd.DataFrame(rows)
-out.to_csv(ROOT / "data" / "espn_adp.csv", index=False)
+_path = ROOT / "data" / "espn_adp.csv"
+if _path.exists() and len(sys.argv) > 1:      # incremental: keep the seasons we did not refresh
+    _old = pd.read_csv(_path)
+    out = pd.concat([_old[~_old["season_id"].isin(SEASONS)], out], ignore_index=True)
+out.to_csv(_path, index=False)
 g = out.groupby("season_id").agg(n=("name", "count"), with_adp=("adp", lambda s: s.notna().sum()),
                                   mapped=("PLAYER_ID", lambda s: s.notna().sum()))
 print(g)

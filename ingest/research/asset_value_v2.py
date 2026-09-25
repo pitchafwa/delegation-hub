@@ -461,7 +461,7 @@ def nn_(n):
 
 
 res["norm"] = res["player"].apply(nn_)
-dyn = pd.read_csv(D / "hashtag_dynasty_2026-09-24.csv"); dyn["norm"] = dyn["player"].apply(nn_)
+dyn = pd.read_csv(D / "hashtag_dynasty_latest.csv"); dyn["norm"] = dyn["player"].apply(nn_)
 adp = pd.read_csv(D / "espn_adp.csv"); adp = adp[(adp["season_id"] == 2027) & adp["adp"].notna() & adp["PLAYER_ID"].notna()]
 adp["PLAYER_ID"] = adp["PLAYER_ID"].astype(int)
 res = res.drop_duplicates("norm").merge(dyn[["norm", "rank"]].rename(columns={"rank": "dyn"}), on="norm", how="left")

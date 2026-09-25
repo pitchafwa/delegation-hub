@@ -171,7 +171,7 @@ UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in rang
 _cp = pd.read_csv(ROOT / "data" / f"ceiling_paths{SFX}.csv")
 CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 11)],
                            "asset": [round(float(getattr(r, f"CA{k}")), 1) for k in range(20)]} for r in _cp.itertuples()}
-# MARKET RANK: Hashtag Basketball crowdsourced dynasty rankings (205k votes), as published 2026-09-24. Shown next to our asset rank so the gap
+# MARKET RANK: Hashtag Basketball crowdsourced dynasty rankings (205k votes), as last pulled (see market_meta.asof). Shown next to our asset rank so the gap
 # between our production-based value and the market's price is visible.
 import re as _re
 import unicodedata as _ud
@@ -183,7 +183,7 @@ def _nk(n):
     return _re.sub(r"\s+", " ", _re.sub(r"[^a-z ]", "", n.lower())).strip()
 
 
-_hk = pd.read_csv(ROOT / "data" / "hashtag_dynasty_2026-09-24.csv")
+_hk = pd.read_csv(ROOT / "data" / "hashtag_dynasty_latest.csv")
 MARKET = {_nk(r.player): int(r.rank) for r in _hk.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
 current_out = []
@@ -388,7 +388,7 @@ out = {
     "breakout_meta": {**_bval, "rookie": json.loads((ROOT / "data" / "rookie_breakout_validation.json").read_text(encoding="utf-8")), "opener": str(OPENER), "frozen": frozen,
                       "frozen_at": json.loads(LEDGER_META.read_text())["frozen_at"] if frozen else None},
     "ctx_mode": CTX_MODE,
-    "market_meta": {"source": "Hashtag Basketball crowdsourced dynasty rankings", "asof": "2026-09-24", "url": "https://hashtagbasketball.com/keeper"},
+    "market_meta": {"source": "Hashtag Basketball crowdsourced dynasty rankings", "asof": str(_hk["asof"].iloc[0]) if "asof" in _hk.columns else "2026-09-24", "url": "https://hashtagbasketball.com/keeper"},
     "players": current_out + prospect_out,
 }
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

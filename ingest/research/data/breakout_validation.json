@@ -38,8 +38,8 @@
    "n": 595,
    "rmse_adp_only": 5.8394527494832476,
    "rmse_adp_plus_model": 5.123574070452409,
-   "corr_edge_vs_surprise": 0.45074526221891653,
-   "top10_mean_surprise": 6.978500226203426,
+   "corr_edge_vs_surprise": 0.45074526221891636,
+   "top10_mean_surprise": 6.978500226203427,
    "top10_hit_5": 0.6949152542372882,
    "base_hit_5": 0.26554621848739496
   },
@@ -48,7 +48,7 @@
    "rmse_adp_only": 6.329955102629471,
    "rmse_adp_plus_model": 5.28958926597494,
    "corr_edge_vs_surprise": 0.5538805192642879,
-   "top10_mean_surprise": 5.841582155739017,
+   "top10_mean_surprise": 5.841582155739015,
    "top10_hit_5": 0.582089552238806,
    "base_hit_5": 0.21091445427728614
   }
@@ -92,10 +92,10 @@
  },
  "total_edge": {
   "n": 621,
-  "corr_total_edge_vs_total_surprise": 0.12121326230641281,
-  "corr_pergame_edge_vs_total_surprise": 0.03218894528849377,
+  "corr_total_edge_vs_total_surprise": 0.12121326230641265,
+  "corr_pergame_edge_vs_total_surprise": 0.03218894528849342,
   "top10_total_surprise_by_total_edge": 97.39937445831823,
-  "top10_total_surprise_by_pergame_edge": -4.717626164698679,
+  "top10_total_surprise_by_pergame_edge": -4.717626164698675,
   "rmse_total_adp_only": 644.4791646872825,
   "rmse_total_adp_plus_model": 646.7909213113869
  },

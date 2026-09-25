@@ -32,6 +32,17 @@ games = games.merge(season_bounds, on=["PLAYER_ID", "SEASON"], how="left")
 span_days = (games["season_max_date"] - games["season_min_date"]).dt.days.replace(0, np.nan)
 frac_through = (games["GAME_DATE"] - games["season_min_date"]).dt.days / span_days
 games["AGE_AT_GAME"] = games["AGE"] - 0.5 + frac_through.fillna(0.5)  # AGE is age-during-season; spread +/-0.5yr across it
+# In-season: the current season has no player_season_base row yet (no AGE). Use the real birthdate (data/birthdates_all.csv) where we have it.
+_bd_path = ROOT / "data" / "birthdates_all.csv"
+if _bd_path.exists():
+    _bd = pd.read_csv(_bd_path)
+    _bd["BIRTHDATE"] = pd.to_datetime(_bd["BIRTHDATE"], errors="coerce")
+    _bmap = _bd.dropna(subset=["BIRTHDATE"]).drop_duplicates("PERSON_ID").set_index("PERSON_ID")["BIRTHDATE"]
+    _need = games["AGE_AT_GAME"].isna()
+    if _need.any():
+        _born = games.loc[_need, "PLAYER_ID"].map(_bmap)
+        games.loc[_need, "AGE_AT_GAME"] = (games.loc[_need, "GAME_DATE"] - _born).dt.days / 365.25
+        games.loc[_need, "AGE"] = games.loc[_need, "AGE_AT_GAME"].round()
 
 games["DAYS_SINCE_LAST"] = games.groupby("PLAYER_ID")["GAME_DATE"].diff().dt.days
 games["DAYS_SINCE_LAST"] = games["DAYS_SINCE_LAST"].fillna(180)  # first game of career: treat as a fresh start
