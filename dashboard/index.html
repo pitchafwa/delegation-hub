@@ -1435,13 +1435,13 @@ function wire(){
    parallel and everything else after it. If the weekly plan is unavailable, fall back to the Board. */
 wire();
 renderNav();
-(function(){ try{ const mine=(document.querySelector('meta[name=build]')||{}).content; if(!mine||mine==='__BUILD__') return;
-  fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!=='__BUILD__'&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
+(function(){ try{ const mine=(document.querySelector('meta[name=build]')||{}).content; const UNSTAMPED='__'+'BUILD__'; if(!mine||mine===UNSTAMPED) return;
+  fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!==UNSTAMPED&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
 new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});
 fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{
   if(w&&w.teams){ W=w; if(activeView()==='week') setView('week'); } else throw new Error('no plan');
-}).catch(()=>{ document.getElementById('weekBtn').style.display='none'; document.getElementById('weekPane').style.display='none'; document.getElementById('boardPane').style.display='';
-  document.getElementById('segView').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x.dataset.v==='board')); if(D) render(); });
+}).catch(err=>{ const pn=document.getElementById('weekPane'); if(activeView()==='week') pn.innerHTML=`<div class="err" style="padding:1rem">Couldn't load this week's plan (${esc(String(err&&err.message||err))}). <button class="dbtn" id="weekRetry" type="button">Retry</button> <span class="hint">or open Players &gt; Board</span></div>`;
+  const rb=document.getElementById('weekRetry'); if(rb) rb.addEventListener('click',()=>location.reload()); });
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched') setView('sched');} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
