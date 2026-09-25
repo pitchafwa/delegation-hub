@@ -60,6 +60,28 @@ MARKET_BASELINE = 1000.0
 mkt = {norm(r.player): max(0.0, float(r.value) - MARKET_BASELINE) for r in hk.itertuples()}
 
 
+# KeepTradeCut-style "package adjustment": people prefer one elite player to several mid ones ("four quarters don't equal a dollar"), so a raw price
+# sum is wrong. KTC compares the sums of RAW ADJUSTMENT values, each a player's value times a share that rises steeply with how close he is to the
+# best asset in the trade (t) and to the best asset in the league (v); its published range is 10%-42.4% of a player's value, and the exact constants
+# are not public (article: javelinfantasyfootball.com "How the KeepTradeCut Value Adjustment Works"). This is our own version with the same shape and
+# range: raw(p) = p * (0.10 + 0.20*(p/t)^8 + 0.124*(p/v)^1.3).  Effect: a 1,500 star counts as ~5-6x a 750 player, not 2x; three 500s are worth far less than a 1,500.
+V_MAX = 1530.0
+
+
+def raw_adj(p, t):
+    if p <= 0:
+        return 0.0
+    return p * (0.10 + 0.20 * (p / t) ** 8 + 0.124 * (p / V_MAX) ** 1.3)
+
+
+def package_ratio(recv, give):
+    """market ratio from the point of view of the side that RECEIVES `recv` and gives up `give`: >1 means they come out ahead"""
+    t = max([p["mkt"] for p in recv] + [p["mkt"] for p in give] + [1.0])
+    a = sum(raw_adj(p["mkt"], t) for p in recv)
+    b = sum(raw_adj(p["mkt"], t) for p in give)
+    return (a / b) if b > 0 else (9.9 if a > 0 else 1.0)
+
+
 def mk_player(r):
     hp = hubp.get(r["id"]) if r.get("id") else None
     level, status, ir_planned = lvl.get(r["espn_id"], (hp["year0_ppg"] if hp else REPLACEMENT_LEVEL, "ACTIVE", r.get("slot") == "IR"))
@@ -119,9 +141,10 @@ for A in teams:
             dsb, dkb = sb - base[B["id"]][0], kb - base[B["id"]][1]
             give_mkt, get_mkt = sum(p["mkt"] for p in give), sum(p["mkt"] for p in get)
             # B receives `give`, gives `get`.  ratio = market value B receives / market value B gives
-            ratio = (give_mkt / get_mkt) if get_mkt > 0 else (9.9 if give_mkt > 0 else 1.0)
+            ratio = package_ratio(give, get)              # with the elite-player premium
+            ratio_lin = (give_mkt / get_mkt) if get_mkt > 0 else (9.9 if give_mkt > 0 else 1.0)   # plain sum, for comparison
             ideas.append({"p": B["id"], "give": [p["name"] for p in give], "get": [p["name"] for p in get], "me": [round(dsa), round(dka, 1)], "them": [round(dsb), round(dkb, 1)],
-                          "mk": [round(give_mkt), round(get_mkt)], "ratio": round(min(ratio, 9.9), 2), "kbefore": keeper_names(A["players"]), "kafter": keeper_names(a_after)})
+                          "mk": [round(give_mkt), round(get_mkt)], "ratio": round(min(ratio, 9.9), 2), "ratio_lin": round(min(ratio_lin, 9.9), 2), "kbefore": keeper_names(A["players"]), "kafter": keeper_names(a_after)})
     # keep the ideas that are good for me at any of several keeper weights and not absurd for the market
     keep = {}
     for w in WEIGHTS:
