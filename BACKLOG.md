@@ -270,3 +270,12 @@ K=5 ranks fading -> carry: Boozer #44 -> #30, Dybantsa #26 -> #35, Peterson #39 
 The +3 pts/g prior for young top-5 picks now lives ONLY in asset value and ceiling asset value (EA_v/EA_p and C_price in asset_value_v2.py). Projected pts/g,
 peak year, trajectory chart, VOR and ceiling VOR/path are the unadjusted model output (Dybantsa year 1 = 33, Boozer 34). Asset ranks unchanged.
 Market gap shown as market rank minus our asset rank: + = we rank him HIGHER than the market (Dybantsa +11, Peterson +9), - = lower (Boozer -9, Wilson -21, Harper -37).
+
+
+## Added 2026-09-24 (end of session)
+- **Week-1 checks for the This week tab:** ESPN per-day projections (lineup view / box_scores projected_points), real matchup dates, add-limit scaling, Sunday-only waiver behavior (Add vs Claim), day-to-day play chance (55% is a guess).
+- **Backtest the weekly planner** on 2025-26 weeks (what would its lineups/adds have scored vs what teams scored).
+- **Per-game projection source:** none found free + permitted (FantasyPros needs an account/terms bar republishing; DFF is DK points only; DARKO daily page not live; The Odds API props cost $30/mo, declined). Shadow-log (projection_log.csv) compares sources; revisit DARKO when live. Interim: ESPN blended with last 15 games.
+- **Phase 2 of start/sit:** schedule-aware roster planning, lock-time/late-swap reminders, playoff-week planner.
+- **Daily refresh of the valuation model itself** (needs local game logs; not workable in GitHub Actions as-is) and a name for the DARKO-style model.
+- **Draft history as a second "market price"** next to ESPN ADP; real keeper flags once ESPN records them.
