@@ -54,31 +54,51 @@ for t in wp["teams"]:
     for p in t["roster"]:
         lvl[p["id"]] = (p["level"], p["status"], p["ir"])
 hk = pd.read_csv(R / "data" / "hashtag_dynasty_latest.csv")
-# Hashtag's VALUE is compressed (rank 1 = 2530, rank 100 = 1336, rank 430 = 998): most of it is a shared baseline. Trade "price" is the part above
-# a replaceable player (about rank 420 = 1000), so a bench guy is worth ~0 and a star is worth many mid players.
+# HOW OWNERS IN THIS LEAGUE VALUE PLAYERS.  The Hashtag crowd ranks dynasty value (youth-heavy), but this league drafts a redraft-style ADP board with
+# keepers, so owners also weigh current production. We blend the two: blended rank = average of Hashtag dynasty rank and ESPN ADP (players with no
+# ADP use the Hashtag rank alone). Rank is then converted to a trade value with Hashtag's own rank->value curve, taking only the part above a
+# replaceable player (VALUE is compressed: rank 1 = 2530, rank 100 = 1336, rank 430 = 998; baseline 1000), so a bench guy is worth ~0.
 MARKET_BASELINE = 1000.0
-mkt = {norm(r.player): max(0.0, float(r.value) - MARKET_BASELINE) for r in hk.itertuples()}
+import numpy as np
+_hk = hk.sort_values("rank")
+_ranks = _hk["rank"].to_numpy(dtype=float)
+_m = np.maximum(_hk["value"].to_numpy(dtype=float) - MARKET_BASELINE, 0.0)
+_m = np.minimum.accumulate(_m)                         # make the curve non-increasing
+h_rank = {norm(r.player): float(r.rank) for r in hk.itertuples()}
+adp = {norm(p["player"]): p["adp"] for p in hub["players"] if p.get("adp")}
 
 
+def market_value(name):
+    n = norm(name)
+    h = h_rank.get(n)
+    a = adp.get(n)
+    if h is None and a is None:
+        return 0.0
+    r = h if a is None else (a if h is None else 0.5 * h + 0.5 * a)
+    return float(np.interp(r, _ranks, _m, right=0.0))
+
+
+mkt = {}
 # KeepTradeCut-style "package adjustment": people prefer one elite player to several mid ones ("four quarters don't equal a dollar"), so a raw price
-# sum is wrong. KTC compares the sums of RAW ADJUSTMENT values, each a player's value times a share that rises steeply with how close he is to the
-# best asset in the trade (t) and to the best asset in the league (v); its published range is 10%-42.4% of a player's value, and the exact constants
-# are not public (article: javelinfantasyfootball.com "How the KeepTradeCut Value Adjustment Works"). This is our own version with the same shape and
-# range: raw(p) = p * (0.10 + 0.20*(p/t)^8 + 0.124*(p/v)^1.3).  Effect: a 1,500 star counts as ~5-6x a 750 player, not 2x; three 500s are worth far less than a 1,500.
-V_MAX = 1530.0
+# sum is wrong. KTC compares the sums of RAW ADJUSTMENT values, each a player's value times a share that rises steeply with how close he is to the best
+# asset in the trade (t) and in the league (v) (published range 10%-42.4% of value; the exact constants are not public). Our own version, softer than the
+# first attempt (which made a star worth more than a slightly lesser star plus a second player):
+#     raw(p) = p * (0.10 + s * (0.20*(p/t)^4 + 0.124*(p/v)^1.3)),   s = star-premium strength (page slider, default 0.5; 0 = plain sum)
+V_MAX = float(_m[0])
+S_DEFAULT = 0.5
 
 
-def raw_adj(p, t):
+def raw_adj(p, t, s=S_DEFAULT):
     if p <= 0:
         return 0.0
-    return p * (0.10 + 0.20 * (p / t) ** 8 + 0.124 * (p / V_MAX) ** 1.3)
+    return p * (0.10 + s * (0.20 * (p / t) ** 4 + 0.124 * (p / V_MAX) ** 1.3))
 
 
-def package_ratio(recv, give):
-    """market ratio from the point of view of the side that RECEIVES `recv` and gives up `give`: >1 means they come out ahead"""
+def package_ratio(recv, give, s=S_DEFAULT):
+    """market ratio for the side that RECEIVES `recv` and gives up `give`: >1 means they come out ahead"""
     t = max([p["mkt"] for p in recv] + [p["mkt"] for p in give] + [1.0])
-    a = sum(raw_adj(p["mkt"], t) for p in recv)
-    b = sum(raw_adj(p["mkt"], t) for p in give)
+    a = sum(raw_adj(p["mkt"], t, s) for p in recv)
+    b = sum(raw_adj(p["mkt"], t, s) for p in give)
     return (a / b) if b > 0 else (9.9 if a > 0 else 1.0)
 
 
@@ -87,7 +107,7 @@ def mk_player(r):
     level, status, ir_planned = lvl.get(r["espn_id"], (hp["year0_ppg"] if hp else REPLACEMENT_LEVEL, "ACTIVE", r.get("slot") == "IR"))
     asset = hp["asset_k"][K] if hp and hp.get("asset_k") else 0.0
     avail = 0.0 if status in ("OUT", "INJURY_RESERVE", "SUSPENSION") else AVAIL
-    return {"id": r["espn_id"], "name": r["name"], "asset": float(asset), "level": float(level), "avail": avail, "mkt": mkt.get(norm(r["name"]), 0.0),
+    return {"id": r["espn_id"], "name": r["name"], "asset": float(asset), "level": float(level), "avail": avail, "mkt": market_value(r["name"]),
             "ir": bool(ir_planned), "age": hp["age"] if hp else None}
 
 
@@ -144,19 +164,22 @@ for A in teams:
             ratio = package_ratio(give, get)              # with the elite-player premium
             ratio_lin = (give_mkt / get_mkt) if get_mkt > 0 else (9.9 if give_mkt > 0 else 1.0)   # plain sum, for comparison
             ideas.append({"p": B["id"], "give": [p["name"] for p in give], "get": [p["name"] for p in get], "me": [round(dsa), round(dka, 1)], "them": [round(dsb), round(dkb, 1)],
-                          "mk": [round(give_mkt), round(get_mkt)], "ratio": round(min(ratio, 9.9), 2), "ratio_lin": round(min(ratio_lin, 9.9), 2), "kbefore": keeper_names(A["players"]), "kafter": keeper_names(a_after)})
-    # keep the ideas that are good for me at any of several keeper weights and not absurd for the market
+                          "mk": [round(give_mkt), round(get_mkt)], "mkg": [round(p["mkt"]) for p in give], "mkr": [round(p["mkt"]) for p in get], "ratio": round(min(ratio, 9.9), 2), "ratio_lin": round(min(ratio_lin, 9.9), 2), "kbefore": keeper_names(A["players"]), "kafter": keeper_names(a_after)})
+    # keep the ideas that are good for me at several keeper weights, chosen SEPARATELY for fairness bands so unfair-but-great-for-me trades
+    # cannot crowd out the fair ones (the page lets the user move the fairness and premium sliders)
     keep = {}
-    for w in WEIGHTS:
-        scored = sorted(((i["me"][0] + w * ASSET_TO_PTS * i["me"][1], n) for n, i in enumerate(ideas) if 0.8 <= i["ratio"] <= 4.0 and i["me"][0] + w * ASSET_TO_PTS * i["me"][1] > 100), reverse=True)
-        for _, n in scored[:40]:
-            keep[n] = ideas[n]
+    for lo, top in ((0.85, 40), (0.65, 20), (0.5, 10)):
+        for w in WEIGHTS:
+            scored = sorted(((i["me"][0] + w * ASSET_TO_PTS * i["me"][1], n) for n, i in enumerate(ideas)
+                             if lo <= i["ratio"] <= 4.0 and i["me"][0] + w * ASSET_TO_PTS * i["me"][1] > 100), reverse=True)
+            for _, n in scored[:top]:
+                keep[n] = ideas[n]
     ks, kk = base[A["id"]]
     out_teams.append({"id": A["id"], "abbrev": A["abbrev"], "name": A["name"], "keepers": keeper_names(A["players"]), "keeper_asset": round(kk, 1),
                       "ideas": list(keep.values())})
     print(f"{A['abbrev']:5s} {len(ideas):6d} candidate trades -> {len(keep)} kept", flush=True)
 
-meta = {"generated": datetime.now(timezone.utc).isoformat(), "K": K, "weeks_left": WEEKS_LEFT, "asset_to_points": ASSET_TO_PTS, "default_keeper_weight": 0.10,
+meta = {"generated": datetime.now(timezone.utc).isoformat(), "K": K, "weeks_left": WEEKS_LEFT, "asset_to_points": ASSET_TO_PTS, "default_keeper_weight": 0.10, "default_premium": S_DEFAULT, "v_max": V_MAX,
         "teams": {t["id"]: {"abbrev": t["abbrev"], "name": t["name"]} for t in out_teams}}
 (HUB / "trade_ideas.json").write_text(json.dumps({"meta": meta, "teams": out_teams}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote trade_ideas.json", round((HUB / "trade_ideas.json").stat().st_size / 1024), "KB")

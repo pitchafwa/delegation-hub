@@ -111,7 +111,7 @@
   .tradeScore{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--good);font-size:1.05rem}
   .tradeRow{padding:.12rem 0;font-size:.92rem}.tradeRow.small{font-size:.8rem;color:var(--ink-soft)}
   .tradeRow .lbl{display:inline-block;min-width:4.3rem;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
-  .tradeCtl{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.2rem 0 .9rem}
+  .tradeCtl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin:.2rem 0 .9rem}
   .tradeCtl label{font-size:.78rem;color:var(--ink-soft);display:block}.tradeCtl input{width:100%}
   @media(max-width:720px){.tradeCtl{grid-template-columns:1fr}}
   .irBox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-bottom:1.2rem}
@@ -324,7 +324,7 @@
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -828,9 +828,13 @@ function renderTrades(){
   if(tradeTeam==null){ const me=TR.teams.find(t=>t.abbrev===(W&&W.my_abbrev)); tradeTeam=(me||TR.teams[0]).id; }
   const T=TR.teams.find(t=>t.id===tradeTeam);
   const k2p=meta.asset_to_points;
+  if(tradeS==null) tradeS=meta.default_premium;
+  const VM=meta.v_max;
+  const rawAdj=(p,t,s)=>p<=0?0:p*(0.10+s*(0.20*Math.pow(p/t,4)+0.124*Math.pow(p/VM,1.3)));
+  const pkg=(i,s)=>{const t=Math.max(1,...i.mkg,...i.mkr); const a=i.mkg.reduce((x,p)=>x+rawAdj(p,t,s),0), b=i.mkr.reduce((x,p)=>x+rawAdj(p,t,s),0); return b>0?a/b:(a>0?9.9:1);};
   const score=i=>i.me[0]+tradeW*k2p*i.me[1];
   const nm=n=>esc(n);
-  const buildCards=()=>{ const ideas=T.ideas.filter(i=>i.ratio>=tradeRatio).sort((a,b)=>score(b)-score(a)).slice(0,25);
+  const buildCards=()=>{ const ideas=T.ideas.map(i=>Object.assign(i,{ratioNow:pkg(i,tradeS)})).filter(i=>i.ratioNow>=tradeRatio).sort((a,b)=>score(b)-score(a)).slice(0,25);
   return ideas.map(i=>{
     const P=meta.teams[i.p];
     const before=new Set(i.kbefore), after=new Set(i.kafter);
@@ -844,20 +848,22 @@ function renderTrades(){
       <div class="tradeRow"><span class="lbl">You get</span> <b>${i.get.map(nm).join(' + ')}</b></div>
       <div class="tradeRow small">Your season <b>${i.me[0]>=0?'+':''}${i.me[0]}</b> pts · keeper value <b>${i.me[1]>=0?'+':''}${i.me[1]}</b></div>
       <div class="tradeRow small">Keepers after: ${keepTxt}${lost.length?` <span class="hint">(out: ${lost.map(nm).join(', ')})</span>`:''}</div>
-      <div class="tradeRow small hint">Market: they receive ${i.mk[0]} vs give ${i.mk[1]} · <b>${i.ratio}×</b> with the elite-player premium (${i.ratio_lin}× plain) · ${themLine}</div>
+      <div class="tradeRow small hint">Market: they receive ${i.mk[0]} vs give ${i.mk[1]} · <b>${i.ratioNow.toFixed(2)}×</b> with the star premium (${i.ratio_lin}× plain) · ${themLine}</div>
     </div>`;}).join('') || '<div class="hint" style="padding:1rem">No ideas at these settings. Lower the fairness minimum.</div>'; };
   pane.innerHTML=`
     <div class="controls"><select id="tradeSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${TR.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
       <span class="hint">Trade ideas · updated ${new Date(meta.generated).toLocaleString()} · ${meta.K} keepers assumed</span></div>
     <div class="tradeCtl">
       <label>Weight on keeper value <b id="twv">${tradeW.toFixed(2)}</b><input type="range" id="tw" min="0" max="0.4" step="0.01" value="${tradeW}"></label>
-      <label>Least fair to them I'll offer <b id="trv">${tradeRatio.toFixed(2)}</b>×<input type="range" id="tr" min="0.8" max="1.4" step="0.01" value="${tradeRatio}"></label>
+      <label>Least fair to them I'll offer <b id="trv">${tradeRatio.toFixed(2)}</b>×<input type="range" id="tr" min="0.6" max="1.4" step="0.01" value="${tradeRatio}"></label>
+      <label>Star premium <b id="tsv">${tradeS.toFixed(2)}</b> <span class="hint">(0 = plain sum)</span><input type="range" id="ts" min="0" max="1" step="0.05" value="${tradeS}"></label>
     </div>
     <div class="legend" style="margin:0 0 1rem"><b>Your keepers now:</b> ${T.keepers.map(nm).join(', ')}. Ideas are ranked by how much they raise <i>your</i> value; the number top-right is season points plus weighted keeper value.</div>
     <div id="tradeCards">${buildCards()}</div>
-    <div class="legend" style="margin-top:1rem"><b>How this works (first version, not backtested).</b> Only ${meta.K} players are kept, so a player is worth different amounts to different teams. <b>Market</b> = Hashtag's crowd dynasty value above a replaceable player; a trade "looks fair" to the other side when the value they receive is at least about what they give up, after a <b>KeepTradeCut-style elite-player premium</b>: owners prefer one star to several mid players ("four quarters don't equal a dollar"), so each player's value is weighted by how close he is to the best asset in the trade and in the league (a 1,500 star counts about 4× a 750 player, not 2×). The × number is the ratio after that premium; the plain-sum ratio is in brackets. The premium's exact constants are our own guess at KTC's published shape (10%–42% of value); KTC doesn't publish theirs. <b>Your season</b> = change in your lineup strength (best 10 players plus a quarter of the next 5, over about ${meta.weeks_left} weeks, with replacement-level fill-ins). <b>Keeper value</b> = change in the total dynasty asset value of your top ${meta.K}, converted to points at the weight above (1 asset point ≈ ${k2p} points of output; the default 0.10 discounts the ten-year horizon heavily). A team's season value is zero-sum in most trades, so the edge comes mostly from keeper fit and from IR or depth quirks. Not modeled yet: positions, schedules, injuries beyond status, and whether an owner will actually say yes.</div>`;
+    <div class="legend" style="margin-top:1rem"><b>How this works (first version, not backtested).</b> Only ${meta.K} players are kept, so a player is worth different amounts to different teams. <b>Market</b> = Hashtag's crowd dynasty value above a replaceable player; a trade "looks fair" to the other side when the value they receive is at least about what they give up. <b>Market value blends Hashtag's dynasty ranking with ESPN's draft ADP</b> (owners here draft by ADP, so current production matters as much as youth), converted to price with Hashtag's own rank-to-value curve. A <b>KeepTradeCut-style star premium</b> (slider) is then applied: owners prefer one star to several mid players ("four quarters don't equal a dollar"), so each player's value is weighted by how close he is to the best asset in the trade and in the league (a 1,500 star counts about 4× a 750 player, not 2×). The × number is the ratio after that premium; the plain-sum ratio is in brackets. The premium's exact constants are our own guess at KTC's published shape (10%–42% of value); KTC doesn't publish theirs. <b>Your season</b> = change in your lineup strength (best 10 players plus a quarter of the next 5, over about ${meta.weeks_left} weeks, with replacement-level fill-ins). <b>Keeper value</b> = change in the total dynasty asset value of your top ${meta.K}, converted to points at the weight above (1 asset point ≈ ${k2p} points of output; the default 0.10 discounts the ten-year horizon heavily). A team's season value is zero-sum in most trades, so the edge comes mostly from keeper fit and from IR or depth quirks. Not modeled yet: positions, schedules, injuries beyond status, and whether an owner will actually say yes.</div>`;
   document.getElementById('tradeSel').addEventListener('change',e=>{tradeTeam=+e.target.value; renderTrades();});
   document.getElementById('tw').addEventListener('input',e=>{tradeW=+e.target.value; document.getElementById('twv').textContent=tradeW.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
+  document.getElementById('ts').addEventListener('input',e=>{tradeS=+e.target.value; document.getElementById('tsv').textContent=tradeS.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
   document.getElementById('tr').addEventListener('input',e=>{tradeRatio=+e.target.value; document.getElementById('trv').textContent=tradeRatio.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
   collapseLegends(pane);
 }
