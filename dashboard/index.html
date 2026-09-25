@@ -892,10 +892,14 @@ function mobileTables(pane){
     });
   });
 }
+const legendState={};   // remembered open/closed state per pane and legend, so re-rendering (e.g. ticking a checkbox) does not reopen what you closed
 function collapseLegends(root){
-  root.querySelectorAll('.legend').forEach(l=>{
+  root.querySelectorAll('.legend').forEach((l,idx)=>{
     if(l.querySelector(':scope > details.lg')) return;
-    l.innerHTML=`<details class="lg" ${isMobile()?'':'open'}><summary>${l.textContent.trim().startsWith('How to use this page')?'How to use this page to make decisions':'How to read this'}</summary>${l.innerHTML}</details>`;
+    const key=(root.id||'root')+':'+idx;
+    const open=key in legendState?legendState[key]:!isMobile();
+    l.innerHTML=`<details class="lg" ${open?'open':''}><summary>${l.textContent.trim().startsWith('How to use this page')?'How to use this page to make decisions':'How to read this'}</summary>${l.innerHTML}</details>`;
+    l.querySelector('details.lg').addEventListener('toggle',e=>{ legendState[key]=e.target.open; });
   });
 }
 function setView(v){
