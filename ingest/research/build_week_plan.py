@@ -436,14 +436,8 @@ if new_rows:
             w.writeheader()
         w.writerows(new_rows)
 
-out_teams = []
-plans = {}
-for t in lg.teams:
-    r = rosters[t.team_id]
-    c0 = so_far[t.team_id]["starts"]
-    total, rows, naive = plan_team(r, c0, detail=True)
-    plans[t.team_id] = total + so_far[t.team_id]["pts"]
-    tc = counters.get(t.team_id, {})
+def search_moves(r, total, c0):
+    """best single adds and a greedy add/drop sequence for roster r (see the per-team notes in the module docstring)"""
     non_ir = [p for p in r if not p["ir"]]
     moves = []
     for f in fa_players:
@@ -493,11 +487,69 @@ for t in lg.teams:
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
                     "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                     "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1)})
+    return moves, seq
+
+
+IR_SLOTS = 4
+IR_OK = ("OUT", "INJURY_RESERVE")     # ASSUMPTION: ESPN only lets players with an out/IR status into an IR slot (verify in season)
+ROSTER_SPOTS = 15                     # 10 starters + 5 bench; IR slots are extra
+
+
+def plan_ir(r):
+    """Roster and IR housekeeping. Returns (roster used for planning, suggested moves).
+    * a player who is OUT (or IR-status) sitting in a bench slot should move to an open IR slot: a free action that frees a roster spot
+    * a player who is healthy (ACTIVE) but parked in an IR slot cannot play: activate him; if the roster is full, swap out the least useful
+      non-protected player when the activated player is clearly better (3+ points a game)"""
+    on_ir = [p for p in r if p["ir"]]
+    free_ir = max(0, IR_SLOTS - len(on_ir))
+    to_ir = sorted([p for p in r if not p["ir"] and p["status"] in IR_OK], key=lambda p: -p["level"])[:free_ir]
+    ids_to_ir = {p["espn_id"] for p in to_ir}
+    back = sorted([p for p in on_ir if p["status"] == "ACTIVE"], key=lambda p: -p["level"])
+    plan = {p["espn_id"]: p for p in r}
+    moves = []
+    for p in to_ir:
+        plan[p["espn_id"]] = dict(p, ir=True)
+        moves.append({"id": p["espn_id"], "name": p["name"], "action": "to_ir", "status": p["status"], "level": p["level"]})
+    prot = protected_ids(r)
+    for p in back:
+        spots = len([q for q in plan.values() if not q["ir"]])
+        if spots < ROSTER_SPOTS:
+            plan[p["espn_id"]] = dict(p, ir=False)
+            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate", "status": p["status"], "level": p["level"]})
+            continue
+        cands = sorted([q for q in plan.values() if not q["ir"] and q["espn_id"] not in prot and q["espn_id"] != p["espn_id"]], key=lambda q: q["level"])
+        if cands and p["level"] - cands[0]["level"] >= 3.0:
+            d = cands[0]
+            del plan[d["espn_id"]]
+            plan[p["espn_id"]] = dict(p, ir=False)
+            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate_swap", "status": p["status"], "level": p["level"],
+                          "drop": {"id": d["espn_id"], "name": d["name"], "level": d["level"], "asset_rank": d["asset_rank"]}})
+        else:
+            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate_needs_spot", "status": p["status"], "level": p["level"]})
+    return list(plan.values()), moves
+
+
+out_teams = []
+plans = {}
+for t in lg.teams:
+    r_orig = rosters[t.team_id]
+    r, ir_moves = plan_ir(r_orig)
+    c0 = so_far[t.team_id]["starts"]
+    total, rows, naive = plan_team(r, c0, detail=True)
+    plans[t.team_id] = total + so_far[t.team_id]["pts"]
+    tc = counters.get(t.team_id, {})
+    moves, seq = search_moves(r, total, c0)
+    if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
+        total0 = plan_team(r_orig, c0)
+        _m0, seq0 = search_moves(r_orig, total0, c0)
+        unlock = (total + (seq[-1]["cum"] if seq else 0.0)) - (total0 + (seq0[-1]["cum"] if seq0 else 0.0))
+        for m in ir_moves:
+            m["unlocks"] = round(unlock, 1)
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
-                      "days": rows, "adds": moves[:10], "sequence": seq,
+                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
                                   "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})

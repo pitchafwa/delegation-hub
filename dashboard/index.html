@@ -106,6 +106,8 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
+  .irBox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-bottom:1.2rem}
+  .irRow{padding:.35rem 0;border-top:1px solid var(--line);font-size:.86rem}.irRow:first-child{border-top:0}
   .moreRow td{padding:0 !important;border:0 !important}
   #moreBtn{width:100%;min-height:48px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:12px;font:inherit;font-weight:600;cursor:pointer}
   .comp .nm{white-space:nowrap}
@@ -745,6 +747,14 @@ function renderWeek(){
     :'<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:1rem">no add improves this week by more than 1 point</td></tr>';
   const seqRows=(T.sequence||[]).map((a,i)=>`<tr><td class="num">${i+1}</td><td style="text-align:left"><b>${esc(a.add.name)}</b> <span class="hint">${esc(a.add.team)} · ${a.add.slots.filter(x=>x!=='UT').join('/')||'UT'} · ${a.add.games.map(shortDay).join(' ')}</span></td>
       <td style="text-align:left">${a.drop?esc(a.drop.name)+' <span class="hint">'+a.drop.level+(a.drop.asset_rank?' · asset #'+a.drop.asset_rank:'')+'</span>'+(a.drop.flag==='solid'?' <span class="liveStatus" title="projects 28+ points a game: a real contributor this season. The net gain already subtracts an estimate of what you would lose in later weeks.">solid contributor</span>':''):'<span class="hint">open roster spot</span>'}</td><td class="num"><b>+${a.gain.toFixed(0)}</b><div class="hint">wk +${a.week_gain.toFixed(0)}${a.future_cost>0.5?' / later −'+a.future_cost.toFixed(0):''}</div></td><td class="num">+${a.cum.toFixed(0)}</td></tr>`).join('');
+  const irm=T.ir_moves||[];
+  const irLine=m=>m.action==='to_ir'?`<b>${esc(m.name)}</b> <span class="liveStatus">${esc(m.status)}</span> → move to an open IR slot <span class="hint">(free, and it frees a roster spot)</span>`
+    :m.action==='activate'?`<b>${esc(m.name)}</b> is healthy but sitting in an IR slot, so he can't play → move him to your bench or lineup`
+    :m.action==='activate_swap'?`<b>${esc(m.name)}</b> is healthy but sitting in an IR slot → activate him and drop <b>${esc(m.drop.name)}</b> <span class="hint">${m.drop.level} pts/g${m.drop.asset_rank?' · asset #'+m.drop.asset_rank:''}</span>`
+    :`<b>${esc(m.name)}</b> is healthy but sitting in an IR slot → he can't play until you free a roster spot for him`;
+  const unlock=irm.find(m=>m.unlocks!=null);
+  const irHtml=irm.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and IR moves · ${T.roster_spots.non_ir}/${T.roster_spots.of} roster spots, ${T.roster_spots.ir_used}/${T.roster_spots.ir_of} IR</div>
+    <div class="irBox">${irm.map(m=>`<div class="irRow">${irLine(m)}</div>`).join('')}${unlock&&unlock.unlocks>0.5?`<div class="note" style="margin-top:.4rem">Making these moves and then using the freed spots is worth about <b>+${unlock.unlocks.toFixed(0)} points</b> this week compared with leaving them as they are (the plan and adds below already assume the moves are made).</div>`:''}</div>`:'';
   const daysHdr=M.planned_days.map(shortDay);
   const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${esc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.official?` <span class="liveStatus" title="official NBA injury report designation for today">${esc(p.official)}</span>`:(p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'')}</td>
       <td style="text-align:left">${esc(p.team)}</td><td style="text-align:left">${p.slots.filter(x=>x!=='UT').join('/')}</td><td class="num">${p.level}</td><td class="num">${p.protected?'<span class="hint" title="never suggested as a drop">keep</span> ':''}${p.asset_rank?'#'+p.asset_rank:'<span class="hint">—</span>'}</td>
@@ -764,6 +774,7 @@ function renderWeek(){
       ${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule; adds that play on those days are worth the most.`:''}
       Numbers are expected fantasy points (chance of playing × projected points per game).</div>
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starting lineup (expected pts)</th><th>Starters</th><th>Day pts</th><th>Starts so far</th></tr></thead><tbody>${dayRows}</tbody></table></div>
+    ${irHtml}
     ${seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves, in order (each uses one of ${M.adds_limit} weekly adds)</div>
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th></tr></thead><tbody>${seqRows}</tbody></table></div>`:''}
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Best single adds, each on its own (they overlap, so don't add the gains)</div>
