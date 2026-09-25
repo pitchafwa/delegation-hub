@@ -156,6 +156,26 @@ def b2b(team, d):
 
 # ---------- players
 RECENT_FORM_MAX = 0.45  # weight on the last-15-game average once 15 games are in (measured best: ~50/50 recent vs long-run). Interim until a true per-game projection source is found; 0 = ESPN as-is
+# Measured (injury_status_playrate.py; NBA official 06:00 AM reports vs box scores, 2024-25 and 2025-26, n = 16,727 listed player-days):
+# share of listed players who actually played.  Rotation = 20+ mpg over the last 15 games.
+OFFICIAL_P = {"rotation": {"Available": 0.96, "Probable": 0.92, "Questionable": 0.57, "Doubtful": 0.04, "Out": 0.0},
+              "bench": {"Available": 0.65, "Probable": 0.77, "Questionable": 0.37, "Doubtful": 0.03, "Out": 0.0}}
+ROTATION_LEVEL = 24        # projected pts/g at which a player is treated as a rotation player (about 20 mpg)
+
+
+def p_future(level):
+    """chance a currently-healthy player suits up in a LATER scheduled game (measured, availability_by_level.py)"""
+    return 0.61 if level < 15 else (0.81 if level < 20 else 0.85)
+
+
+FA_ANCHOR, FA_SHRINK = 22.0, 0.6      # free agents are picked because they look good, so shrink their level toward replacement (backtest: predicted gain 93 -> 75 vs realized ~53)
+try:
+    import nba_injury_reports as NIR
+    OFFICIAL, OFFICIAL_AT = NIR.latest_statuses()
+    print(f"official NBA injury report: {len(OFFICIAL)} statuses from {OFFICIAL_AT}")
+except Exception as ex:                       # never let a missing report break the plan
+    OFFICIAL, OFFICIAL_AT = {}, None
+    print("official injury report unavailable:", ex)
 STATUS_P = {"ACTIVE": 0.94, "DAY_TO_DAY": 0.55, "OUT": 0.0, "INJURY_RESERVE": 0.0, "SUSPENSION": 0.0}
 
 
@@ -172,7 +192,7 @@ def make_player(p, on_roster_slot=None):
         base = w * l15["applied_avg"] + (1 - w) * base
         src += "+recent"
     return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)],
-            "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None,
+            "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "official": {},  "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None,
             "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None}
 
 
@@ -184,11 +204,18 @@ def level_on(pl, d):
 def p_play(pl, d):
     if not plays(pl["team"], d):
         return 0.0
-    if pl["ir"]:
+    if pl["ir"] or pl["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
         return 0.0
-    p = STATUS_P.get(pl["status"], 0.94)
-    if p and pl["status"] == "ACTIVE" and b2b(pl["team"], d):
-        p *= 0.89 / 0.94
+    tier = "rotation" if pl["level"] >= ROTATION_LEVEL else "bench"
+    off = pl.get("official", {}).get(d.isoformat())
+    if off:                                       # the league's own designation for that game
+        return OFFICIAL_P[tier].get(off, 0.9)
+    if d == today:                                # status known this morning, no designation listed
+        p = OFFICIAL_P[tier]["Questionable"] if pl["status"] == "DAY_TO_DAY" else 0.94
+    else:                                         # later days: injuries/rest not yet known
+        p = p_future(pl["level"])
+    if pl["status"] == "ACTIVE" and b2b(pl["team"], d):
+        p *= 0.89 / 0.94                          # second night of a back-to-back (measured)
     return p
 
 
@@ -345,6 +372,8 @@ for t in lg.teams:
     rosters[t.team_id] = [make_player(p, p.lineupSlot) for p in t.roster]
 
 fa_players = [make_player(p) for p in lg.free_agents(size=150)]
+for _p in fa_players:
+    _p["level"] = round(FA_ANCHOR + FA_SHRINK * (_p["level"] - FA_ANCHOR), 1)
 fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days)]
 
 
@@ -354,6 +383,12 @@ def week_games(pl):
 
 fa_players.sort(key=lambda p: -(p["level"] * week_games(p)))
 fa_players = fa_players[:60]
+
+_by_key = {}
+for (_gd, _kk), _st in OFFICIAL.items():
+    _by_key.setdefault(_kk, {})[_gd] = _st
+for _pl in [x for rr in rosters.values() for x in rr] + fa_players:
+    _pl["official"] = _by_key.get(norm(_pl["name"]).replace(" ", ""), {})
 
 # ---------- sportsbook player props (optional): market projections for today/tomorrow, converted to league scoring
 props_meta = {"enabled": False}
@@ -464,7 +499,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq,
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 

@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install --quiet espn-api pandas python-dotenv requests scipy
+        run: pip install --quiet espn-api pandas python-dotenv requests scipy pdfplumber
 
       # ESPN_S2 and SWID are repository secrets (Settings > Secrets and variables > Actions).
       # The script refuses to write anything if ESPN returns a partial/empty league, so a bad pull can't wipe the site's data.

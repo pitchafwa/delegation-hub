@@ -43,9 +43,9 @@ except the schedule data.
 ## Calibration fixes before Phase 2 builds on Phase 1
 * Availability is not 94% for every future game: measured play rate for currently-healthy players in a *later* scheduled game is 85%
   for rotation players, 81% at 15–20 pts/g and 61% below 15 (`availability_by_level.py`). 94% stays right for today's ACTIVE-listed players.
-* Free-agent levels need shrinking toward average before ranking adds (backtest in progress; result recorded in the results section of
+* Free-agent levels are now shrunk 40% toward replacement before ranking adds (done; see the backtest results in
   RESEARCH_start_sit_waivers.md when finished).
-* Injury statuses: replace the guessed 55% for day-to-day with measured rates by the NBA's official designations (see RESEARCH file).
+* Injury statuses: done. Measured rates by the NBA official designation now drive today's availability (see RESEARCH file).
 
 ## Validation plan
 Every Phase 2 feature gets a replay on 2025-26 like the Phase 1 backtests (`backtest_weekly_planner.py`) before it is trusted, and a

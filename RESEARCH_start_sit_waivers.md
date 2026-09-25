@@ -152,3 +152,18 @@ each team actually scored; verify the add-limit and waiver behavior in week 1.
   stat line. Needs `ODDS_API_KEY` (The Odds API; player props for NBA, ~7 credits per game per day). Free data sources for props are thin: ESPN has none;
   historical prop archives are paid. So the plan logs ESPN / model / props projections for every player each game day to
   `dashboard/projection_log.csv` (shadow mode) so the sources can be scored against real results after a few weeks before we trust any one.
+
+## Backtest results, 2025-26 (this league's real weeks) and injury designations — 2026-27 preseason build
+Scripts: `backtest_weekly_planner.py` (lineups; `... adds` for adds), `backtest_win_effect.py`, `availability_by_level.py`, `nba_injury_reports.py`, `injury_status_playrate.py`.
+**Lineups (216 regular-season team-weeks, same rosters and day-of availability, decisions from recency-weighted levels known that morning, real points scored):**
+actual 1,458 pts/week -> "start everyone" 1,515 -> cap-aware planner 1,560. Planner +102 pts/week over what teams actually scored (median +50; better in 74% of team-weeks);
+the cap logic alone added +46 over start-everyone and changed the outcome in about a third of weeks. Gains are concentrated in weakly managed teams (+150 to +350 a week);
+the best managers gained +7 to +34, and one top team lost 2 matchups it actually won. Played against everyone else's actual scores, a team using the planner wins 61% of
+matchups vs 50% (+2.0 wins over 18); DRNK +80 pts/week, +1 win. **Adds (204 team-weeks, moves chosen at week start, realized points from real games):** with the original
+assumptions predicted +93 vs realized +49 per week when moves were suggested; shrinking free-agent levels 40% toward replacement gave predicted +75 vs realized +53 (77% of those
+weeks positive, +40 averaged over all weeks), i.e. fewer moves, same realized value, better calibration; predictions are still ~1.4x too high, so treat the displayed gain as an upper estimate.
+**Availability:** a currently-healthy player suits up in a later scheduled game 85% of the time (rotation), 81% (15-20 pts/g), 61% (<15), not the 94% first assumed (94% is right only
+for a player with no designation today). **Official NBA injury designations (06:00 AM ET report, n = 16,727 listed player-days, 2024-25 and 2025-26; share who played):**
+Available 88% (rotation 96%, bench 65%); Probable 86% (92% / 77%); **Questionable 49% (57% rotation / 37% bench)**; **Doubtful 3.5% (not the league's nominal 25%)**; Out 0.4%.
+A morning Questionable resolves by evening: 42% stay Questionable, 25% Available, 23% Out. The 'day-to-day' guess of 55% happened to match rotation Questionable (57%), but the plan now uses the
+official designation directly when a report is available (free PDFs, every 15 minutes) and the measured rates above.
