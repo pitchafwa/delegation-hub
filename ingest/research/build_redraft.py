@@ -3,7 +3,8 @@
   per player   ESPN projected points/game (league scoring) and our own projection (the Kalman model's this-season line in hub_data.json)
                expected games left = team games remaining x availability, minus games he is expected to miss right now (injury advisor)
                proj points   = points/game x expected games          VOR = (points/game - replacement) x expected games
-               market rank   = FantasyPros consensus points-league rank (ESPN scoring), cross-checked against ESPN's own points rankings (article) and ESPN ADP; where FantasyPros and the ESPN blend
+               market rank   = ESPN's points-league rankings article averaged with ESPN ADP (FantasyPros' consensus is the fallback for players ESPN does not rank; switch MARKET_PRIMARY when its
+                               injury/rookie rankings look right); the old rule below is unused: where FantasyPros and the ESPN blend
                                are surprisingly different (15+ places and 35%+) the market is their average and the row is flagged.  Fallback (a player in none of them): rank by ESPN projection x expected games.  Our rank = by our projection x expected games
                90th percentile points/game = projection + 1.28 sigma (sigma measured on 2010-2026: about 6.2 preseason falling to about 5.3 after 20 games)
                last 10 games (fantasy points, minutes, dates) for the trajectory line, the next 3 games with opponents, games next 7 days, games in the playoff weeks,
@@ -239,22 +240,15 @@ for i, r in enumerate(sorted(rows, key=lambda r: -r["pts"]), 1):
     r["rank"] = i
 for i, r in enumerate(sorted(rows, key=lambda r: -r["espn_pts"]), 1):
     r["mkt_proj"] = i                                        # fallback market: ESPN's projection x our expected games
-n_flag = 0
+MARKET_PRIMARY = "espn"        # "espn": ESPN's points rankings article averaged with ESPN ADP; FantasyPros only for players ESPN does not rank.  Flip to "fp" once FantasyPros' injury/rookie rankings catch up (they had not by 9/27: Tatum #118 vs ESPN #9).
 for r in rows:
     k = key(r["name"])
     fp, er, adp = FP_RANK.get(k), ESPN_RANK.get(k), r.get("adp")
     espn_parts = [x for x in (er, adp) if x]
-    espn_blend = sum(espn_parts) / len(espn_parts) if espn_parts else None
-    if fp and espn_blend and abs(fp - espn_blend) >= DISAGREE_ABS and abs(fp - espn_blend) >= DISAGREE_REL * min(fp, espn_blend):
-        r["mkt"], r["mkt_src"], r["mkt_diff"] = round((fp + espn_blend) / 2), "blend", [fp, round(espn_blend)]     # sources disagree: average them, and say so
-        n_flag += 1
-    elif fp:
-        r["mkt"], r["mkt_src"] = fp, "fp"
-    elif espn_blend:
-        r["mkt"], r["mkt_src"] = round(espn_blend), "espn"
-    else:
-        r["mkt"], r["mkt_src"] = None, "none"
-print(f"market ranks: {sum(1 for r in rows if r['mkt_src']=='fp')} FantasyPros, {n_flag} averaged (sources differ a lot), {sum(1 for r in rows if r['mkt_src']=='espn')} ESPN only, {sum(1 for r in rows if r['mkt_src']=='none')} none")
+    espn_blend = round(sum(espn_parts) / len(espn_parts)) if espn_parts else None
+    order = (("espn", espn_blend), ("fp", fp)) if MARKET_PRIMARY == "espn" else (("fp", fp), ("espn", espn_blend))
+    r["mkt"], r["mkt_src"] = next(((v, src) for src, v in order if v), (None, "none"))
+print(f"market ranks: {sum(1 for r in rows if r['mkt_src']=='espn')} ESPN (rankings+ADP), {sum(1 for r in rows if r['mkt_src']=='fp')} FantasyPros (fallback), {sum(1 for r in rows if r['mkt_src']=='none')} none")
 rows.sort(key=lambda r: -r["vor"])
 out = {"generated": datetime.now(timezone.utc).isoformat(), "asof": t0, "season_now": season_now, "preseason": today < SEASON_START, "repl_ppg": round(repl, 1), "repl_rank": REPL_RANK,
        "season_end": END, "playoff_start": PLAYOFF_START, "log_through": str(logs["date"].max())[:10], "sigma": {"pre": sigma_ppg(0), "late": sigma_ppg(99)}, "players": rows}
