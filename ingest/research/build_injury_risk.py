@@ -182,14 +182,15 @@ for pid in pids:
         lp = late.sort_values("n_out").iloc[-1]
         tags.append(f"returning: still out at end of last season ({(lp.side + ' ') if lp.side else ''}{lp.part})")
     out.append(dict(PLAYER_ID=pid, injury_p=round(h["p"], 3), injury_tier=-1, injury_label="", injury_health_missed=round(h["miss"], 0), injury_missed=round((a or h)["miss"], 0),
-                    m1=round(f["m1"], 2), age=round(f["age"], 1), tags=json.dumps(tags)))
+                    m1=round(f["m1"], 2), age=round(f["age"], 1), mpg=round(f["mpg"], 1), tags=json.dumps(tags)))
 R = pd.DataFrame(out)
-_cuts = R.injury_p.quantile(PCTS).tolist()
+PEER_MPG = 24.0                        # tiers are relative to the players you actually compare at the draft: regulars (24+ mpg), who are listed out more often than 15-20 mpg bench players
+_cuts = R[R.mpg >= PEER_MPG].injury_p.quantile(PCTS).tolist()
 R["injury_tier"] = np.digitize(R.injury_p, _cuts)
 R["injury_label"] = R.injury_tier.map(dict(enumerate(LABELS)))
-print("tier cut points on P(listed out 20%+):", [round(c, 3) for c in _cuts], "| typical player:", round(R.injury_p.median(), 3), "expected health games missed", R.injury_health_missed.median(), "| any-reason games missed", R.injury_missed.median())
-_lastseason = sb[(sb.yr == LAST) & (sb.mpg >= 15) & (sb.GP >= 20)]
-json.dump({"cuts": _cuts, "labels": LABELS, "season": f"{LAST}-{str(LAST + 1)[2:]}", "n_rotation": int(len(_lastseason)), "basis": "health",
+print("tier cut points on P(listed out 20%+), among 24+ mpg regulars:", [round(c, 3) for c in _cuts], "| typical regular:", round(R[R.mpg >= PEER_MPG].injury_p.median(), 3), "expected health games missed", R.injury_health_missed.median(), "| any-reason games missed", R.injury_missed.median())
+_lastseason = sb[(sb.yr == LAST) & (sb.mpg >= PEER_MPG) & (sb.GP >= 20)]
+json.dump({"cuts": _cuts, "labels": LABELS, "season": f"{LAST}-{str(LAST + 1)[2:]}", "n_rotation": int(len(_lastseason)), "basis": "health", "peer_mpg": PEER_MPG,
            "typical_missed": float(round(_lastseason.hmissed.median() * 82)), "typical_share_25plus": float(round((_lastseason.hmissed >= THRESH_H).mean(), 3)), "threshold": THRESH_H},
           open(C.D / "injury_risk_meta.json", "w"))
 print("last completed season, rotation players (15+ mpg, 20+ GP): median games listed out for injury/illness", round(_lastseason.hmissed.median() * 82), "| share at 20%+", round((_lastseason.hmissed >= THRESH_H).mean(), 3))

@@ -85,3 +85,7 @@ passed as a rotation player. The top of the "High" list (Mobley, Tucker, Nowell,
   The board and draft show the health number (`injury_health_missed`) for tooltips; `injury_missed` remains the any-reason expected games.
 * The old fallback flag on the Board (watch/chronic from games missed) is removed for the same reason.
 Result: Irving, Lillard, VanVleet, Kessler, Murray, Haliburton and Lively are now at the top (real achilles, knee, shoulder cases); Embiid is High; Mobley, Tucker, Nowell and A. Williams have no rating.
+**Follow-up (same day): tiers are now relative to regulars.** Stars really are listed out more often than bench rotation players (out-of-sample, share listed out for 20%+ of games: 21% at 15-20 mpg, 32% at 20-25, 40% at 25-30, 36% at 30+; the model's predictions match those rates by minutes group).
+Cutting tiers across ALL rotation players therefore put almost every top scorer in Typical-or-worse. Tier cut points are now the quantiles among 24+ mpg regulars (Low bottom 15%, Below typical next 20%, Typical 30%, Elevated 20%, High top 15%;
+cuts at 33%, 40%, 49%, 60% chance), so tiers answer "how injury-prone is he compared with the players I am choosing between". Among the top 100 projected scorers the tiers now split 4 / 15 / 30 / 19 / 23 (9 unrated),
+and the top 50 still lean high because the busiest players and those returning from big injuries (Irving, Lillard, Haliburton, VanVleet) are genuinely the most exposed. The Redraft board had been showing tiers from before the rebuild; all three tabs now read the same numbers.
