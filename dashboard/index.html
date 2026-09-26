@@ -94,6 +94,7 @@
   .teambox{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:.5rem .65rem;font-size:.76rem;line-height:1.5;white-space:normal}
   .teambox .note{margin-top:.3rem;font-size:.68rem}
   .trajChart{width:100%;height:auto;display:block}
+
   .sec{border:1px solid var(--line);border-radius:12px;margin:0 0 .8rem;background:var(--surface)}
   .sec>summary{cursor:pointer;padding:.6rem .85rem;display:flex;gap:.2rem .7rem;align-items:baseline;flex-wrap:wrap;list-style:none}
   .sec>summary::-webkit-details-marker{display:none}
@@ -377,6 +378,39 @@
     .teambox{font-size:.8rem}
     #aboutPane p,#aboutPane li{font-size:.92rem}
     footer{margin-top:1.4rem;font-size:.66rem}
+  }
+  @media(max-width:720px){
+    .sec{border-radius:10px;margin-bottom:.6rem}
+    .sec>summary{padding:.5rem .65rem}
+    .secB{padding:0 .4rem .5rem}
+    .secM{flex-basis:100%;font-size:.72rem}
+    .jumpBar{flex-wrap:nowrap;overflow-x:auto;gap:.3rem;padding:.35rem 0;margin-left:-.1rem;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .jumpBar::-webkit-scrollbar{display:none}
+    .jumpBar>*{flex:0 0 auto}
+    .jumpBar button{font-size:.72rem;padding:.2rem .55rem;white-space:nowrap}
+    .cardPair{gap:.5rem}
+    .laterBox{padding:.45rem .55rem}
+    .lt{grid-template-columns:2.8rem 1fr;font-size:.82rem}
+    /* long-term adds: name + priority on top, then age/asset/keeper, then mkt/bkt/level, then the long Fit text across the full width */
+    table.ltTbl tbody tr{grid-template-columns:1fr 1fr 1fr;gap:.2rem .6rem}
+    table.ltTbl td{grid-column:auto}
+    table.ltTbl td[data-label="Priority"]{grid-column:3;grid-row:1;text-align:right !important;font-family:"IBM Plex Mono",monospace;font-size:1.25rem;font-weight:600;border:0 !important;margin:0;padding:0 !important}
+    table.ltTbl td[data-label="Priority"]::before{display:none}
+    table.ltTbl td[data-label="Priority"] .hint{font-size:.62rem;font-weight:400;white-space:nowrap}
+    table.ltTbl td[data-label="Player"]{grid-column:1/3;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:1rem;border:0 !important;margin:0;padding:0 !important}
+    table.ltTbl td[data-label="Player"]::before{display:none}
+    table.ltTbl td[data-label="Age"],table.ltTbl td[data-label="Asset"],table.ltTbl td[data-label="Keeper rk"]{grid-row:2;padding-top:.35rem !important;border-top:1px solid var(--line) !important}
+    table.ltTbl td[data-label="Age"]{grid-column:1}table.ltTbl td[data-label="Asset"]{grid-column:2}table.ltTbl td[data-label="Keeper rk"]{grid-column:3}
+    table.ltTbl td[data-label="MKT"]{grid-column:1;grid-row:3}table.ltTbl td[data-label="BKT"]{grid-column:2;grid-row:3}table.ltTbl td[data-label="Level"]{grid-column:3;grid-row:3}
+    table.ltTbl td[data-label="Fit"]{grid-column:1/-1;grid-row:4;padding-top:.4rem !important;margin-top:.15rem;border-top:1px solid var(--line) !important;font-size:.86rem;line-height:1.45}
+    table.ltTbl td[data-label="Fit"]::before{margin-bottom:.15rem}
+    /* injured-player advisor: one column, so the long verdict text can breathe */
+    table.injTbl tbody tr{grid-template-columns:1fr}
+    table.injTbl td:first-child{grid-column:1}
+    table.injTbl td[data-label="Verdict"]{border-top:1px solid var(--line) !important;padding-top:.35rem !important;margin-top:.15rem}
+    table.rosterTbl td[data-label^="Form"]{grid-column:span 2}
+    #weekPane .frm{font-size:.72rem}
+    #weekPane .tablewrap{border-radius:8px}
   }
 </style>
 </head>
@@ -1074,6 +1108,8 @@ function mobileTables(pane){
     else if(heads[0]==='#' && heads.includes('Net gain')) t.classList.add('moveTbl');
     else if(heads[0]==='#') t.classList.add('leagueTbl');
     else if(heads[0]==='Add') t.classList.add('addTbl');
+    else if(heads[0]==='Priority') t.classList.add('ltTbl');
+    else if(heads[0]==='Player' && heads.includes('Injury')) t.classList.add('injTbl');
     else if(heads[0]==='Player' && heads.includes('Asset rank')) t.classList.add('rosterTbl');
     t.querySelectorAll('tbody tr').forEach(tr=>{
       [...tr.children].forEach((td,i)=>{ if(!td.hasAttribute('colspan') && heads[i]!=null) td.setAttribute('data-label',heads[i]); });
