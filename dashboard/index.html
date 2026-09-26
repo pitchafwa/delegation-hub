@@ -94,6 +94,19 @@
   .teambox{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:.5rem .65rem;font-size:.76rem;line-height:1.5;white-space:normal}
   .teambox .note{margin-top:.3rem;font-size:.68rem}
   .trajChart{width:100%;height:auto;display:block}
+  .tg{display:inline-block;min-width:1.15em;text-align:center;font-size:.7rem;line-height:1.25;padding:0 .28em;border-radius:5px;background:color-mix(in srgb,var(--tc,#888) 18%,transparent);color:var(--tc,#888);border:1px solid color-mix(in srgb,var(--tc,#888) 45%,transparent);font-weight:700;vertical-align:1px}
+  .tg.tgNote{--tc:#8b93a0}
+  .tgEd{margin:.4rem 0 .2rem}
+  .tgOpts{display:flex;flex-wrap:wrap;gap:.35rem}
+  .tgOpt{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;padding:.2rem .5rem;border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;color:var(--ink-soft);background:var(--surface)}
+  .tgOpt.on{border-color:var(--tc);color:var(--ink);background:color-mix(in srgb,var(--tc) 12%,var(--surface))}
+  .tgOpt input{margin:0}
+  .tgNoteIn{width:100%;margin-top:.4rem;font:inherit;font-size:.82rem;padding:.4rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);resize:vertical}
+  .tgMgr{padding:.3rem 0 .6rem}
+  .tgList{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.8rem}
+  .tgRow{display:inline-flex;align-items:center;gap:.3rem}
+  .tgDel{border:0;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:1rem;line-height:1;padding:0 .2rem}
+
 
   .sec{border:1px solid var(--line);border-radius:12px;margin:0 0 .8rem;background:var(--surface)}
   .sec>summary{cursor:pointer;padding:.6rem .85rem;display:flex;gap:.2rem .7rem;align-items:baseline;flex-wrap:wrap;list-style:none}
@@ -1512,13 +1525,50 @@ function simulateAvail(M,PI){
   const res=new Map(); cnt.forEach((v,k)=>res.set(k,v/N));
   simCache={sig,res}; return res;
 }
+/* ---------------- My draft tags: private labels and notes on players (likes, upside bets, bust risks...), stored in this browser ---------------- */
+const DTAG_DEFAULT=[{id:'like',l:'Like',i:'♥',c:'#e5566d'},{id:'target',l:'Must-target',i:'◎',c:'#14a3a3'},{id:'upside',l:'Upside bet',i:'▲',c:'#2fa36b'},{id:'value',l:'Value for cost',i:'$',c:'#3b82c4'},{id:'sleeper',l:'Sleeper',i:'★',c:'#c9a227'},
+  {id:'bust',l:'Bust risk',i:'▼',c:'#d9822b'},{id:'injury',l:'Injury worry',i:'✚',c:'#b05fc9'},{id:'dislike',l:'Dislike / avoid',i:'✕',c:'#8b93a0'}];
+const DTAG_COLORS=['#e5566d','#d9822b','#c9a227','#2fa36b','#14a3a3','#3b82c4','#7c6fd6','#b05fc9','#8b93a0'];
+let dTagFilter='all';
+function tagsLoad(){ try{ const j=JSON.parse(localStorage.getItem('draftTags')||'null'); if(j&&j.marks) return {custom:j.custom||[],marks:j.marks}; }catch(e){} return {custom:[],marks:{}}; }
+function tagsSave(t){ try{ localStorage.setItem('draftTags',JSON.stringify(t)); }catch(e){} }
+const tagDefs=(t)=>DTAG_DEFAULT.concat((t||tagsLoad()).custom);
+function tagChips(pid){
+  const T=tagsLoad(), m=T.marks[pid]; if(!m||(!(m.t||[]).length&&!m.n)) return '';
+  const defs=tagDefs(T);
+  return ' '+(m.t||[]).map(id=>{ const d=defs.find(x=>x.id===id); return d?`<span class="tg" style="--tc:${d.c}" title="${esc(d.l)}">${esc(d.i)}</span>`:''; }).join('')+(m.n?` <span class="tg tgNote" title="${esc(m.n)}">✎</span>`:'');
+}
+function tagEditor(p){
+  const T=tagsLoad(), m=T.marks[p.id]||{t:[],n:''}, defs=tagDefs(T);
+  return `<div class="tgEd"><div class="tgOpts">${defs.map(d=>`<label class="tgOpt ${(m.t||[]).includes(d.id)?'on':''}" style="--tc:${d.c}"><input type="checkbox" class="tgcb" data-pid="${esc(p.id)}" data-tag="${d.id}" ${(m.t||[]).includes(d.id)?'checked':''}/> <span class="tg" style="--tc:${d.c}">${esc(d.i)}</span> ${esc(d.l)}</label>`).join('')}</div>
+    <textarea class="tgNoteIn" data-pid="${esc(p.id)}" rows="2" placeholder="Note: what the expert or podcast said, why you like or dislike him…">${esc(m.n||'')}</textarea></div>`;
+}
+function tagManager(){
+  const T=tagsLoad(), defs=tagDefs(T), counts={};
+  Object.values(T.marks).forEach(m=>(m.t||[]).forEach(id=>counts[id]=(counts[id]||0)+1));
+  const tagged=Object.values(T.marks).filter(m=>(m.t||[]).length||m.n).length;
+  return `<details class="dSet"><summary class="hint" style="cursor:pointer;padding:.3rem 0">My tags (${tagged} player${tagged===1?'':'s'} tagged): manage, add your own, back up</summary><div class="tgMgr">
+    <div class="tgList">${defs.map(d=>`<span class="tgRow"><span class="tg" style="--tc:${d.c}">${esc(d.i)}</span> ${esc(d.l)} <span class="hint">${counts[d.id]||0}</span>${T.custom.some(x=>x.id===d.id)?` <button type="button" class="tgDel" data-del="${d.id}" title="delete this tag">×</button>`:''}</span>`).join('')}</div>
+    <div class="controls" style="gap:.5rem;margin:.4rem 0"><input type="text" id="tgNewL" placeholder="New tag name (e.g. Podcast pick)" maxlength="24" style="min-width:190px"/>
+      <select id="tgNewC">${DTAG_COLORS.map(c=>`<option value="${c}" style="color:${c}">● ${c}</option>`).join('')}</select><button class="dbtn" id="tgAdd" type="button">Add tag</button></div>
+    <div class="hint">Tags live only in this browser (your phone and computer keep separate lists). To move them: <button class="dbtn" id="tgExp" type="button">Show backup text</button> then paste it into <button class="dbtn" id="tgImp" type="button">Restore from pasted text</button> on the other device.</div>
+    <textarea id="tgBox" rows="3" style="display:none;width:100%;margin-top:.4rem;font-size:.72rem" placeholder="Paste a backup here, then press Restore"></textarea></div></details>`;
+}
+
+function tgChange(e){
+    const cb=e.target.closest('.tgcb'); if(cb){ const T=tagsLoad(), m=T.marks[cb.dataset.pid]||{t:[],n:''}; m.t=(m.t||[]).filter(x=>x!==cb.dataset.tag); if(cb.checked) m.t.push(cb.dataset.tag); if(!m.t.length&&!m.n) delete T.marks[cb.dataset.pid]; else T.marks[cb.dataset.pid]=m; tagsSave(T); renderDraft(); return; }
+    const ta=e.target.closest('.tgNoteIn'); if(ta){ const T=tagsLoad(), m=T.marks[ta.dataset.pid]||{t:[],n:''}; m.n=ta.value.trim().slice(0,400); if(!(m.t||[]).length&&!m.n) delete T.marks[ta.dataset.pid]; else T.marks[ta.dataset.pid]=m; tagsSave(T); renderDraft(); }
+}
+
 function renderDraft(){
   const pane=document.getElementById('draftPane');
   const M=draftModel(); draftAdvice(M);
   const PI=draftPicksInfo(M);
   const teamName=id=>{const t=DR.teams.find(t=>t.id===id); return t?t.abbrev:'?';};
   // position filter + search + hide taken
-  let rows=M.pool.filter(p=>(!dq||p.name.toLowerCase().includes(dq.toLowerCase()))&&(dpos==='all'||p.slots.has(dpos)));
+  const TG=tagsLoad();
+  const tagOk=p=>{ if(dTagFilter==='all') return true; const m=TG.marks[p.id], ts=(m&&m.t)||[]; return dTagFilter==='any'?ts.length>0:(dTagFilter==='none'?ts.length===0:ts.includes(dTagFilter)); };
+  let rows=M.pool.filter(p=>(!dq||p.name.toLowerCase().includes(dq.toLowerCase()))&&(dpos==='all'||p.slots.has(dpos))&&tagOk(p));
   const get=(p,k)=>k==='name'?p.name:(p[k]==null?-Infinity:p[k]);
   rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
     if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
@@ -1560,13 +1610,13 @@ function renderDraft(){
     const fmt=(v,d=0)=>v==null?'<span class="hint">—</span>':Number(v).toFixed(d);
     const lock=!!G&&!G.manual, liveLock=DR.draft.in_progress&&dLive;
     const cb=(kind,on)=>`<td class="cbc"><input type="checkbox" class="dcb" data-id="${p.id}" data-act="${kind}" ${on?'checked':''} ${(lock||(liveLock&&!G))?'disabled':''} /></td>`;
-    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${esc(p.name)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
+    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${esc(p.name)}${tagChips(p.id)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
       <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
       <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
       ${G?'<td class="num hint">—</td><td class="num hint">—</td><td class="num hint">—</td>':`<td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td>`}</tr>`;
     if(!open) return row;
     const why=`Adds <b>${(p.fit/73).toFixed(1)}</b> pts/g to your best lineup${p.fills&&p.fills!=='bench'?` (he would start at <b>${esc(p.fills)}</b>)`:' (he would sit on your bench)'} — about <b>${p.fit.toFixed(0)}</b> season points. Dynasty: ${p.dyn>0?`raises your top-5 keeper assets for next year by <b>${p.dyn.toFixed(0)}</b>`:'does not make your top 5 keepers next year'}. Score = lineup points + ${M.w.toFixed(2)} × 73 × dynasty (${M.myDrafted<dDynPicks?'dynasty-heavy phase: your first '+dDynPicks+' picks':'points phase'}).`;
-    return row+`<tr class="detail"><td colspan="17"><div class="note" style="margin:.2rem 0">${why}</div><div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
+    return row+`<tr class="detail"><td colspan="17"><div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
   }).join('');
   const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="17"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
   const rosterHtml=`<details class="dTeam" ${isMobile()?'':'open'}>
@@ -1588,6 +1638,7 @@ function renderDraft(){
         <div class="controls">
           <input type="search" id="dq" placeholder="search players…" value="${esc(dq)}" />
           <select id="dpos"><option value="all">All positions</option>${['PG','SG','SF','PF','C','G','F'].map(x=>`<option value="${x}" ${dpos===x?'selected':''}>${x}</option>`).join('')}</select>
+          <select id="dTagSel" title="show only players with a tag"><option value="all">All tags</option><option value="any" ${dTagFilter==='any'?'selected':''}>Any tag</option><option value="none" ${dTagFilter==='none'?'selected':''}>Untagged</option>${tagDefs(TG).map(d=>`<option value="${d.id}" ${dTagFilter===d.id?'selected':''}>${esc(d.i)} ${esc(d.l)}</option>`).join('')}</select>
           <select id="dSortSel" class="mobileOnly">${[['score','Sort: Score'],['fit','Sort: Lineup fit'],['dyn','Sort: Dynasty fit'],['adp','Sort: ADP'],['rk','Sort: Redraft rank'],['vor','Sort: VOR'],['asset','Sort: Asset'],['mkt','Sort: MKT'],['ours','Sort: Our proj'],['espn','Sort: ESPN proj'],['age','Sort: Age'],['name','Sort: Name']].map(([k,t])=>`<option value="${k}" ${dsort.k===k?'selected':''}>${t}</option>`).join('')}</select>
         </div>
         <details class="dSet" ${isMobile()?'':'open'}><summary class="hint" style="cursor:pointer;padding:.3rem 0">Draft strategy settings (dynasty-first picks and weights)</summary><div class="controls" style="gap:1rem">
@@ -1596,13 +1647,15 @@ function renderDraft(){
           <button class="dbtn" id="dShow" type="button">${dShowDrafted?'Hide drafted / kept':'Show drafted / kept'}</button>
           <button class="dbtn" id="dReset" type="button">Reset my manual marks</button>
         </div></details>
+        ${tagManager()}
         <div class="tablewrap"><table id="draftTbl"><thead><tr>
           ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
         </tr></thead><tbody>${trs||'<tr><td colspan="17" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
       </div>
       <div class="dSide">${rosterHtml}</div>
     </div>
-    <div class="legend" style="margin-top:1rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>% left</b> = simulated chance he is still on the board at your next pick (or, when you are on the clock, your following pick): every team picks in order from the ADP list with noise, nudged by that owner's draft profile (young/rookie/injury tendencies, owners with 2+ seasons of history only). It updates as picks come in, and is a rough guide, not a forecast. Without the profile data it falls back to <b>take?</b> (his ADP says he will probably be gone before your following pick). Tick <b>Me</b> / <b>Oth</b> to mark a player drafted by hand. <b>BKT</b> = the model's chance he breaks out this season.</div>
+    <div class="legend" style="margin-top:1rem"><b>Your own tags.</b> Click a player's row to open it, then tick any tags (Like, Must-target, Upside bet, Value for cost, Sleeper, Bust risk, Injury worry, Dislike) and type a note about what an expert or podcast said. Small badges appear next to his name (✎ = has a note; hover it to read it). Use the <b>All tags</b> dropdown to show only players with a tag, and <b>My tags</b> to add your own tags or back them up. Tags are private and stored in this browser only; they do not change the scores.</div>
+    <div class="legend" style="margin-top:.8rem"><b>How to read this.</b> <b>Score</b> ranks who to take now for <i>you</i>: <b>Lineup fit</b> = season points added to your best lineup (10 slots: PG SG SF PF C G F + 3 UTIL, position-eligible, with the next 3 bench players counted at 20%), so a center can beat a better point guard when your lineup already has guards; <b>Dynasty fit</b> = change in the total of your top-5 dynasty assets for next year; the score adds the two, with dynasty weighted heavily for your first picks (default ${dDynPicks} picks at ${dWEarly}) and lightly after (${dWLate}); 1 dynasty point = 73 points of output. <b>ESPN proj</b> = ESPN's league-scored projection per game (times projected games); <b>Redraft rk</b> = rank by ESPN's projected league-scored season total; <b>ADP</b> = ESPN draft position; <b>Our proj</b> = our model's projected points per game. <b>% left</b> = simulated chance he is still on the board at your next pick (or, when you are on the clock, your following pick): every team picks in order from the ADP list with noise, nudged by that owner's draft profile (young/rookie/injury tendencies, owners with 2+ seasons of history only). It updates as picks come in, and is a rough guide, not a forecast. Without the profile data it falls back to <b>take?</b> (his ADP says he will probably be gone before your following pick). Tick <b>Me</b> / <b>Oth</b> to mark a player drafted by hand. <b>BKT</b> = the model's chance he breaks out this season.</div>
     <div class="legend" style="margin-top:.8rem"><b>Turning on live draft updates (do this on draft night).</b> The website on GitHub cannot read your private ESPN league, so during the draft you open a copy that runs on your own PC. The PC must stay on and awake, and your phone must be on the same Wi-Fi.
       <ol style="margin:.4rem 0 0 1.2rem;padding:0;line-height:1.5">
         <li>On your PC, open a <b>PowerShell</b> window (Start menu, type PowerShell, Enter).</li>
@@ -1617,6 +1670,13 @@ function renderDraft(){
   // events
   document.getElementById('dq').addEventListener('input',e=>{dq=e.target.value; dLimit=60; renderDraft(); const el=document.getElementById('dq'); el.focus(); el.setSelectionRange(dq.length,dq.length);});
   document.getElementById('dpos').addEventListener('change',e=>{dpos=e.target.value; dLimit=60; renderDraft();});
+  document.getElementById('dTagSel').addEventListener('change',e=>{dTagFilter=e.target.value; dLimit=60; renderDraft();});
+  pane.removeEventListener('change',tgChange); pane.addEventListener('change',tgChange);
+  { const add=document.getElementById('tgAdd'); if(add) add.addEventListener('click',()=>{ const l=(document.getElementById('tgNewL').value||'').trim(); if(!l) return; const T=tagsLoad(); const id='c'+Date.now().toString(36); T.custom.push({id,l:l.slice(0,24),i:'●',c:document.getElementById('tgNewC').value}); tagsSave(T); renderDraft(); });
+    pane.querySelectorAll('.tgDel').forEach(b=>b.addEventListener('click',()=>{ const T=tagsLoad(); T.custom=T.custom.filter(x=>x.id!==b.dataset.del); Object.values(T.marks).forEach(m=>{ m.t=(m.t||[]).filter(x=>x!==b.dataset.del); }); tagsSave(T); if(dTagFilter===b.dataset.del) dTagFilter='all'; renderDraft(); }));
+    const ex=document.getElementById('tgExp'), im=document.getElementById('tgImp'), bx=document.getElementById('tgBox');
+    if(ex) ex.addEventListener('click',()=>{ bx.style.display=''; bx.value=JSON.stringify(tagsLoad()); bx.select(); });
+    if(im) im.addEventListener('click',()=>{ if(bx.style.display==='none'){ bx.style.display=''; bx.value=''; bx.focus(); return; } try{ const j=JSON.parse(bx.value); if(!j||typeof j.marks!=='object') throw 0; tagsSave({custom:j.custom||[],marks:j.marks}); renderDraft(); }catch(err){ bx.value='That did not look like a tags backup. Copy the whole text from "Show backup text" on the other device.'; } }); }
   document.getElementById('dSortSel').addEventListener('change',e=>{dsort.k=e.target.value; dsort.asc=(dsort.k==='name'||dsort.k==='age'); renderDraft();});
   ['dDyn','dWE','dWL'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{ const v=+e.target.value; if(id==='dDyn') dDynPicks=v; else if(id==='dWE') dWEarly=v; else dWLate=v; renderDraft(); }));
   document.getElementById('dShow').addEventListener('click',()=>{ dShowDrafted=!dShowDrafted; dLimit=60; renderDraft(); });
