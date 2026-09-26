@@ -75,6 +75,7 @@
   .teamCell img{width:18px;height:18px;object-fit:contain}
   .injDot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:.35rem}
   .injDot.watch{background:var(--accent)} .injDot.chronic{background:var(--warn)}
+  .injDot.t2{background:var(--ink-faint);opacity:.55}
   .injDot.t0{background:var(--good)} .injDot.t1{background:color-mix(in srgb,var(--good) 55%,transparent)} .injDot.t3{background:var(--accent)} .injDot.t4{background:var(--warn)}
   .injTier{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.62rem;font-weight:600;padding:.05rem .35rem;border-radius:4px;margin-right:.35rem;background:color-mix(in srgb,var(--ink-faint) 22%,transparent)}
   .injTier.t0,.injTier.t1{background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--good)} .injTier.t3{background:color-mix(in srgb,var(--accent) 25%,transparent);color:var(--accent)} .injTier.t4{background:color-mix(in srgb,var(--warn) 25%,transparent);color:var(--warn)}
@@ -1560,6 +1561,13 @@ function tgChange(e){
     const ta=e.target.closest('.tgNoteIn'); if(ta){ const T=tagsLoad(), m=T.marks[ta.dataset.pid]||{t:[],n:''}; m.n=ta.value.trim().slice(0,400); if(!(m.t||[]).length&&!m.n) delete T.marks[ta.dataset.pid]; else T.marks[ta.dataset.pid]=m; tagsSave(T); renderDraft(); }
 }
 
+const INJL5=['Low','Below typical','Typical','Elevated','High'];
+function injDotHtml(p){
+  const h=p.hub; if(!h||h.injury_tier==null) return '<span class="hint">—</span>';
+  const tip=`Injury risk: ${INJL5[h.injury_tier]} vs other rotation players${h.injury_p!=null?` · about ${(h.injury_p*100).toFixed(0)}% chance of missing 30%+ of the season`:''}${h.injury_missed!=null?`, roughly ${h.injury_missed} games`:''}${(h.injury_tags||[]).length?' · '+h.injury_tags.join('; '):''}`;
+  return `<span class="injDot t${h.injury_tier}" style="margin-left:0;width:9px;height:9px" title="${esc(tip)}"></span>`;
+}
+
 function renderDraft(){
   const pane=document.getElementById('draftPane');
   const M=draftModel(); draftAdvice(M);
@@ -1569,16 +1577,18 @@ function renderDraft(){
   const TG=tagsLoad();
   const tagOk=p=>{ if(dTagFilter==='all') return true; const m=TG.marks[p.id], ts=(m&&m.t)||[]; return dTagFilter==='any'?ts.length>0:(dTagFilter==='none'?ts.length===0:ts.includes(dTagFilter)); };
   let rows=M.pool.filter(p=>(!dq||p.name.toLowerCase().includes(dq.toLowerCase()))&&(dpos==='all'||p.slots.has(dpos))&&tagOk(p));
-  const get=(p,k)=>k==='name'?p.name:(p[k]==null?-Infinity:p[k]);
+  const injv=p=>{ const h=p.hub; return h&&h.injury_p!=null?h.injury_p:(h&&h.injury_tier!=null?h.injury_tier/5:-Infinity); };
+  const get=(p,k)=>k==='name'?p.name:(k==='inj'?injv(p):(p[k]==null?-Infinity:p[k]));
   rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
+    if(dsort.k==='inj'){ if(av===-Infinity&&bv===-Infinity) return 0; if(av===-Infinity) return 1; if(bv===-Infinity) return -1; return dsort.asc?av-bv:bv-av; }
     if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
     return dsort.asc?av-bv:bv-av; });
   const gonePl=new Map();   // id -> {p, tag, manual}
-  if(dShowDrafted){
+  if(dShowDrafted||(dTagFilter!=='all'&&dTagFilter!=='none')){
     const tn=id=>{const t=DR.teams.find(t=>t.id===id); return t?t.abbrev:'?';};
     const inPool=new Set(M.pool.map(x=>x.id));
     M.all.forEach((p,id)=>{ if(inPool.has(id)) return;
-      if(dq&&!p.name.toLowerCase().includes(dq.toLowerCase())) return; if(dpos!=='all'&&!p.slots.has(dpos)) return;
+      if(dq&&!p.name.toLowerCase().includes(dq.toLowerCase())) return; if(dpos!=='all'&&!p.slots.has(dpos)) return; if(!tagOk(p)) return;
       const tk=M.taken.get(id), kt=M.kept.get(id);
       if(!tk&&kt==null) return;
       gonePl.set(id,{p,tag:tk?(tk.manual?(tk.team===DR.my_id?'drafted by you':'drafted (marked)'):'drafted · '+tn(tk.team)):'kept · '+tn(kt),manual:!!(tk&&tk.manual),mine:!!(tk&&tk.team===DR.my_id)||kt===DR.my_id}); });
@@ -1587,7 +1597,8 @@ function renderDraft(){
       const bv=lineupValue(withRepl(mine)).value, b5=mine.map(x=>x.asset5).sort((x,y)=>y-x).slice(0,5).reduce((x,y)=>x+y,0);
       p.fit=(lineupValue(withRepl(mine.concat([p]))).value-bv)*73; p.dyn=mine.concat([p]).map(x=>x.asset5).sort((x,y)=>y-x).slice(0,5).reduce((x,y)=>x+y,0)-b5; p.score=p.fit+M.w*73*p.dyn; p.fills=''; rows.push(p); });
     rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
-      if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
+      if(dsort.k==='inj'){ if(av===-Infinity&&bv===-Infinity) return 0; if(av===-Infinity) return 1; if(bv===-Infinity) return -1; return dsort.asc?av-bv:bv-av; }
+    if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
       return dsort.asc?av-bv:bv-av; });
   }
   const shown=rows.slice(0,dLimit);
@@ -1601,24 +1612,25 @@ function renderDraft(){
   const core=M.mine.slice().sort((a,b)=>b.asset5-a.asset5).slice(0,5);
   const trs=shown.map(p=>{
     const G=gonePl.get(p.id);
-    const open=dOpen===p.id&&!G;
+    const open=dOpen===p.id;
     let gone=afterIdx>=0&&p.poolRank!=null&&p.poolRank<=afterIdx?'<span class="hint" title="his ADP says he is likely gone before your following pick">take?</span>':'';
-    if(AV&&AV.has(p.id)){ const a=AV.get(p.id); gone=`<span class="hint" title="Simulated chance he is still available at your next pick, using each team's draft tendencies">${a>=0.97?'≥97':(a<=0.03?'≤3':Math.round(a*100))}% left</span>`; }
-    else if(AV) gone='<span class="hint" title="Simulated chance he is still available at your next pick">≥97% left</span>';
+    if(AV&&AV.has(p.id)){ const a=AV.get(p.id); gone=`<span class="hint" title="Simulated chance he is still available at your next pick, using each team's draft tendencies">${a>=0.97?'≥97':(a<=0.03?'≤3':Math.round(a*100))}%</span>`; }
+    else if(AV) gone='<span class="hint" title="Simulated chance he is still available at your next pick">≥97%</span>';
     if(G) gone='';
-    const inj=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'';
+    const inj=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus" title="${esc(p.status)}">${p.status==='DAY_TO_DAY'?'Q':esc(p.status)}</span>`:'';
     const fmt=(v,d=0)=>v==null?'<span class="hint">—</span>':Number(v).toFixed(d);
     const lock=!!G&&!G.manual, liveLock=DR.draft.in_progress&&dLive;
     const cb=(kind,on)=>`<td class="cbc"><input type="checkbox" class="dcb" data-id="${p.id}" data-act="${kind}" ${on?'checked':''} ${(lock||(liveLock&&!G))?'disabled':''} /></td>`;
-    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${esc(p.name)}${tagChips(p.id)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
-      <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
+    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${esc(p.name)}${tagChips(p.id)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie" title="Rookie">R</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
+      <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num" data-label="Injury risk">${injDotHtml(p)}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
       <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
       ${G?'<td class="num hint">—</td><td class="num hint">—</td><td class="num hint">—</td>':`<td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td>`}</tr>`;
     if(!open) return row;
+    if(G) return row+`<tr class="detail"><td colspan="18"><div class="hint" style="margin:.2rem 0">${esc(G.tag)}. Tag him in case he is not kept or the pick falls through; tags do not change any scores.</div>${tagEditor(p)}</td></tr>`;
     const why=`Adds <b>${(p.fit/73).toFixed(1)}</b> pts/g to your best lineup${p.fills&&p.fills!=='bench'?` (he would start at <b>${esc(p.fills)}</b>)`:' (he would sit on your bench)'} — about <b>${p.fit.toFixed(0)}</b> season points. Dynasty: ${p.dyn>0?`raises your top-5 keeper assets for next year by <b>${p.dyn.toFixed(0)}</b>`:'does not make your top 5 keepers next year'}. Score = lineup points + ${M.w.toFixed(2)} × 73 × dynasty (${M.myDrafted<dDynPicks?'dynasty-heavy phase: your first '+dDynPicks+' picks':'points phase'}).`;
-    return row+`<tr class="detail"><td colspan="17"><div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
+    return row+`<tr class="detail"><td colspan="18"><div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
   }).join('');
-  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="17"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
+  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="18"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
   const rosterHtml=`<details class="dTeam" ${isMobile()?'':'open'}>
       <summary class="dHd">Your team <span class="hint">${M.mine.length} players · about ${Math.round(LV*3.3)} pts/week with replacement-level fill-ins</span></summary>
       ${L.assign.map(a=>`<div class="dSlot"><b>${a.slot}</b>${a.pl&&!a.pl.repl?`<span>${esc(a.pl.name)} <span class="hint">${a.pl.ef.toFixed(1)}${M.kept.get(a.pl.id)===DR.my_id?' · keeper':''}</span></span>`:'<span class="hint">empty: draft a '+a.slot+'</span>'}</div>`).join('')}
@@ -1649,8 +1661,8 @@ function renderDraft(){
         </div></details>
         ${tagManager()}
         <div class="tablewrap"><table id="draftTbl"><thead><tr>
-          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
-        </tr></thead><tbody>${trs||'<tr><td colspan="17" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
+          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['inj','Inj','Injury risk (sort: highest risk first, then click again for lowest). Colour = tier vs other rotation players; the order within a tier follows his chance of missing 30%+ of the season.'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
+        </tr></thead><tbody>${trs||'<tr><td colspan="18" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
       </div>
       <div class="dSide">${rosterHtml}</div>
     </div>
@@ -1688,7 +1700,7 @@ function renderDraft(){
     const b=e.target.closest('.dbtn'); if(b){ const m=manualLoad(); m[b.dataset.id]=b.dataset.act==='mine'?'mine':'other'; manualSave(m); dOpen=null; renderDraft(); return; }
     if(e.target.closest('#dMore')){ dLimit+=60; renderDraft(); return; }
     if(e.target.closest('td.cbc')) return;
-    const tr=e.target.closest('tr[data-id]'); if(!tr||tr.classList.contains('goneRow')) return; dOpen=(dOpen===tr.dataset.id)?null:tr.dataset.id; renderDraft(); });
+    const tr=e.target.closest('tr[data-id]'); if(!tr) return; dOpen=(dOpen===tr.dataset.id)?null:tr.dataset.id; renderDraft(); });
   mobileTables(pane);
   pane.querySelectorAll('#draftTbl').forEach(t=>t.classList.add('draftTbl'));
   collapseLegends(pane);
