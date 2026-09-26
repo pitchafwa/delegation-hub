@@ -209,6 +209,14 @@ def main():
         return
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
+    try:                                                     # ledger: one compact snapshot per run (win-probability calibration against the final result)
+        led = ROOT / "ledger"
+        led.mkdir(exist_ok=True)
+        with open(led / f"live-{TODAY.strftime('%Y-%m')}.jsonl", "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"kind": "live", "ts": out["generated"], "season": YEAR, "matchup": mp, "wp": out["win_prob"], "margin": round(margin, 1), "me": out["me"]["pts"], "opp": out["opp"]["pts"],
+                                 "exp_me": out["me"]["exp_final"], "exp_opp": out["opp"]["exp_final"], "days_left": out["days_left"], "opp_abbrev": out["opp"]["abbrev"]}, separators=(",", ":")) + chr(10))
+    except Exception:
+        pass
     print("wrote", OUT)
 
 

@@ -853,3 +853,37 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
 OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote", OUTP.name, round(OUTP.stat().st_size / 1024), "KB")
+
+# ---------- ACCOUNTABILITY LEDGER: what we predicted and recommended, appended every run from opening night (grade it against real results later; see ledger/README.md)
+try:
+    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0:
+        LEDGER = HUB.parent / "ledger"
+        LEDGER.mkdir(exist_ok=True)
+        _lf = LEDGER / f"plan-{today.strftime('%Y-%m')}.jsonl"
+        _hr = datetime.now(ET).hour
+        _run = "overnight" if _hr < 10 else ("midday" if _hr < 17 else "evening")
+        _me = next(t for t in out_teams if t["abbrev"] == MY_ABBREV)
+        _mine = next(rosters[t.team_id] for t in lg.teams if t.team_abbrev == MY_ABBREV)
+        _iso = today.isoformat()
+        _recs = [{"kind": "plan", "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), "run": _run, "date": _iso, "matchup": mp_id, "team": MY_ABBREV,
+                  "expected_total": _me["expected_total"], "expected_after_moves": _me.get("expected_after"), "win_prob": _me.get("win_prob"), "opp_expected": _me.get("opp_expected"),
+                  "adds_used": _me["adds_used"], "adds_limit": adds_limit, "starts_so_far": _me["starts_so_far"], "cap": round(cap, 1),
+                  "sequence": [{"add": m["add"]["name"], "add_id": m["add"]["id"], "drop": (m["drop"] or {}).get("name"), "gain": m["gain"], "week_gain": m["week_gain"], "boost": m["add"].get("boost", 0),
+                                "by_day": [x["gain"] for x in m.get("by_day", [])]} for m in _me["sequence"]],
+                  "ir_moves": [{"name": m["name"], "action": m["action"]} for m in _me["ir_moves"]],
+                  "lineup": [{"id": x["id"], "name": x["name"], "slot": x["slot"], "ef": x["ef"], "p": x["p"], "boost": x.get("boost", 0)} for x in (_me["days"][0]["start"] if _me["days"] and _me["days"][0]["date"] == _iso else [])],
+                  "players": [{"id": p["espn_id"], "name": p["name"], "status": p["status"], "official": p["official"].get(_iso), "state": p.get("avail_state"), "level": p["level"],
+                               "boost": (p.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(p, today), 3)} for p in _mine],
+                  "fa_top": [{"id": f["espn_id"], "name": f["name"], "level": f["level"], "boost": (f.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(f, today), 3)} for f in fa_players[:15]]}]
+        if _me.get("injury_advice"):
+            _recs.append({"kind": "injury", "ts": _recs[0]["ts"], "date": _iso, "items": [{"id": a["id"], "name": a["name"], "verdict": a["verdict"], "plan_games": a["plan_games"], "median": a["median_games"], "p80": a["p80_games"],
+                                                                                          "espn_return": a["injury"].get("espn_return"), "p_back_playoffs": a["p_back_playoffs"], "streak": a["streak"]} for a in _me["injury_advice"]]})
+        if OPPORTUNITIES:
+            _recs.append({"kind": "usage", "ts": _recs[0]["ts"], "date": _iso, "items": [{"absent": o["absent"]["name"], "team": o["absent"]["team"], "status": o["absent"]["status"], "streak": o["absent"]["streak"],
+                                                                                        "beneficiaries": [{"name": b["name"], "owner": b["owner"], "delta": round(b["delta"], 2)} for b in o["beneficiaries"]]} for o in OPPORTUNITIES]})
+        with open(_lf, "a", encoding="utf-8") as fh:
+            for r_ in _recs:
+                fh.write(json.dumps(r_, ensure_ascii=False, separators=(",", ":")) + chr(10))
+        print("ledger:", len(_recs), "records ->", _lf.name)
+except Exception as _ex:
+    print("ledger write failed:", _ex)

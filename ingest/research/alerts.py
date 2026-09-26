@@ -65,8 +65,23 @@ def save_state(s):
     STATE_PATH.write_text(json.dumps(s, indent=1, sort_keys=True), encoding="utf-8")
 
 
+def _ledger(kind, **kw):
+    """append-only record of what we sent (ledger/alerts-YYYY-MM.jsonl), graded later"""
+    if DRY:
+        return
+    try:
+        d = ROOT / "ledger"
+        d.mkdir(exist_ok=True)
+        with open(d / f"alerts-{TODAY.strftime('%Y-%m')}.jsonl", "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"kind": kind, "ts": datetime.now(ET).isoformat(timespec="seconds"), **kw}, ensure_ascii=False, separators=(",", ":")) + chr(10))
+    except Exception:
+        pass
+
+
 def push(title, body, priority=3, tags=None):
     print(f"--- {title} (priority {priority})\n{body}\n")
+    if title != "Fantasy Hub test":
+        _ledger("alert", title=title, body=body[:600], priority=priority)
     if DRY:
         return True
     if not TOPIC:
