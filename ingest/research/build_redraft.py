@@ -170,7 +170,7 @@ for e in raw:
                  "pos_ids": p.get("eligibleSlots"), "age": hp.get("age") if hp else None, "status": status, "espn_ppg": round(espn_ppg, 1), "ppg": round(ppg, 1), "our": bool(ours),
                  "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),
-                 "inj_tier": hp.get("injury_tier") if hp else None, "inj_missed": hp.get("injury_missed") if hp else None, "traj": (hp.get("trajectory") or [None])[:3] if hp else None,
+                 "inj_tier": hp.get("injury_tier") if hp else None, "inj_missed": hp.get("injury_missed") if hp else None, "inj_hmissed": hp.get("injury_health_missed") if hp else None, "traj": (hp.get("trajectory") or [None])[:3] if hp else None,
                  "next": nxt, **rec,
                  "form": ({"d": fr["d"], "keep": fr["keep"], "chips": fr.get("chips", [])} if fr and "d" in fr else None)})
 

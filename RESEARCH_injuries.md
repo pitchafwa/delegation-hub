@@ -69,3 +69,19 @@ Caveats: episodes are defined from report listings, body part comes from the pri
   (n=105 player-seasons) missed 25+ games 71% of the time next year (74% at 50%+, n=58) vs 44.6% overall. The model now has persistence features (worst of the last three seasons, their mean,
   count of 40%+ seasons); out-of-sample AUC 0.699-0.700 vs 0.697 and that group is calibrated (predicted 71% vs actual 71%). Embiid moved from Typical (56%) to Elevated (62%); his high minutes
   when healthy and age 33 keep him below the group average, and the evidence for high-minute players in that group is thin (n=17, actual 59%). A "missed 40%+ of games in each of the last 3 seasons" tag marks these players.
+
+## 6. Health-confirmed injury risk (2026-09-27, after "Isaiah Mobley is our most injured player?")
+**The problem.** The tiers were built on games NOT played (1 - GP/82), which counts a fringe player's coach's-decision benchings, G League time and unsigned months as "missed games".
+Worse, a player with no games last season was treated as having missed all of them, and the rotation gate used the minutes of his most recent row, so a one-game 17-minute cameo (Mobley, 2024-25)
+passed as a rotation player. The top of the "High" list (Mobley, Tucker, Nowell, A. Williams: 91-94%) was players who are not in the league or not in rotations, not injury cases.
+**The fix (`build_injury_risk.py`).**
+* The rated measure is now CONFIRMED health absences: game days a player was listed Out or Doubtful on the official 5:30 PM report with an injury, illness or return-from-injury reason
+  (`injury_rows_05pm.pkl`; rest, coach's decision, G League, personal and suspension listings are excluded). Reports cover full seasons from 2022-23 (2021-22 starts in December and is not used).
+* A player with no games last season gets a rating only if he was actually listed hurt (a real long-term injury counts; unexplained absence is "unknown", no rating).
+* Rotation gate: 20+ games at 15+ mpg in one of the last two seasons.
+* Outcome: chance of being listed out for 20%+ of games (about 16). Leave-one-season-out over 1,021 player-seasons (2023-24 to 2025-26): AUC 0.660 (last season's rate alone 0.633); the top quintile was
+  predicted at 49% and came in at 44%, so it is a little confident at the top. This is weaker than the old any-reason model (AUC 0.692) because injuries are harder to predict than "does this player play", which is the honest cost of measuring what the label says.
+* The any-reason model is kept ONLY for the expected-games projection (Redraft games left, Keepers), where rest and load management really do cost a fantasy manager games; it is now gated the same way.
+  The board and draft show the health number (`injury_health_missed`) for tooltips; `injury_missed` remains the any-reason expected games.
+* The old fallback flag on the Board (watch/chronic from games missed) is removed for the same reason.
+Result: Irving, Lillard, VanVleet, Kessler, Murray, Haliburton and Lively are now at the top (real achilles, knee, shoulder cases); Embiid is High; Mobley, Tucker, Nowell and A. Williams have no rating.

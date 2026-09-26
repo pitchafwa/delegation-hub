@@ -98,7 +98,7 @@ _p4 = ROOT / "data" / "injury_risk_v4.csv"
 INJ_META = json.load(open(ROOT / "data" / "injury_risk_meta.json")) if (ROOT / "data" / "injury_risk_meta.json").exists() else None
 if _p4.exists():
     for _r in pd.read_csv(_p4).itertuples():
-        _INJ4[int(_r.PLAYER_ID)] = dict(tier=int(_r.injury_tier), p=float(_r.injury_p), missed=int(_r.injury_missed), tags=json.loads(_r.tags))
+        _INJ4[int(_r.PLAYER_ID)] = dict(tier=int(_r.injury_tier), p=float(_r.injury_p), missed=int(_r.injury_missed), hmissed=int(_r.injury_health_missed), tags=json.loads(_r.tags))
 
 
 def risk_tier(pid):
@@ -231,6 +231,7 @@ for _, r in current.iterrows():
         "injury_tier": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("tier"),
         "injury_p": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("p"),
         "injury_missed": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("missed"),
+        "injury_health_missed": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("hmissed"),
         "injury_tags": (_INJ4.get(int(r["PLAYER_ID"])) or {}).get("tags") or [],
         "espn_injury_status": r["injury_status"] if pd.notna(r.get("injury_status")) else None,
         "next_season_proj": {k: round_or_none(v * (_fc if k != "MIN" else 1.0), 4) for k, v in r["next_season_proj"].items()},
