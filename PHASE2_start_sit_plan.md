@@ -83,3 +83,9 @@ live shadow log (`projection_log.csv`) once the season starts.
 * **D. Games in the week do not change availability**: rotation players' play rate was 82.7% / 83.7% / 80.8% in 2 / 3 / 4-game weeks, so games count is
   linear, which is what the extra-games (+/-) columns assume.
 * Not tested: streamers before a light week, the trade-target ranking by playoff games, week-1 calendar assumptions.
+
+## Counterfactual season (DRNK, 2025-26; `counterfactual_season.py`)
+Following the planner's lineups and suggested adds every week, with every other team scoring exactly what it really scored: real 0-19 (22,057 PF, last) -> 11-8 (27,612 PF, 6th of 12, the last playoff spot; 6 teams qualify).
+Mean 1,161 -> 1,453 points per week (lineups +210, adds +83). Only lineups: 6-13; only adds: 4-15; a quarter of the modelled gain 2-17, half 5-14, three quarters 7-12.
+Caveats: DRNK's real lineups were far worse than a typical team's (planner lineup gain +221/week vs +92 for the other teams), so the gain is inflated relative to a manager who was really trying; weeks are independent (moves do not
+compound); lineups know who actually played that day; adds assume the free agent was available at the start of the week; week 17 and the playoffs keep the real score.

@@ -289,6 +289,8 @@ def backtest_adds():
     for (mp, team), days in sorted(W.items()):
         if mp > 19 or mp == 17 or mp == 1:
             continue
+        if os.environ.get("ONLY_TEAM") and team != int(os.environ["ONLY_TEAM"]):
+            continue
         sps = sorted(days)
         dates = [sp_date(sp) for sp in sps]
         d0, cap = dates[0], cap_for(len(sps))
@@ -338,7 +340,7 @@ def backtest_adds():
         real_new = realized_value([dict(p) for p in r2], dates, cap)
         out.append(dict(mp=mp, team=team, moves=len(moves), predicted=round(pred, 1), realized=round(real_new - real_base, 1), base=round(real_base, 1)))
     df = pd.DataFrame(out)
-    df.to_csv(D / "backtest_adds_2026.csv", index=False)
+    df.to_csv(D / ("backtest_adds_2026_team%s.csv" % os.environ["ONLY_TEAM"] if os.environ.get("ONLY_TEAM") else "backtest_adds_2026.csv"), index=False)
     print(f"{len(df)} team-weeks; weeks with a suggested move: {(df.moves > 0).mean():.0%}; mean moves when suggested {df[df.moves > 0].moves.mean():.1f}")
     s = df[df.moves > 0]
     print(f"when moves were suggested: predicted gain {s.predicted.mean():+.1f} pts/wk, REALIZED gain {s.realized.mean():+.1f} pts/wk (median {s.realized.median():+.1f}); positive in {(s.realized > 0).mean():.0%} of those weeks")
