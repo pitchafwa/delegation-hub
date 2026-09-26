@@ -54,6 +54,28 @@ jobs:
             python research/alerts.py "${{ inputs.mode }}"
           fi
 
+      # Live matchup tracker: score, expected rest of the week, win probability. Published to a throwaway branch (one commit, force-pushed) so the site is not rebuilt.
+      - name: Live matchup
+        if: github.event_name == 'schedule' || inputs.mode == 'check'
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: python research/live_matchup.py || true
+
+      - name: Publish live data
+        run: |
+          if [ -f ingest/live_out/live_matchup.json ]; then
+            cd ingest/live_out
+            git init -q -b live-data
+            git config user.name "alerts-bot"
+            git config user.email "alerts-bot@users.noreply.github.com"
+            git add live_matchup.json
+            git commit -q -m "live matchup"
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+            git push -q -f origin live-data
+          fi
+
       - name: Save state
         run: |
           git config user.name "alerts-bot"

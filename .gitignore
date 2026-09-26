@@ -41,3 +41,5 @@ dashboard/rookie_scores.json
 # noisy run logs
 *_log.txt
 *.log
+ingest/live_out/
+dashboard/live_matchup.json

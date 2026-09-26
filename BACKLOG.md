@@ -304,3 +304,6 @@ Log every plan suggestion daily from opening night (cheap, do in week 1) so a le
 
 ### Also still open from earlier
 Usage-flow add/drop replay on real 2026-27 weeks; injury-recurrence study extended to 14 seasons using the box-score DNP reasons; DFS projection parser (Oct 20); Tatum/age-28+ aging check; unvalued players; Phase 2 replays on real weeks.
+
+### Added 2026-09-26 (live tracker follow-up)
+* **Optional add-on: matchup alerts** - send an ntfy alert when the live win probability crosses 25% or 75% (deferred by Tommy; the tracker is on-page only for now).
