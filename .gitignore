@@ -43,3 +43,4 @@ dashboard/rookie_scores.json
 *.log
 ingest/live_out/
 dashboard/live_matchup.json
+ingest/research/data/form/

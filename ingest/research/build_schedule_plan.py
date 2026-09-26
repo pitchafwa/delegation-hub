@@ -266,7 +266,7 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
         po = sum(g for w, g in gw.items() if w in PLAY)
         n4 = sum(gw[w] for w in NEXT4)
         total_w = reg + PLAYOFF_WT * po
-        stash.append({"id": x["id"], "name": x["name"], "team": f["team"], "level": x["level"], "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
+        stash.append({"form": x.get("form"), "id": x["id"], "name": x["name"], "team": f["team"], "level": x["level"], "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
                       "games_out": x.get("games_out"), "back_date": x.get("back_date"), "espn_return": x.get("espn_return"), "p_back_playoffs": x.get("p_back_playoffs"),
                       "age": x.get("age"), "asset": x.get("asset"), "asset_rank": x.get("asset_rank"), "market_rank": x.get("market_rank"), "kind": x.get("kind"), "slots": x.get("slots"),
                       "gain": round(total_w), "reg": round(reg), "po": round(po), "next4": round(n4), "drop": None if to_ir or not drop else drop["name"], "to_ir": to_ir})

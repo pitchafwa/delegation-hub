@@ -187,6 +187,26 @@ except Exception as ex:                       # never let this break the plan: f
 STATUS_P = {"ACTIVE": 0.94, "DAY_TO_DAY": 0.55, "OUT": 0.0, "INJURY_RESERVE": 0.0, "SUSPENSION": 0.0}
 
 
+# ---- "why is he hot" (build_form_split.py, run by the daily local refresh): recent form split into minutes / shooting luck / volume / etc. with fitted persistence weights.
+# Level adjustment: the split says how much of his recent change from baseline should last ("keep"); production level already credits w x the change, so add the difference (shrunk 30%, capped +-3).
+FORM = {}
+_fp = Path(os.environ["FORM_TEST_FILE"]) if os.environ.get("FORM_TEST_FILE") else HUB / "form_split.json"      # test: a form file built with FORM_AS_OF on last season
+if _fp.exists():
+    try:
+        _fj = json.load(open(_fp, encoding="utf-8"))
+        if os.environ.get("FORM_TEST_FILE") or (_fj.get("as_of") and (today - date.fromisoformat(_fj["as_of"])).days <= 4 and _fj.get("season", "")[:4] == str(SEASON_ID - 1)):
+            FORM = _fj["players"]
+    except Exception as _ex:
+        print("form_split.json unreadable:", _ex)
+FORM_ADJ_SHRINK, FORM_ADJ_CAP = 0.7, 3.0
+
+
+def formkey(name):
+    return re.sub(r"[^a-z]", "", unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower().replace(" jr.", "").replace(" jr", "").replace(" iii", "").replace(" ii", ""))
+
+print("form split loaded for", len(FORM), "players")
+
+
 def make_player(p, on_roster_slot=None):
     hp = hub_player(p.playerId, p.name)
     espn_proj = (p.stats.get(f"{SEASON_ID}_projected") or {}).get("applied_avg")
@@ -199,7 +219,14 @@ def make_player(p, on_roster_slot=None):
         w = RECENT_FORM_MAX * min(gp15, 15) / 15.0
         base = w * l15["applied_avg"] + (1 - w) * base
         src += "+recent"
-    return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)],
+    form = FORM.get(formkey(p.name))
+    level_pre = base
+    if form and "keep" in form and base > 0:
+        w_prod = RECENT_FORM_MAX * min(gp15, 15) / 15.0 if gp15 >= 3 and l15.get("applied_avg") else 0.0
+        adj = max(-FORM_ADJ_CAP, min(FORM_ADJ_CAP, FORM_ADJ_SHRINK * (form["keep"] - w_prod * form["d"])))
+        base = max(0.0, base + adj)
+        form = dict(form, adj=round(adj, 1))
+    return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)], "form": form, "level_pre": round(level_pre, 1),
             "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "official": {},  "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None,
             "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None}
 
@@ -414,7 +441,7 @@ for _p in lg.free_agents(size=400):
     if _hp and _a >= DYN_MIN_ASSET:
         dyn_pool.append({"id": _p.playerId, "name": _p.name, "team": canon(_p.proTeam or ""), "pos": [x for x in _p.eligibleSlots if x in ("PG", "SG", "SF", "PF", "C")],
                          "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
-                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1)})
+                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
 dyn_pool.sort(key=lambda x: -x["asset"])
 SEEN_PATH = HUB / "fa_seen.json"
 _seen_old = json.load(open(SEEN_PATH, encoding="utf-8")) if SEEN_PATH.exists() else None
@@ -602,10 +629,10 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
                 best_move = (net, dr, wk)
         if best_move and best_move[0] >= MIN_NET_GAIN:
             g, dr, wk = best_move
-            moves.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
+            moves.append({"add": {"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
                                   "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
                                   "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                          "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
+                          "drop": ({"form": dr.get("form"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                           "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
     moves.sort(key=lambda x: -x["gain"])
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
@@ -635,10 +662,10 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
         r2 = [p for p in r2 if p is not dr] + [f]
         cur += wk
         used.add(f["espn_id"])
-        seq.append({"add": {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
+        seq.append({"add": {"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
                             "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                    "drop": ({"id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
+                    "drop": ({"form": dr.get("form"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                     "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1), "by_day": by_day})
     return moves, seq
 
@@ -831,7 +858,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -862,7 +889,7 @@ def build_stash():
         if f["level"] < 18 or not f["team"]:
             continue
         hp = hub_player(_p.playerId, _p.name)
-        row = {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "out_now": bool(out_now),
+        row = {"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "out_now": bool(out_now),
                "age": hp.get("age") if hp else None, "asset": round(asset5(hp), 1), "asset_rank": f["asset_rank"], "market_rank": hp.get("market_rank") if hp else None, "kind": f.get("kind")}
         if out_now:
             group, tier = IA.classify(info) if info else ("other", "moderate")
@@ -941,9 +968,29 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
+       "fa_pool": [{"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
+# form records are exported once (out["form"], keyed by normalised name); every player dict carries just the key
+_FORM_OUT = {}
+
+
+def _slim(o):
+    if isinstance(o, dict):
+        for k_, v_ in list(o.items()):
+            if k_ == "form" and isinstance(v_, dict):
+                key_ = formkey(o.get("name") or "")
+                _FORM_OUT[key_] = {kk: vv for kk, vv in v_.items() if kk not in ("team", "n")}
+                o[k_] = key_
+            else:
+                _slim(v_)
+    elif isinstance(o, list):
+        for v_ in o:
+            _slim(v_)
+
+
+_slim(out)
+out["form"] = _FORM_OUT
 OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote", OUTP.name, round(OUTP.stat().st_size / 1024), "KB")
@@ -966,9 +1013,9 @@ try:
                                 "by_day": [x["gain"] for x in m.get("by_day", [])]} for m in _me["sequence"]],
                   "ir_moves": [{"name": m["name"], "action": m["action"]} for m in _me["ir_moves"]],
                   "lineup": [{"id": x["id"], "name": x["name"], "slot": x["slot"], "ef": x["ef"], "p": x["p"], "boost": x.get("boost", 0)} for x in (_me["days"][0]["start"] if _me["days"] and _me["days"][0]["date"] == _iso else [])],
-                  "players": [{"id": p["espn_id"], "name": p["name"], "status": p["status"], "official": p["official"].get(_iso), "state": p.get("avail_state"), "level": p["level"],
+                  "players": [{"id": p["espn_id"], "name": p["name"], "status": p["status"], "official": p["official"].get(_iso), "state": p.get("avail_state"), "level": p["level"], "level_pre": p.get("level_pre"), "form_d": (p.get("form") or {}).get("d"), "form_keep": (p.get("form") or {}).get("keep"),
                                "boost": (p.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(p, today), 3)} for p in _mine],
-                  "fa_top": [{"id": f["espn_id"], "name": f["name"], "level": f["level"], "boost": (f.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(f, today), 3)} for f in fa_players[:15]]}]
+                  "fa_top": [{"id": f["espn_id"], "name": f["name"], "level": f["level"], "level_pre": f.get("level_pre"), "form_d": (f.get("form") or {}).get("d"), "form_keep": (f.get("form") or {}).get("keep"), "boost": (f.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(f, today), 3)} for f in fa_players[:15]]}]
         if _me.get("injury_advice"):
             _recs.append({"kind": "injury", "ts": _recs[0]["ts"], "date": _iso, "items": [{"id": a["id"], "name": a["name"], "verdict": a["verdict"], "plan_games": a["plan_games"], "median": a["median_games"], "p80": a["p80_games"],
                                                                                           "espn_return": a["injury"].get("espn_return"), "p_back_playoffs": a["p_back_playoffs"], "streak": a["streak"]} for a in _me["injury_advice"]]})
