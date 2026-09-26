@@ -843,6 +843,61 @@ for tm in out_teams:
         tm["opp_expected"] = round(plans[o], 1)
         tm["win_prob"] = round(erf_win(diff, WEEK_SD * math.sqrt(2) * math.sqrt(max(rem, 0.05))), 3)
 
+# ---- STASH POOL: free agents the this-week search cannot see -- out now (injured), or whose team has no game in the planning window.
+# build_schedule_plan.py values each of them over the REST OF THE SEASON (when he is back, how many games, what he would replace) and merges them with the dynasty adds.
+def build_stash():
+    if IA is None:
+        return []
+    key_of = lambda n: norm(n).replace(" ", "")
+    res = []
+    t0 = today.isoformat()
+    for _p in lg.free_agents(size=400):
+        info = ESPN_INJ.get(int(_p.playerId))
+        out_now = (_p.injuryStatus in IR_OK) or (info and info.get("status") == "Out")
+        idle = canon(_p.proTeam or "") in TEAM_DATES and not any(plays(canon(_p.proTeam), d) for d in plan_days)
+        if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES:
+            continue
+        f = make_player(_p)
+        f["level"] = round(FA_ANCHOR + FA_SHRINK * (f["level"] - FA_ANCHOR), 1)
+        if f["level"] < 18 or not f["team"]:
+            continue
+        hp = hub_player(_p.playerId, _p.name)
+        row = {"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "out_now": bool(out_now),
+               "age": hp.get("age") if hp else None, "asset": round(asset5(hp), 1), "asset_rank": f["asset_rank"], "market_rank": hp.get("market_rank") if hp else None, "kind": f.get("kind")}
+        if out_now:
+            group, tier = IA.classify(info) if info else ("other", "moderate")
+            streak = 1 if today < SEASON_START else max(1, AV.out_streak(key_of(f["name"]), today) if AV else 1)
+            curve, n_ref, cell = IA.out_curve(group, tier, streak)
+            med = IA.median_games(curve)
+            g_season = team_games(f["team"], t0, SEASON_END) if SEASON_END else 70
+            g_espn = None
+            if info and info.get("return_date"):
+                rd = info["return_date"][:10]
+                g_espn = team_games(f["team"], t0, (date.fromisoformat(rd) - timedelta(days=1)).isoformat()) if rd > t0 else 0
+                if rd >= (SEASON_END or "9999"):
+                    g_espn = g_season
+            ours = med if med is not None else IA.KS[-1] + 10
+            pre_ = today < SEASON_START
+            pg = (g_espn if g_espn is not None else ours) if pre_ else (max(ours, g_espn) if g_espn is not None else ours)
+            pg = min(pg, g_season)
+            ds_ = sorted(d for d in TEAM_DATES.get(f["team"], ()) if d >= t0)
+            i_ = int(round(pg))
+            row.update({"games_out": round(pg, 1), "back_date": ds_[i_] if i_ < len(ds_) else None, "espn_return": (info or {}).get("return_date"),
+                        "injury": " ".join(x for x in [((info or {}).get("side") or ""), ((info or {}).get("type") or (info or {}).get("detail") or "")] if x).strip() or None,
+                        "p_back_playoffs": round(IA.p_back_within(curve, team_games(f["team"], t0, PLAYOFF_START.isoformat()) if PLAYOFF_START else 55), 2)})
+        res.append(row)
+    res.sort(key=lambda x: -x["level"])
+    print(f"stash pool: {len(res)} free agents (out now or idle this window); top:", [(x['name'], x['level'], x.get('games_out')) for x in res[:6]])
+    return res[:40]
+
+
+try:
+    STASH_POOL = build_stash()
+except Exception as _ex:
+    STASH_POOL = []
+    print("stash pool failed:", _ex)
+
+
 # ---- games to watch: for each team's matchup, the games (0-2 a day) whose players on either side matter most to the result
 def key_games(tm, opp, wp):
     sch = json.load(open(HUB / "nba_schedule.json", encoding="utf-8")) if (HUB / "nba_schedule.json").exists() else {}
@@ -887,7 +942,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
        "fa_pool": [{"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
-       "usage": USAGE, "opportunities": OPPORTUNITIES,
+       "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
 OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

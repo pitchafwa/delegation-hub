@@ -91,7 +91,11 @@ def p_play(pl, d, wid):
     if not pl["team"]:
         return 0.0
     p = p_future(pl["level"])
-    if pl["ir"] or pl["status"] in OUT_STATUS:
+    if pl.get("back"):                               # stash candidate who is out now: nothing until his estimated return date, then 85% of the normal play rate
+        if d.isoformat() < pl["back"]:
+            return 0.0
+        p *= 0.85
+    elif pl["ir"] or pl["status"] in OUT_STATUS:
         if wid < FIRST + NEAR_WEEKS:
             return 0.0
         p *= RETURN_FACTOR
@@ -238,10 +242,42 @@ nxt = FIRST
 streamers = sorted([{"name": f["name"], "team": f["team"], "level": f["level"], "games": games_row(f)[nxt - 1], "pts": round(f["level"] * games_row(f)[nxt - 1], 0)} for f in fa if f["team"] in heat],
                    key=lambda x: -x["pts"])[:12]
 
+# ---------------- long-term adds (ROS stash): value over the REST OF THE SEASON of free agents the this-week search cannot see (out now, idle team) or who only help later
+REMAIN = list(range(FIRST, len(CAL) + 1))
+PLAYOFF_WT = 1.5
+IR_OK_S = ("OUT", "INJURY_RESERVE")
+base_w = {w: week_points(mine, w) for w in REMAIN}
+mine_ir = sum(1 for p in mine if p["ir"])
+stash = []
+for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", []))):
+    for x in pool:
+        if x["team"] not in heat and canon(x["team"]) not in heat:
+            continue
+        if src == "stash" and x.get("out_now") and not x.get("back_date"):
+            continue                                                 # out for the season
+        f = mk(dict(x, ir=False, protected=False, status="ACTIVE"))
+        if x.get("out_now"):
+            f["back"] = x["back_date"]
+        to_ir = bool(x.get("out_now")) and x.get("status") in IR_OK_S and mine_ir < 4
+        drop = None if to_ir or len(non_ir) < 15 else (droppable[0] if droppable else None)
+        new = [p for p in mine if p is not drop] + [f]
+        gw = {w: week_points(new, w) - base_w[w] for w in REMAIN}
+        reg = sum(g for w, g in gw.items() if w not in PLAY)
+        po = sum(g for w, g in gw.items() if w in PLAY)
+        n4 = sum(gw[w] for w in NEXT4)
+        total_w = reg + PLAYOFF_WT * po
+        stash.append({"id": x["id"], "name": x["name"], "team": f["team"], "level": x["level"], "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
+                      "games_out": x.get("games_out"), "back_date": x.get("back_date"), "espn_return": x.get("espn_return"), "p_back_playoffs": x.get("p_back_playoffs"),
+                      "age": x.get("age"), "asset": x.get("asset"), "asset_rank": x.get("asset_rank"), "market_rank": x.get("market_rank"), "kind": x.get("kind"), "slots": x.get("slots"),
+                      "gain": round(total_w), "reg": round(reg), "po": round(po), "next4": round(n4), "drop": None if to_ir or not drop else drop["name"], "to_ir": to_ir})
+keep = [e for e in stash if (e["src"] == "stash" and e["gain"] >= 60) or (e["src"] == "fa" and e["gain"] >= 100 and (e["gain"] - e["next4"]) / max(len(REMAIN) - 4, 1) >= 1.75 * max(e["next4"], 0) / 4)]      # healthy free agents only when the gain is back-loaded (the near-term ones are in the suggested moves)
+keep.sort(key=lambda e: -e["gain"])
+print("long-term (ROS) stash:", [(e["name"], e["gain"], e["next4"]) for e in keep[:6]])
+
 out = {"generated": datetime.now(timezone.utc).isoformat(), "calendar_assumed": True, "schedule_provisional": True,
        "calendar": [{"id": w["id"], "start": w["start"].isoformat(), "end": w["end"].isoformat(), "days": w["days"], "cap": w["cap"], "playoff": w["playoff"]} for w in CAL],
        "current_week": FIRST, "next4": NEXT4, "playoff_weeks": PLAY, "avg_games": avg_games, "avg_next4": round(avg_next4, 1), "avg_playoffs": round(avg_play, 1),
        "nba": heat, "teams": teams_out, "my_abbrev": wp["my_abbrev"],
-       "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
+       "stash": keep[:15], "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
 (HUB / "schedule_plan.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote schedule_plan.json", round((HUB / "schedule_plan.json").stat().st_size / 1024), "KB")
