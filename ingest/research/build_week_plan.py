@@ -643,6 +643,123 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
     return moves, seq
 
 
+# ---------- INJURED-PLAYER ADVISOR (injury_advisor.py): how long will he be out, how does he come back, is he worth the roster spot
+try:
+    import injury_advisor as IA
+    ESPN_INJ = IA.espn_injuries()
+except Exception as _ex:
+    IA, ESPN_INJ = None, {}
+    print("injury advisor unavailable:", _ex)
+TEAM_DATES = {}
+_sp = HUB / "nba_schedule.json"
+if _sp.exists():
+    for _ds, _gl in json.load(open(_sp, encoding="utf-8"))["games"].items():
+        for _g in _gl:
+            for _t in _g[:2]:
+                if _t != "TBD":
+                    TEAM_DATES.setdefault(canon(_t), set()).add(_ds)
+SEASON_END = max((max(v) for v in TEAM_DATES.values()), default=None)
+PLAYOFF_START = next((a for i, a, b in BOUNDS if i == 20), None)
+REPL_LEVEL = 24.0
+
+
+def team_games(team, d0, d1):
+    return sum(1 for ds in TEAM_DATES.get(team, ()) if d0 <= ds <= d1)
+
+
+def advise_injuries(r, total, c0, key_of, ir_free):
+    """one entry per injured player on the roster (out / IR / ESPN-listed out); the lists stay short"""
+    if IA is None:
+        return []
+    out = []
+    t0 = today.isoformat()
+    pre = today < SEASON_START
+    forced = {}
+    for spec in os.environ.get("INJURY_TEST", "").split(";"):       # testing only: "Name|Type|Detail|Side|ReturnDate"
+        f = [x.strip() for x in spec.split("|")]
+        if len(f) == 5 and f[0]:
+            forced[key_of(f[0])] = dict(status="Out", type=f[1], detail=f[2], side=f[3], return_date=f[4] or None, short="(test)", updated=None)
+    for pl in r:
+        info = forced.get(key_of(pl["name"])) or ESPN_INJ.get(int(pl["espn_id"]))
+        long_out = pl["status"] in ("OUT", "INJURY_RESERVE") or pl["ir"] or (info and info.get("status") == "Out") or key_of(pl["name"]) in forced
+        if not long_out:
+            continue
+        group, tier = IA.classify(info) if info else ("other", "moderate")
+        streak = AV.out_streak(key_of(pl["name"]), today) if AV else 1
+        if pre:
+            streak = 1                                   # offseason: no games have been missed yet
+        elif pl["ir"]:
+            streak = max(streak, 8)
+        curve, n_ref, cell = IA.out_curve(group, tier, streak)
+        med, p80 = IA.median_games(curve), IA.quantile_games(curve, 0.8)
+        team = pl["team"]
+        g_season = team_games(team, t0, SEASON_END) if SEASON_END else 70
+        g_play = team_games(team, t0, PLAYOFF_START.isoformat()) if PLAYOFF_START else 55
+        g_espn = None
+        if info and info.get("return_date"):
+            rd = info["return_date"][:10]
+            g_espn = team_games(team, t0, (date.fromisoformat(rd) - timedelta(days=1)).isoformat()) if rd > t0 else 0      # team games before the return date
+            if rd >= (SEASON_END or "9999"):
+                g_espn = g_season
+        ours = med if med is not None else IA.KS[-1] + 10        # beyond the grid: 45+ games
+        # in season take the LATER of our history and ESPN's date (team timelines run optimistic); in the offseason ESPN's date is the better guide
+        plan_games = (g_espn if g_espn is not None else ours) if pre else (max(ours, g_espn) if g_espn is not None else ours)
+        plan_games = min(plan_games, g_season)
+        p_back = IA.p_back_within(curve, g_play)
+        if g_espn is not None and info.get("return_date"):
+            rd = info["return_date"][:10]
+            if PLAYOFF_START and rd <= PLAYOFF_START.isoformat():
+                p_back = max(p_back, 0.75)
+            elif PLAYOFF_START and rd > PLAYOFF_START.isoformat():
+                p_back = min(p_back, 0.10)
+        if g_espn is not None and g_espn <= 0:
+            p_back = 0.97                                     # ESPN's return date has already arrived
+        hp = hub_by_id.get(pl["hub_id"]) if pl.get("hub_id") else None
+        asset = ASSET_HP.get(pl["hub_id"], 0.0) if pl.get("hub_id") else 0.0
+        after = max(0.0, g_season - plan_games)
+        ramp = IA.ramp_summary(plan_games)
+        above = max(0.0, pl["level"] * 0.88 - REPL_LEVEL)
+        hold_value = above * after * 0.8 + asset * 73 * 0.10                # points from him after he returns (plays about 80% of games) plus a keeper-value term
+        # cost of holding: a bench spot for the weeks he is out, unless an IR slot can take him
+        cost = 0.0
+        best_f = None
+        if not pl["ir"]:
+            rm = [q for q in r if q is not pl]
+            for f in fa_players[:14]:
+                g = plan_team(rm + [f], c0) - total
+                if best_f is None or g > best_f[0]:
+                    best_f = (g, f)
+            weeks_out = min(plan_games / 3.3, 8.0)
+            cost = 0.0 if ir_free > 0 and pl["status"] in IR_OK else max(0.0, best_f[0]) * weeks_out * 0.6 if best_f else 0.0
+        season_end = plan_games >= g_season - 3
+        if plan_games <= 1.5:
+            verdict = "ACTIVATE (back within a game or two)" if pl["ir"] else "KEEP ACTIVE (back within a game or two)"
+        elif pl["ir"]:
+            verdict = "HOLD on IR" if hold_value > 0 else "HOLD (IR spot is free)"
+        elif ir_free > 0 and pl["status"] in IR_OK:
+            verdict = "MOVE TO IR, then hold"
+        elif hold_value >= cost:
+            verdict = "STASH" if plan_games <= 20 else "HOLD"
+        else:
+            verdict = "DROP"
+        why = []
+        if season_end:
+            why.append("expected out for the rest of the season")
+        elif pre and g_espn is not None:
+            why.append(f"ESPN expects him back {info['return_date'][:10]} (about {g_espn} games missed)")
+        else:
+            why.append(f"about {plan_games:.0f} more games out (our history: median {('%.0f' % med) if med is not None else '45+'}" + (f"; ESPN: return {info['return_date'][:10]}" if g_espn is not None else "") + ")")
+        why.append(f"about {hold_value:.0f} points above a replacement player once he is back" + (f"; the best free-agent swap now is worth about {best_f[0]:.0f} a week" if best_f and best_f[0] > 0 else ""))
+        out.append({"id": pl["espn_id"], "name": pl["name"], "team": team, "level": pl["level"], "asset_rank": pl["asset_rank"], "on_ir": bool(pl["ir"]),
+                    "injury": {"type": (info or {}).get("type"), "side": (info or {}).get("side"), "detail": (info or {}).get("detail"), "espn_return": (info or {}).get("return_date"),
+                               "short": ((info or {}).get("short") or "")[:180], "group": group, "tier": tier},
+                    "streak": streak, "median_games": None if med is None else round(med, 1), "p80_games": None if p80 is None else round(p80, 1), "espn_games": g_espn,
+                    "plan_games": round(plan_games, 1), "p_back_playoffs": round(p_back, 2), "ramp": ramp, "hold_value": round(hold_value), "cost": round(cost),
+                    "replacement": ({"name": best_f[1]["name"], "week_gain": round(best_f[0], 1)} if best_f and best_f[0] > 0 else None), "verdict": verdict, "why": why, "n_ref": n_ref})
+    out.sort(key=lambda a: -a["level"])
+    return out
+
+
 IR_SLOTS = 4
 IR_OK = ("OUT", "INJURY_RESERVE")     # ASSUMPTION: ESPN only lets players with an out/IR status into an IR slot (verify in season)
 ROSTER_SPOTS = 15                     # 10 starters + 5 bench; IR slots are extra
@@ -694,6 +811,8 @@ for t in lg.teams:
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
     moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
+    _ir_free = max(0, 4 - len([p for p in r if p["ir"]]))
+    advice = advise_injuries(r, total, c0, lambda n: norm(n).replace(" ", ""), _ir_free)
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
         _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(max(adds_left, 1), 8))
@@ -706,7 +825,7 @@ for t in lg.teams:
     r_after = [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
-                      "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"])) for x in dyn_pool[:15]], "days_after": rows_after, "expected_after": round(total_after, 1),
+                      "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"])) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),

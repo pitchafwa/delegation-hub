@@ -28,7 +28,7 @@ r["new"] = (r.gap.isna() | (r.gap > 7)).astype(int)
 r["epi"] = r.groupby(["player_key", "part"]).new.cumsum()
 r["out"] = (r.status == "Out") * 1
 ep = r.groupby(["player_key", "part", "epi"]).agg(start=("gd", "min"), end=("gd", "max"), n_out=("out", "sum"), n_rows=("out", "size"), group=("group", "first"),
-                                                     side=("side", lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""), season=("season", "first"), major=("tier", lambda x: int(x.isin(["major", "recovery"]).any()))).reset_index()
+                                                     side=("side", lambda s: s[s != ""].mode().iat[0] if (s != "").any() else ""), season=("season", "first"), major=("tier", lambda x: int(x.isin(["major", "recovery"]).any())), tier=("tier", lambda x: x.mode().iat[0]), nature=("nature", lambda x: x.mode().iat[0] if len(x.mode()) else "")).reset_index()
 # MERGE fragments: two listings of the same player and body part with NO game played in between are the same absence (he never came back), even if the
 # report skipped a few days.  Only a real return (at least one game played) makes the next listing a new episode.
 _lg = C.load_logs()

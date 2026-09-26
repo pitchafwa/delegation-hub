@@ -247,6 +247,9 @@ def run_check():
         left = len([g for g in pl.get("games", []) if g >= TODAY.isoformat()])
         impact = pl.get("level", 0) * left * (p_after - p_before)
         what = f"{old['espn']} to {e}" if changed_e else f"official report now {o}"
+        adv = next((a for a in (T.get("injury_advice") or []) if a["id"] == p.playerId), None)
+        if adv and e in ("OUT", "INJURY_RESERVE"):
+            what += f". Expected out about {adv['plan_games']:.0f} more games; {adv['verdict'].lower()}"
         msgs.append((abs(impact), f"{p.name}: {what}" + (f" (official: {o})" if o and changed_e else "") + (f". About {impact:+.0f} pts over {left} game(s) left this week." if left and abs(impact) >= 5 else ".")
                      + (" He is in your lineup." if p.lineupSlot not in ("BE", "IR") else "")))
     s["last_status"] = cur
