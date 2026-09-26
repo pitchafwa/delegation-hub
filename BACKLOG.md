@@ -279,3 +279,28 @@ Market gap shown as market rank minus our asset rank: + = we rank him HIGHER tha
 - **Phase 2 of start/sit:** schedule-aware roster planning, lock-time/late-swap reminders, playoff-week planner.
 - **Daily refresh of the valuation model itself** (needs local game logs; not workable in GitHub Actions as-is) and a name for the DARKO-style model.
 - **Draft history as a second "market price"** next to ESPN ADP; real keeper flags once ESPN records them.
+
+## Roadmap from the strategy review (added 2026-09-26; full tactic list in STRATEGY_PLAYBOOK.md)
+
+All approved by Tommy for the backlog. Priority order agreed 2026-09-26. Also do in week 1 (not a feature): verify ESPN's real matchup calendar (a second 14-day week during the NBA Cup? playoff dates?), waiver/add behavior, per-day projections.
+
+### Tier 1: build first
+1. **Keeper decision tool** (deadline Sun 9/27 5pm ET). Compare candidate SETS of keepers side by side for Tommy's roster: this season's lineup points with position/UTIL fit and replacement fill, next year's top-5 keeper assets, injury tier and age, and the draft consequence (chance each player he does NOT keep is still there at his picks, from the availability simulation, and what he would take instead). The Board ranks players one at a time; this ranks decisions.
+2. **Live matchup tracker.** Live score vs the opponent (ESPN box scores), remaining games for both sides, win probability, swing games, games-cap status, and aggression advice (underdog = variance, favourite = floor). Also feeds the alerts.
+3. **Injured-player advisor.** For each injured player on Tommy's roster or a target list: stash / drop / trade-for by expected return date (absence-length curve), value tier, IR availability, and the minutes ramp after return (needs a small study on post-return minutes from box scores).
+
+### Tier 2: next
+4. **Streaming-slot manager.** Multi-day chain of streamers within the add budget (Mon-Tue guy, then Wed-Thu, then weekend), keeping one open bench spot; extends the add-timing table.
+5. **Playoff-odds and seed simulator.** Simulate the rest of the season from projected weekly points (games cap included) for all 12 teams; playoff odds, seed, points-for tiebreak, and "what does this add/trade do to my odds".
+6. **"Why is he hot" split + points-per-minute and minutes-trend columns** on free-agent cards: separate minutes change, teammate-out boost (usage flow) and shooting luck from a real role change.
+
+### Tier 3: backburner
+7. **Team-motivation flags.** Late-season tanking and seed-locked teams (from standings) feeding star rest risk and youth-streamer boosts. Needed by February, not before.
+8. **Trade extras.** Draft-pick valuation in the trade finder (Tommy trades picks), injured-star buy list, trade-deadline calendar.
+9. **Small items bundle.** Late-swap planner (leave slots open for late games), two-way/call-up flag on free agents, just-dropped watch with waiver clear time, position-eligibility gain tracker, opponent scouting.
+
+### Standing item: accountability ledger
+Log every plan suggestion daily from opening night (cheap, do in week 1) so a ledger that grades suggestions and our availability/usage-flow numbers can be built later. The UI can wait; the logging cannot.
+
+### Also still open from earlier
+Usage-flow add/drop replay on real 2026-27 weeks; injury-recurrence study extended to 14 seasons using the box-score DNP reasons; DFS projection parser (Oct 20); Tatum/age-28+ aging check; unvalued players; Phase 2 replays on real weeks.
