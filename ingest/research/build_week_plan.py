@@ -843,6 +843,45 @@ for tm in out_teams:
         tm["opp_expected"] = round(plans[o], 1)
         tm["win_prob"] = round(erf_win(diff, WEEK_SD * math.sqrt(2) * math.sqrt(max(rem, 0.05))), 3)
 
+# ---- games to watch: for each team's matchup, the games (0-2 a day) whose players on either side matter most to the result
+def key_games(tm, opp, wp):
+    sch = json.load(open(HUB / "nba_schedule.json", encoding="utf-8")) if (HUB / "nba_schedule.json").exists() else {}
+    tvmap = sch.get("tv", {})
+    team_of = {p["id"]: p["team"] for t_ in (tm, opp) for p in t_["roster"]}
+    lev = 1 - abs((wp if wp is not None else 0.5) - 0.5) * 0.8      # a close matchup is worth watching more than a blowout
+    out = []
+    mine = {r["date"]: r for r in (tm.get("days_after") or tm["days"])}
+    theirs = {r["date"]: r for r in opp["days"]}
+    for ds, r in mine.items():
+        games_today = sch.get("games", {}).get(ds, [])
+        cand = []
+        for a, h, tip in games_today:
+            a, h = canon(a), canon(h)
+            m_ = [x for x in r["start"] if team_of.get(x["id"]) in (a, h)]
+            o_ = [x for x in (theirs.get(ds) or {}).get("start", []) if team_of.get(x["id"]) in (a, h)]
+            raw = math.sqrt(sum(x["ef"] ** 2 for x in m_ + o_))          # squares: two stars outweigh three role players
+            if raw < 45 or not (m_ or o_):
+                continue
+            hh = int(tip[:2])
+            dt = datetime.fromisoformat(ds).replace(hour=hh, minute=int(tip[3:5]), tzinfo=timezone.utc) + timedelta(days=1 if hh < 10 else 0)
+            et = dt.astimezone(ZoneInfo("America/New_York"))
+            cand.append({"date": ds, "away": a, "home": h, "tip": f"{(et.hour % 12) or 12}:{et.minute:02d} {'PM' if et.hour >= 12 else 'AM'} ET",
+                         "tv": tvmap.get(ds, {}).get(a + "@" + h),
+                         "score": round(raw * lev, 1), "mine": [[x["name"], round(x["ef"])] for x in sorted(m_, key=lambda z: -z["ef"])[:4]],
+                         "theirs": [[x["name"], round(x["ef"])] for x in sorted(o_, key=lambda z: -z["ef"])[:4]]})
+        cand.sort(key=lambda c: -c["score"])
+        out += cand[:2]
+    return out
+
+
+_by_id = {t["id"]: t for t in out_teams}
+for tm in out_teams:
+    try:
+        tm["key_games"] = key_games(tm, _by_id[tm["opp"]], tm.get("win_prob")) if tm["opp"] in _by_id else []
+    except Exception as _ex:
+        tm["key_games"] = []
+        print("key games failed:", tm.get("abbrev"), _ex)
+
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_abbrev": MY_ABBREV,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,

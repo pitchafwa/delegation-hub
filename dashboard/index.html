@@ -115,7 +115,12 @@
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
 
   .mobileOnly{display:none}
-  .liveCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem .95rem;margin-bottom:1rem}
+  .gwDay{margin:.45rem 0 .15rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.gwRow{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:.6rem;padding:.2rem 0;border-top:1px solid var(--line);font-size:.82rem}
+.gwP{display:flex;flex-wrap:wrap;gap:.2rem .9rem}.gwMe{color:var(--good)}.gwOp{color:var(--warn)}
+.gwMeK{color:var(--good);font-weight:600}.gwOpK{color:var(--warn);font-weight:600}
+@media(max-width:600px){.gwRow{grid-template-columns:1fr}}
+.liveCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem .95rem;margin-bottom:1rem}
   .liveHd{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem}
   .liveDot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 25%,transparent)}
   .liveScore{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center}
@@ -923,6 +928,7 @@ function renderWeek(){
       <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days) · updated ${new Date(W.generated).toLocaleString()}</span></div>
     ${liveHtml}
     ${oddsHtml(T.id===meT.id)}
+    ${gamesHtml(T)}
     <div class="statbar" style="margin-bottom:1rem;${liveOk?'display:none':''}">
       <div><b>${T.expected_total.toFixed(0)}</b>expected points${T.pts_so_far?` (${T.pts_so_far.toFixed(0)} banked)`:''}</div>
       <div><b>${O?O.expected_total.toFixed(0):'—'}</b>${O?'vs '+esc(O.abbrev):'opponent'}</div>
@@ -1003,6 +1009,20 @@ function signalsHtml(T){
     <div class="note" style="margin-top:.5rem">Tested on 2021-24 seasons (out of sample): the reversion model barely beats "normal aging alone" (error ${st.mae_persistence} to ${st.mae_model} pts/g). What holds up: big jumps above expectation fall back a bit (about 2 pts/g); players whose minutes jumped 4+ tend to give some back; big slumps do <b>not</b> reliably rebound, and injury-shortened seasons do <b>not</b> reliably bounce back. Treat these as tie-breakers, not reasons to trade.</div></details>`;
 }
 
+function gamesHtml(T){
+  const G=T.key_games||[]; if(!G.length) return '';
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const up=G.filter(g=>g.date>=today); if(!up.length) return '';
+  const dn=d=>new Date(d+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+  const row=g=>`<div class="gwRow"><span class="gwT"><b>${esc(g.away)} @ ${esc(g.home)}</b> <span class="hint">${esc(g.tip)}${g.tv?' · '+esc(g.tv):''}</span></span>
+    <span class="gwP"><span class="gwMe">${g.mine.length?g.mine.map(x=>esc(x[0])).join(', '):'<span class="hint">none</span>'}</span><span class="gwOp">${g.theirs.length?g.theirs.map(x=>esc(x[0])).join(', '):'<span class="hint">none</span>'}</span></span></div>`;
+  const days=[...new Set(up.map(g=>g.date))];
+  const block=ds=>`<div class="gwDay hint">${dn(ds)}</div>${up.filter(g=>g.date===ds).map(row).join('')}`;
+  return `<details class="gwCard" open style="margin-bottom:1rem;max-width:720px;border:1px solid var(--line-strong);border-radius:10px;padding:.5rem .8rem"><summary style="cursor:pointer"><b>Games to watch</b> <span class="hint">the games with the most of your and your opponent's best players</span></summary>
+    ${days.slice(0,2).map(block).join('')}${days.length>2?`<details><summary class="hint" style="cursor:pointer">Rest of the week</summary>${days.slice(2).map(block).join('')}</details>`:''}
+    <div class="note" style="margin-top:.3rem"><span class="gwMeK">Yours</span> · <span class="gwOpK">${esc(((W.teams||[]).find(t=>t.id===T.opp)||{}).abbrev||'opponent')}</span>. Ranked by the quality of the starters involved (stars count far more than role players), a bit higher when the matchup is close. Only national broadcasts are listed; anything else is on League Pass or local TV.</div></details>`;
+}
+
 let ODDS=null;
 function oddsHtml(mine){
   const O=ODDS; if(!O||!mine) return '';
@@ -1011,9 +1031,9 @@ function oddsHtml(mine){
   const pre=O.basis!=='blend';
   const win=me.focus_made_win, loss=me.focus_made_loss;
   const rows=O.teams.map(t=>`<tr${t.id===O.my_id?' style="font-weight:700"':''}><td style="text-align:left">${esc(t.abbrev)}</td><td>${t.wins}</td><td>${t.exp_wins.toFixed(1)}</td><td>${pc(t.made)}</td><td>${pc(t.bye)}</td><td>${pc(t.title)}</td></tr>`).join('');
-  return `<details class="oddsCard" open style="margin-bottom:1rem;border:1px solid var(--line-strong);border-radius:10px;padding:.6rem .8rem"><summary style="cursor:pointer"><b>Playoff odds</b> <span class="hint">${esc(O.my_abbrev)}: ${pc(m.made)} to make it · ${pc(m.bye)} for a bye · ${pc(m.title)} to win the title</span></summary>
+  return `<details class="oddsCard" style="margin-bottom:1rem;max-width:560px;border:1px solid var(--line-strong);border-radius:10px;padding:.6rem .8rem"><summary style="cursor:pointer"><b>Playoff odds</b> <span class="hint">${esc(O.my_abbrev)}: ${pc(m.made)} to make it · ${pc(m.bye)} for a bye · ${pc(m.title)} to win the title</span></summary>
     ${win!=null?`<div style="margin:.5rem 0">This week's result matters: <b>${pc(win)}</b> to make the playoffs if you win, <b>${pc(loss)}</b> if you lose${me.focus_bye_win!=null?` · bye ${pc(me.focus_bye_win)} vs ${pc(me.focus_bye_loss)}`:''}. Adding 25 points a week for the rest of the season would move you to <b>${pc(O.me_plus25.made)}</b>.</div>`:''}
-    <table class="advTbl" style="width:100%"><tr><th style="text-align:left">Team</th><th>W now</th><th>Exp. W</th><th>Playoffs</th><th>Bye</th><th>Title</th></tr>${rows}</table>
+    <table class="advTbl" style="width:100%;font-size:.8rem"><tr><th style="text-align:left">Team</th><th>W now</th><th>Exp. W</th><th>Playoffs</th><th>Bye</th><th>Title</th></tr>${rows}</table>
     <div class="note" style="margin-top:.4rem">${O.weeks_left} regular-season weeks left, simulated 20,000 times. Each team's weekly score = the plan's forecast plus a season-long team effect plus normal week-to-week noise, then seeded by record (ties by points) into ESPN's 6-team bracket with byes for seeds 1-2. ${pre?'Preseason: rosters are not final and forecasts run about 5% high, so treat this as a rough prior. ':''}Checked against last season's real standings at five checkpoints: the odds were calibrated or slightly cautious, but that is one season of 60 team-checkpoints, so it is a sanity check, not proof. Head-to-head tiebreakers are not modelled.</div></details>`;
 }
 function renderSchedule(){
