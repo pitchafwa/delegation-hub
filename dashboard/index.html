@@ -426,6 +426,53 @@
     #weekPane .frm{font-size:.72rem}
     #weekPane .tablewrap{border-radius:8px}
   }
+
+  .mOnly{display:none}
+  @media(max-width:720px){
+    /* ---------- Draft tab on a phone: one compact card per player ----------
+       row 1: name (left) + score (right) | row 2: team, position, age, injury | row 3: ADP (with the chance he is still there), lineup fit, dynasty fit, redraft rank | row 4: drafted buttons.
+       Everything else (VOR, asset, MKT, breakout, projections) opens when you tap the card. */
+    #draftPane .controls{gap:.4rem}
+    #draftPane #dq{order:-1;flex:1 0 100%}
+    #draftPane #dpos,#draftPane #dTagSel,#draftPane #dSortSel{min-width:0;font-size:14px !important;padding:.3rem .35rem}
+    #draftPane #dpos{flex:1 1 24%}#draftPane #dTagSel{flex:1 1 24%}#draftPane #dSortSel{flex:1 1 32%}
+    #draftPane #dDir{flex:0 0 2.6rem;padding:.3rem 0;justify-content:center;min-height:44px}
+    #draftPane .dStrip{padding:.6rem .7rem;gap:.5rem .6rem;font-size:.72rem}
+    #draftPane .dStrip b{font-size:1rem}
+    #draftPane .dStrip>div:nth-child(3) .hint{display:none}
+    table.draftTbl tbody tr:not(.detail):not(.moreRow){grid-template-columns:repeat(4,1fr);gap:.05rem .5rem;padding:.55rem .7rem;margin:.45rem 0}
+    table.draftTbl td[data-label="VOR"],table.draftTbl td[data-label="Asset"],table.draftTbl td[data-label="MKT"],table.draftTbl td[data-label="BKT"],table.draftTbl td[data-label="Our proj"],table.draftTbl td[data-label="ESPN proj"]{display:none !important}
+    table.draftTbl td[data-label="Player"]{grid-column:1/4;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:1.02rem;font-weight:600;line-height:1.25;padding:0 !important}
+    table.draftTbl td[data-label="Player"]::before{display:none}
+    table.draftTbl td[data-label="Score"]{grid-column:4;grid-row:1;text-align:right !important;font-size:1.15rem}
+    table.draftTbl td[data-label="Score"]::before{text-align:right}
+    table.draftTbl td[data-label="Team"]{grid-column:1;grid-row:2}
+    table.draftTbl td[data-label="Pos"]{grid-column:2;grid-row:2}
+    table.draftTbl td[data-label="Age"]{grid-column:3;grid-row:2}
+    table.draftTbl td[data-label="Inj"]{grid-column:4;grid-row:2;text-align:right !important;display:flex !important;justify-content:flex-end;align-items:center;gap:.35rem}
+    table.draftTbl td[data-label="Inj"]::before{display:inline;margin:0}
+    table.draftTbl td[data-label="ADP"]{grid-column:1;grid-row:3}
+    table.draftTbl td[data-label="Lineup fit"]{grid-column:2;grid-row:3}
+    table.draftTbl td[data-label="Dynasty fit"]{grid-column:3;grid-row:3}
+    table.draftTbl td[data-label="Redraft rk"]{grid-column:4;grid-row:3}
+    table.draftTbl td[data-label="ADP"],table.draftTbl td[data-label="Lineup fit"],table.draftTbl td[data-label="Dynasty fit"],table.draftTbl td[data-label="Redraft rk"]{padding-top:.3rem !important;margin-top:.25rem;border-top:1px solid var(--line) !important}
+    table.draftTbl td[data-label="Me"],table.draftTbl td[data-label="Oth"]{grid-row:4;display:flex !important;align-items:center;gap:.5rem;width:auto;margin-top:.4rem;padding:.45rem .6rem !important;border:1px solid var(--line-strong) !important;border-radius:8px;font-family:"IBM Plex Sans",sans-serif;font-weight:400;font-size:.78rem;margin-bottom:0}
+    table.draftTbl td[data-label="Me"]{grid-column:1/3}
+    table.draftTbl td[data-label="Oth"]{grid-column:3/5}
+    table.draftTbl td[data-label="Me"]::before,table.draftTbl td[data-label="Oth"]::before{display:inline;order:2;font-family:"IBM Plex Sans",sans-serif;font-size:.78rem;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+    table.draftTbl td[data-label="Me"]::before{content:"I drafted him"}
+    table.draftTbl td[data-label="Oth"]::before{content:"Taken by others"}
+    #draftTbl td.cbc{width:auto !important;min-width:0 !important;padding:.5rem .65rem !important;text-align:left !important;white-space:nowrap !important}
+    table.draftTbl td.cbc input{width:1.15rem;height:1.15rem;margin:0}
+    table.draftTbl tr.goneRow td{opacity:.55}
+    .mOnly{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem .5rem;margin:.3rem 0 .5rem}
+    .mOnly .s{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.3rem .45rem}
+    .mOnly .v{font-weight:600;font-size:.95rem}
+    .mOnly .l{font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+    .tgOpts{gap:.3rem}
+    .tgOpt{font-size:.74rem;padding:.3rem .55rem;position:relative}
+    .tgOpt input{position:absolute;opacity:0;pointer-events:none}
+  }
 </style>
 </head>
 <body>
@@ -1627,8 +1674,10 @@ function renderDraft(){
       ${G?'<td class="num hint">—</td><td class="num hint">—</td><td class="num hint">—</td>':`<td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td>`}</tr>`;
     if(!open) return row;
     if(G) return row+`<tr class="detail"><td colspan="18"><div class="hint" style="margin:.2rem 0">${esc(G.tag)}. Tag him in case he is not kept or the pick falls through; tags do not change any scores.</div>${tagEditor(p)}</td></tr>`;
+    const fmtv=(v,d=0)=>v==null?'—':Number(v).toFixed(d);
+    const mStats=`<div class="mOnly">${[['VOR',p.vor!=null?p.vor.toFixed(0):'—'],['Asset',p.asset?p.asset.toFixed(0):'—'],['MKT',p.mkt!=null?'#'+p.mkt:'—'],['Breakout',p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'],['Our proj',fmtv(p.ours,1)],['ESPN proj',fmtv(p.espn,1)]].map(([l,v])=>`<div class="s"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}</div>`;
     const why=`Adds <b>${(p.fit/73).toFixed(1)}</b> pts/g to your best lineup${p.fills&&p.fills!=='bench'?` (he would start at <b>${esc(p.fills)}</b>)`:' (he would sit on your bench)'} — about <b>${p.fit.toFixed(0)}</b> season points. Dynasty: ${p.dyn>0?`raises your top-5 keeper assets for next year by <b>${p.dyn.toFixed(0)}</b>`:'does not make your top 5 keepers next year'}. Score = lineup points + ${M.w.toFixed(2)} × 73 × dynasty (${M.myDrafted<dDynPicks?'dynasty-heavy phase: your first '+dDynPicks+' picks':'points phase'}).`;
-    return row+`<tr class="detail"><td colspan="18"><div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
+    return row+`<tr class="detail"><td colspan="18">${mStats}<div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
   }).join('');
   const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="18"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
   const rosterHtml=`<details class="dTeam" ${isMobile()?'':'open'}>
@@ -1649,9 +1698,10 @@ function renderDraft(){
       <div class="dMain">
         <div class="controls">
           <input type="search" id="dq" placeholder="search players…" value="${esc(dq)}" />
-          <select id="dpos"><option value="all">All positions</option>${['PG','SG','SF','PF','C','G','F'].map(x=>`<option value="${x}" ${dpos===x?'selected':''}>${x}</option>`).join('')}</select>
+          <select id="dpos"><option value="all">All pos.</option>${['PG','SG','SF','PF','C','G','F'].map(x=>`<option value="${x}" ${dpos===x?'selected':''}>${x}</option>`).join('')}</select>
           <select id="dTagSel" title="show only players with a tag"><option value="all">All tags</option><option value="any" ${dTagFilter==='any'?'selected':''}>Any tag</option><option value="none" ${dTagFilter==='none'?'selected':''}>Untagged</option>${tagDefs(TG).map(d=>`<option value="${d.id}" ${dTagFilter===d.id?'selected':''}>${esc(d.i)} ${esc(d.l)}</option>`).join('')}</select>
-          <select id="dSortSel" class="mobileOnly">${[['score','Sort: Score'],['fit','Sort: Lineup fit'],['dyn','Sort: Dynasty fit'],['adp','Sort: ADP'],['rk','Sort: Redraft rank'],['vor','Sort: VOR'],['asset','Sort: Asset'],['mkt','Sort: MKT'],['ours','Sort: Our proj'],['espn','Sort: ESPN proj'],['age','Sort: Age'],['name','Sort: Name']].map(([k,t])=>`<option value="${k}" ${dsort.k===k?'selected':''}>${t}</option>`).join('')}</select>
+          <select id="dSortSel" class="mobileOnly">${[['score','Sort: Score'],['fit','Sort: Lineup fit'],['dyn','Sort: Dynasty fit'],['adp','Sort: ADP'],['rk','Sort: Redraft rank'],['vor','Sort: VOR'],['asset','Sort: Asset'],['mkt','Sort: MKT'],['ours','Sort: Our proj'],['espn','Sort: ESPN proj'],['inj','Sort: Injury risk'],['bkt','Sort: Breakout %'],['age','Sort: Age'],['name','Sort: Name']].map(([k,t])=>`<option value="${k}" ${dsort.k===k?'selected':''}>${t}</option>`).join('')}</select>
+          <button id="dDir" type="button" class="dbtn mobileOnly" aria-label="Reverse sort order">${dsort.asc?'↑':'↓'}</button>
         </div>
         <details class="dSet" ${isMobile()?'':'open'}><summary class="hint" style="cursor:pointer;padding:.3rem 0">Draft strategy settings (dynasty-first picks and weights)</summary><div class="controls" style="gap:1rem">
           <label class="kbox" style="gap:.5rem"><span>Dynasty-first picks:</span><input type="number" id="dDyn" min="0" max="12" value="${dDynPicks}" style="width:3rem" /></label>
@@ -1690,6 +1740,7 @@ function renderDraft(){
     const ex=document.getElementById('tgExp'), im=document.getElementById('tgImp'), bx=document.getElementById('tgBox');
     if(ex) ex.addEventListener('click',()=>{ bx.style.display=''; bx.value=JSON.stringify(tagsLoad()); bx.select(); });
     if(im) im.addEventListener('click',()=>{ if(bx.style.display==='none'){ bx.style.display=''; bx.value=''; bx.focus(); return; } try{ const j=JSON.parse(bx.value); if(!j||typeof j.marks!=='object') throw 0; tagsSave({custom:j.custom||[],marks:j.marks}); renderDraft(); }catch(err){ bx.value='That did not look like a tags backup. Copy the whole text from "Show backup text" on the other device.'; } }); }
+  document.getElementById('dDir').addEventListener('click',()=>{ dsort.asc=!dsort.asc; renderDraft(); });
   document.getElementById('dSortSel').addEventListener('change',e=>{dsort.k=e.target.value; dsort.asc=(dsort.k==='name'||dsort.k==='age'); renderDraft();});
   ['dDyn','dWE','dWL'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{ const v=+e.target.value; if(id==='dDyn') dDynPicks=v; else if(id==='dWE') dWEarly=v; else dWLate=v; renderDraft(); }));
   document.getElementById('dShow').addEventListener('click',()=>{ dShowDrafted=!dShowDrafted; dLimit=60; renderDraft(); });
