@@ -1992,6 +1992,7 @@ function wire(){
    parallel and everything else after it. If the weekly plan is unavailable, fall back to the Board. */
 wire();
 renderNav();
+{ const want=new URLSearchParams(location.search).get('view'); if(want&&['week','sched','board','redraft','teams','trades','keepers','draft','about'].includes(want)) setView(want); }   // ?view=draft opens that tab first (the local draft server uses it); no parameter = This week as before
 (function(){ try{ const mine=(document.querySelector('meta[name=build]')||{}).content; const UNSTAMPED='__'+'BUILD__'; if(!mine||mine===UNSTAMPED) return;
   fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!==UNSTAMPED&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
 new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});

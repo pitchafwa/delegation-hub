@@ -77,6 +77,11 @@ def body():
 
 class H(SimpleHTTPRequestHandler):
     def do_GET(self):
+        if self.path in ("/", "/index.html"):                 # this server is for drafting: open on the Draft tab (GitHub Pages never sends ?view, so it still opens on This week)
+            self.send_response(302)
+            self.send_header("Location", "/?view=draft")
+            self.end_headers()
+            return
         if self.path.split("?")[0] == "/draft_live.json":
             b = body()
             self.send_response(200)
