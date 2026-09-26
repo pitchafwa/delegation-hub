@@ -134,6 +134,7 @@ try:
     if model_ok:
         run("build_hub_data", "build_hub_data.py", critical=True)
         run("build_trades", "build_trades.py")            # reads hub_data, league rosters, weekly plan and the Hashtag values
+        run("build_redraft", "build_redraft.py")          # rest-of-season board (ESPN projections, expected games, last-10 logs); non-critical
     else:
         finish(False, "model chain failed; nothing published")
         sys.exit(1)
@@ -144,7 +145,7 @@ try:
     else:
         def git(*g):
             return subprocess.run(["git", *g], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        git("add", "dashboard/form_split.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
+        git("add", "dashboard/redraft_data.json", "dashboard/form_split.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
             "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json")
         if git("diff", "--cached", "--quiet").returncode == 0:
             say("nothing changed: no commit")
