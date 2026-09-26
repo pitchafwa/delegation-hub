@@ -24,5 +24,7 @@ Claude: on or before Oct 20, flag this file to Tommy, walk through it, and say e
 14. **Per-day projections.** Does ESPN publish per-game projections once the season starts (our level is ESPN season average blended with last 15 games)?
 
 ## C. Later (mid-season)
+* **Form split (after each player's 10th game, about Nov 3+).** `dashboard/form_split.json` appears (daily local task; `form_split` step in the refresh log) and the Form (L10) column and reasons show on This week. After about a month grade `level` vs `level_pre` in the ledger: did the adjustment (capped +-3) beat the unadjusted level? If not, set `FORM_ADJ_SHRINK` to 0 in `build_week_plan.py`.
+* **Long-term adds (ROS).** Once real injuries exist, check the ROS rows' return dates against ESPN's and that the slot advice (free IR slot vs drop) matches your roster.
 * Grade the availability, usage-flow and injury-return numbers against real results using the ledger.
 * Replay the usage-flow add/drop decisions and the Phase 2 features on real 2026-27 weeks.
