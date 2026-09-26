@@ -1607,7 +1607,7 @@ function renderDraft(){
   const afterIdx=after?PI.picks.indexOf(after):-1;
   const AV=simulateAvail(M,PI);
   const gap=nextMine?PI.picks.indexOf(nextMine):null;
-  const liveTag=dLive?'<span class="liveStatus" style="background:var(--good);color:#fff">LIVE from ESPN</span> ':'';
+  const liveTag='<span id="dLiveStat">'+liveStatHtml()+'</span> ';
   const banner=liveTag+(M.real?`<span class="hint">Keepers are final (from ESPN). ${M.kept.size} kept.</span>`:`<span class="liveStatus" title="ESPN has not filled the keeper picks yet, so each team's top-${DR.draft.keepers_now||3} assets are assumed kept">PROJECTED keepers</span> <span class="hint">the pool is a guess until ESPN shows the real keepers (due Sun 9/27, 5pm ET)</span>`);
   const core=M.mine.slice().sort((a,b)=>b.asset5-a.asset5).slice(0,5);
   const trs=shown.map(p=>{
@@ -1671,14 +1671,15 @@ function renderDraft(){
     <div class="legend" style="margin-top:.8rem"><b>Turning on live draft updates (do this on draft night).</b> The website on GitHub cannot read your private ESPN league, so during the draft you open a copy that runs on your own PC. The PC must stay on and awake, and your phone must be on the same Wi-Fi.
       <ol style="margin:.4rem 0 0 1.2rem;padding:0;line-height:1.5">
         <li>On your PC, open a <b>PowerShell</b> window (Start menu, type PowerShell, Enter).</li>
-        <li>Paste this and press Enter: <code>cd "C:/Users/tommy/OneDrive/Documents/Claude/fantasy-basketball-hub/ingest/research"; powershell -ExecutionPolicy Bypass -File ./run_draft_server.ps1 -Lan</code> (leave off <code>-Lan</code> if you only need it on the PC).</li>
-        <li>Wait about 10 seconds until it prints a line like <code>Draft server running. Open http://192.168.1.23:4180</code> (with <code>-Lan</code> it shows your PC's Wi-Fi address; without it, <code>localhost</code>). Write that address down and do not close this window: closing it stops live updates.</li>
-        <li>On the PC, open <code>http://localhost:4180</code> in your browser. On your iPhone, open the printed <code>192.168…:4180</code> address in Safari (same Wi-Fi).</li>
-        <li>Click <b>Draft</b>. When it is connected, a green <b>LIVE from ESPN</b> label appears at the top of the tab. Picks then appear about every 5 seconds, drafted players drop off the list by themselves, and the <b>% left</b> and score columns recompute.</li>
+        <li><b>Test it first, with no ESPN involved:</b> paste <code>cd "C:/Users/tommy/OneDrive/Documents/Claude/fantasy-basketball-hub/ingest/research"; powershell -ExecutionPolicy Bypass -File ./run_draft_server.ps1 -Lan -Simulate</code> and press Enter. This starts the server in <b>test mode</b>: it fills the board with fake picks (one every 6 seconds) so you can watch the Draft tab update by itself. The label on the Draft tab reads <b>TEST: simulated picks</b>. Press <b>Ctrl+C</b> to stop it when you are satisfied.</li>
+        <li>For the real draft, paste the same line <b>without</b> <code>-Simulate</code>: <code>cd "C:/Users/tommy/OneDrive/Documents/Claude/fantasy-basketball-hub/ingest/research"; powershell -ExecutionPolicy Bypass -File ./run_draft_server.ps1 -Lan</code> (leave off <code>-Lan</code> if you only need it on the PC).</li>
+        <li>Wait about 10 seconds for a box of lines like <code>On your phone: http://192.168.x.x:4180</code>. <b>Type exactly the address it prints.</b> Your PC's address is different from any example in this guide, and it can change from day to day. Do not close this window: closing it stops live updates.</li>
+        <li>On the PC, open <code>http://localhost:4180</code>. On your iPhone, open the printed address in Safari (same Wi-Fi, not cellular). "Refused to connect" means the address is wrong, the server is not running, or you started it without <code>-Lan</code>.</li>
+        <li>Click <b>Draft</b>. A status label at the top says what is happening: green <b>LIVE from ESPN</b> with "N of 144 picks made · checked HH:MM:SS" (or "connected, waiting for the draft to start"), an orange <b>ESPN not answering</b> if the server cannot reach ESPN, or <b>Connection lost</b> if your page cannot reach the server. Picks then appear about every 5 seconds and the <b>%</b>, score and on-the-clock numbers recompute.</li>
         <li>If it can't reach the server, check the PowerShell window is still open, then refresh the page (on an iPhone, close the tab and reopen it). Windows may ask to allow Python through the firewall the first time: choose <b>Private networks</b> and Allow.</li>
         <li>When the draft ends, click the PowerShell window and press <b>Ctrl+C</b> to stop it. Then go back to the normal GitHub address.</li>
       </ol>
-      <div class="hint" style="margin-top:.4rem">Before the draft starts, ESPN's board has no picks, so the live page just shows "draft not started". Ticking Me / Oth by hand still works as a backup at any time.</div></div>`;
+      <div class="hint" style="margin-top:.4rem">ESPN's <b>Practice Draft</b> is a separate mock draft and does not write picks into your league, so this page will not see it (it can only read your league's real draft). Before the real draft starts ESPN's board has no picks, so the label reads "waiting for the draft to start". Ticking Me / Oth by hand still works as a backup at any time.</div></div></div>`;
   // events
   document.getElementById('dq').addEventListener('input',e=>{dq=e.target.value; dLimit=60; renderDraft(); const el=document.getElementById('dq'); el.focus(); el.setSelectionRange(dq.length,dq.length);});
   document.getElementById('dpos').addEventListener('change',e=>{dpos=e.target.value; dLimit=60; renderDraft();});
@@ -1842,16 +1843,32 @@ function renderKeepers(){
 }
 
 let dLimit=60;
+let DLS={ok:null,at:null,err:null,filled:0,sim:false,fails:0};
+function liveStatHtml(){
+  const tot=(DR&&DR.draft&&DR.draft.picks)?DR.draft.picks.filter(x=>x.r>(DR.draft.keepers_now||3)).length:0, hh=DLS.at?DLS.at.toLocaleTimeString():'';
+  if(DLS.ok===false&&!dLive) return `<span class="liveStatus" style="background:var(--warn);color:#fff">No live connection</span> <span class="hint">retrying every 5 s (${esc(DLS.err||'')}). Ticking Me / Oth by hand still works.</span>`;
+  if(!dLive) return '';
+  if(DLS.ok===false) return `<span class="liveStatus" style="background:var(--warn);color:#fff">Connection lost</span> <span class="hint">last update ${hh}; retrying (${esc(DLS.err||'')})</span>`;
+  const lab=DLS.sim?'<span class="liveStatus" style="background:var(--accent);color:#fff">TEST: simulated picks</span>':'<span class="liveStatus" style="background:var(--good);color:#fff">LIVE from ESPN</span>';
+  const st=DLS.err?`<span class="liveStatus" style="background:var(--warn);color:#fff" title="${esc(DLS.err)}">ESPN not answering</span> `:'';
+  const wait=(!DR.draft.in_progress&&!DLS.filled)?' · connected, waiting for the draft to start':'';
+  return `${lab} ${st}<span class="hint">${DLS.filled} of ${tot} picks made${wait} · checked ${hh}</span>`;
+}
 async function pollDraftLive(){
+  if(window.__noLive) return;
   try{
-    if(window.__noLive) return;
-    const r=await fetch('draft_live.json?_='+Date.now()); if(!r.ok){ window.__noLive=true; return; } const j=await r.json();
+    const r=await fetch('draft_live.json?_='+Date.now());
+    if(r.status===404){ window.__noLive=true; return; }          // GitHub Pages has no live server: stay quiet
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    DLS={ok:true,at:new Date(),err:j.error||null,filled:j.filled||0,sim:!!j.simulated,fails:0};
     if(!j.picks) return; dLive=true; let changed=false;
     const byN=new Map(j.picks.map(x=>[x.n,x]));
     DR.draft.picks.forEach(x=>{ const y=byN.get(x.n); if(y&&(y.player!==x.player||y.keeper!==x.keeper)){ x.player=y.player; x.keeper=y.keeper; changed=true; } });
-    DR.draft.in_progress=!!j.inProgress;
+    const was=DR.draft.in_progress; DR.draft.in_progress=!!j.inProgress; if(was!==DR.draft.in_progress) changed=true;
     if(changed&&document.getElementById('draftPane').style.display!=='none') renderDraft();
-  }catch(e){}
+  }catch(e){ DLS.ok=false; DLS.err=String(e&&e.message||e); DLS.fails=(DLS.fails||0)+1; }
+  const el=document.getElementById('dLiveStat'); if(el) el.innerHTML=liveStatHtml();
 }
 
 function renderAbout(){
