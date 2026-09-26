@@ -94,6 +94,23 @@
   .teambox{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:.5rem .65rem;font-size:.76rem;line-height:1.5;white-space:normal}
   .teambox .note{margin-top:.3rem;font-size:.68rem}
   .trajChart{width:100%;height:auto;display:block}
+  .sec{border:1px solid var(--line);border-radius:12px;margin:0 0 .8rem;background:var(--surface)}
+  .sec>summary{cursor:pointer;padding:.6rem .85rem;display:flex;gap:.2rem .7rem;align-items:baseline;flex-wrap:wrap;list-style:none}
+  .sec>summary::-webkit-details-marker{display:none}
+  .sec>summary::before{content:'▸';color:var(--ink-faint);font-size:.8rem;transition:transform .12s}
+  .sec[open]>summary::before{transform:rotate(90deg)}
+  .secT{font-family:"IBM Plex Mono",monospace;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600}
+  .secM{font-size:.76rem;color:var(--ink-faint)}
+  .secB{padding:0 .85rem .7rem}
+  .secB>.tablewrap{border-radius:8px}
+  .jumpBar{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin:0 0 .9rem;position:sticky;top:0;z-index:5;background:var(--paper);padding:.4rem 0}
+  .jumpBar button{font:inherit;font-size:.74rem;padding:.22rem .6rem;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-soft);cursor:pointer}
+  .jumpBar button:hover{color:var(--ink);border-color:var(--ink-faint)}
+  .laterBox{border:1px solid var(--line);border-left:3px solid var(--accent,#5b7cfa);border-radius:8px;padding:.5rem .7rem;margin:0 0 .8rem;background:var(--surface-2,transparent)}
+  .laterHd{font-weight:600;font-size:.82rem;margin-bottom:.25rem}
+  .lt{display:grid;grid-template-columns:3.6rem 1fr;gap:.5rem;padding:.15rem 0;font-size:.85rem}
+  .ltD{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent,#5b7cfa);padding-top:.12rem}
+
   #redraftPane .tablewrap tbody tr:not(.detail) td:first-child{white-space:normal;max-width:190px}
   #redraftPane .sparkCell{justify-content:flex-start}
   #redraftPane .controls input[type=search]{min-width:170px}
@@ -857,6 +874,21 @@ function renderTeams(){
 
 const fmtDay=iso=>new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'});
 const shortDay=iso=>new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
+/* Section helper for the This week page: collapsible cards with a remembered open/closed state and a jump bar. */
+const secState={};
+function sec(id,title,meta,inner,def=true){
+  if(!inner) return '';
+  const o=id in secState?secState[id]:def;
+  return `<details class="sec" id="sec-${id}" data-sec="${id}" data-title="${esc(title)}" ${o?'open':''}><summary><span class="secT">${title}</span>${meta?`<span class="secM">${meta}</span>`:''}</summary><div class="secB">${inner}</div></details>`;
+}
+function wrapHdr(id,html,def=true){
+  if(!html) return '';
+  const m=html.match(/^\s*<div style="font-family:'IBM Plex Mono'[^>]*>([\s\S]*?)<\/div>/);
+  if(!m) return sec(id,id,'',html,def);
+  const t=m[1], k=t.search(/[:·(]/);
+  return sec(id,k>0?t.slice(0,k).trim():t,k>0?t.slice(t[k]==='('?k:k+1).trim():'',html.slice(m[0].length),def);
+}
+
 function renderWeek(){
   const pane=document.getElementById('weekPane');
   const M=W.matchup;
@@ -894,6 +926,19 @@ function renderWeek(){
     return `<tr><td class="num">${i+1}</td><td style="text-align:left"><b>${esc(a.add.name)}</b> <span class="hint">${esc(a.add.team)} · ${a.add.slots.filter(x=>x!=='UT').join('/')||'UT'} · ${a.add.games.map(shortDay).join(' ')}</span>${formTag(a.add.form)}${a.add.boost>=1?`<div class="hint" style="color:var(--good)">+${a.add.boost} pts/g while ${esc((a.add.boost_why||[]).slice(0,2).join(' and '))} ${(a.add.boost_why||[]).length>1?'are':'is'} out</div>`:''}</td>
       <td style="text-align:left">${a.drop?esc(a.drop.name)+' <span class="hint">'+a.drop.level+(a.drop.asset_rank?' · asset #'+a.drop.asset_rank:'')+'</span>'+formTag(a.drop.form)+(a.drop.flag==='solid'?' <span class="liveStatus" title="projects 28+ points a game: a real contributor this season. The net gain already subtracts an estimate of what you would lose in later weeks.">solid contributor</span>':''):'<span class="hint">open roster spot</span>'}</td><td class="num"><b>+${a.gain.toFixed(0)}</b><div class="hint">wk +${a.week_gain.toFixed(0)}${a.future_cost>0.5?' / later −'+a.future_cost.toFixed(0):''}</div></td><td class="num">+${a.cum.toFixed(0)}</td>
       <td style="text-align:left;white-space:normal"><div class="dgs">${dayStr}</div><div>${verdict}</div></td></tr>`;}).join('');
+
+  const laterHtml=(()=>{
+    const sq=T.sequence||[]; if(!sq.length) return '';
+    const nowD=M.planned_days[0], byDay={};
+    sq.forEach((a,i)=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); const d=g.length?a.by_day[bi].date:nowD; (byDay[d]=byDay[d]||[]).push({a,i,mx,g0:g[0]||0,bi}); });
+    const dates=Object.keys(byDay).sort();
+    const steps=dates.map(d=>`<div class="lt"><span class="ltD">${d===nowD?'Now':fmtDow(d)}</span><span class="ltB">${byDay[d].map(x=>`<b>${esc(x.a.add.name)}</b>${x.a.drop?` <span class="hint">for ${esc(x.a.drop.name)}</span>`:''}${d!==nowD?` <span class="hint">(+${(x.mx-x.g0).toFixed(0)} vs now)</span>`:''}`).join(' &nbsp;·&nbsp; ')}</span></div>`).join('');
+    const back=(T.injury_advice||[]).filter(a=>a.plan_games!=null&&a.plan_games>1.5&&a.plan_games<=3.5);
+    const backHtml=back.length?`<div class="lt"><span class="ltD">Watch</span><span class="ltB">${back.map(a=>`<b>${esc(a.name)}</b> <span class="hint">back in about ${a.plan_games.toFixed(0)} games: ${a.on_ir?'activate him from IR, then':'then'} check whether the last add above is still needed</span>`).join(' &nbsp;·&nbsp; ')}</span></div>`:'';
+    const left=addsLeft-sq.length;
+    const foot=left>0?`${left} add${left===1?'':'s'} left after these: keep one for a mid-week injury.`:(left===0?'These use every add you have left, so a later injury would cost you a swap.':'These need more adds than you have left: do the first '+addsLeft+'.');
+    return `<div class="laterBox"><div class="laterHd">The plan across the week <span class="hint">(re-checked every morning; later steps change as injury news lands)</span></div>${steps}${backHtml}<div class="hint" style="margin-top:.25rem">${foot}${dates.length===1?' Nothing is worth waiting on.':''}</div></div>`;
+  })();
   const meId=(W.teams.find(t=>t.abbrev===W.my_abbrev)||{}).id;
   const stashL=(SP&&T.id===meId)?(SP.stash||[]):[];
   const mergedM=new Map();
@@ -969,6 +1014,11 @@ function renderWeek(){
       <details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${list(L2.me.left_today||[])}</div><div class="liveRow"><b>${esc(L2.opp.abbrev)}:</b> ${list(L2.opp.left_today||[])}</div></details>
       <div class="note" style="margin-top:.4rem">Win chance = the score now plus the expected rest of the week (72% of the projected gap, since projections overstate real differences), spread by how much can still happen; it was checked on last season's real matchups and was within about 2 points. Variance choices barely change it: a week is decided by expected points, so fill every slot.</div></div>`;
   }
+  const lineupSec=sec('lineup','Lineup plan by day',`${T.expected.toFixed(0)} expected points`,`
+    <div class="hint" style="margin:0 0 1rem">${gainVsAll>=0.5?`Following the plan is worth <b>+${gainVsAll.toFixed(0)} points</b> over starting everyone who plays, by saving games for better days once the cap matters. `:`Your roster is expected to use about ${(T.days[T.days.length-1].starts_after).toFixed(0)} of the ${M.cap} cap games this week, so starting everyone who plays is best.${T.days_after&&(T.sequence||[]).length?` With the suggested moves it reaches about ${(T.days_after[T.days_after.length-1].starts_after).toFixed(0)}, which is where the cap starts to matter. `:' '}`}${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule, so adds that play then are worth the most. `:''}Numbers are expected fantasy points (chance of playing x projected points per game).</div>
+    ${T.days_after&&(T.sequence||[]).length?`<label class="kbox" style="margin:0 0 .5rem;gap:.5rem"><input type="checkbox" id="weekAfterCb" ${weekAfter?'checked':''} /> <span>Show plan after suggested moves <span class="hint">(${T.expected.toFixed(0)} now, ${T.expected_after.toFixed(0)} with all ${(T.sequence||[]).length} moves)</span></span></label>`:''}
+    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starting lineup (expected pts)</th><th>Starters</th><th>Day pts</th><th>Starts so far</th></tr></thead><tbody>${dayRows}</tbody></table></div>
+`,true);
   pane.innerHTML=`
     <div class="controls"><select id="weekSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${W.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
       <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days) · updated ${new Date(W.generated).toLocaleString()}</span></div>
@@ -992,21 +1042,23 @@ function renderWeek(){
         <li><b>Look ahead on the Schedule tab.</b> Light weeks for your stars, streamers for next week, and playoff schedules are there. Do that check on Sunday night, before next week's plan is built.</li>
         <li><b>Judge the reliability of what you see.</b> A gain under about 10 points is noise. Players marked Questionable are coin flips, so a plan that depends on one is fragile: add a healthy backup who plays the same day. Free-agent projections are shrunk toward average because the best-looking ones are partly lucky, so treat a big claimed gain from an unknown as a maybe.</li>
       </ol></div>
-    <div class="hint" style="margin:0 0 1rem">${gainVsAll>=0.5?`Following the plan is worth <b>+${gainVsAll.toFixed(0)} points</b> over starting everyone who plays, by saving games for better days once the cap matters. `:`Your roster is expected to use about ${(T.days[T.days.length-1].starts_after).toFixed(0)} of the ${M.cap} cap games this week, so starting everyone who plays is best.${T.days_after&&(T.sequence||[]).length?` With the suggested moves it reaches about ${(T.days_after[T.days_after.length-1].starts_after).toFixed(0)}, which is where the cap starts to matter. `:' '}`}${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule, so adds that play then are worth the most. `:''}Numbers are expected fantasy points (chance of playing x projected points per game).</div>
-    ${T.days_after&&(T.sequence||[]).length?`<label class="kbox" style="margin:0 0 .5rem;gap:.5rem"><input type="checkbox" id="weekAfterCb" ${weekAfter?'checked':''} /> <span>Show plan after suggested moves <span class="hint">(${T.expected.toFixed(0)} now, ${T.expected_after.toFixed(0)} with all ${(T.sequence||[]).length} moves)</span></span></label>`:''}
-    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starting lineup (expected pts)</th><th>Starters</th><th>Day pts</th><th>Starts so far</th></tr></thead><tbody>${dayRows}</tbody></table></div>
-    ${irHtml}
-    ${advHtml}
-    ${seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: your full plan for this week, in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
-    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th><th style="text-align:left">Timing (net gain if made on each day)</th></tr></thead><tbody>${seqRows}</tbody></table></div>
-    ${budgetHtml}`:''}
-    ${oppHtml}
-    ${dynHtml}
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Other free agents worth a look, each judged on its own (alternatives to the plan above; they overlap, so don't add the gains)</div>
-    <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th style="text-align:left">Games</th><th style="text-align:left">Drop</th><th>Gain</th></tr></thead><tbody>${addRows}</tbody></table></div>
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and schedule (● = plays that day: ${daysHdr.join(' ')})</div>
-    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Level</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Asset rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>
+    ${lineupSec}
+    ${wrapHdr('ir',irHtml)}
+    ${wrapHdr('inj',advHtml)}
+    ${wrapHdr('moves',seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: your full plan for this week, in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
+    ${laterHtml}<div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th><th style="text-align:left">Timing (net gain if made on each day)</th></tr></thead><tbody>${seqRows}</tbody></table></div>
+    ${budgetHtml}`:'')}
+    ${wrapHdr('opp',oppHtml,false)}
+    ${wrapHdr('lt',dynHtml)}
+    ${sec('fa','Other free agents worth a look',"each judged on its own: alternatives to the plan above, they overlap, so don't add the gains",`<div class="tablewrap" style="margin-bottom:.4rem"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th style="text-align:left">Games</th><th style="text-align:left">Drop</th><th>Gain</th></tr></thead><tbody>${addRows}</tbody></table></div>`,false)}
+    ${sec('roster','Roster and schedule',`● = plays that day (${daysHdr.join(' ')})`,`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Level</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Asset rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`,true)}
     <div class="legend" style="margin-top:1rem"><b>How the numbers work.</b> League rule: only 40 started games count per 7-day matchup (scaled for other lengths), checked at the <i>start</i> of each day. Start a day under the cap and you can start anyone and go over; start it at or over and nothing else counts. The plan picks lineups day by day to maximize <i>points</i>, not games, so it may cross the cap early when a day is strong and later days are thin, or sit weak starters to save games for better days. <b>Level</b> = ESPN's projected fantasy points per game for the player. ESPN publishes one season-average number per player, not one per game, so once the season starts it is blended with the player's last 15 games (up to 45% weight) as a stand-in for a true per-game projection; our own model is only a fallback when ESPN has none. Chance of playing is measured, not guessed: for today's game the league's official injury designation sets it (rotation players: available 96%, probable 92%, questionable 57%, doubtful 4%, out 0%; bench players lower), a healthy player with no designation is 94% (89% on the second night of a back-to-back), and for later days it is 85% for rotation players, 81% at 15–20 points a game and 61% below that (they can get hurt or rest). Free agents' projections are shrunk 40% toward replacement level before ranking adds, because the ones who look best are partly lucky (backtest). Position eligibility comes from ESPN. <b>Drops:</b> with only 5 keepers, a non-keeper's value is what he produces this season. So each team's top 6 dynasty assets (and anyone projecting 35+ a game) are never suggested as drops, and every suggestion's gain is <i>net</i>: this week's points gained minus an estimate of what you'd lose in later weeks if the player you drop is better than the one you add (the gap × about 3 games a week × 6 weeks). Injuries and light schedules this week don't reduce that cost. Add names to ingest/research/never_drop.json to protect anyone else. Opponent totals assume they also play their best lineups, and win chance uses a 253-point weekly spread measured last season. ${M.calendar_assumed?'<b>Matchup dates for 2026-27 are assumed</b> (6-day opener, then Monday–Sunday weeks) until ESPN publishes them in season. ':''}Games already tipped today can't be changed; late swaps are possible until each game starts.</div>`;
+  { const secs=[...pane.querySelectorAll('details.sec')];
+    if(secs.length>2){ const first=secs[0]; const jb=document.createElement('div'); jb.className='jumpBar';
+      jb.innerHTML='<span class="hint">Jump to</span>'+secs.map(d=>`<button type="button" data-jump="${d.dataset.sec}">${d.dataset.title.replace(/^Injured players$/,'Injuries').replace(/^Roster and IR moves$/,'Roster/IR').replace(/^Suggested moves$/,'Moves').replace(/^Injuries creating opportunity$/,'Opportunity').replace(/^Long-term adds$/,'Long-term').replace(/^Other free agents worth a look$/,'Other FAs').replace(/^Roster and schedule$/,'Roster').replace(/^Lineup plan by day$/,'Lineup')}</button>`).join('');
+      first.parentNode.insertBefore(jb,first);
+      jb.addEventListener('click',e=>{ const b=e.target.closest('button[data-jump]'); if(!b) return; const d=document.getElementById('sec-'+b.dataset.jump); if(!d) return; d.open=true; secState[b.dataset.jump]=true; d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
+    secs.forEach(d=>d.addEventListener('toggle',()=>{ secState[d.dataset.sec]=d.open; })); }
   document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});
   const wa=document.getElementById('weekAfterCb'); if(wa) wa.addEventListener('change',e=>{weekAfter=e.target.checked; renderWeek();});
   mobileTables(pane); collapseLegends(pane);
