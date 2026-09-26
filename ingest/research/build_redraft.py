@@ -3,7 +3,8 @@
   per player   ESPN projected points/game (league scoring) and our own projection (the Kalman model's this-season line in hub_data.json)
                expected games left = team games remaining x availability, minus games he is expected to miss right now (injury advisor)
                proj points   = points/game x expected games          VOR = (points/game - replacement) x expected games
-               market rank   = rank by ESPN projection x expected games (the redraft "market");  our rank = by our projection x expected games
+               market rank   = FantasyPros consensus points-league rank (ESPN scoring), cross-checked against ESPN's own points rankings (article) and ESPN ADP; where FantasyPros and the ESPN blend
+                               are surprisingly different (15+ places and 35%+) the market is their average and the row is flagged.  Fallback (a player in none of them): rank by ESPN projection x expected games.  Our rank = by our projection x expected games
                90th percentile points/game = projection + 1.28 sigma (sigma measured on 2010-2026: about 6.2 preseason falling to about 5.3 after 20 games)
                last 10 games (fantasy points, minutes, dates) for the trajectory line, the next 3 games with opponents, games next 7 days, games in the playoff weeks,
                minutes/points-per-minute trend, consistency (game-to-game spread), the form split from build_form_split.py when present
@@ -49,6 +50,52 @@ def key(name):
 def sigma_ppg(games_played):
     return 5.2 + 1.0 * max(0.0, 1 - games_played / 20.0)
 
+
+
+# ---------------- market: FantasyPros consensus + ESPN rankings/ADP (public pages; only the resulting rank is published, not the source lists)
+MARKET_DIR = Path(__file__).resolve().parent / "data" / "market"
+MARKET_DIR.mkdir(parents=True, exist_ok=True)
+HDR = {"User-Agent": "Mozilla/5.0"}
+FP_URL = "https://www.fantasypros.com/nba/rankings/overall-points-espn.php"
+ESPN_RANK_URL = "https://www.espn.com/fantasy/basketball/story/_/id/49960162/fantasy-basketball-points-league-rankings-2026-27-nba-season"
+DISAGREE_ABS, DISAGREE_REL = 15, 0.35          # 'surprisingly different': 15+ places AND 35%+ of the better rank (a 20-place gap means more at #20 than at #200)
+
+
+def _cached(name, fetch):
+    path = MARKET_DIR / name
+    try:
+        txt = fetch()
+        path.write_text(json.dumps(txt), encoding="utf-8")
+        return txt, "live"
+    except Exception as ex:
+        print(f"market source {name} failed ({ex}); using the last saved copy" if path.exists() else f"market source {name} failed ({ex}); not available")
+        return (json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}), "cached"
+
+
+def _fetch_fp():
+    import requests
+    h = requests.get(FP_URL, headers=HDR, timeout=40).text
+    i = h.index("ecrData = ") + len("ecrData = ")
+    data, _ = json.JSONDecoder().raw_decode(h[i:])
+    return {key(pl["player_name"]): int(float(pl["rank_ecr"])) for pl in data["players"] if pl.get("rank_ecr")}
+
+
+def _fetch_espn_article():
+    import requests
+    h = requests.get(ESPN_RANK_URL, headers=HDR, timeout=40).text
+    t = re.sub(r"<script.*?</script>|<style.*?</style>", "", h, flags=re.S)
+    t = re.sub(r"<[^>]+>", chr(10), t)
+    pat = re.compile(r"(\d+)\.\s+([^,]+?)\s*,\s*([A-Z]+)")
+    t = re.sub(r"\s+", " ", t)
+    rows = pat.findall(t)
+    if len(rows) < 50:
+        raise ValueError("ESPN rankings article parsed too few rows")
+    return {key(nm.strip()): int(n) for n, nm, _ in rows}
+
+
+FP_RANK, fp_src = _cached("fantasypros.json", _fetch_fp)
+ESPN_RANK, es_src = _cached("espn_article.json", _fetch_espn_article)
+print(f"market sources: FantasyPros {len(FP_RANK)} players ({fp_src}), ESPN rankings article {len(ESPN_RANK)} ({es_src})")
 
 # ---------------- schedule
 sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))
@@ -191,11 +238,27 @@ for r in rows:
 for i, r in enumerate(sorted(rows, key=lambda r: -r["pts"]), 1):
     r["rank"] = i
 for i, r in enumerate(sorted(rows, key=lambda r: -r["espn_pts"]), 1):
-    r["mkt"] = i
+    r["mkt_proj"] = i                                        # fallback market: ESPN's projection x our expected games
+n_flag = 0
+for r in rows:
+    k = key(r["name"])
+    fp, er, adp = FP_RANK.get(k), ESPN_RANK.get(k), r.get("adp")
+    espn_parts = [x for x in (er, adp) if x]
+    espn_blend = sum(espn_parts) / len(espn_parts) if espn_parts else None
+    if fp and espn_blend and abs(fp - espn_blend) >= DISAGREE_ABS and abs(fp - espn_blend) >= DISAGREE_REL * min(fp, espn_blend):
+        r["mkt"], r["mkt_src"], r["mkt_diff"] = round((fp + espn_blend) / 2), "blend", [fp, round(espn_blend)]     # sources disagree: average them, and say so
+        n_flag += 1
+    elif fp:
+        r["mkt"], r["mkt_src"] = fp, "fp"
+    elif espn_blend:
+        r["mkt"], r["mkt_src"] = round(espn_blend), "espn"
+    else:
+        r["mkt"], r["mkt_src"] = None, "none"
+print(f"market ranks: {sum(1 for r in rows if r['mkt_src']=='fp')} FantasyPros, {n_flag} averaged (sources differ a lot), {sum(1 for r in rows if r['mkt_src']=='espn')} ESPN only, {sum(1 for r in rows if r['mkt_src']=='none')} none")
 rows.sort(key=lambda r: -r["vor"])
 out = {"generated": datetime.now(timezone.utc).isoformat(), "asof": t0, "season_now": season_now, "preseason": today < SEASON_START, "repl_ppg": round(repl, 1), "repl_rank": REPL_RANK,
        "season_end": END, "playoff_start": PLAYOFF_START, "log_through": str(logs["date"].max())[:10], "sigma": {"pre": sigma_ppg(0), "late": sigma_ppg(99)}, "players": rows}
 (HUB / "redraft_data.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"wrote redraft_data.json: {len(rows)} players, replacement {repl:.1f} ppg (rank {REPL_RANK}); {round((HUB / 'redraft_data.json').stat().st_size / 1024)} KB")
 for r in rows[:12]:
-    print(f"{r['name']:24s} {r['team']} {r['pos']:8s} ppg {r['ppg']:5.1f} espn {r['espn_ppg']:5.1f} gp {r['exp_gp']:5.1f}/{r['g_rem']} pts {r['pts']:5d} vor {r['vor']:5d} rank {r['rank']:3d} mkt {r['mkt']:3d} l10 {r.get('l10')} {r['status']}")
+    print(f"{r['name']:24s} {r['team']} {r['pos']:8s} ppg {r['ppg']:5.1f} espn {r['espn_ppg']:5.1f} gp {r['exp_gp']:5.1f}/{r['g_rem']} pts {r['pts']:5d} vor {r['vor']:5d} rank {r['rank']:3d} mkt {r['mkt'] or 0:3d} l10 {r.get('l10')} {r['status']}")
