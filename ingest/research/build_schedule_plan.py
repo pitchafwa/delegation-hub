@@ -270,7 +270,7 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
         total_w = reg + PLAYOFF_WT * po
         stash.append({"form": x.get("form"), "id": x["id"], "name": x["name"], "team": f["team"], "level": x["level"], "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
                       "games_out": x.get("games_out"), "back_date": x.get("back_date"), "espn_return": x.get("espn_return"), "p_back_playoffs": x.get("p_back_playoffs"),
-                      "age": x.get("age"), "asset": x.get("asset"), "asset_rank": x.get("asset_rank"), "market_rank": x.get("market_rank"), "kind": x.get("kind"), "slots": x.get("slots"),
+                      "age": x.get("age"), "asset": x.get("asset"), "dyn_pts": round(0.25 * 73 * (max(0.0, (x.get("asset") or 0) - me.get("asset_5th", 0)) + 0.1 * (x.get("asset") or 0))), "asset_rank": x.get("asset_rank"), "market_rank": x.get("market_rank"), "kind": x.get("kind"), "slots": x.get("slots"),
                       "gain": round(total_w), "reg": round(reg), "po": round(po), "next4": round(n4), "drop": None if to_ir or not drop else drop["name"], "to_ir": to_ir})
 keep = [e for e in stash if e["gain"] >= 100]       # anyone who adds real points over the rest of the season (near-term ones are also in the suggested moves; the tag is the same)
 keep.sort(key=lambda e: -e["gain"])
@@ -280,6 +280,6 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "calendar_assumed": 
        "calendar": [{"id": w["id"], "start": w["start"].isoformat(), "end": w["end"].isoformat(), "days": w["days"], "cap": w["cap"], "playoff": w["playoff"]} for w in CAL],
        "current_week": FIRST, "next4": NEXT4, "playoff_weeks": PLAY, "avg_games": avg_games, "avg_next4": round(avg_next4, 1), "avg_playoffs": round(avg_play, 1),
        "nba": heat, "teams": teams_out, "my_abbrev": wp["my_abbrev"],
-       "stash": keep[:25], "stash_all": {str(e["id"]): e["gain"] for e in stash}, "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
+       "stash": keep[:25], "stash_all": {str(e["id"]): [e["gain"], e["dyn_pts"]] for e in stash}, "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
 (HUB / "schedule_plan.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote schedule_plan.json", round((HUB / "schedule_plan.json").stat().st_size / 1024), "KB")

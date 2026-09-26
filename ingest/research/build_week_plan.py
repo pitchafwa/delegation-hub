@@ -694,6 +694,20 @@ def team_games(team, d0, d1):
     return sum(1 for ds in TEAM_DATES.get(team, ()) if d0 <= ds <= d1)
 
 
+# ---- long-term priority: dynasty value in season-point units, the same exchange rate as the Keepers tool (73 games x 0.25 weight on next year's top-5 asset total)
+DYN_W = 0.25
+
+
+def _a5th(roster):
+    a = sorted((ASSET_HP.get(p["hub_id"]) or 0.0 for p in roster if p.get("hub_id")), reverse=True)
+    return a[4] if len(a) >= 5 else 0.0
+
+
+def dyn_pts(asset, a5):
+    """points-equivalent of adding a player with this keeper asset: what he adds to your next-year top-5 asset total (only if he beats your 5th best) plus 10% of his asset for trade/bench option value"""
+    return round(DYN_W * 73 * (max(0.0, asset - a5) + 0.1 * asset))
+
+
 def advise_injuries(r, total, c0, key_of, ir_free):
     """one entry per injured player on the roster (out / IR / ESPN-listed out); the lists stay short"""
     if IA is None:
@@ -852,7 +866,7 @@ for t in lg.teams:
     r_after = [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
-                      "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"])) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),
+                      "asset_5th": round(_a5th(r), 1), "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"]), dyn_pts=dyn_pts(x["asset"], _a5th(r))) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
