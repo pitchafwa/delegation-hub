@@ -93,7 +93,7 @@ _ranked = sorted([p for p in hub["players"] if p.get("asset_k")], key=lambda p: 
 ASSET_RANK = {p["id"]: i + 1 for i, p in enumerate(_ranked)}
 ASSET_HP = {p["id"]: p["asset_k"][5] for p in hub["players"] if p.get("asset_k") and len(p["asset_k"]) > 5}
 # ---- who may be suggested as a DROP. Keeper league: only 5 players are kept, so a non-keeper's value is what he produces THIS season.
-KEEPER_PROTECT = 6         # each team's top-6 dynasty assets (5 keepers + a margin) are never suggested as drops
+KEEPER_PROTECT = 6         # (see keeper_protect(): 5 keepers + a margin of 1, margin dropped for the last 3 weeks)
 PROTECT_LEVEL = 35         # projects 35+ pts/g: never dropped, valued or not (catches stars our model can't value, e.g. after a long injury)
 ROS_WEEKS = 6              # if the player you drop is better than the one you add, count that gap for this many future weeks (before you could re-stream)
 GAMES_PER_WEEK = 3.3
@@ -104,16 +104,31 @@ NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / 
 
 def protected_ids(roster):
     valued = sorted([p for p in roster if p["asset_rank"]], key=lambda p: p["asset_rank"])
-    keep = {p["espn_id"] for p in valued[:KEEPER_PROTECT]}
+    keep = {p["espn_id"] for p in valued[:keeper_protect()]}
     keep |= {p["espn_id"] for p in roster if p["level"] >= PROTECT_LEVEL or norm(p["name"]) in NEVER_DROP}
     return keep
+
+
+LAST_WEEK = 22             # last fantasy week (playoffs included)
+KEEPERS_LATER = 5          # keepers per team in future years: the players who actually carry dynasty value
+
+
+def weeks_after():
+    """fantasy weeks left after the current matchup (playoffs included)"""
+    return max(0, LAST_WEEK - mp_id)
+
+
+def keeper_protect():
+    """how many of your top dynasty assets are never suggested as drops: the 5 future keepers plus a margin of 1 (a keeper can get hurt, the 6th can pass the 5th) until the last 3 weeks,
+    when the keeper list is settled and a player outside it is worth more as a contributor this week than as a hold"""
+    return KEEPERS_LATER + (1 if weeks_after() >= 4 else 0)
 
 
 def future_cost(dr, add):
     """points of production lost in later weeks by swapping dr for add (only if dr is the better player). Injury/short schedule this week don't matter."""
     if dr is None:
         return 0.0
-    return max(0.0, dr["level"] - add["level"]) * GAMES_PER_WEEK * ROS_WEEKS
+    return max(0.0, dr["level"] - add["level"]) * GAMES_PER_WEEK * min(ROS_WEEKS, weeks_after())      # fewer future weeks to lose production in as the season ends (0 in the last week)
 
 
 def drop_flag(p):
