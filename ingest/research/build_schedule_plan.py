@@ -249,7 +249,9 @@ IR_OK_S = ("OUT", "INJURY_RESERVE")
 base_w = {w: week_points(mine, w) for w in REMAIN}
 mine_ir = sum(1 for p in mine if p["ir"])
 stash = []
-for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", []))):
+_seen_ids = {x["id"] for x in wp.get("stash_pool", [])} | {x["id"] for x in wp.get("fa_pool", [])}
+_dyn = [dict(d, slots=[q for q in d["pos"]] + ["UT"], level=round(FA_ANCHOR + FA_SHRINK * (d["level"] - FA_ANCHOR), 1), out_now=False) for d in (me.get("dynasty_adds") or []) if d["id"] not in _seen_ids and d["level"] > 0]
+for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", [])), ("fa", _dyn)):
     for x in pool:
         if x["team"] not in heat and canon(x["team"]) not in heat:
             continue
@@ -270,7 +272,7 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
                       "games_out": x.get("games_out"), "back_date": x.get("back_date"), "espn_return": x.get("espn_return"), "p_back_playoffs": x.get("p_back_playoffs"),
                       "age": x.get("age"), "asset": x.get("asset"), "asset_rank": x.get("asset_rank"), "market_rank": x.get("market_rank"), "kind": x.get("kind"), "slots": x.get("slots"),
                       "gain": round(total_w), "reg": round(reg), "po": round(po), "next4": round(n4), "drop": None if to_ir or not drop else drop["name"], "to_ir": to_ir})
-keep = [e for e in stash if (e["src"] == "stash" and e["gain"] >= 60) or (e["src"] == "fa" and e["gain"] >= 100 and (e["gain"] - e["next4"]) / max(len(REMAIN) - 4, 1) >= 1.75 * max(e["next4"], 0) / 4)]      # healthy free agents only when the gain is back-loaded (the near-term ones are in the suggested moves)
+keep = [e for e in stash if e["gain"] >= 100]       # anyone who adds real points over the rest of the season (near-term ones are also in the suggested moves; the tag is the same)
 keep.sort(key=lambda e: -e["gain"])
 print("long-term (ROS) stash:", [(e["name"], e["gain"], e["next4"]) for e in keep[:6]])
 
@@ -278,6 +280,6 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "calendar_assumed": 
        "calendar": [{"id": w["id"], "start": w["start"].isoformat(), "end": w["end"].isoformat(), "days": w["days"], "cap": w["cap"], "playoff": w["playoff"]} for w in CAL],
        "current_week": FIRST, "next4": NEXT4, "playoff_weeks": PLAY, "avg_games": avg_games, "avg_next4": round(avg_next4, 1), "avg_playoffs": round(avg_play, 1),
        "nba": heat, "teams": teams_out, "my_abbrev": wp["my_abbrev"],
-       "stash": keep[:15], "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
+       "stash": keep[:25], "stash_all": {str(e["id"]): e["gain"] for e in stash}, "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
 (HUB / "schedule_plan.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote schedule_plan.json", round((HUB / "schedule_plan.json").stat().st_size / 1024), "KB")

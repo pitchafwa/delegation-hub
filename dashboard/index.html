@@ -874,7 +874,7 @@ function renderWeek(){
   const mergedM=new Map();
   (T.dynasty_adds||[]).slice(0,12).forEach(x=>mergedM.set(x.id,{d:x}));
   stashL.forEach(x=>{ const e=mergedM.get(x.id)||{}; e.s=x; mergedM.set(x.id,e); });
-  const dyn=[...mergedM.values()].sort((a,b)=>((b.s&&b.d)?1:0)-((a.s&&a.d)?1:0)||(b.s?1:0)-(a.s?1:0)||(b.s?b.s.gain:0)-(a.s?a.s.gain:0)||((b.d?b.d.asset:0)-(a.d?a.d.asset:0))).slice(0,16);
+  const dyn=[...mergedM.values()].sort((a,b)=>((b.s&&b.d)?1:0)-((a.s&&a.d)?1:0)||(b.s?1:0)-(a.s?1:0)||(b.s?b.s.gain:0)-(a.s?a.s.gain:0)||((b.d?b.d.asset:0)-(a.d?a.d.asset:0))).slice(0,20);
   const dfmt=ds=>ds?new Date(ds+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):'—';
   const dynRows=dyn.map(e=>{ const x=e.d||e.s, S=e.s, D=e.d;
     const tags=`${S?'<span class="kind" style="background:var(--good);color:#fff" title="Rest-of-season stash: worth holding for the points he adds over the remaining season, even if he does not help this week">ROS</span> ':''}${D?'<span class="kind rookie" style="background:var(--accent,#5b7cfa);color:#fff" title="Dynasty stash: keeper-league value for next season and beyond">DYNASTY</span>':''}`;
