@@ -190,7 +190,7 @@ for t in wp["teams"]:
         prow.append({"id": pl["id"], "name": pl["name"], "team": pl["team"], "level": pl["level"], "status": pl["status"], "ir": pl["ir"], "games": gr,
                      "x4": round(n4 - avg_next4, 1), "xp": round(npo - avg_play, 1), "flags": flags})
     active = [p for p in r]
-    raw_proj = {w: week_points(active, w) for w in NEXT4 + PLAY}
+    raw_proj = {w: week_points(active, w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
     wa = {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if CAL[int(k) - 1]["days"] == 7 and int(k) not in (1, 17)}
     anchors = sorted(wa)[-3:]
     if anchors:       # BLEND (backtested: beats the raw solver, MAE 178 vs 207 one week ahead): real scoring in recent full weeks x how much lighter/heavier the target week is

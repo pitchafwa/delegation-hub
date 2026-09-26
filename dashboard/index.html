@@ -922,6 +922,7 @@ function renderWeek(){
     <div class="controls"><select id="weekSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${W.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
       <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days) · updated ${new Date(W.generated).toLocaleString()}</span></div>
     ${liveHtml}
+    ${oddsHtml(T.id===meT.id)}
     <div class="statbar" style="margin-bottom:1rem;${liveOk?'display:none':''}">
       <div><b>${T.expected_total.toFixed(0)}</b>expected points${T.pts_so_far?` (${T.pts_so_far.toFixed(0)} banked)`:''}</div>
       <div><b>${O?O.expected_total.toFixed(0):'—'}</b>${O?'vs '+esc(O.abbrev):'opponent'}</div>
@@ -1000,6 +1001,20 @@ function signalsHtml(T){
     <div><div class="hint" style="margin-bottom:.2rem">Sell-high (yours)</div>${(T.sell_high||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div>
     <div><div class="hint" style="margin-bottom:.2rem">Buy-low (other teams)</div>${(T.buy_low||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div></div>
     <div class="note" style="margin-top:.5rem">Tested on 2021-24 seasons (out of sample): the reversion model barely beats "normal aging alone" (error ${st.mae_persistence} to ${st.mae_model} pts/g). What holds up: big jumps above expectation fall back a bit (about 2 pts/g); players whose minutes jumped 4+ tend to give some back; big slumps do <b>not</b> reliably rebound, and injury-shortened seasons do <b>not</b> reliably bounce back. Treat these as tie-breakers, not reasons to trade.</div></details>`;
+}
+
+let ODDS=null;
+function oddsHtml(mine){
+  const O=ODDS; if(!O||!mine) return '';
+  const pc=x=>x==null?'—':Math.round(x*100)+'%';
+  const m=O.teams.find(t=>t.id===O.my_id), me=O.me||{};
+  const pre=O.basis!=='blend';
+  const win=me.focus_made_win, loss=me.focus_made_loss;
+  const rows=O.teams.map(t=>`<tr${t.id===O.my_id?' style="font-weight:700"':''}><td style="text-align:left">${esc(t.abbrev)}</td><td>${t.wins}</td><td>${t.exp_wins.toFixed(1)}</td><td>${pc(t.made)}</td><td>${pc(t.bye)}</td><td>${pc(t.title)}</td></tr>`).join('');
+  return `<details class="oddsCard" open style="margin-bottom:1rem;border:1px solid var(--line-strong);border-radius:10px;padding:.6rem .8rem"><summary style="cursor:pointer"><b>Playoff odds</b> <span class="hint">${esc(O.my_abbrev)}: ${pc(m.made)} to make it · ${pc(m.bye)} for a bye · ${pc(m.title)} to win the title</span></summary>
+    ${win!=null?`<div style="margin:.5rem 0">This week's result matters: <b>${pc(win)}</b> to make the playoffs if you win, <b>${pc(loss)}</b> if you lose${me.focus_bye_win!=null?` · bye ${pc(me.focus_bye_win)} vs ${pc(me.focus_bye_loss)}`:''}. Adding 25 points a week for the rest of the season would move you to <b>${pc(O.me_plus25.made)}</b>.</div>`:''}
+    <table class="advTbl" style="width:100%"><tr><th style="text-align:left">Team</th><th>W now</th><th>Exp. W</th><th>Playoffs</th><th>Bye</th><th>Title</th></tr>${rows}</table>
+    <div class="note" style="margin-top:.4rem">${O.weeks_left} regular-season weeks left, simulated 20,000 times. Each team's weekly score = the plan's forecast plus a season-long team effect plus normal week-to-week noise, then seeded by record (ties by points) into ESPN's 6-team bracket with byes for seeds 1-2. ${pre?'Preseason: rosters are not final and forecasts run about 5% high, so treat this as a rough prior. ':''}Checked against last season's real standings at five checkpoints: the odds were calibrated or slightly cautious, but that is one season of 60 team-checkpoints, so it is a sanity check, not proof. Head-to-head tiebreakers are not modelled.</div></details>`;
 }
 function renderSchedule(){
   const pane=document.getElementById('schedPane'); if(!SP) return;
@@ -1635,6 +1650,7 @@ async function loadLive(){
   }
 }
 loadLive(); setInterval(loadLive,120000);
+fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week') setView('week');} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched') setView('sched');} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
