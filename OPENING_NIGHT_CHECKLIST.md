@@ -4,10 +4,13 @@ Claude: on or before Oct 20, flag this file to Tommy, walk through it, and say e
 
 ## A. Before Oct 20 (build or verify)
 1. **Keeper deadline aftermath (Sun 9/27 5pm ET).** In ESPN: are all 12 teams' keepers recorded? Does the Keepers tab now say "ESPN shows the real keepers"? Did the commissioner fix the draft order (Tommy first in the first drafted round, then snake)? Re-pull draft data (`build_draft_data.py`) and re-check the Draft tab pick labels (Savion's pick, "Rd 1.1").
-2. **Accountability ledger logging (not built yet).** Log every plan suggestion daily from opening night (moves, verdicts, win probability, injury estimates and ESPN's dates) so a ledger can grade them later. Build before Oct 20.
+2. **Accountability ledger logging (built 2026-09-26).** Starts writing `ledger/*.jsonl` on Oct 19. After the first run confirm files appear and are committed.
 3. **Alerts timers.** cron-job.org jobs (check every 20 min 8:00-22:40; daily 8:30; weekly 9:30), all seven days, show HTTP 204 and a new "Phone alerts (ntfy)" run in GitHub Actions. `alerts/SETUP.md` has the steps.
 4. **Breakout ledger freeze** happens automatically on Oct 20 (`freeze_breakout_ledger.py` via the daily task): confirm the file exists in `data/breakout_ledger/` afterwards.
 5. **DFS projections.** Run `probe_dfs_projections.py` on a game day, read the saved HTML in `data/dfs_probe/`, write the DraftKings parser (league points = 1.206 x DK), log `dk_proj` next to ESPN's in `projection_log.csv`.
+
+5b. **CONFIRM WAIVER BEHAVIOR (Tommy's suspicion, 2026-09-26).** ESPN settings suggest every dropped player sits on a one-day waiver, so there may be no true free agents and adds become claims that take effect the next day (planning on Sunday for Monday of the next matchup). Check ESPN's settings page / first drop. If true, activate the waiver-mode plan (not built yet: claims effective next day, Sunday lookahead plan, backup claims).
+5c. **Playoff odds.** `dashboard/playoff_odds.json` is wrong until rosters are final (preseason teams incomplete); after the first full week check the This week card looks sane.
 
 ## B. What to look at on opening night and the first week (and what "good" looks like)
 6. **ESPN's real matchup calendar.** Compare with our assumption (6-day opener, all other weeks 7 days except one 14-day All-Star matchup #17, playoffs Mar 8-28). Yahoo's calendar has a second 14-day matchup in Week 7 (NBA Cup, Nov 30-Dec 13) and playoffs Mar 15-Apr 4. If ESPN differs, update `LENGTHS` in `build_week_plan.py` and `build_schedule_plan.py`.
