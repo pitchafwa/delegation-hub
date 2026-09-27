@@ -56,8 +56,8 @@ def norm(n):
     return re.sub(r"\s+", " ", re.sub(r"[^a-z ]", "", n.lower())).strip()
 
 
-# ---------- calendar (ESPN 2026-27 matchup dates are an ASSUMPTION until in-season: 6-day opener, 7-day weeks, one 14-day All-Star matchup #17)
-LENGTHS = [6] + [7] * 15 + [14] + [7] * 2 + [7] * 3
+# ---------- calendar (confirmed against ESPN's real scoreboard 2026-09-27: 6-day opener, 7-day weeks, one 14-day All-Star matchup #18 = Feb 15-28)
+LENGTHS = [6] + [7] * 16 + [14] + [7] * 4      # confirmed vs ESPN's real scoreboard 2026-09-27: the 14-day All-Star week is matchup 18 (Feb 15-28), not 17
 BOUNDS, _d = [], SEASON_START
 for _i, _n in enumerate(LENGTHS, start=1):
     BOUNDS.append((_i, _d, _d + timedelta(days=_n - 1)))

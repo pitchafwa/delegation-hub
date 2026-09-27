@@ -27,7 +27,7 @@ HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
 SEASON_START = date(2026, 10, 20)
 SLOTS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
 CAP_PER_7 = 40.0
-LENGTHS = [6] + [7] * 15 + [14] + [7] * 2 + [7] * 3
+LENGTHS = [6] + [7] * 16 + [14] + [7] * 4      # confirmed vs ESPN's real scoreboard 2026-09-27: the 14-day All-Star week is matchup 18 (Feb 15-28), not 17
 PLAYOFF_WEEKS = (20, 21, 22)
 FIX = {"PHL": "PHI", "NY": "NYK", "SA": "SAS", "GS": "GSW", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS", "PHO": "PHX", "BRK": "BKN", "CHO": "CHA"}
 OUT_STATUS = ("OUT", "INJURY_RESERVE", "SUSPENSION")
@@ -195,7 +195,7 @@ for t in wp["teams"]:
                      "x4": round(n4 - avg_next4, 1), "xp": round(npo - avg_play, 1), "flags": flags})
     active = [p for p in r]
     raw_proj = {w: week_points(active, w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
-    wa = {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if CAL[int(k) - 1]["days"] == 7 and int(k) not in (1, 17)}
+    wa = {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if CAL[int(k) - 1]["days"] == 7 and int(k) not in (1, 18)}
     anchors = sorted(wa)[-3:]
     if anchors:       # BLEND (backtested: beats the raw solver, MAE 178 vs 207 one week ahead): real scoring in recent full weeks x how much lighter/heavier the target week is
         ratios = {w: sum(wa[a] * raw_proj[w] / max(week_points(active, a), 1.0) for a in anchors) / len(anchors) for w in raw_proj}
