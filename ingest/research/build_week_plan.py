@@ -669,8 +669,9 @@ try:
 except Exception as ex:                        # never let this break the plan
     print("usage flow unavailable:", repr(ex))
 
-# ---------- MATCHUP: opponent defense (overall + by position), opponent missing production, opponent back-to-back (matchup_context.py,
-# matchup_model.json; RESEARCH_gamelevel.md -- a small, honestly-tested effect that rides on top of the level above, day by day, by real opponent).
+# ---------- MATCHUP: opponent defense (overall + by position), opponent missing production, opponent back-to-back, and this specific matchup's
+# expected pace -- e.g. two fast teams meeting (matchup_context.py, matchup_model.json; RESEARCH_gamelevel.md -- a small, honestly-tested effect
+# that rides on top of the level above, day by day, by real opponent).
 MATCHUP = {"enabled": False, "n_teams": 0}
 try:
     import matchup_context as MC
@@ -691,6 +692,7 @@ try:
         hp = hub_by_id.get(pl.get("hub_id"))
         nsp = (hp.get("next_season_proj") if hp and hp.get("kind") == "current" else (hp.get("rookie_proj") if hp else None)) if hp else None
         pos = UF.pos_probs(nsp["REB"] * 36, nsp["AST"] * 36, nsp["BLK"] * 36, nsp["STL"] * 36, nsp.get("FG3M", 0) * 36) if nsp and (nsp.get("MIN") or 0) > 0 else (1 / 3, 1 / 3, 1 / 3)
+        own_tm = team_matchup.get(pl["team"])
         mb = {}
         for d in plan_days:
             opp_team = opponent(pl["team"], d)
@@ -702,7 +704,8 @@ try:
             posdef = pos[0] * tm["fpC"] + pos[1] * tm["fpF"] + pos[2] * tm["fpG"]
             missing = team_missing_now.get(opp_team, league_avg_missing)
             b2b_opp = bool(plays(opp_team, d) and plays(opp_team, d - timedelta(days=1)))
-            adj = MC.adjustment(drtg_opp=tm["drtg"], posdef_opp=posdef, missing_opp=missing, b2b_opp=b2b_opp)
+            exp_pace = MC.expected_pace(own_tm["pace"], tm["pace"]) if own_tm else None
+            adj = MC.adjustment(drtg_opp=tm["drtg"], posdef_opp=posdef, missing_opp=missing, b2b_opp=b2b_opp, exp_pace=exp_pace)
             if abs(adj) >= 0.15:
                 mb[d.isoformat()] = round(adj, 2)
         if mb:

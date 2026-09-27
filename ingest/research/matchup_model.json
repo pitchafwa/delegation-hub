@@ -1,20 +1,23 @@
 {
- "note": "fp adjustment = sum(coef[c] * (value[c] - league_avg[c])); a fully neutral matchup (opponent at league-average defense/health, no b2b) gives 0 by construction. Fit on 2010-11..2024-25 using ONLY player-level box-score math (no team OREB/DREB split), matching what build_matchup_context.py can compute live. Rides on top of the site's own baseline (ESPN/DELCO) -- NOT a standalone projection.",
+ "note": "fp adjustment = sum(coef[c] * (value[c] - league_avg[c])); a fully neutral matchup (opponent at league-average defense/health, no b2b, league-average expected pace) gives 0 by construction. exp_pace is the MULTIPLICATIVE combination of both teams' pace relative to league average (pace_own * pace_opp / league_avg_pace), not a simple average -- two fast teams meeting should compound, not split the difference back toward the mean (see team_pace_followup.py / test_kalman_possession_gamelevel.py, 2026-09-27). Fit on 2010-11..2024-25 using ONLY player-level box-score math (no team OREB/DREB split), matching what build_matchup_context.py can compute live. Rides on top of the site's own baseline (ESPN/DELCO) -- NOT a standalone projection.",
  "coef": {
-  "drtg_td_opp": 0.04122930113992509,
-  "opp_pos_def_td": 0.0048676172909274526,
-  "opp_missing_fp": 0.006759377645993368,
-  "b2b_opp": 0.4746826572416906
+  "drtg_td_opp": 0.021582081460823695,
+  "opp_pos_def_td": 0.007003050683672405,
+  "opp_missing_fp": 0.007157465231947471,
+  "b2b_opp": 0.46869662919762967,
+  "exp_pace": 0.05043274250899877
  },
  "league_avg": {
-  "drtg_td_opp": 95.71735607034853,
-  "opp_pos_def_td": 95.46724663163357,
-  "opp_missing_fp": 87.90401767235056,
-  "b2b_opp": 0.2017150153522913,
-  "drtg": 95.71735607034853,
-  "fpC": 54.225962910170864,
-  "fpF": 96.34164744397533,
-  "fpG": 113.2649836446115
+  "drtg_td_opp": 95.69530433499706,
+  "opp_pos_def_td": 95.45731051395298,
+  "opp_missing_fp": 87.83974891025846,
+  "b2b_opp": 0.201856827098645,
+  "exp_pace": 110.03317304648765,
+  "drtg": 96.32296954719307,
+  "fpC": 98.88036863092269,
+  "fpF": 169.99211076574213,
+  "fpG": 193.98118596938852,
+  "pace": 109.5218565309277
  },
  "cap": 2.5
 }

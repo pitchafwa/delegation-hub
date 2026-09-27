@@ -75,6 +75,17 @@ g["drtg_td_opp"] = [lookup(se, d, o, "drtg") for se, d, o in zip(g.season, g.dat
 g["pace_td_own"] = [lookup(se, d, t, "pace") for se, d, t in zip(g.season, g.date_s, g.team)]
 g["pace_td_opp"] = [lookup(se, d, o, "pace") for se, d, o in zip(g.season, g.date_s, g.opp)]
 
+# league-average pace per season, on the SAME simple player-box proxy scale as pace_td_own/opp above (team_box_features.pkl's tb.poss uses the
+# PROPER NBA pace formula with the OREB adjustment, a genuinely different scale -- mixing the two here was a real bug: it distorted exp_pace below
+# and produced a nonsensical negative coefficient on first fit). Full-season (not to-date) proxy table per season -- a stable normalizing constant.
+full_season_tables = {}
+for sea in seasons:
+    s_full = g[g.season == sea]
+    pos_lookup_full = TD.player_position_mix(s_full, min_gp=5)
+    full_season_tables[sea] = TD.team_defense_table(s_full, pos_lookup_full)
+league_avg_pace_by_season = {sea: t.pace.mean() for sea, t in full_season_tables.items()}
+g["league_avg_pace"] = g.season.map(league_avg_pace_by_season)
+
 
 def posdef_for_row(se, d, o, pC, pF, pG):
     tbl = all_tables.get(se, {}).get(d)
@@ -87,29 +98,33 @@ def posdef_for_row(se, d, o, pC, pF, pG):
 POS = pd.read_pickle(GL / "player_pos.pkl")
 g = g.join(POS, on=["pid", "season"])
 g["opp_pos_def_td"] = [posdef_for_row(se, d, o, pC, pF, pG) for se, d, o, pC, pF, pG in zip(g.season, g.date_s, g.opp, g.pC, g.pF, g.pG)]
-g["exp_pace"] = (g.pace_td_own + g.pace_td_opp) / 2
+# expected pace for THIS matchup -- multiplicative combination of each team's pace ratio to league average, not a simple average: a raw team pace
+# is already dragged toward the mean by whatever mix of fast/slow opponents it happened to face, so two fast teams meeting should compound faster
+# than a simple average implies (Tommy's correction, 2026-09-27 -- matches the standard tempo-prediction approach in e.g. KenPom's college hoops
+# methodology). Confirmed on DELCO's real Kalman engine (test_kalman_possession_gamelevel.py) to give a real ~0.4% game-level RMSE improvement when
+# used as a genuinely-forecastable exposure input; wired in here as an additive covariate instead of rebuilding the whole per-stat engine.
+g["exp_pace"] = g.pace_td_own * g.pace_td_opp / g.league_avg_pace
 
 miss = pd.read_pickle(GL / "team_missing.pkl")
 g = g.merge(miss.rename(columns={"team": "opp", "DATE_D": "DATE_D_m"}), left_on=["opp", "season", "DATE_D"], right_on=["opp", "season", "DATE_D_m"], how="left")
 
 ROT = g[(g.n_prior >= 10) & (g.min_td >= 15)].dropna(
-    subset=["fp_per_min_td", "pace_td_own", "pace_td_opp", "drtg_td_opp", "opp_pos_def_td", "opp_missing_fp"]).copy()
+    subset=["fp_per_min_td", "pace_td_own", "pace_td_opp", "drtg_td_opp", "opp_pos_def_td", "opp_missing_fp", "exp_pace"]).copy()
+ROT = ROT.sort_values(["pid", "season", "date"])
+ROT["b2b_opp"] = ROT.b2b_opp_flag.fillna(0)
 print(f"\n{len(ROT)} rotation player-games with a full trailing baseline and opponent context (shared-math version)")
 
-# rate basis: fp per 100 "pace-proxy" possessions, using the SAME proxy as production
-tb_pace_by_gid = tb.set_index("GAME_ID").poss.to_dict() if "GAME_ID" in tb.columns else {}
-ROT["fp_rate100"] = ROT.fp / (ROT.exp_pace * ROT["min"] / 48.0) * 100     # to-date exp_pace as the per-player-possession denominator proxy for the RATE itself too (keeps one consistent proxy throughout)
-gk2 = ROT.groupby(["pid", "season"])
-ROT = ROT.sort_values(["pid", "season", "date"])
-ROT["fp_rate100_td"] = ROT.groupby(["pid", "season"]).apply(lambda d: (d.fp / (d.exp_pace * d["min"] / 48.0) * 100).shift(1).expanding().mean()).reset_index(level=[0, 1], drop=True)
-ROT = ROT.dropna(subset=["fp_rate100_td"])
-ROT["exp_player_poss"] = ROT.exp_pace * ROT.min_td / 48.0
-ROT["pred_perposs_fc"] = ROT.fp_rate100_td * ROT.exp_player_poss / 100
-ROT["dev"] = ROT.fp - ROT.pred_perposs_fc
-ROT["b2b_opp"] = ROT.b2b_opp_flag.fillna(0)
+# PRODUCTION baseline: a plain per-minute trailing forecast (fp_per_min_td * min_td), with NO pace-scaling built in -- this is what build_week_plan.py
+# actually rides on top of (ESPN/DELCO's own per-game level), unlike pred_perposs_fc above which already bakes exp_pace into its exposure term. All
+# five coefficients (including exp_pace) are fit against THIS baseline's residual so exp_pace's coefficient captures its real, standalone effect
+# rather than "how much does the already-pace-scaled baseline over/undershoot" (which is what a fit against pred_perposs_fc's residual would give --
+# confirmed by a first attempt: that fit produced a nonsensical NEGATIVE exp_pace coefficient, because the baseline had already absorbed almost all
+# of the real effect, leaving only a small overshoot correction behind).
+ROT["pred_minute_fc"] = ROT.fp_per_min_td * ROT.min_td
+ROT["dev"] = ROT.fp - ROT.pred_minute_fc
 
 print(f"final panel: {len(ROT)} rows")
-COLS = ["drtg_td_opp", "opp_pos_def_td", "opp_missing_fp", "b2b_opp"]
+COLS = ["drtg_td_opp", "opp_pos_def_td", "opp_missing_fp", "b2b_opp", "exp_pace"]
 LEAGUE_AVG = {c: float(ROT[c].mean()) for c in COLS}
 mu, sd = ROT[COLS].mean(), ROT[COLS].std().replace(0, 1)
 m = Ridge(alpha=3.0).fit((ROT[COLS] - mu) / sd, ROT.dev)
@@ -120,7 +135,7 @@ ROT["adj"] = sum(coef[c] * (ROT[c] - LEAGUE_AVG[c]) for c in COLS)
 print(ROT.adj.describe())
 print("check: mean adjustment should be ~0 by construction:", round(ROT.adj.mean(), 4))
 
-# quick honest re-check: leave-one-season-out RMSE, baseline vs +context, on this rebuilt (shared-math) panel
+# quick honest re-check: leave-one-season-out RMSE, baseline (plain per-minute trailing forecast) vs +context, on this rebuilt (shared-math) panel
 def loso():
     errs_base, errs_full = [], []
     for s_ in ROT.season.unique():
@@ -130,18 +145,30 @@ def loso():
         mu_, sd_ = tr[COLS].mean(), tr[COLS].std().replace(0, 1)
         mm = Ridge(alpha=3.0).fit((tr[COLS] - mu_) / sd_, tr.dev)
         pred = mm.predict((te[COLS] - mu_) / sd_)
-        errs_full.append((te.fp - (te.pred_perposs_fc + pred)).values)
-        errs_base.append((te.fp - te.pred_perposs_fc).values)
+        errs_full.append((te.fp - (te.pred_minute_fc + pred)).values)
+        errs_base.append((te.fp - te.pred_minute_fc).values)
     return np.sqrt(np.mean(np.concatenate(errs_base) ** 2)), np.sqrt(np.mean(np.concatenate(errs_full) ** 2))
 
 
 rb, rf = loso()
 print(f"\nheld-out (leave-one-season-out) RMSE, rebuilt shared-math panel: baseline {rb:.4f}  +context {rf:.4f}")
 
+# extra shrink-target defaults for build_matchup_context.py: typical (full-season, all-teams-all-seasons) values for each raw column, used to blend
+# a team's current-season-to-date numbers toward before it has enough games this season to trust on its own. Reuses the full-season tables already
+# built above for league_avg_pace_by_season.
+FULL = pd.concat(full_season_tables.values())
+extra_avg = {"drtg": float(FULL.drtg.mean()), "fpC": float(FULL.fpC_pg.mean()), "fpF": float(FULL.fpF_pg.mean()), "fpG": float(FULL.fpG_pg.mean()),
+             "pace": float(FULL.pace.mean())}
+LEAGUE_AVG.update(extra_avg)
+print("shrink-target defaults:", {k: round(v, 3) for k, v in extra_avg.items()})
+
 model = {
-    "note": "fp adjustment = sum(coef[c] * (value[c] - league_avg[c])); a fully neutral matchup (opponent at league-average defense/health, no b2b) "
-            "gives 0 by construction. Fit on 2010-11..2024-25 using ONLY player-level box-score math (no team OREB/DREB split), matching what "
-            "build_matchup_context.py can compute live. Rides on top of the site's own baseline (ESPN/DELCO) -- NOT a standalone projection.",
+    "note": "fp adjustment = sum(coef[c] * (value[c] - league_avg[c])); a fully neutral matchup (opponent at league-average defense/health, no b2b, "
+            "league-average expected pace) gives 0 by construction. exp_pace is the MULTIPLICATIVE combination of both teams' pace relative to "
+            "league average (pace_own * pace_opp / league_avg_pace), not a simple average -- two fast teams meeting should compound, not split the "
+            "difference back toward the mean (see team_pace_followup.py / test_kalman_possession_gamelevel.py, 2026-09-27). Fit on 2010-11..2024-25 "
+            "using ONLY player-level box-score math (no team OREB/DREB split), matching what build_matchup_context.py can compute live. Rides on top "
+            "of the site's own baseline (ESPN/DELCO) -- NOT a standalone projection.",
     "coef": coef, "league_avg": LEAGUE_AVG, "cap": 2.5,
 }
 json.dump(model, open(Path(__file__).resolve().parent / "matchup_model.json", "w"), indent=1)

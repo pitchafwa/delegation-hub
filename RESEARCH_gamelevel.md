@@ -80,3 +80,40 @@ pace change (sd 0.023 in the pace ratio, i.e. about 2-3%) -- trades and signings
 just isn't much for this mechanism to correct. RMSE for team-changers: 0.1490 (flat) vs 0.1488 (pace-adjusted) -- essentially no difference. It DOES
 help slightly for players who stayed on the same team (0.1165 -> 0.1135), a small general-purpose gain independent of team-change, but the specific
 "does switching to per-possession fix team-change dynamics" idea does not pan out. Script: `team_pace_followup.py`.
+
+## Would converting DELCO's real engine to possessions help? (2026-09-27, at Tommy's request)
+Tommy asked to verify this against DELCO's ACTUAL Kalman engine (not a proxy) before touching production. Non-destructive test
+(`test_kalman_possession_pts.py`, `test_kalman_possession_gamelevel.py` -- no production file modified): refit PTS's real filter twice, identical
+methodology, one tracking points-per-minute (today's approach) and one points-per-possession (real per-game team pace joined in), then compared
+both on real, out-of-sample 2023-24+ games.
+- Season-level rank correlation (the same metric DELCO's real params were validated on): no real difference (per-minute 0.799 vs per-possession
+  0.795 Spearman vs real 2023-24 rates -- per-minute even marginally ahead).
+- Game-level RMSE, oracle (real minutes/pace, hindsight): no real difference (5.558 vs 5.558).
+- Game-level RMSE, forecast (trailing minutes; for possessions, this SPECIFIC matchup's expected pace -- both teams' trailing pace, known before
+  tip-off): a real, small improvement, 6.952 -> 6.924 RMSE (~0.4%) -- matching the Part 1/2 proxy findings almost exactly.
+**Verdict: the gain is real but small, and it comes entirely from knowing a matchup's expected pace in advance -- not from the possession basis
+itself.** Converting the whole engine (refitting all 8 rate-tracked stats, changing the observation model, piping real-time team pace into
+production) is a lot of engineering for a ~0.4% game-level gain. Not implemented.
+
+### Correction to the pace-combination math (Tommy, 2026-09-27)
+Both `gamelevel_study.py`'s original `exp_pace` and my first pass at the Kalman test used a SIMPLE AVERAGE of two teams' trailing pace,
+`(pace_own + pace_opp) / 2`. Tommy correctly flagged this as wrong (the same issue known in tempo prediction, e.g. KenPom's college-basketball
+methodology): a team's raw trailing pace is already dragged toward the league mean by whatever mix of fast/slow opponents it happened to face, so
+two genuinely fast teams meeting should compound faster than a simple average implies. Fixed to the standard multiplicative form: each team's pace
+expressed as a ratio to league average, then multiplied together and rescaled -- `exp_pace = pace_own * pace_opp / league_avg_pace` -- so two teams
+each ~8% faster than average now combine to ~17% faster (matching real numbers below), not ~8%. Re-ran the Kalman game-level forecast test with the
+corrected formula; the ~0.4% result above already reflects the fix.
+
+## Implementation: matchup-pace term (2026-09-27)
+Rather than rebuild DELCO's engine for a 0.4% gain, added expected matchup pace as a fifth term to the ALREADY-SHIPPED matchup adjustment above
+(same mechanism as opponent defense/positional-defense/missing-production/back-to-back -- one more small additive nudge, no engine changes).
+`matchup_fit_final.py` refit all five coefficients against a plain per-minute trailing baseline (`fp_per_min_td * min_td`, no pace-scaling built in)
+instead of the possession-scaled baseline used for the original four -- this matters specifically for `exp_pace`: fitting it against a baseline that
+already bakes in a pace-scaled exposure term only measures whether that built-in scaling over/undershoots (a first attempt this way produced a
+nonsensical NEGATIVE coefficient), not pace's real standalone effect. Refit on the correct, production-matching baseline: `exp_pace` coefficient
++0.050 fp per unit above/below league-average expected pace (a sensible, positive sign -- faster expected game, more production), held-out
+(leave-one-season-out) RMSE 12.798 -> 12.748 (~0.4%, matching the DELCO-engine test above). Wired in: `matchup_context.py` (`expected_pace()`,
+`adjustment(..., exp_pace=...)`), `build_matchup_context.py` (now also computes/shrinks each team's own trailing pace into `team_matchup.json`),
+`build_week_plan.py` (combines the player's own team's pace with each day's real opponent's pace via `expected_pace()`). Sanity check: two teams each
++8% faster than average now project a ~+0.9 fp bump for that specific matchup (vs a neutral ~0 for two average teams) -- capped at +-2.5 fp/game like
+the other terms.

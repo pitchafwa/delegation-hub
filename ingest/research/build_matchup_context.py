@@ -1,6 +1,7 @@
-"""Builds dashboard/team_matchup.json: each NBA team's trailing defensive rating (points allowed per 100 pace-proxy possessions) and defense
-allowed by position (fp allowed to point-guard-style / forward-style / center-style scorers this season). Feeds the matchup adjustment
-(matchup_context.py, matchup_model.json, RESEARCH_gamelevel.md) that build_week_plan.py applies per day based on that day's actual opponent.
+"""Builds dashboard/team_matchup.json: each NBA team's trailing defensive rating (points allowed per 100 pace-proxy possessions), defense allowed
+by position (fp allowed to point-guard-style / forward-style / center-style scorers this season), and trailing pace (used to derive a specific
+matchup's expected pace, e.g. two fast teams meeting -- see matchup_context.expected_pace()). Feeds the matchup adjustment (matchup_context.py,
+matchup_model.json, RESEARCH_gamelevel.md) that build_week_plan.py applies per day based on that day's actual opponent.
 
 Early in the season (or if a team's current-season table can't be built yet) each figure shrinks toward the trained LEAGUE AVERAGE (matchup_model.
 json) rather than a prior season's real numbers -- there is no reliable live source for last season's opponent pairings once the schedule file
@@ -53,7 +54,7 @@ for t in ALL_TEAMS:
     n = float(table.loc[t, "n_games"]) if (len(table) and t in table.index) else 0.0
     w = min(n, BLEND_GAMES) / BLEND_GAMES
     row = {}
-    for col, avg_key in [("drtg", "drtg"), ("fpC_pg", "fpC"), ("fpF_pg", "fpF"), ("fpG_pg", "fpG")]:
+    for col, avg_key in [("drtg", "drtg"), ("fpC_pg", "fpC"), ("fpF_pg", "fpF"), ("fpG_pg", "fpG"), ("pace", "pace")]:
         c_ = float(table.loc[t, col]) if (len(table) and t in table.index and pd.notna(table.loc[t, col])) else None
         row[avg_key] = (w * c_ + (1 - w) * LG[avg_key]) if c_ is not None else LG[avg_key]
     row["n_games_current"] = n
