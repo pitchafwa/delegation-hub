@@ -112,3 +112,24 @@ def ramp_summary(expected_absence):
     r = RAMP.get(key) or next(iter(RAMP.values()))
     g = lambda k: r[str(k)] if str(k) in r else r[k]
     return dict(first=g(1)["minutes"], early=g(3)["minutes"], later=g(8)["minutes"], play_rate=g(8)["played"], fp_later=g(8)["fp"])
+
+
+def ramp_ratio(total_out, games_since_return):
+    """Fraction of his normal level he's expected to produce this many real games into a return, given a total absence of this many games
+    (injury_return_model.json's 'ramp': ~1,000 real returns, two absence-length bins). 1.0 (no discount) once he's played through the tracked
+    window, or if the absence was under 5 games (too short for a measurable effect in this data)."""
+    if total_out is None or total_out < 5 or games_since_return is None or games_since_return < 1:
+        return 1.0
+    bin_ = "5-9" if total_out < 10 else "10-24"
+    r = RAMP.get(bin_)
+    if not r:
+        return 1.0
+    ks = sorted(int(k) for k in r)
+    if games_since_return >= ks[-1]:
+        return r[str(ks[-1])]["fp"]
+    lo = max(k for k in ks if k <= games_since_return)
+    hi = min((k for k in ks if k > games_since_return), default=lo)
+    if hi == lo:
+        return r[str(lo)]["fp"]
+    frac = (games_since_return - lo) / (hi - lo)
+    return r[str(lo)]["fp"] + frac * (r[str(hi)]["fp"] - r[str(lo)]["fp"])

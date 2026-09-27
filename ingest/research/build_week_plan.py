@@ -247,9 +247,12 @@ def make_player(p, on_roster_slot=None):
 
 
 def level_on(pl, d):
-    """projected points per game on date d: sportsbook-prop-derived when we have it for that day, else the base level"""
+    """projected points per game on date d: sportsbook-prop-derived when we have it for that day, else the base level; discounted by the
+    post-return ramp if he is still shaking off a recent long absence (ramp_by_date, set below)"""
     iso = d.isoformat()
-    return pl.get("lvl_by_date", {}).get(iso, pl["level"] + pl.get("boost", {}).get(iso, 0.0))
+    base = pl.get("lvl_by_date", {}).get(iso, pl["level"] + pl.get("boost", {}).get(iso, 0.0))
+    r = pl.get("ramp_by_date", {}).get(iso)
+    return base * r if r is not None else base
 
 
 def p_play(pl, d):
@@ -491,6 +494,65 @@ for _pl in [x for rr in rosters.values() for x in rr] + fa_players:
         except Exception:
             _pl["avail_state"] = None
 
+# ---------- POST-RETURN RAMP: a player who missed 5+ games gives less than his normal level for his first several games back
+# (injury_return_model.json's "ramp", ~1,000 real returns). Applies to anyone currently ACTIVE who is still inside that window; a player
+# still OUT right now is not touched here (his return is handled by the injury advisor separately, below).
+try:
+    import injury_advisor as IA_R
+except Exception as _ex:
+    IA_R = None
+    print("post-return ramp unavailable (injury_advisor import failed):", _ex)
+_ramp_team_dates = {}
+try:
+    for _ds, _gl in json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))["games"].items():
+        if _ds <= today.isoformat():
+            for _g in _gl:
+                for _t in _g[:2]:
+                    if _t != "TBD":
+                        _ramp_team_dates.setdefault(canon(_t), []).append(_ds)
+    for _t in _ramp_team_dates:
+        _ramp_team_dates[_t].sort()
+except Exception as _ex:
+    print("post-return ramp: schedule unavailable:", _ex)
+_n_ramping = 0
+if IA_R is not None and AV is not None:
+    for _pl in [x for rr in rosters.values() for x in rr] + fa_players:
+        if _pl["status"] != "ACTIVE" or _pl.get("ir"):
+            continue
+        _tdates = _ramp_team_dates.get(_pl["team"]) or []
+        if len(_tdates) < 6:
+            continue
+        try:
+            _dates = AV.game_dates(_pl["espn_id"])
+        except Exception:
+            _dates = None
+        if not _dates:
+            continue
+        _since, _i = 0, len(_tdates) - 1
+        while _i >= 0 and _dates.get(_tdates[_i], 0) > 0:
+            _since += 1
+            _i -= 1
+        if _since == 0 or _since > 10:                  # currently out (handled elsewhere), or it's been 10+ games: fully ramped
+            continue
+        _absent = 0
+        while _i >= 0 and _dates.get(_tdates[_i], 0) == 0:
+            _absent += 1
+            _i -= 1
+        if _absent < 5:
+            continue
+        _rb, _k = {}, _since
+        for _d in plan_days:
+            if plays(_pl["team"], _d):
+                _k += 1
+                _rr = IA_R.ramp_ratio(_absent, _k)
+                if abs(_rr - 1.0) >= 0.02:
+                    _rb[_d.isoformat()] = round(_rr, 3)
+        if _rb:
+            _pl["ramp_by_date"] = _rb
+            _pl["ramp_note"] = f"back from a {_absent}-game absence, {_since} game{'s' if _since != 1 else ''} in — still ramping up"
+            _n_ramping += 1
+print(f"post-return ramp: {_n_ramping} player(s) currently ramping up from a long absence")
+
 # ---------- USAGE FLOW: when a rotation player is out, his teammates pick up his production (usage_flow.py; 14 seasons of box scores, tested out of time on 2024-26).
 # Adds a per-day boost to every teammate's level (rostered players and free agents alike), so lineups, adds, drops and timing all see it.
 USAGE = {"enabled": False, "absent": 0, "boosted": 0}
@@ -644,10 +706,10 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
                 best_move = (net, dr, wk)
         if best_move and best_move[0] >= MIN_NET_GAIN:
             g, dr, wk = best_move
-            moves.append({"add": {"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
+            moves.append({"add": {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
                                   "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
                                   "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                          "drop": ({"form": dr.get("form"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
+                          "drop": ({"form": dr.get("form"), "ramp": dr.get("ramp_note"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                           "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
     moves.sort(key=lambda x: -x["gain"])
     # greedy sequence: apply the best move, re-evaluate the rest against the new roster (moves interact: two adds can't fill the same idle slot)
@@ -677,10 +739,10 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
         r2 = [p for p in r2 if p is not dr] + [f]
         cur += wk
         used.add(f["espn_id"])
-        seq.append({"add": {"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
+        seq.append({"add": {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
                             "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
                             "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
-                    "drop": ({"form": dr.get("form"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
+                    "drop": ({"form": dr.get("form"), "ramp": dr.get("ramp_note"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                     "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1), "by_day": by_day})
     return moves, seq
 
@@ -887,7 +949,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -918,7 +980,7 @@ def build_stash():
         if f["level"] < 18 or not f["team"]:
             continue
         hp = hub_player(_p.playerId, _p.name)
-        row = {"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "out_now": bool(out_now),
+        row = {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "out_now": bool(out_now),
                "age": hp.get("age") if hp else None, "asset": round(asset5(hp), 1), "asset_rank": f["asset_rank"], "market_rank": hp.get("market_rank") if hp else None, "kind": f.get("kind")}
         if out_now:
             group, tier = IA.classify(info) if info else ("other", "moderate")
@@ -997,7 +1059,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
+       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
 # form records are exported once (out["form"], keyed by normalised name); every player dict carries just the key
