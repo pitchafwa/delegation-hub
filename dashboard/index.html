@@ -1442,7 +1442,7 @@ function pcHtml(P){
     rdHtml=`<div class="pcSec"><div class="pcH">Redraft (rest of season)</div>
       <div class="statline g4">${pcTile('<b>#'+rd.rank+'</b>',"Rank")}${pcTile(rd.ppg.toFixed(1)+`<span class="hint"> / ${rd.espn_ppg.toFixed(1)}</span>`,'PPG (ours/ESPN)')}${pcTile(rd.vor.toLocaleString(),'VOR')}${pcTile(rd.exp_gp.toFixed(0)+'/'+rd.g_rem,'Games left')}</div>
       <div class="statline g4" style="margin-top:.35rem">${pcTile(rd.mkt!=null?'#'+rd.mkt:'—','Market rank')}${pcTile(rd.pts90.toLocaleString(),'90th pct pts')}${pcTile(rd.l10!=null?rd.l10.toFixed(1):'—','Last 10 avg')}${pcTile(rd.own!=null?rd.own.toFixed(0)+'%':'—','Owned (ESPN)')}</div>
-      ${rd.g&&rd.g.length?`<div style="margin-top:.4rem">${rdSpark(rd,180,36)}</div>`:''}</div>`;
+      ${rd.g&&rd.g.length?`<div style="margin-top:.5rem">${rdChart(rd,440,220)}<div class="note" style="margin-top:.3rem">Bars: last 10 games (green above his projection, red well below); line: 3-game rolling average; dashed bars: projection for the next 3 games with the 80% range shaded.${rd.gs&&RD&&RD.season_now&&rd.gs!==RD.season_now?` <b>These are ${esc(rd.gs)} games (last season).</b>`:''}</div></div>`:''}</div>`;
   }
   // ---- Dynasty
   let dyHtml='';
@@ -1450,7 +1450,7 @@ function pcHtml(P){
     const assetK=h.asset_k?h.asset_k[5]:null;
     dyHtml=`<div class="pcSec"><div class="pcH">Dynasty${h.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}</div>
       <div class="statline g4">${pcTile(assetK!=null?`<b>${assetK.toFixed(0)}</b>`:'—','Asset (5 keepers)')}${pcTile(h.market_rank!=null?'#'+h.market_rank:'—','Market rank')}${pcTile(h.year0_ppg!=null?h.year0_ppg.toFixed(1):'—','Proj PPG')}${pcTile(h.peak_ppg!=null?h.peak_ppg.toFixed(1):'—','Peak PPG')}</div>
-      ${h.trajectory?`<div style="margin-top:.4rem">${sparkline(h.trajectory)}</div>`:''}
+      ${h.trajectory?`<div style="margin-top:.5rem">${trajChart(h.trajectory,oppCost(K),h.anchor_year,h.history_years||[],h.history_values||[],h.ceil_path||null,440,220)}</div>`:''}
       ${h.p_break!=null?`<div class="note" style="margin-top:.3rem">Breakout chance <b>${(h.p_break*100).toFixed(0)}%</b>${h.brk_tier?' ('+h.brk_tier+')':''}</div>`:''}</div>`;
   }
   // ---- Injury
