@@ -89,3 +89,39 @@ Result: Irving, Lillard, VanVleet, Kessler, Murray, Haliburton and Lively are no
 Cutting tiers across ALL rotation players therefore put almost every top scorer in Typical-or-worse. Tier cut points are now the quantiles among 24+ mpg regulars (Low bottom 15%, Below typical next 20%, Typical 30%, Elevated 20%, High top 15%;
 cuts at 33%, 40%, 49%, 60% chance), so tiers answer "how injury-prone is he compared with the players I am choosing between". Among the top 100 projected scorers the tiers now split 4 / 15 / 30 / 19 / 23 (9 unrated),
 and the top 50 still lean high because the busiest players and those returning from big injuries (Irving, Lillard, Haliburton, VanVleet) are genuinely the most exposed. The Redraft board had been showing tiers from before the rebuild; all three tabs now read the same numbers.
+
+## 7. Re-test: does health-confirmed injury detail improve the projection itself? (2026-09-27, at Tommy's request)
+**Question.** The original career-value discount (kalman_vor.py note) was rejected because a smooth games-missed curve mislabeled a normal rookie
+season (Cooper Flagg) the same as a real Achilles-recovery season (Jayson Tatum). Now that health-confirmed injury data exists (only real
+injury/illness Out/Doubtful listings, gated to genuine rotation players), does adding it -- type, severity tier, recurring-injury flag, games missed
+for it -- to the projection actually help, and does it fix the mislabeling? `injury_discount_retest.py`.
+
+**Accuracy: no measurable gain.** Leave-one-season-out (2023-24..2025-26 outcome years, ~1,000 player-seasons), predicting next season's ANY-reason
+missed-games fraction (what actually costs a fantasy manager games):
+| Model | AUC (25%+ missed) | RMSE |
+|---|---|---|
+| A: current production (games-missed history, age, minutes) | 0.675 | 0.2223 |
+| B: A + 1 year health-confirmed miss, severity mix, recurring flag | 0.672 | 0.2227 |
+| C: A + 2 years health-confirmed history + severity + recurring | 0.672 | 0.2223 |
+Adding the injury detail does not improve on plain games-missed history -- same conclusion as the original build (`build_injury_risk.py`'s note that
+injury details didn't help the SEASON-LEVEL prediction), now confirmed with the better health-confirmed measure and detail (tier, recurring) as well.
+
+**The mislabeling problem is already fixed -- but by yesterday's tier rebuild, not by this.** Searching for real rotation-caliber players with a big
+ANY-reason miss but a near-zero HEALTH-confirmed miss (the Flagg/Tatum-shaped case) turns up nothing but one-game cameos (Isaiah Mobley, Ron Harper
+Jr. -- GP 1, "99% missed", 0% health-confirmed): exactly the players yesterday's `rotation_now()` gate (20+ games at 15+ mpg in one of the last two
+seasons) already excludes from getting a tier at all. Once a player is a genuine full-season rotation player, there is essentially no real population
+of "missed a lot of games for a normal, non-injury reason" left to confuse with real injuries -- rest and coach's-decision absences for real rotation
+players are rare next to real injuries. So the specific failure mode that killed the original discount is gone, but not because of adding injury
+detail to the projection -- it's because the injury TIER (already shipped, shown as a flag) now uses the right measure and the right gate.
+The reverse check (big health-confirmed miss) found real, serious cases with the expected shape: Barnes, Hendricks, Edey, Murray, McCain, G.
+Williams, Robinson, Morant -- all 56-100% major-tier share.
+
+**Covid (2020-21).** Cannot be tested directly: the official injury report data used everywhere in this project starts December 2021, so 2020-21
+predates it entirely -- there is no way to tell a covid-protocol absence from an injury or a rest day that season from this data. Indirect check:
+does that season's games-missed history predict the FOLLOWING season (2021-22) any worse than other year-pairs predict theirs? AUC 0.651, squarely
+inside the normal range across 13 seasons (0.632-0.700) -- no sign that season's history is unusually noisy or misleading as a predictor, consistent
+with Tommy's hunch that covid absences didn't leave a lasting mark, though this is indirect and the direct question is simply unanswerable with the
+data available. Moot in practice either way: only 2022-23+ feeds the health-confirmed tier, so 2020-21 never enters it.
+
+**Recommendation: do not fold this into the projections.** No accuracy gain in a real out-of-sample test, and the problem it would have fixed is
+already fixed elsewhere. The injury tier stays a visible flag, as originally decided.
