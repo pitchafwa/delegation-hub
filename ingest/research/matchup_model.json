@@ -1,0 +1,20 @@
+{
+ "note": "fp adjustment = sum(coef[c] * (value[c] - league_avg[c])); a fully neutral matchup (opponent at league-average defense/health, no b2b) gives 0 by construction. Fit on 2010-11..2024-25 using ONLY player-level box-score math (no team OREB/DREB split), matching what build_matchup_context.py can compute live. Rides on top of the site's own baseline (ESPN/DELCO) -- NOT a standalone projection.",
+ "coef": {
+  "drtg_td_opp": 0.04122930113992509,
+  "opp_pos_def_td": 0.0048676172909274526,
+  "opp_missing_fp": 0.006759377645993368,
+  "b2b_opp": 0.4746826572416906
+ },
+ "league_avg": {
+  "drtg_td_opp": 95.71735607034853,
+  "opp_pos_def_td": 95.46724663163357,
+  "opp_missing_fp": 87.90401767235056,
+  "b2b_opp": 0.2017150153522913,
+  "drtg": 95.71735607034853,
+  "fpC": 54.225962910170864,
+  "fpF": 96.34164744397533,
+  "fpG": 113.2649836446115
+ },
+ "cap": 2.5
+}

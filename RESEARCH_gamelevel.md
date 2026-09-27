@@ -56,3 +56,27 @@ already captured via play probability); opponent back-to-back is worth including
 defense to date, positional defense to date, opponent missing production for that day, opponent b2b) into `build_week_plan.py`'s daily level
 computation, the same way usage-flow and the post-return ramp already work. Scripts: `pull_team_gamelogs_full.py`, `gamelevel_study.py`; intermediate
 data in `ingest/research/data/gamelevel/`.
+
+## Implementation (2026-09-27)
+Built and wired in. `team_defense_shared.py` (pace-proxy possessions, drtg, positional-defense-allowed -- all from player-level box scores only, so
+training and live production compute it identically), `matchup_fit_final.py` (refit the model on that shared math; held-out RMSE 12.659 -> 12.607,
+matching the original research), `matchup_context.py` (the small module `build_week_plan.py` calls), `matchup_model.json` (fitted coefficients +
+league averages, committed to the repo), `build_matchup_context.py` (LOCAL daily refresh only -- needs real game logs via nba_api, not available in
+GitHub Actions -- writes `dashboard/team_matchup.json`, shrinking every team toward the league average until it has real games this season, rather
+than trying to reconstruct last season's opponent pairings live). `build_week_plan.py` applies it as `matchup_by_date`, added into `level_on()`
+alongside the existing usage-flow boost, using the real opponent for each day (`opponent()`, a new small addition next to `plays()`) and the
+already-live "who is out today, league-wide" data the usage-flow section builds. A small "M+/-" badge shows on the roster table (This week) with the
+full breakdown in its tooltip. Own-team back-to-back was excluded (tested, no real effect on the conditional rate -- see the research above); the
+per-possession rate BASIS was not wired into the live level system (a smaller, separate refinement -- see the pace follow-up below) -- only the
+opponent-context adjustment shipped this pass.
+
+## Pace follow-up (2026-09-27, at Tommy's request): team-to-team pace, not just year-to-year
+Confirmed with real numbers: team pace varies a lot cross-sectionally (fastest vs. slowest team in a season typically 6-10 pace points apart, not
+the ~3 the single-GAME "expected pace" figure in Part 1 suggested -- that number was diluted by averaging two random opponents together) and is
+sticky (year-to-year team correlation 0.4-0.7; within a season, just 5 games already correlates 0.81 with the rest of the season, rising to 0.89 by
+20 games). But testing the specific hypothesis that this could auto-correct for a team change (converting a player's per-minute rate through his
+old and new team's actual pace, instead of assuming a flat per-minute rate): it does NOT help. Real team-to-team moves involve only a small typical
+pace change (sd 0.023 in the pace ratio, i.e. about 2-3%) -- trades and signings aren't systematically routed toward extreme pace changes -- so there
+just isn't much for this mechanism to correct. RMSE for team-changers: 0.1490 (flat) vs 0.1488 (pace-adjusted) -- essentially no difference. It DOES
+help slightly for players who stayed on the same team (0.1165 -> 0.1135), a small general-purpose gain independent of team-change, but the specific
+"does switching to per-possession fix team-change dynamics" idea does not pan out. Script: `team_pace_followup.py`.

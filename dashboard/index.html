@@ -1112,7 +1112,7 @@ function renderWeek(){
   const irHtml=irm.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and IR moves · ${T.roster_spots.non_ir}/${T.roster_spots.of} roster spots, ${T.roster_spots.ir_used}/${T.roster_spots.ir_of} IR</div>
     <div class="irBox">${irm.map(m=>`<div class="irRow">${irLine(m)}</div>`).join('')}${unlock&&unlock.unlocks>0.5?`<div class="note" style="margin-top:.4rem">Making these moves and then using the freed spots is worth about <b>+${unlock.unlocks.toFixed(0)} points</b> this week compared with leaving them as they are (the plan and adds below already assume the moves are made).</div>`:''}</div>`:'';
   const daysHdr=M.planned_days.map(shortDay);
-  const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${pc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.official?` <span class="liveStatus" title="official NBA injury report designation for today${p.avail_state?' · '+({first:'first day listed',played:'played his last game',missed:'missed his last game'})[p.avail_state]:''}">${esc(p.official)}</span>`:(p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'')}${formTag(p.form)}${rampTag(p.ramp)}</td>
+  const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${pc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.official?` <span class="liveStatus" title="official NBA injury report designation for today${p.avail_state?' · '+({first:'first day listed',played:'played his last game',missed:'missed his last game'})[p.avail_state]:''}">${esc(p.official)}</span>`:(p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'')}${formTag(p.form)}${rampTag(p.ramp)}${matchupTag(p.matchup)}</td>
       <td style="text-align:left">${esc(p.team)}</td><td style="text-align:left">${p.slots.filter(x=>x!=='UT').join('/')}</td><td class="num">${p.level}</td><td style="text-align:left;white-space:nowrap">${formCell(p.form)}</td><td class="num">${p.protected?'<span class="hint" title="never suggested as a drop">keep</span> ':''}${p.asset_rank?'#'+p.asset_rank:'<span class="hint">—</span>'}</td>
       <td style="text-align:left;font-family:'IBM Plex Mono',monospace;letter-spacing:.2em">${M.planned_days.map(d=>p.games.includes(d)?'●':'·').join('')}</td></tr>`).join('');
   const wp=T.win_prob!=null?`${(T.win_prob*100).toFixed(0)}%`:'—';
@@ -1230,6 +1230,11 @@ function signalsHtml(T){
     <div class="note" style="margin-top:.5rem">Tested on 2021-24 seasons (out of sample): the reversion model barely beats "normal aging alone" (error ${st.mae_persistence} to ${st.mae_model} pts/g). What holds up: big jumps above expectation fall back a bit (about 2 pts/g); players whose minutes jumped 4+ tend to give some back; big slumps do <b>not</b> reliably rebound, and injury-shortened seasons do <b>not</b> reliably bounce back. Treat these as tie-breakers, not reasons to trade.</div></details>`;
 }
 
+function matchupTag(v){
+  if(v==null||Math.abs(v)<0.15) return '';
+  const sg=(v>0?'+':'')+v.toFixed(1);
+  return ` <span class="liveStatus" style="background:${v>0?'var(--good)':'var(--warn)'};color:#fff" title="Tonight's matchup (opponent defense, positional defense, who they're missing, back-to-back): ${sg} pts vs a neutral opponent">M${sg}</span>`;
+}
 function rampTag(note){
   return note?` <span class="liveStatus" style="background:var(--accent,#5b7cfa);color:#fff" title="${esc(note)}: recent 2025-27 returns from a 5+ game absence gave about 70% of normal in game 1, 85% by games 2-3, 90%+ by game 8-10">RAMP</span>`:'';
 }

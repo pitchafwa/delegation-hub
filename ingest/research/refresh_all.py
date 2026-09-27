@@ -106,6 +106,7 @@ try:
                 run("gamelogs_pull", "pull_recent_gamelogs.py")       # an NBA-site hiccup just means no new games today; the model chain is skipped
                 run("gamelogs_unify", "build_game_logs.py")
                 run("form_split", "build_form_split.py")             # "why is he hot": non-critical; the weekly plan ignores a form file older than 4 days
+                run("matchup_context", "build_matchup_context.py")   # opponent defense/positional-defense for the matchup adjustment; non-critical
             grew = (D / "game_logs_unified.csv").stat().st_size != games_before
             if grew or FULL:
                 run("kalman_inputs", "prep_kalman_input.py", critical=True)
@@ -145,7 +146,7 @@ try:
     else:
         def git(*g):
             return subprocess.run(["git", *g], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        git("add", "dashboard/redraft_data.json", "dashboard/form_split.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
+        git("add", "dashboard/redraft_data.json", "dashboard/form_split.json", "dashboard/team_matchup.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
             "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json")
         if git("diff", "--cached", "--quiet").returncode == 0:
             say("nothing changed: no commit")

@@ -148,22 +148,33 @@ print(f"matchup {mp_id}: {mp_start}..{mp_end} ({n_days} days), cap {cap:.1f}, ad
 
 # NBA schedule for the matchup (+ the day before, for back-to-back detection)
 games = {}     # date -> {team: iso tipoff}
+opp_of = {}    # date -> {team: opponent abbrev} (for the matchup-context adjustment: who is he actually facing that day)
 for d in [days[0] - timedelta(days=1)] + days:
     try:
         j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard", params={"dates": d.strftime("%Y%m%d")}, timeout=30).json()
     except Exception:
         j = {}
     g = {}
+    o = {}
     for ev in j.get("events", []):
-        for c in ev["competitions"][0]["competitors"]:
+        comp = ev["competitions"][0]["competitors"]
+        abs_ = [canon(c["team"].get("abbreviation")) for c in comp if c["team"].get("abbreviation")]
+        for c in comp:
             ab = c["team"].get("abbreviation")
             if ab:
                 g[canon(ab)] = ev["date"]
+        if len(abs_) == 2:
+            o[abs_[0]], o[abs_[1]] = abs_[1], abs_[0]
     games[d] = g
+    opp_of[d] = o
 
 
 def plays(team, d):
     return canon(team) in games.get(d, {})
+
+
+def opponent(team, d):
+    return opp_of.get(d, {}).get(canon(team))
 
 
 def b2b(team, d):
@@ -251,6 +262,7 @@ def level_on(pl, d):
     post-return ramp if he is still shaking off a recent long absence (ramp_by_date, set below)"""
     iso = d.isoformat()
     base = pl.get("lvl_by_date", {}).get(iso, pl["level"] + pl.get("boost", {}).get(iso, 0.0))
+    base += pl.get("matchup_by_date", {}).get(iso, 0.0)
     r = pl.get("ramp_by_date", {}).get(iso)
     return base * r if r is not None else base
 
@@ -657,6 +669,50 @@ try:
 except Exception as ex:                        # never let this break the plan
     print("usage flow unavailable:", repr(ex))
 
+# ---------- MATCHUP: opponent defense (overall + by position), opponent missing production, opponent back-to-back (matchup_context.py,
+# matchup_model.json; RESEARCH_gamelevel.md -- a small, honestly-tested effect that rides on top of the level above, day by day, by real opponent).
+MATCHUP = {"enabled": False, "n_teams": 0}
+try:
+    import matchup_context as MC
+    team_matchup = json.load(open(HUB / "team_matchup.json", encoding="utf-8"))["teams"]
+    all_pl_mu = [x for rr in rosters.values() for x in rr] + fa_players
+    # opponent's missing rotation production right now, league-wide (reuses the usage-flow roster/absence lists when they built successfully)
+    team_missing_now = {}
+    try:
+        for a_ in absent:
+            p_out = 1.0 if a_["status0"] == "Out" else (0.5 if a_["status0"] in ("Doubtful", "Questionable") else a_.get("p_today", 0.0))
+            tm_, pp_ = tp_by_key[a_["id"]]
+            team_missing_now[tm_] = team_missing_now.get(tm_, 0.0) + p_out * pp_["fp"]
+    except NameError:
+        pass       # usage-flow didn't build (e.g. ESPN rosters unavailable that run): matchup still works, just without the "opponent missing" piece
+    league_avg_missing = MC.LEAGUE_AVG["opp_missing_fp"]
+    n_mu = 0
+    for pl in all_pl_mu:
+        hp = hub_by_id.get(pl.get("hub_id"))
+        nsp = (hp.get("next_season_proj") if hp and hp.get("kind") == "current" else (hp.get("rookie_proj") if hp else None)) if hp else None
+        pos = UF.pos_probs(nsp["REB"] * 36, nsp["AST"] * 36, nsp["BLK"] * 36, nsp["STL"] * 36, nsp.get("FG3M", 0) * 36) if nsp and (nsp.get("MIN") or 0) > 0 else (1 / 3, 1 / 3, 1 / 3)
+        mb = {}
+        for d in plan_days:
+            opp_team = opponent(pl["team"], d)
+            if not opp_team:
+                continue
+            tm = team_matchup.get(opp_team)
+            if not tm:
+                continue
+            posdef = pos[0] * tm["fpC"] + pos[1] * tm["fpF"] + pos[2] * tm["fpG"]
+            missing = team_missing_now.get(opp_team, league_avg_missing)
+            b2b_opp = bool(plays(opp_team, d) and plays(opp_team, d - timedelta(days=1)))
+            adj = MC.adjustment(drtg_opp=tm["drtg"], posdef_opp=posdef, missing_opp=missing, b2b_opp=b2b_opp)
+            if abs(adj) >= 0.15:
+                mb[d.isoformat()] = round(adj, 2)
+        if mb:
+            pl["matchup_by_date"] = mb
+            n_mu += 1
+    MATCHUP = {"enabled": True, "n_teams": len(team_matchup), "n_players": n_mu}
+    print("matchup context:", MATCHUP)
+except Exception as ex:
+    print("matchup context unavailable:", repr(ex))
+
 # ---------- sportsbook player props (optional): market projections for today/tomorrow, converted to league scoring
 props_meta = {"enabled": False}
 ODDS_KEY = os.environ.get("ODDS_API_KEY")
@@ -965,7 +1021,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
