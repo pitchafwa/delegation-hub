@@ -125,3 +125,21 @@ data available. Moot in practice either way: only 2022-23+ feeds the health-conf
 
 **Recommendation: do not fold this into the projections.** No accuracy gain in a real out-of-sample test, and the problem it would have fixed is
 already fixed elsewhere. The injury tier stays a visible flag, as originally decided.
+
+## 8. Follow-up: does an injury affect PRODUCTION RATE (not just games played)? (2026-09-27)
+Tommy's real question was narrower than section 7's test: not "does he play fewer games" but "does he come back worse, per minute, than before" --
+separate from playing time. Tested directly (`injury_production_retest.py`): 498 player-seasons where the player was rotation-caliber (20+ mpg,
+40+ GP) in BOTH a season and the next one (so this isn't just injured players losing minutes/role showing up as a rate drop in disguise), predicting
+next season's fantasy points per minute from this season's rate plus injury severity/timing/recurrence features.
+
+**No effect, in any cut of the data.** Leave-one-season-out RMSE gets slightly WORSE adding injury features (0.1280 -> 0.1285 -> 0.1292) -- same
+non-result as games missed. Players with a real (5+ game) health-confirmed absence had almost the same rate change as those without (+0.0125 vs
++0.0289, both improvements -- injured players were not worse). Severity didn't separate them either (minor +0.0133, mostly-major +0.0199). Whether
+the injury was still unresolved at season's end vs healed with time to spare showed a small directional difference (+0.0094 vs +0.0189) but both
+positive and the gap is well inside noise at this sample size. **Tommy's specific scenario -- a short, non-major injury resolved with time to spare
+in the offseason -- showed the LARGEST rate increase of any group (+0.0323), not a decline.** No evidence a player is docked for a minor injury
+resolved well before the following season; if anything the data leans the other way (small sample, likely just noise, but the direction is
+reassuring, not concerning).
+
+**Combined verdict (sections 7 + 8): injury detail doesn't improve either half of the projection** -- not games missed, not production rate when
+playing. Recommendation stands: keep the injury tier as a visible flag; do not fold it into the core Kalman/asset-value numbers.

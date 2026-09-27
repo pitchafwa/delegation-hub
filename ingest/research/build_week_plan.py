@@ -505,7 +505,7 @@ except Exception as _ex:
 _ramp_team_dates = {}
 try:
     for _ds, _gl in json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))["games"].items():
-        if _ds <= today.isoformat():
+        if SEASON_START.isoformat() <= _ds <= today.isoformat():           # hard floor at this season's opener: a return ramp never reaches back into last season, however the schedule file is scoped
             for _g in _gl:
                 for _t in _g[:2]:
                     if _t != "TBD":
@@ -514,6 +514,31 @@ try:
         _ramp_team_dates[_t].sort()
 except Exception as _ex:
     print("post-return ramp: schedule unavailable:", _ex)
+
+
+def _ramp_streak(tdates, dates):
+    """Scan backward through this SEASON's team games only. Returns (games_since_return, absence_len) for the most recent absence of 5+
+    games, treating any shorter gap (a single rest day, etc.) as a blip that does not reset the streak -- only stops counting further back
+    at a genuine 5+ game absence. (None, None) if he hasn't had one, or is out right now."""
+    n = len(tdates)
+    if n == 0 or dates.get(tdates[-1], 0) <= 0:            # out right now: handled by the injury advisor, not here
+        return None, None
+    i = n - 1
+    while i >= 0:
+        if dates.get(tdates[i], 0) > 0:
+            i -= 1
+            continue
+        j = i
+        while j >= 0 and dates.get(tdates[j], 0) <= 0:
+            j -= 1
+        gap = i - j
+        if gap >= 5:
+            since = sum(1 for k in range(j + 1, n) if dates.get(tdates[k], 0) > 0)
+            return since, gap
+        i = j                                              # short gap: see through it, keep scanning
+    return None, None
+
+
 _n_ramping = 0
 if IA_R is not None and AV is not None:
     for _pl in [x for rr in rosters.values() for x in rr] + fa_players:
@@ -528,17 +553,8 @@ if IA_R is not None and AV is not None:
             _dates = None
         if not _dates:
             continue
-        _since, _i = 0, len(_tdates) - 1
-        while _i >= 0 and _dates.get(_tdates[_i], 0) > 0:
-            _since += 1
-            _i -= 1
-        if _since == 0 or _since > 10:                  # currently out (handled elsewhere), or it's been 10+ games: fully ramped
-            continue
-        _absent = 0
-        while _i >= 0 and _dates.get(_tdates[_i], 0) == 0:
-            _absent += 1
-            _i -= 1
-        if _absent < 5:
+        _since, _absent = _ramp_streak(_tdates, _dates)
+        if _since is None or _since == 0 or _since > 10 or _absent < 5:
             continue
         _rb, _k = {}, _since
         for _d in plan_days:
