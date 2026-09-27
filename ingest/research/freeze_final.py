@@ -27,7 +27,7 @@ with open(ROOT / "data" / "kalman_fit_TD3.json") as f:
 
 artifact = {
     "version": "2.0.0",
-    "name": "Delegation League Dynasty Valuation Model",
+    "name": "DELCO (Delegation League Composite)",
     "supersedes": "layer_a_model.frozen.json (v1.0.0, single blended additive model)",
     "fit_date": "2026-09-18",
     "architecture": "DARKO-style: one Kalman filter per box-score stat (game-level "

@@ -277,7 +277,7 @@ Market gap shown as market rank minus our asset rank: + = we rank him HIGHER tha
 - **Backtest the weekly planner** on 2025-26 weeks (what would its lineups/adds have scored vs what teams scored).
 - **Per-game projection source:** none found free + permitted (FantasyPros needs an account/terms bar republishing; DFF is DK points only; DARKO daily page not live; The Odds API props cost $30/mo, declined). Shadow-log (projection_log.csv) compares sources; revisit DARKO when live. Interim: ESPN blended with last 15 games.
 - **Phase 2 of start/sit:** schedule-aware roster planning, lock-time/late-swap reminders, playoff-week planner.
-- **Daily refresh of the valuation model itself** (needs local game logs; not workable in GitHub Actions as-is) and a name for the DARKO-style model.
+- **Daily refresh of the valuation model itself** (needs local game logs; not workable in GitHub Actions as-is). Named **DELCO** (2026-09-27).
 - **Draft history as a second "market price"** next to ESPN ADP; real keeper flags once ESPN records them.
 
 ## Roadmap from the strategy review (added 2026-09-26; full tactic list in STRATEGY_PLAYBOOK.md)
