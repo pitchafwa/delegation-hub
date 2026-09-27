@@ -1238,8 +1238,9 @@ function formTag(f,always){
   if(!f||f.d==null) return '';
   if(Math.abs(f.d)<3&&!always) return '';
   const sg=v=>(v>0?'+':'')+v.toFixed(1);
-  const chips=(f.chips||[]).filter(c=>Math.abs(c.v)>=1).map(c=>`${esc(c.k)} ${sg(c.v)} <i>(${esc(c.p)})</i>`).join(' · ');
-  return `<div class="frm ${f.d>=0?'hot':'cold'}" title="Last 10 games vs his previous 365 days. Each piece is weighted by how much of it has lasted historically (tested 2024-27 out of sample): minutes and volume mostly last, shooting luck mostly fades."><b>${f.d>=0?'▲':'▼'} ${sg(f.d)}</b> vs baseline, about <b>${sg(f.keep)}</b> should last${chips?': '+chips:''}${f.adj?` <span class="hint">· level ${f.adj>0?'raised':'lowered'} ${Math.abs(f.adj).toFixed(1)}</span>`:''}</div>`;
+  const chips=(f.chips||[]).filter(c=>Math.abs(c.v)>=1).map(c=>`${esc(c.k)} ${sg(c.v)} (${esc(c.p)})`).join(' · ');
+  const tip=`Last 10 games vs his previous 365 days: ${sg(f.d)}, about ${sg(f.keep)} should last${chips?' — '+chips:''}${f.adj?`. Level ${f.adj>0?'raised':'lowered'} ${Math.abs(f.adj).toFixed(1)}.`:''} (minutes/volume mostly last; shooting luck mostly fades)`;
+  return ` <span class="liveStatus" style="background:${f.d>=0?'var(--good)':'var(--warn)'};color:#fff" title="${esc(tip)}">${f.d>=0?'▲':'▼'}${Math.abs(f.d).toFixed(0)}</span>`;
 }
 function formCell(f){
   if(typeof f==='string') f=W&&W.form?W.form[f]:null;
@@ -1317,11 +1318,11 @@ function renderRedraft(){
       const chips=f?(f.chips||[]).filter(c=>Math.abs(c.v)>=1).map(c=>`${esc(c.k)} ${rdSg(c.v,1)} <i>(${esc(c.p)})</i>`).join(' · '):'';
       row+=`<tr class="detail"><td colspan="${cols.length}"><div class="detailGrid" style="--lc:330px"><div>
         <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline g4">${tile(p.pts.toLocaleString(),'Proj points')}${tile(p.vor.toLocaleString(),'VOR')}${tile(p.pts90.toLocaleString(),'90th pct')}${tile(p.exp_gp.toFixed(0)+'/'+p.g_rem,'Games (exp/left)')}</div>
-          <div class="note">Projection ${p.ppg.toFixed(1)} a game${p.our?' (DELCO)':' (ESPN; not modelled by DELCO)'} vs ESPN ${p.espn_ppg.toFixed(1)}. Likely range ${p.p10.toFixed(0)}–${p.p90.toFixed(0)} a game (80%).</div></div>
+          <div class="hint" title="Projection source: ${p.our?'DELCO':'ESPN; not modelled by DELCO'}. Likely range is the 80% band around the projection.">Range ${p.p10.toFixed(0)}–${p.p90.toFixed(0)} a game</div></div>
         <div class="simwrap"><div class="lbl">Recent play</div><div class="statline g4">${tile(p.l10!=null?p.l10.toFixed(1):'—','Last 10 avg')}${tile(p.m10!=null?p.m10+' min':'—',dm!=null?'Minutes ('+rdSg(dm,1)+' vs season)':'Minutes')}${tile(p.ppm!=null?p.ppm.toFixed(2):'—','Points/min')}${tile(p.sd!=null?p.sd.toFixed(0):'—','Game-to-game spread')}</div>
           ${f?`<div class="note"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his baseline, about <b>${rdSg(f.keep,1)}</b> should last${chips?': '+chips:''}</span></div>`:'<div class="note hint">The reason-for-form split appears once he has 10 games this season.</div>'}</div>
         <div class="simwrap"><div class="lbl">Schedule and health</div><div class="note">Team games: <b>${p.g7}</b> in the next 7 days · <b>${p.gpo}</b> in the playoff weeks. ${p.status!=='ACTIVE'?`Status <b>${esc(p.status)}</b>${p.games_out?`, about ${p.games_out} games out${p.back?', back about '+p.back.slice(5):''}`:''}.`:'Healthy.'} ${p.inj_missed!=null?`Expected games missed for any reason (injury, rest, coach's decision): about ${p.inj_missed} a year${p.inj_hmissed!=null?`, of which about ${p.inj_hmissed} for injury or illness`:''}.`:''}${p.own!=null?` Owned in ${p.own.toFixed(0)}% of ESPN leagues${p.adp?` · ADP ${p.adp.toFixed(0)}`:''}.`:''}</div></div>
-      </div><div class="dr"><div style="width:100%">${rdChart(p)}<div class="note">Bars: last 10 games (green above his projection, red well below); line: 3-game rolling average; dashed bars: projection for the next 3 games with the 80% range shaded.${p.gs&&RD.season_now&&p.gs!==RD.season_now?` <b>These are ${esc(p.gs)} games (last season).</b>`:''}</div></div></div></div></td></tr>`;
+      </div><div class="dr"><div style="width:100%" title="Bars: last 10 games (green above his projection, red well below). Line: 3-game rolling average. Dashed bars: next 3 games projected, 80% range shaded.">${rdChart(p)}${p.gs&&RD.season_now&&p.gs!==RD.season_now?`<div class="note">These are ${esc(p.gs)} games (last season).</div>`:''}</div></div></div></td></tr>`;
     }
     return row;
   }).join('');
@@ -1445,7 +1446,7 @@ function pcHtml(P){
     rdHtml=`<div class="pcSec"><div class="pcH">Redraft (rest of season)</div>
       <div class="statline g4">${pcTile('<b>#'+rd.rank+'</b>',"Rank")}${pcTile(rd.ppg.toFixed(1)+`<span class="hint"> / ${rd.espn_ppg.toFixed(1)}</span>`,'PPG (ours/ESPN)')}${pcTile(rd.vor.toLocaleString(),'VOR')}${pcTile(rd.exp_gp.toFixed(0)+'/'+rd.g_rem,'Games left')}</div>
       <div class="statline g4" style="margin-top:.35rem">${pcTile(rd.mkt!=null?'#'+rd.mkt:'—','Market rank')}${pcTile(rd.pts90.toLocaleString(),'90th pct pts')}${pcTile(rd.l10!=null?rd.l10.toFixed(1):'—','Last 10 avg')}${pcTile(rd.own!=null?rd.own.toFixed(0)+'%':'—','Owned (ESPN)')}</div>
-      ${rd.g&&rd.g.length?`<div style="margin-top:.5rem">${rdChart(rd,440,220)}<div class="note" style="margin-top:.3rem">Bars: last 10 games (green above his projection, red well below); line: 3-game rolling average; dashed bars: projection for the next 3 games with the 80% range shaded.${rd.gs&&RD&&RD.season_now&&rd.gs!==RD.season_now?` <b>These are ${esc(rd.gs)} games (last season).</b>`:''}</div></div>`:''}</div>`;
+      ${rd.g&&rd.g.length?`<div style="margin-top:.5rem" title="Bars: last 10 games (green above his projection, red well below). Line: 3-game rolling average. Dashed bars: next 3 games projected, 80% range shaded.">${rdChart(rd,440,220)}${rd.gs&&RD&&RD.season_now&&rd.gs!==RD.season_now?`<div class="note">These are ${esc(rd.gs)} games (last season).</div>`:''}</div>`:''}</div>`;
   }
   // ---- Dynasty
   let dyHtml='';
