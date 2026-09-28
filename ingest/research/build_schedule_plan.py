@@ -250,7 +250,14 @@ base_w = {w: week_points(mine, w) for w in REMAIN}
 mine_ir = sum(1 for p in mine if p["ir"])
 stash = []
 _seen_ids = {x["id"] for x in wp.get("stash_pool", [])} | {x["id"] for x in wp.get("fa_pool", [])}
-_dyn = [dict(d, slots=[q for q in d["pos"]] + ["UT"], level=round(FA_ANCHOR + FA_SHRINK * (d["level"] - FA_ANCHOR), 1), out_now=False) for d in (me.get("dynasty_adds") or []) if d["id"] not in _seen_ids and d["level"] > 0]
+# dynasty_adds carries only a real ESPN status, not games_out/back_date (that detail is only tracked for stash_pool/fa_pool) -- so a dynasty prospect
+# who's actually out (e.g. a season-ending injury) can't be safely simulated as if he plays every remaining game. Skip him here rather than assume
+# out_now=False (a real bug found 2026-09-27: this hardcoding is a second way an injured player could slip into the ROS gain calc uncaught, alongside
+# the ESPN-injuries-feed fallback bug in injury_advisor.espn_injuries). He still surfaces under the DYNASTY tag alone, just without a fabricated ROS
+# points estimate on top.
+IR_OK_DYN = ("OUT", "INJURY_RESERVE")
+_dyn = [dict(d, slots=[q for q in d["pos"]] + ["UT"], level=round(FA_ANCHOR + FA_SHRINK * (d["level"] - FA_ANCHOR), 1), out_now=False)
+        for d in (me.get("dynasty_adds") or []) if d["id"] not in _seen_ids and d["level"] > 0 and d.get("status") not in IR_OK_DYN]
 for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", [])), ("fa", _dyn)):
     for x in pool:
         if x["team"] not in heat and canon(x["team"]) not in heat:

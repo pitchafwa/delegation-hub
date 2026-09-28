@@ -74,23 +74,44 @@ def p_back_within(curve, k):
     return curve[-1]
 
 
+_INJ_CACHE = Path(__file__).resolve().parent / "data" / "espn_injuries_cache.json"
+
+
 def espn_injuries():
-    """{espn athlete id: dict(status, type, side, detail, return_date, short, updated)} for every NBA player on ESPN's injury list; {} if the feed is down"""
+    """{espn athlete id: dict(status, type, side, detail, return_date, short, updated)} for every NBA player on ESPN's injury list.
+
+    A transient failure here (timeout, or ESPN returning an unexpectedly empty/malformed feed) used to silently return {} -- which meant EVERY
+    "out" player that build fell back to a generic default absence (no real injury type, no ESPN return date), understating serious injuries like a
+    torn ACL (confirmed 2026-09-27: Jamir Watkins and two others all got the identical 5.8-game fallback the same day the feed came back empty, which
+    is how a season-ending ACL tear ended up recommended as a rest-of-season add). Now falls back to the last successful pull instead of nothing, and
+    says so, so a bad day doesn't quietly wipe out real injury data everywhere it's used."""
+    out = {}
     try:
         j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries", headers=HDR, timeout=30).json()
-    except Exception:
-        return {}
-    out = {}
-    for t in j.get("injuries", []):
-        for x in t.get("injuries", []):
-            href = next((l["href"] for l in x.get("athlete", {}).get("links", []) if "playercard" in l.get("rel", [])), "")
-            m = PLAYER_ID.search(href)
-            if not m:
-                continue
-            d = x.get("details") or {}
-            out[int(m.group(1))] = dict(status=x.get("status"), type=d.get("type"), side=d.get("side"), detail=d.get("detail"), return_date=d.get("returnDate"),
-                                        short=x.get("shortComment") or "", updated=x.get("date"))
-    return out
+        for t in j.get("injuries", []):
+            for x in t.get("injuries", []):
+                href = next((l["href"] for l in x.get("athlete", {}).get("links", []) if "playercard" in l.get("rel", [])), "")
+                m = PLAYER_ID.search(href)
+                if not m:
+                    continue
+                d = x.get("details") or {}
+                out[int(m.group(1))] = dict(status=x.get("status"), type=d.get("type"), side=d.get("side"), detail=d.get("detail"), return_date=d.get("returnDate"),
+                                            short=x.get("shortComment") or "", updated=x.get("date"))
+    except Exception as ex:
+        print(f"ESPN injuries feed request failed ({ex})")
+    if out:
+        try:
+            _INJ_CACHE.write_text(json.dumps(out), encoding="utf-8")
+        except Exception:
+            pass
+        return out
+    print("ESPN injuries feed returned no usable data" + (" -- falling back to the last successful pull" if _INJ_CACHE.exists() else " and no cached copy exists; injury detail will be missing this run"))
+    if _INJ_CACHE.exists():
+        try:
+            return {int(k): v for k, v in json.loads(_INJ_CACHE.read_text(encoding="utf-8")).items()}
+        except Exception:
+            pass
+    return {}
 
 
 def classify(info):
