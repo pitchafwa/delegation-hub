@@ -134,6 +134,14 @@ try:
     import availability_state as AV
 except Exception:
     AV = None
+try:
+    import matchup_context as MC
+    import usage_flow as UF
+    team_matchup = json.load(open(HUB / "team_matchup.json", encoding="utf-8"))["teams"]
+    dates_by_team = {t: set(ds for ds, _, _ in v) for t, v in games_by_team.items()}
+except Exception as ex:
+    MC, team_matchup, dates_by_team = None, {}, {}
+    print("matchup context unavailable for next-3-games chart:", ex)
 form_p = {}
 fp_ = HUB / "form_split.json"
 if fp_.exists():
@@ -211,7 +219,28 @@ for e in raw:
                "sd": round(float(pl.fp.iloc[-25:].std()), 1) if len(pl) >= 8 else None, "n_season": int(len(cur)),
                "s_avg": round(float(cur.fp.mean()), 1) if len(cur) else None, "s_min": round(float(cur["min"].mean()), 1) if len(cur) else None}
     n_played = rec.get("n_season", 0) if rec.get("gs") == season_now and season_now.startswith(str(SEASON_ID - 1)) else 0
-    nxt = [(ds[5:], ("vs " if home else "@") + opp) for ds, opp, home in games_by_team[team] if ds >= t0][:3]
+    nxt_games = [(ds, opp, home) for ds, opp, home in games_by_team[team] if ds >= t0][:3]
+    nxt = [(ds[5:], ("vs " if home else "@") + opp) for ds, opp, home in nxt_games]
+    # per-game adjusted projection for the next-3-games chart: same matchup adjustment (opponent defense, positional defense, back-to-back,
+    # expected pace) build_week_plan.py applies to the daily plan -- "opponent missing production" is skipped here since it needs that script's
+    # live league-wide injury/usage-flow build, not worth duplicating for this chart. Falls back to the flat ppg when matchup data is unavailable.
+    next_proj = None
+    if MC and team_matchup:
+        own_tm = team_matchup.get(team)
+        nsp = (hp.get("next_season_proj") if hp and hp.get("kind") == "current" else (hp.get("rookie_proj") if hp else None)) if hp else None
+        pos = UF.pos_probs(nsp["REB"] * 36, nsp["AST"] * 36, nsp["BLK"] * 36, nsp["STL"] * 36, nsp.get("FG3M", 0) * 36) if nsp and (nsp.get("MIN") or 0) > 0 else (1 / 3, 1 / 3, 1 / 3)
+        next_proj = []
+        for ds, opp, home in nxt_games:
+            tm = team_matchup.get(opp)
+            if not (own_tm and tm):
+                next_proj.append(round(ppg, 1))
+                continue
+            posdef = pos[0] * tm["fpC"] + pos[1] * tm["fpF"] + pos[2] * tm["fpG"]
+            day_before = (date.fromisoformat(ds) - timedelta(days=1)).isoformat()
+            b2b_opp = day_before in dates_by_team.get(opp, set())
+            exp_pace = MC.expected_pace(own_tm["pace"], tm["pace"])
+            adj = MC.adjustment(drtg_opp=tm["drtg"], posdef_opp=posdef, b2b_opp=b2b_opp, exp_pace=exp_pace)
+            next_proj.append(round(ppg + adj, 1))
     fr = form_p.get(key(name))
     s = sigma_ppg(n_played)
     rows.append({"id": p["id"], "name": name, "team": team, "pos": None,
@@ -219,7 +248,7 @@ for e in raw:
                  "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),
                  "inj_tier": hp.get("injury_tier") if hp else None, "inj_missed": hp.get("injury_missed") if hp else None, "inj_hmissed": hp.get("injury_health_missed") if hp else None, "traj": (hp.get("trajectory") or [None])[:3] if hp else None,
-                 "next": nxt, **rec,
+                 "next": nxt, "next_proj": next_proj, **rec,
                  "form": ({"d": fr["d"], "keep": fr["keep"], "chips": fr.get("chips", [])} if fr and "d" in fr else None)})
 
 # ESPN slot ids -> positions (0 PG, 1 SG, 2 SF, 3 PF, 4 C, 5 G, 6 F)
