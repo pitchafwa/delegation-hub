@@ -451,9 +451,14 @@ rosters = {}
 for t in lg.teams:
     rosters[t.team_id] = [make_player(p, p.lineupSlot) for p in t.roster]
 
-fa_players = [make_player(p) for p in lg.free_agents(size=150)]
+fa_players = [make_player(p) for p in lg.free_agents(size=400)]   # matches stash_pool/dyn_pool's pull size (was 150: a real, valuable, healthy
+# free agent could rank outside ESPN's global top-150-by-default-relevance in this specific league and so never surface here at all -- found
+# 2026-09-27 via Jalen Green missing "This week" info on his player card entirely. The later sort-and-trim (see below) also had to widen for the
+# same reason -- 400 alone wasn't enough once he was still getting cut at that later step.
 for _p in fa_players:
-    _p["level"] = round(FA_ANCHOR + FA_SHRINK * (_p["level"] - FA_ANCHOR), 1)
+    _p["level_raw"] = _p["level"]                                             # true level, before the weekly-decision shrink below
+    _p["level"] = round(FA_ANCHOR + FA_SHRINK * (_p["level"] - FA_ANCHOR), 1)  # shrink toward replacement for THIS WEEK's add decision only (see FA_SHRINK's comment) -- a
+                                                                                # long-horizon evaluation (Long-term adds) should use level_raw instead; see build_schedule_plan.py
 fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days)]
 
 
@@ -471,7 +476,7 @@ for _p in lg.free_agents(size=400):
     if _hp and _a >= DYN_MIN_ASSET:
         dyn_pool.append({"id": _p.playerId, "name": _p.name, "team": canon(_p.proTeam or ""), "pos": [x for x in _p.eligibleSlots if x in ("PG", "SG", "SF", "PF", "C")],
                          "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
-                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
+                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1), "level_raw": round(_hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
 dyn_pool.sort(key=lambda x: -x["asset"])
 SEEN_PATH = HUB / "fa_seen.json"
 _seen_old = json.load(open(SEEN_PATH, encoding="utf-8")) if SEEN_PATH.exists() else None
@@ -492,7 +497,9 @@ def week_games(pl):
 
 
 fa_players.sort(key=lambda p: -(p["level"] * week_games(p)))
-fa_players = fa_players[:60]
+fa_players = fa_players[:100]   # widened from 60 (2026-09-27): a real, well-known, healthy scorer (Jalen Green) ranked #87 here purely because ESPN's
+# default free-agent relevance sort for this specific league buried him below other names -- he was getting cut before ever reaching fa_pool/"This
+# week". search_moves()'s per-team simulation is the real cost driver here (O(fa_players x roster drops)), not this trim size itself; 100 stays cheap.
 
 _by_key = {}
 for (_gd, _kk), _st in OFFICIAL.items():
@@ -1051,11 +1058,12 @@ def build_stash():
         if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES:
             continue
         f = make_player(_p)
+        f["level_raw"] = f["level"]                                            # true level, before the weekly-decision shrink -- see build_week_plan.py's fa_players comment
         f["level"] = round(FA_ANCHOR + FA_SHRINK * (f["level"] - FA_ANCHOR), 1)
         if f["level"] < 18 or not f["team"]:
             continue
         hp = hub_player(_p.playerId, _p.name)
-        row = {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "out_now": bool(out_now),
+        row = {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f["level_raw"], "status": f["status"], "out_now": bool(out_now),
                "age": hp.get("age") if hp else None, "asset": round(asset5(hp), 1), "asset_rank": f["asset_rank"], "market_rank": hp.get("market_rank") if hp else None, "kind": f.get("kind")}
         if out_now:
             group, tier = IA.classify(info) if info else ("other", "moderate")
@@ -1134,7 +1142,8 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"], "boost": f.get("boost", {})} for f in fa_players],
+       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "boost": f.get("boost", {}),
+                     "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
 # form records are exported once (out["form"], keyed by normalised name); every player dict carries just the key

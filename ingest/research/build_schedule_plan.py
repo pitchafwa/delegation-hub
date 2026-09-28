@@ -250,13 +250,19 @@ base_w = {w: week_points(mine, w) for w in REMAIN}
 mine_ir = sum(1 for p in mine if p["ir"])
 stash = []
 _seen_ids = {x["id"] for x in wp.get("stash_pool", [])} | {x["id"] for x in wp.get("fa_pool", [])}
+# dynasty_adds carries the real dynasty asset value (asset, asset_rank, market_rank, age) that stash_pool/fa_pool entries don't compute at all -- so a
+# player good enough to appear in BOTH (e.g. a strong starter who happens to be a free agent here) used to lose that data entirely: whichever pool's
+# loop reached him first "won" his row, and if that was stash_pool/fa_pool, his asset/dyn_pts silently stayed at None/0 even though he's clearly a
+# real asset (found 2026-09-27, e.g. Walker Kessler, Ivica Zubac, Nickeil Alexander-Walker, Ryan Rollins all showed up with no asset score). Now
+# looked up by id and merged onto every row, regardless of which pool it came from.
+dyn_by_id = {d["id"]: d for d in (me.get("dynasty_adds") or [])}
 # dynasty_adds carries only a real ESPN status, not games_out/back_date (that detail is only tracked for stash_pool/fa_pool) -- so a dynasty prospect
 # who's actually out (e.g. a season-ending injury) can't be safely simulated as if he plays every remaining game. Skip him here rather than assume
 # out_now=False (a real bug found 2026-09-27: this hardcoding is a second way an injured player could slip into the ROS gain calc uncaught, alongside
 # the ESPN-injuries-feed fallback bug in injury_advisor.espn_injuries). He still surfaces under the DYNASTY tag alone, just without a fabricated ROS
 # points estimate on top.
 IR_OK_DYN = ("OUT", "INJURY_RESERVE")
-_dyn = [dict(d, slots=[q for q in d["pos"]] + ["UT"], level=round(FA_ANCHOR + FA_SHRINK * (d["level"] - FA_ANCHOR), 1), out_now=False)
+_dyn = [dict(d, slots=[q for q in d["pos"]] + ["UT"], out_now=False)
         for d in (me.get("dynasty_adds") or []) if d["id"] not in _seen_ids and d["level"] > 0 and d.get("status") not in IR_OK_DYN]
 for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", [])), ("fa", _dyn)):
     for x in pool:
@@ -264,7 +270,12 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
             continue
         if src == "stash" and x.get("out_now") and not x.get("back_date"):
             continue                                                 # out for the season
-        f = mk(dict(x, ir=False, protected=False, status="ACTIVE"))
+        dd = dyn_by_id.get(x["id"])
+        # the ROS-gain simulation and the displayed level should both use his TRUE level (level_raw), not the shrink meant for THIS WEEK's noisy,
+        # small-sample streaming decisions (FA_SHRINK's backtest was about a single week's realized gain, not a 70-game season -- see FA_SHRINK's
+        # comment in build_week_plan.py; found 2026-09-27 via Jalen Green showing "level" 31.1 here against his real ~37-42 projection elsewhere).
+        level = x.get("level_raw", x["level"])
+        f = mk(dict(x, ir=False, protected=False, status="ACTIVE", level=level))
         if x.get("out_now"):
             f["back"] = x["back_date"]
         to_ir = bool(x.get("out_now")) and x.get("status") in IR_OK_S and mine_ir < 4
@@ -275,9 +286,13 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
         po = sum(g for w, g in gw.items() if w in PLAY)
         n4 = sum(gw[w] for w in NEXT4)
         total_w = reg + PLAYOFF_WT * po
-        stash.append({"form": x.get("form"), "id": x["id"], "name": x["name"], "team": f["team"], "level": x["level"], "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
+        asset = x.get("asset") if x.get("asset") is not None else (dd.get("asset") if dd else None)
+        stash.append({"form": x.get("form"), "id": x["id"], "name": x["name"], "team": f["team"], "level": level, "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
                       "games_out": x.get("games_out"), "back_date": x.get("back_date"), "espn_return": x.get("espn_return"), "p_back_playoffs": x.get("p_back_playoffs"),
-                      "age": x.get("age"), "asset": x.get("asset"), "dyn_pts": round(0.25 * 73 * (max(0.0, (x.get("asset") or 0) - me.get("asset_5th", 0)) + 0.1 * (x.get("asset") or 0))), "asset_rank": x.get("asset_rank"), "market_rank": x.get("market_rank"), "kind": x.get("kind"), "slots": x.get("slots"),
+                      "age": x.get("age") if x.get("age") is not None else (dd.get("age") if dd else None), "asset": asset, "dyn_pts": round(0.25 * 73 * (max(0.0, (asset or 0) - me.get("asset_5th", 0)) + 0.1 * (asset or 0))),
+                      "asset_rank": x.get("asset_rank") if x.get("asset_rank") is not None else (dd.get("asset_rank") if dd else None),
+                      "market_rank": x.get("market_rank") if x.get("market_rank") is not None else (dd.get("market_rank") if dd else None),
+                      "kind": x.get("kind") if x.get("kind") is not None else (dd.get("kind") if dd else None), "slots": x.get("slots"),
                       "gain": round(total_w), "reg": round(reg), "po": round(po), "next4": round(n4), "drop": None if to_ir or not drop else drop["name"], "to_ir": to_ir})
 keep = [e for e in stash if e["gain"] >= 100]       # anyone who adds real points over the rest of the season (near-term ones are also in the suggested moves; the tag is the same)
 keep.sort(key=lambda e: -e["gain"])
