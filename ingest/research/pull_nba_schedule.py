@@ -9,9 +9,10 @@ from pathlib import Path
 
 import requests
 
+from team_abbr import FIX
+
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
-FIX = {"PHL": "PHI", "NY": "NYK", "SA": "SAS", "GS": "GSW", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS", "PHO": "PHX"}
 START, END = date(2026, 10, 20), date(2027, 4, 12)
 games, tv, d = {}, {}, START
 while d <= END:

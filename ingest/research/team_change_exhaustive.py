@@ -59,8 +59,8 @@ GOOD = set(zip(per[GOOD_MASK].pid, per[GOOD_MASK].season))
 
 # ---------------- team quality (win%) per season, from the tanking-study team game log ----------------
 tg = pd.read_csv(D / "tank" / "team_games.csv")
-FIX = {"NOH": "NOP", "NJN": "BKN", "CHO": "CHA", "SEA": "OKC"}
-tg["team"] = tg.TEAM_ABBREVIATION.map(lambda t: FIX.get(t, t))
+from team_abbr import canon
+tg["team"] = tg.TEAM_ABBREVIATION.map(canon)
 tg["win"] = (tg.WL == "W").astype(int)
 WP = tg.groupby(["season", "team"]).win.mean().to_dict()
 

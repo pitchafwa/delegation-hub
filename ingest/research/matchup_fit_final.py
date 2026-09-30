@@ -21,8 +21,8 @@ GL = F.D.parent / "gamelevel"
 
 # ---------------- opponent lookup for every historical game, from the real team box data already pulled (team_box_features.pkl) ----------------
 tb = pd.read_pickle(GL / "team_box_features.pkl")
-FIX = {"NOH": "NOP", "NJN": "BKN", "CHO": "CHA", "SEA": "OKC"}
-tb["team"] = tb.TEAM_ABBREVIATION.map(lambda t: FIX.get(t, t))
+from team_abbr import canon
+tb["team"] = tb.TEAM_ABBREVIATION.map(canon)
 tb["date_s"] = tb.GAME_DATE.dt.strftime("%Y-%m-%d")
 opp_by_team_date = tb.set_index(["team", "date_s"]).opp.to_dict()
 b2b_by_team_date = tb.set_index(["team", "date_s"]).b2b.to_dict()

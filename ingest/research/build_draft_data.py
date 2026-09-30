@@ -22,7 +22,8 @@ from espn_api.basketball import League
 
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
-SEASON_ID = 2027
+from season import current_season_id
+SEASON_ID = current_season_id()
 MY_ABBREV = "DRNK"
 LINEUP = {"PG", "SG", "SF", "PF", "C", "G", "F", "UT"}
 

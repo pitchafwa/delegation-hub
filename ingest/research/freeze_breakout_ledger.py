@@ -19,11 +19,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from season import current_season_str
+
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parent
 D = ROOT / "data"
-OPENER = date(2026, 10, 20)
-SEASON = "2026-27"
+OPENER = date(2026, 10, 20)   # NOT derivable from a formula -- the NBA sets this; update manually each season
+SEASON = current_season_str()
 LEDGER = D / "breakout_ledger"
 LEDGER.mkdir(exist_ok=True)
 csv_path, meta_path = LEDGER / f"{SEASON}.csv", LEDGER / f"{SEASON}.json"

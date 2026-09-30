@@ -30,10 +30,11 @@ BLEND_GAMES = 15          # this-season weight ramps from 0 (pure prior-season/l
 MODEL = json.load(open(Path(__file__).resolve().parent / "matchup_model.json"))
 LG = MODEL["league_avg"]
 
-# The season we're planning FOR, not the most recent one with real games -- matches build_week_plan.py's SEASON_ID (bump both together each year).
-# Deriving this from g.season.unique() instead would be wrong for the whole off-season: right up until opening night, the latest season with any
-# real games is still LAST season, which would make "prior season" (the shrink target below) point two years back instead of one.
-SEASON_ID = 2027
+# The season we're planning FOR, not the most recent one with real games. Deriving this from g.season.unique() instead would be wrong for
+# the whole off-season: right up until opening night, the latest season with any real games is still LAST season, which would make
+# "prior season" (the shrink target below) point two years back instead of one.
+from season import current_season_id
+SEASON_ID = current_season_id()
 season = f"{SEASON_ID - 1}-{str(SEASON_ID)[2:]}"
 prior_season = f"{SEASON_ID - 2}-{str(SEASON_ID - 1)[2:]}"
 
@@ -42,8 +43,7 @@ g["fp"] = F.fp(g)
 print(f"season {season}, through {g[g.season == season].date.max().date() if (g.season == season).any() else 'no games yet'}")
 
 sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))
-FIX = {"NY": "NYK", "SA": "SAS", "GS": "GSW", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS", "PHO": "PHX", "BRK": "BKN", "CHO": "CHA", "PHL": "PHI"}
-canon = lambda t: FIX.get(t, t)
+from team_abbr import canon
 opp_by_team_date = {}
 for ds, gl in sched.get("games", {}).items():
     for a, h, _ in gl:
@@ -65,8 +65,7 @@ if prior_season:
     tb_path = Path(__file__).resolve().parent / "data" / "gamelevel" / "team_box_features.pkl"
     if tb_path.exists():
         tb = pd.read_pickle(tb_path)
-        FIX_TB = {"NOH": "NOP", "NJN": "BKN", "CHO": "CHA", "SEA": "OKC"}
-        tb["team"] = tb.TEAM_ABBREVIATION.map(lambda t: FIX_TB.get(t, t))
+        tb["team"] = tb.TEAM_ABBREVIATION.map(canon)
         tb["date_s"] = tb.GAME_DATE.dt.strftime("%Y-%m-%d")
         opp_by_team_date_prior = tb.set_index(["team", "date_s"]).opp.to_dict()
         prior = g[g.season == prior_season].copy()

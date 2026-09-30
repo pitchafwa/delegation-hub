@@ -33,9 +33,9 @@ from espn_api.basketball.constant import PRO_TEAM_MAP
 sys.stdout.reconfigure(encoding="utf-8")
 ET = ZoneInfo("America/New_York")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
-SEASON_ID = 2027
-FIX = {"PHL": "PHI", "NY": "NYK", "SA": "SAS", "GS": "GSW", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS", "PHO": "PHX", "BRK": "BKN", "CHO": "CHA"}
-canon = lambda t: FIX.get(t, t)
+from season import current_season_id
+SEASON_ID = current_season_id()
+from team_abbr import canon
 today = datetime.now(ET).date()
 SEASON_START = date(2026, 10, 20)
 N_KEEP = 700

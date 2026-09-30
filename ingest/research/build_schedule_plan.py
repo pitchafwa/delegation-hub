@@ -29,13 +29,11 @@ SLOTS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
 CAP_PER_7 = 40.0
 LENGTHS = [6] + [7] * 16 + [14] + [7] * 4      # confirmed vs ESPN's real scoreboard 2026-09-27: the 14-day All-Star week is matchup 18 (Feb 15-28), not 17
 PLAYOFF_WEEKS = (20, 21, 22)
-FIX = {"PHL": "PHI", "NY": "NYK", "SA": "SAS", "GS": "GSW", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS", "PHO": "PHX", "BRK": "BKN", "CHO": "CHA"}
+from team_abbr import canon
 OUT_STATUS = ("OUT", "INJURY_RESERVE", "SUSPENSION")
 RETURN_FACTOR = 0.6      # ASSUMPTION: a player who is OUT now is back for weeks 3+ at 60% of the normal play rate (unknown return dates)
 NEAR_WEEKS = 2           # ...and counts as absent for this many upcoming weeks
 FA_ANCHOR, FA_SHRINK = 22.0, 0.6   # (fa_pool levels in week_plan.json are already shrunk)
-
-canon = lambda t: FIX.get(t, t)
 
 CAL = []
 _d = SEASON_START

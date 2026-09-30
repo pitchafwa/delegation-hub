@@ -30,8 +30,8 @@ tg["win"] = (tg.WL == "W").astype(int)
 final = tg.groupby(["season", "TEAM_ABBREVIATION"]).agg(w=("win", "sum"), gp=("win", "size")).reset_index()
 final["wp"] = final.w / final.gp
 final["rank"] = final.groupby("season")["wp"].rank(method="first").astype(int)      # 1 = worst record that season
-FIX = {"NOH": "NOP", "NJN": "BKN", "CHO": "CHA", "SEA": "OKC"}
-final["team"] = final.TEAM_ABBREVIATION.map(lambda t: FIX.get(t, t))
+from team_abbr import canon
+final["team"] = final.TEAM_ABBREVIATION.map(canon)
 RANKMAP = final.set_index(["season", "team"])["rank"].to_dict()
 GP_SEASON = final.set_index(["season", "team"])["gp"].to_dict()
 
@@ -72,7 +72,7 @@ print("\n=== Availability (share of TEAM's remaining games he plays), last 20 vs
 avail_rows = []
 gp_key = g.set_index(["season", "team", "pid"])
 tg2 = tg.rename(columns={"TEAM_ABBREVIATION": "team_raw"}).copy()
-tg2["team"] = tg2.team_raw.map(lambda t: FIX.get(t, t))
+tg2["team"] = tg2.team_raw.map(canon)
 for (season, pid, team), pl in g.groupby(["season", "pid", "team"], sort=False):
     n = len(pl)
     if n < MIN_GP or pl["min"].mean() < MIN_MPG:

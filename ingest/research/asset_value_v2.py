@@ -156,12 +156,13 @@ if _stale:
 live_age_next = live["AGE"].to_numpy() + 1
 
 from build_breakout_context import situation_features  # noqa: E402
+from team_abbr import FIX as _ABBR_FIX  # noqa: E402
 from team_context import prep_panel, team_context  # noqa: E402
 
 _espn = pd.read_csv(D / "espn_adp.csv")
 _espn = _espn[(_espn["season_id"] == LAST_YR + 2) & _espn["PLAYER_ID"].notna()].copy()
 _espn["PLAYER_ID"] = _espn["PLAYER_ID"].astype(int)
-_espn["abbr"] = _espn["pro_team"].replace({"PHL": "PHI", "PHO": "PHX", "NOR": "NOP", "NO": "NOP"})
+_espn["abbr"] = _espn["pro_team"].replace(_ABBR_FIX)
 _a2id = panel.dropna(subset=["team_id"]).drop_duplicates("team").set_index("team")["team_id"].to_dict()
 _espn["team_id_now"] = _espn["abbr"].map(_a2id)
 _espn = _espn.sort_values("adp").drop_duplicates("PLAYER_ID")

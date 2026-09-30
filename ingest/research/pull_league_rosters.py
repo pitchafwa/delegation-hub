@@ -23,10 +23,12 @@ from espn_api.basketball import League
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 
+from season import current_season_id
+
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parent
 HUB = ROOT.parent.parent / "dashboard"
-SEASON_ID = 2027  # 2026-27
+SEASON_ID = current_season_id()
 
 
 def norm(n):

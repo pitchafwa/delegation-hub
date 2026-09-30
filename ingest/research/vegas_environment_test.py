@@ -15,7 +15,7 @@ import pandas as pd
 
 sys.stdout.reconfigure(encoding="utf-8")
 R = Path(__file__).resolve().parent
-FIX = {"GS": "GSW", "NO": "NOP", "NY": "NYK", "SA": "SAS", "UTAH": "UTA", "WSH": "WAS"}
+from team_abbr import FIX
 
 lg = pd.read_csv(R / "data" / "game_logs_unified.csv", usecols=["PLAYER_ID", "PLAYER_NAME", "SEASON", "GAME_DATE", "TEAM", "MIN", "PTS", "REB", "AST", "STL", "BLK", "TOV", "FG3M", "FTM", "FTA", "TD3"])
 lg["fp"] = lg.PTS + 1.5 * lg.REB + 2 * lg.AST + 3 * lg.STL + 3 * lg.BLK + lg.FG3M + 2 * lg.FTM - lg.FTA - lg.TOV + 3 * lg.TD3

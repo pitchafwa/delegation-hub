@@ -35,19 +35,16 @@ from espn_api.basketball import League
 
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
-SEASON_ID = 2027
+from season import current_season_id
+SEASON_ID = current_season_id()
 SEASON_START = date(2026, 10, 20)          # scoring period 1 (season opener, a Tuesday)
 MY_ABBREV = "DRNK"
 SLOTS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
 CAP_PER_7 = 40.0
 ADDS_PER_DAY = 8 / 7
 WEEK_SD = 253.0                             # measured week-to-week SD of a team's weekly points (2025-26)
-FIX = {"PHL": "PHI", "NY": "NYK", "SA": "SAS", "GS": "GSW", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS", "PHO": "PHX", "BRK": "BKN", "CHO": "CHA"}
+from team_abbr import canon
 ET = ZoneInfo("America/New_York")
-
-
-def canon(t):
-    return FIX.get(t, t)
 
 
 def norm(n):

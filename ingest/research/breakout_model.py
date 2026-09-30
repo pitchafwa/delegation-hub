@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parent
 D = ROOT / "data"
 sys.path.insert(0, str(ROOT))
 from build_breakout_context import load_coach_sets, situation_features  # noqa: E402
+from team_abbr import FIX as ABBR_FIX  # noqa: E402
 
 Q = 32.4
 TOL = 1.0          # the relevance line is a fitted estimate: landing within 1 pt of it counts
@@ -266,7 +267,6 @@ live_all = p[p["yr"] == live_yr].copy()
 espn = adp_all[adp_all["season_id"] == live_yr + 2].copy()
 espn = espn[espn["PLAYER_ID"].notna()].copy()
 espn["PLAYER_ID"] = espn["PLAYER_ID"].astype(int)
-ABBR_FIX = {"PHL": "PHI", "PHO": "PHX", "NOR": "NOP", "NO": "NOP"}
 espn["abbr"] = espn["pro_team"].replace(ABBR_FIX)
 abbr_to_id = p.dropna(subset=["team_id"]).drop_duplicates("team").set_index("team")["team_id"].to_dict()
 espn["team_id_next"] = espn["abbr"].map(abbr_to_id)

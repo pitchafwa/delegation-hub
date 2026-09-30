@@ -10,9 +10,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from season import current_season_str
+
 sys.stdout.reconfigure(encoding="utf-8")
 D = Path(__file__).resolve().parent / "data"
-season = sys.argv[1] if len(sys.argv) > 1 else "2026-27"
+season = sys.argv[1] if len(sys.argv) > 1 else current_season_str()
 Q, TOL = 32.4, 1.0
 led = pd.read_csv(D / "breakout_ledger" / f"{season}.csv")
 b = pd.read_csv(D / "player_season_base.csv")

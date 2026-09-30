@@ -13,8 +13,8 @@ import form_common as F
 
 sys.stdout.reconfigure(encoding="utf-8")
 tb = pd.read_pickle(F.D.parent / "gamelevel" / "team_box_features.pkl")
-FIX = {"NOH": "NOP", "NJN": "BKN", "CHO": "CHA", "SEA": "OKC"}
-tb["team"] = tb.TEAM_ABBREVIATION.map(lambda t: FIX.get(t, t))
+from team_abbr import canon
+tb["team"] = tb.TEAM_ABBREVIATION.map(canon)
 
 season_pace = tb.groupby(["team", "season"]).poss.mean().reset_index()
 print("=== cross-team spread of full-season pace, by season ===")

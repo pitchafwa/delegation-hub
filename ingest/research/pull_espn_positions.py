@@ -40,7 +40,7 @@ TRUE_POS = ["PG", "SG", "SF", "PF", "C"]
 
 # ESPN's own internal team codes differ from the standard NBA abbreviation
 # used everywhere else in this pipeline (player_bio.csv, logo URLs)
-ESPN_TEAM_FIX = {"PHL": "PHI", "PHO": "PHX"}
+from team_abbr import FIX as ESPN_TEAM_FIX
 
 
 def clean_position(eligible_slots, default_position):

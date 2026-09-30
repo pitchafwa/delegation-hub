@@ -45,8 +45,8 @@ df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 df = df.sort_values(["PLAYER_ID", "GAME_DATE"]).reset_index(drop=True)
 
 tb = pd.read_pickle(ROOT / "data" / "gamelevel" / "team_box_features.pkl")
-FIX = {"NOH": "NOP", "NJN": "BKN", "CHO": "CHA", "SEA": "OKC"}
-tb["team"] = tb.TEAM_ABBREVIATION.map(lambda t: FIX.get(t, t))
+from team_abbr import canon
+tb["team"] = tb.TEAM_ABBREVIATION.map(canon)
 tb_idx = tb.set_index(["team", "GAME_DATE"])
 df["team_poss"] = tb_idx["poss"].reindex(pd.MultiIndex.from_arrays([df.TEAM, df.GAME_DATE])).to_numpy()
 df["opp"] = tb_idx["opp"].reindex(pd.MultiIndex.from_arrays([df.TEAM, df.GAME_DATE])).to_numpy()
