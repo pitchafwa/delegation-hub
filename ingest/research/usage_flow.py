@@ -1,10 +1,14 @@
 """Usage flow: how much of a missing rotation player's production lands on each teammate (see RESEARCH_usage_flow.md).
 
-  Delta_j = share_j * ( kappa[tier_j] * V + lambda[tier_j] * Vsim_j )              (fantasy points per game, for teammate j when he plays)
+  Delta_j = share_j * ( kappa[tier_j] * V + lambda[tier_j] * Vsim_j ) + start_bonus_j    (fantasy points per game, for teammate j when he plays)
     V        = sum over absent teammates x of  p_out_x * fp_x                       (fp = fantasy points per game; only x averaging 12+ minutes)
     Vsim_j   = the same sum weighted by positional similarity of x and j (probabilities of playing guard / forward / center, from style)
     share_j  = fp_j^0.5 / sum over teammates i (1 - p_out_i) * fp_i^0.5             (only players averaging 6+ minutes)
     tier_j   = teammate's minutes tier (<15, 15-22, 22-30, 30+ mpg): low-minute players capture the most per share, starters the least
+    start_bonus_j = a flat extra bump (2026-09-30, usage_flow_start_refinement_test.py) when j is CONFIRMED to be inserted into the starting
+      lineup tonight specifically (not just getting more bench run) -- real and additive on top of the share/tier math above, which has no
+      idea whether j starts or not: held-out RMSE improved ~3% by adding it. Only applied when live lineup data says so (see pull_lineups.py);
+      zero otherwise, since "will he start" isn't knowable from anything else already in this model.
 Parameters were fit on 14 seasons of box scores (2010-11 to 2023-24) in usage_flow_study2.py and tested out of sample.
 Also: absence_survival(streak, k) = chance a player who has been out `streak` listings is still out k games later.
 """
@@ -16,6 +20,7 @@ import numpy as np
 _M = json.load(open(Path(__file__).resolve().parent / "usage_flow_model.json"))
 KAPPA, LAM, GAMMA = _M["kappa"], _M["lam"], _M["share_gamma"]
 TIER_MPG = _M["tier_mpg"]
+START_BONUS, START_BONUS_CAP = _M["start_bonus"], _M["start_bonus_cap"]
 _CLASSES = _M["pos_classes"]
 _COEF = np.array(_M["pos_coef"])
 _INT = np.array(_M["pos_intercept"])
@@ -40,6 +45,9 @@ def tier_of(mpg):
 def uplifts(players):
     """players: list of dicts for ONE NBA team on ONE day with keys
          id, fp (baseline fantasy points/game), mpg, pos (pC, pF, pG), p_out (0..1 chance he is out that day)
+         will_start (optional, default None): True if live lineup data confirms he's inserted into tonight's starting five, False if
+           confirmed still bench, None/absent if unknown -- only True adds the flat start_bonus; False and None both add nothing (a
+           confirmed non-start isn't grounds to REDUCE the share/tier-based estimate, since that already reflects his normal role)
        returns {id: expected extra fantasy points per game if he plays}"""
     act = [p for p in players if p["mpg"] >= 6]
     if not act:
@@ -61,7 +69,9 @@ def uplifts(players):
         vtot = V - (j["_pe"] * j["fp"] if (j["mpg"] >= 12 and j["p_out"] > 0) else 0.0)
         t = tier_of(j["mpg"])
         raw = share * (KAPPA[t] * vtot + LAM[t] * vsim)
-        out[j["id"]] = max(0.0, raw * CAL[int(np.searchsorted(CAL_BINS, j["fp"], side="right"))])       # calibrated out of time: the raw model overshoots, most for stars
+        calibrated = max(0.0, raw * CAL[int(np.searchsorted(CAL_BINS, j["fp"], side="right"))])       # calibrated out of time: the raw model overshoots, most for stars
+        bonus = min(START_BONUS_CAP, START_BONUS) if j.get("will_start") is True else 0.0
+        out[j["id"]] = calibrated + bonus
     return out
 
 
@@ -75,13 +85,16 @@ def absence_survival(streak, k):
     return p
 
 
-def plan_boosts(days, team_players, absent, plays, team_game_no, w_recent=0.45):
+def plan_boosts(days, team_players, absent, plays, team_game_no, w_recent=0.45, will_start=None):
     """Expected extra fantasy points per game for every teammate on each day.
        days            list of dates (objects with .isoformat())
        team_players    {team: [dict(id, fp, mpg, pos, name)]} for each NBA team (players who might play)
        absent          list of dict(id, team, status0 'Out'|'Doubtful'|'Questionable', streak int, listed {date_iso: status}, p_today for Q/D)
        plays(team, d)  whether the team plays that day;  team_game_no(team, d) = games the team plays between today and d (0 = today)
+       will_start      optional {id: True/False}, confirmed tonight's starting lineup (see pull_lineups.py) -- only ever known for TODAY
+                        (k==0; that source has no visibility into future days), so it's only consulted there.
        returns {(id, date_iso): {"delta": float, "because": [names]}}"""
+    will_start = will_start or {}
     out = {}
     by_team = {}
     for a in absent:
@@ -119,6 +132,8 @@ def plan_boosts(days, team_players, absent, plays, team_game_no, w_recent=0.45):
                 q = dict(r)
                 p, sk = pmap.get(r["id"], (0.0, 0.0))
                 q["p_out"], q["w"] = p, 1.0 - w_recent * sk
+                if k == 0 and r["id"] in will_start:
+                    q["will_start"] = will_start[r["id"]]
                 pl.append(q)
             up = uplifts(pl)
             names = [r["name"] for r in roster if r["id"] in pmap and r["mpg"] >= 12]

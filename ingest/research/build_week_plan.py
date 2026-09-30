@@ -645,7 +645,24 @@ try:
             streak = max(streak, 8)       # ESPN says out and the report does not list him: a long-term absence
         absent.append({"id": k_, "team": tm_, "status0": status0, "streak": streak, "listed": lst, "p_today": 0.5 if today_st == "Questionable" else 0.0})
     tgn = lambda team, d: sum(1 for dd in plan_days if dd < d and plays(team, dd))
-    boosts = UF.plan_boosts(plan_days, team_players, absent, plays, tgn)
+    # confirmed tonight's starting lineups (pull_lineups.py -- RotoWire, local daily refresh only, same-day only, UNVALIDATED against a real
+    # game as of 2026-09-30, see that file's docstring). Matched by re-normalizing ITS raw names through this file's own norm()/kof(), since
+    # the two files' normalizers don't strip suffixes (Jr/Sr/III) the same way. Fails soft to "no data" like every other live feed here.
+    will_start = {}
+    try:
+        lu = json.load(open(HUB / "lineups_today.json", encoding="utf-8"))
+        if lu.get("has_data"):
+            for team_players_lu in lu["teams"].values():
+                for p_lu in team_players_lu.values():
+                    k_lu = kof(p_lu["name"])
+                    if k_lu in tp_by_key:
+                        will_start[k_lu] = p_lu["starting"]
+            print(f"lineup intel: {len(will_start)} of today's players matched to a confirmed start/bench status")
+        else:
+            print("lineup intel: no data today (real off day, preseason not covered, or fetch/parse failed -- see pull_lineups.py)")
+    except Exception as _ex:
+        print("lineup intel unavailable:", _ex)
+    boosts = UF.plan_boosts(plan_days, team_players, absent, plays, tgn, will_start=will_start)
     nb = 0
     for pl_ in all_pl:
         k_ = kof(pl_["name"])
