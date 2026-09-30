@@ -115,6 +115,7 @@
   .pcH{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
   .pName{cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:2px;transition:text-decoration-color .1s}
   .pName:hover{text-decoration-color:var(--ink-faint)}
+  .pName:focus-visible{text-decoration-color:var(--accent,#5b7cfa);outline:2px solid var(--accent,#5b7cfa);outline-offset:2px;border-radius:2px}
   @media(max-width:640px){
     #playerCard .pcPanel{width:100vw;border-left:0}
     .pcBody{padding:.8rem 1rem 2rem}
@@ -569,6 +570,7 @@ let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
+  if(!traj||!traj.length) return {vor:0, years:0};
   const opp = oppCost(k);
   let total=0, years=0;
   for(const v of traj){ if(v < opp) break; total += v-opp; years++; }
@@ -592,6 +594,7 @@ const yearLabel=(anchorYear,k)=>`'${String(anchorYear+k).slice(-2)}`;
 // off a peak already reached, so a 7-year delta understates how good the
 // near/mid-term climb actually is. The line itself still shows all 7.
 function trajDelta5yr(traj){
+  if(!traj||!traj.length) return 0;
   const base = traj[0] || 1;
   const idx = Math.min(4, traj.length-1);
   return (traj[idx]-traj[0])/base;
@@ -602,6 +605,7 @@ function trajDelta5yr(traj){
 // good, falling = warn) with the peak point marked -- a raw-value sparkline
 // of these mostly-smooth curves looked nearly identical row to row.
 function sparkline(traj, w=56, h=26){
+  if(!traj||!traj.length) return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"></svg>`;
   const base = traj[0] || 1;
   const rel = traj.map(v => v/base);
   const max=Math.max(...rel,1.02), min=Math.min(...rel,0.98);
@@ -770,9 +774,9 @@ function renderHist(){
       <td class="num" data-label="Edge vs ADP">${p.edge_fpg!=null?`<b style="color:${p.edge_fpg>=2?'var(--good)':p.edge_fpg<=-2?'var(--warn)':'inherit'}">${sg(p.edge_fpg)}</b>`:'<span class="hint">—</span>'}</td>
       <td class="num" data-label="Next season">${p.fpg_next!=null?fmt1(p.fpg_next):'<span class="hint">—</span>'}${p.gp_next!=null?` <span class="hint">${p.gp_next}gp</span>`:''}</td>
       <td class="num" data-label="Result">${res}</td>
-    </tr>`+(open.has(p.id)?`<tr class="detail"><td colspan="10"><div class="detailGrid" style="--lc:1fr"><div><div class="simwrap"><div class="lbl">Why he was flagged</div><div class="teambox">${p.break_why||'—'}</div></div>${p.adp!=null?`<div class="note">ESPN ADP: ${p.adp.toFixed(0)}</div>`:''}</div></div></td></tr>`:'');
+    </tr>`+(open.has(p.id)?`<tr class="detail"><td colspan="${cols.length}"><div class="detailGrid" style="--lc:1fr"><div><div class="simwrap"><div class="lbl">Why he was flagged</div><div class="teambox">${p.break_why||'—'}</div></div>${p.adp!=null?`<div class="note">ESPN ADP: ${p.adp.toFixed(0)}</div>`:''}</div></div></td></tr>`:'');
   }).join('');
-  document.getElementById('body').innerHTML=body||'<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+  document.getElementById('body').innerHTML=body||`<tr><td colspan="${cols.length}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>`;
   collapseLegends(document.getElementById('boardPane'));
 }
 function fillYearSelect(){
@@ -807,7 +811,7 @@ function render(){
     <b>Proj GP</b> = expected games played from GP history/age/role (off by ~${av.rmse_games.toFixed(0)} games on average vs ~${av.rmse_games_naive_last_year.toFixed(0)} just repeating last year — availability is mostly luck).<br>
     <b>Edge vs ADP</b> = model's expected pts/g minus what ESPN's draft price implies (ADP-listed players only). Top-10% edge picks beat ADP-implied output by +${a.top10_mean_surprise.toFixed(1)} pts/g (${pc(a.top10_hit_5)} beat it by 5+ vs ${pc(a.base_hit_5)} overall).
     <b>Season-total edge</b> = same idea in <i>season-total points</i> (pts/g × games). Additional info only, and a humbler result: the per-game edge picks did <b>not</b> beat ADP in season totals (${te.top10_total_surprise_by_pergame_edge.toFixed(0)} pts vs ADP-implied), because injuries eat the per-game advantage; ranking by the total edge itself gave +${te.top10_total_surprise_by_total_edge.toFixed(0)} pts (small next to ~${te.rmse_total_adp_only.toFixed(0)} pts of random season-to-season noise). Read per-game edge and injury risk together.<br>
-    <b>VOR + breakout</b> = VOR after adding the breakout odds <i>beyond what age + output already imply</i> × how long a breakout's jump persists. Kept as a separate column because folding odds into projections only cut error ${((1-vt.h1.rmse_base_plus_breakout_odds/vt.h1.rmse_base)*100).toFixed(1)}% at 1 year and ${((1-vt.h3.rmse_base_plus_breakout_odds/vt.h3.rmse_base)*100).toFixed(1)}% at 3 years — too small to justify changing the core trajectories (tested against a simple proxy, not the Kalman model itself).<br>
+    <b>VOR if he breaks out</b> = VOR after adding the breakout odds <i>beyond what age + output already imply</i> × how long a breakout's jump persists, shown in a player's expanded row rather than as its own column, because folding odds into projections only cut error ${((1-vt.h1.rmse_base_plus_breakout_odds/vt.h1.rmse_base)*100).toFixed(1)}% at 1 year and ${((1-vt.h3.rmse_base_plus_breakout_odds/vt.h3.rmse_base)*100).toFixed(1)}% at 3 years — too small to justify changing the core trajectories (tested against a simple proxy, not the Kalman model itself).<br>
     <b>Rookies</b> (separate model on college/international profile): "breakout chance" = probability of being fantasy-relevant in year 1 (within 1 pt of the ${oppCost(3).toFixed(1)} line). Honest result: draft slot alone (AUC ${m.rookie.pick_only.auc.toFixed(2)}) already does nearly all the work; adding the college profile ${m.rookie.full.auc<m.rookie.pick_only.auc?'did not help':'helped little'} (best variant AUC ${m.rookie['pick+few'].auc.toFixed(2)}, error ${m.rookie['pick+few'].rmse.toFixed(1)} vs ${m.rookie.pick_only.rmse.toFixed(1)} pts/g). And ESPN's ADP was far more accurate on ADP-listed rookies (error ${m.rookie.adp.rmse_adp_only.toFixed(1)} vs our ${m.rookie.adp.rmse_model_only.toFixed(1)} pts/g, ${m.rookie.adp.n} rookies), so <b>no rookie edge vs ADP is shown</b> — treat ADP as the better guide to year-1 output, and this as a P(relevant) read.<br>
     Situation signals used: changed teams, usage/minutes vacated at his new team. Head-coach changes were tested and did <b>not</b> help. Watchlist, not a lock.</div></details>`;})() : `<b>90PCT VOR / 90PCT AST</b> = what the player would be worth if he has a 90th-percentile career: the typical career whose total value lands in the top 10% of outcomes for players like him (same age group or draft slot), assuming he stays in the league. Only a 1-in-10 outcome, not a forecast; the dashed green line on his chart shows that path. <b>MKT</b> (market rank) = Hashtag Basketball's crowdsourced dynasty ranking (205k votes, 2026-09-24); the small number beside it is the market rank minus our asset rank (+ = we rank him higher than the crowd, − = lower). It's a market price, not a forecast: use the gap to spot where our production-based value and the market disagree. <b>Horizon and scouting prior:</b> asset value now runs over 10 seasons (the dynasty standard; 5%/yr discount) and young top-5 picks (age 21 or younger) carry a scouting-information prior inside the asset value (worth +3 pts/g per season when pricing). It is a calibrated prior, not a validated production effect, chosen so that group lands between two independent expert lists, and it is deliberately NOT applied to the projected points, peak or VOR shown here. <b>Reading the projections:</b> each trajectory and "Peak PPG" is the AVERAGE outcome in that season across everything that could happen to a player (busts, breakouts and all), not a best case. A player's single best season is typically several points higher than the peak of his average path, and a young star's upside sits well above his line. <b>Projections</b> (by <b>DELCO</b>, this hub's own projection system) are ONE blended path per player that feeds both VOR and Asset value: for players with NBA data, a Kalman tracking model blended with an empirical forecast built from what similar players actually did (75/25 next season, 50/50 after); for prospects, an empirical draft-slot/age/talent model blended with the calibrated college-profile projection (picks 1-10; late picks use the empirical model alone). Weights were chosen on held-out seasons. <b>Asset</b> = an overall, keeper-count-aware snapshot (the "what is this player worth to own" number): next season always counts, future seasons only count where he'd clear the keep cutoff for this many keepers per team (none at 0 = pure redraft; up to nearly everyone at 19 = full dynasty), weighted by career-survival odds and real historical outcome spread (young high-ceiling players carry upside, older players fade). Slide the keeper count to see young players rise and old high-scorers fall; <b>VOR</b> (below) stays the keep-vs-draft decision tool. <b>VOR</b> = value above opportunity cost, summed over each season your keeper trajectory stays above what you'd get back drafting fresh (stops at the first year it dips below) — <span class="kind rookie" style="font-size:.66rem">ROOKIE</span> not yet debuted (🌐 = international pathway). The colored dot next to a name is his injury-risk tier (hover for detail). Adjust the keeper count above to see value shift with league format.`;
 
@@ -844,7 +848,7 @@ function render(){
     const INJL=['Low','Below typical','Typical','Elevated','High'], IM=D.injury_meta||{};
     const injTyp=IM.typical_missed!=null?` (a typical regular in ${IM.season}: listed out with an injury or illness for about ${IM.typical_missed} games, ${(IM.typical_share_25plus*100).toFixed(0)}% for 20%+ of games)`:'';
     const injTip=p.injury_tier!=null?`Injury risk: ${INJL[p.injury_tier]} compared with other regulars (24+ minutes a game) · about ${(p.injury_p*100).toFixed(0)}% chance of being listed out with an injury or illness in 20%+ of next season's games, roughly ${p.injury_health_missed!=null?p.injury_health_missed:p.injury_missed} games${injTyp}${(p.injury_tags||[]).length?' · '+p.injury_tags.join('; '):''}`:'';
-    const injDot = p.injury_tier!=null ? (p.injury_tier===2?'':`<span class="injDot t${p.injury_tier}" title="${esc(injTip)}"></span>`) : '';
+    const injDot = p.injury_tier!=null ? `<span class="injDot t${p.injury_tier}" role="img" aria-label="${esc(injTip)}" title="${esc(injTip)}"></span>` : '';
     const liveStatus = (p.espn_injury_status && p.espn_injury_status!=='ACTIVE') ? `<span class="liveStatus" title="live ESPN status">${p.espn_injury_status}</span>` : '';
     const teamCell = p.team
       ? `<div class="teamCell">${p.team_logo?`<img src="${p.team_logo}" alt="" loading="lazy"/>`:''}${p.team}</div>`
@@ -926,7 +930,7 @@ function render(){
     }
     return out;
   }).join('');
-  document.getElementById('body').innerHTML = (body ? body + moreRow : '') || '<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>';
+  document.getElementById('body').innerHTML = (body ? body + moreRow : '') || `<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>`;
   collapseLegends(document.getElementById('boardPane'));
 }
 
@@ -1070,7 +1074,9 @@ function renderWeek(){
   const dyn=[...mergedM.values()].map(e=>Object.assign(e,{pr:prio(e)})).sort((a,b)=>b.pr.tot-a.pr.tot).slice(0,20);
   const dfmt=ds=>ds?new Date(ds+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):'—';
   const dynRows=dyn.map(e=>{ const x=e.d||e.s, S=e.s, D=e.d;
-    const tags=`${S?'<span class="kind" style="background:var(--good);color:#fff" title="Rest-of-season stash: worth holding for the points he adds over the remaining season, even if he does not help this week">ROS</span> ':''}${D?'<span class="kind rookie" style="background:var(--accent,#5b7cfa);color:#fff" title="Dynasty stash: keeper-league value for next season and beyond">DYNASTY</span>':''}`;
+    const dynWorthy=x.asset!=null&&x.asset>=6.0;   // same bar dyn_pool itself uses (DYN_MIN_ASSET) -- independent of whether he made the top-12
+    // dynasty_adds slice (D), so a player with real dynasty value still gets tagged even when he surfaced here only via the ROS/stash side.
+    const tags=`${S?'<span class="kind" style="background:var(--good);color:#fff" title="Rest-of-season stash: worth holding for the points he adds over the remaining season, even if he does not help this week">ROS</span> ':''}${dynWorthy?'<span class="kind rookie" style="background:var(--accent,#5b7cfa);color:#fff" title="Dynasty stash: keeper-league value for next season and beyond">DYNASTY</span>':''}`;
     const age=x.age!=null?x.age.toFixed(1):'—', asset=x.asset!=null?x.asset.toFixed(0):'—';
     const fit=[];
     if(S){ fit.push(`<b>+${S.gain}</b> points over the rest of the season <span class="hint">(${S.reg} regular season, ${S.po} playoffs)</span>`);
@@ -1309,7 +1315,8 @@ function renderRedraft(){
   const body=shown.map(p=>{
     const open=rdOpen.has(p.id), o=p._o;
     const st=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'';
-    const inj=p.inj_tier!=null&&p.inj_tier!==2?`<span class="injDot t${p.inj_tier}" title="Injury risk vs other regulars (24+ min a game): ${['Low','Below typical','Typical','Elevated','High'][p.inj_tier]}${p.inj_hmissed!=null?' · about '+p.inj_hmissed+' games listed out with an injury or illness next season':''}"></span>`:'';
+    const injTierTip=p.inj_tier!=null?`Injury risk vs other regulars (24+ min a game): ${['Low','Below typical','Typical','Elevated','High'][p.inj_tier]}${p.inj_hmissed!=null?' · about '+p.inj_hmissed+' games listed out with an injury or illness next season':''}`:'';
+    const inj=p.inj_tier!=null?`<span class="injDot t${p.inj_tier}" role="img" aria-label="${esc(injTierTip)}" title="${esc(injTierTip)}"></span>`:'';
     const gap=p.mkt!=null?p.mkt-p.rank:null;
     let row=`<tr data-id="${p.id}"><td data-label="Player">${pc(p.name)}${inj}${st}</td><td data-label="Pos">${esc(p.pos)}</td><td data-label="Team"><div class="teamCell">${esc(p.team)}</div></td><td class="num" data-label="Age">${p.age!=null?p.age.toFixed(1):'—'}</td>
       <td class="num" data-label="Rank">#${p.rank}</td><td class="num" data-label="Proj PTS"><b>${p.pts.toLocaleString()}</b></td><td class="num" data-label="PPG"><b>${p.ppg.toFixed(1)}</b> <span class="hint" title="ESPN's projection">${p.espn_ppg.toFixed(1)}</span></td>
@@ -1326,7 +1333,7 @@ function renderRedraft(){
         <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline g4">${tile(p.pts.toLocaleString(),'Proj points')}${tile(p.vor.toLocaleString(),'VOR')}${tile(p.pts90.toLocaleString(),'90th pct')}${tile(p.exp_gp.toFixed(0)+'/'+p.g_rem,'Games (exp/left)')}</div>
           <div class="hint" title="Projection source: ${p.our?'DELCO':'ESPN; not modelled by DELCO'}. Likely range is the 80% band around the projection.">Range ${p.p10.toFixed(0)}–${p.p90.toFixed(0)} a game</div></div>
         <div class="simwrap"><div class="lbl">Recent play</div><div class="statline g4">${tile(p.l10!=null?p.l10.toFixed(1):'—','Last 10 avg')}${tile(p.m10!=null?p.m10+' min':'—',dm!=null?'Minutes ('+rdSg(dm,1)+' vs season)':'Minutes')}${tile(p.ppm!=null?p.ppm.toFixed(2):'—','Points/min')}${tile(p.sd!=null?p.sd.toFixed(0):'—','Game-to-game spread')}</div>
-          ${f?`<div class="note"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his baseline, about <b>${rdSg(f.keep,1)}</b> should last${chips?': '+chips:''}</span></div>`:'<div class="note hint">The reason-for-form split appears once he has 10 games this season.</div>'}</div>
+          ${f&&Math.abs(f.d)>=3?`<div class="note"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his baseline, about <b>${rdSg(f.keep,1)}</b> should last${chips?': '+chips:''}</span></div>`:f?'<div class="note hint">No notable recent swing (under 3 pts/g vs his baseline).</div>':'<div class="note hint">The reason-for-form split appears once he has 10 games this season.</div>'}</div>
         <div class="simwrap"><div class="lbl">Schedule and health</div><div class="note">Team games: <b>${p.g7}</b> in the next 7 days · <b>${p.gpo}</b> in the playoff weeks. ${p.status!=='ACTIVE'?`Status <b>${esc(p.status)}</b>${p.games_out?`, about ${p.games_out} games out${p.back?', back about '+p.back.slice(5):''}`:''}.`:'Healthy.'} ${p.inj_missed!=null?`Expected games missed for any reason (injury, rest, coach's decision): about ${p.inj_missed} a year${p.inj_hmissed!=null?`, of which about ${p.inj_hmissed} for injury or illness`:''}.`:''}${p.own!=null?` Owned in ${p.own.toFixed(0)}% of ESPN leagues${p.adp?` · ADP ${p.adp.toFixed(0)}`:''}.`:''}</div></div>
       </div><div class="dr"><div style="width:100%" title="Bars: last 10 games (green above his projection, red well below). Line: 3-game rolling average. Dashed bars: next 3 games projected, adjusted for that game's opponent, 80% range shaded.">${rdChart(p)}${p.gs&&RD.season_now&&p.gs!==RD.season_now?`<div class="note">These are ${esc(p.gs)} games (last season).</div>`:''}</div></div></div></td></tr>`;
     }
@@ -1385,7 +1392,7 @@ function findPlayer(name){
   if(!out.hub&&!out.week&&!out.redraft&&!out.draft&&!out.sched&&!out.dynAdd&&!out.stash) return null;
   return out;
 }
-function pc(name){ return name?`<span class="pName" data-pc="${esc(name)}">${esc(name)}</span>`:''; }
+function pc(name){ return name?`<span class="pName" data-pc="${esc(name)}" tabindex="0" role="button">${esc(name)}</span>`:''; }
 let PC_OPEN=null;
 function pcClose(){ const el=document.getElementById('playerCard'); if(el) el.classList.remove('open'); PC_OPEN=null; try{ history.state&&history.state.pc&&history.back(); }catch(e){} }
 function pcTile(v,l){ return `<div class="s"><div class="v">${v==null?'—':v}</div><div class="l">${l}</div></div>`; }
@@ -1409,6 +1416,7 @@ function openPlayerCard(name,pushHistory=true){
 }
 window.addEventListener('popstate',()=>{ const el=document.getElementById('playerCard'); if(el&&el.classList.contains('open')){ el.classList.remove('open'); PC_OPEN=null; } });
 document.addEventListener('click',e=>{ const s=e.target.closest('.pName'); if(s){ openPlayerCard(s.dataset.pc); } });
+document.addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return; const s=e.target.closest&&e.target.closest('.pName'); if(s){ e.preventDefault(); openPlayerCard(s.dataset.pc); } });
 
 function pcHtml(P){
   const h=P.hub, wk=P.week, rd=P.redraft, dr=P.draft, sc=P.sched, dyn=P.dynAdd, st=P.stash;
@@ -1783,7 +1791,7 @@ const INJL5=['Low','Below typical','Typical','Elevated','High'];
 function injDotHtml(p){
   const h=p.hub; if(!h||h.injury_tier==null) return '<span class="hint">—</span>';
   const tip=`Injury risk: ${INJL5[h.injury_tier]} vs other regulars (24+ min a game)${h.injury_p!=null?` · about ${(h.injury_p*100).toFixed(0)}% chance of being listed out with an injury or illness in 20%+ of the season's games`:''}${(h.injury_health_missed!=null?h.injury_health_missed:h.injury_missed)!=null?`, roughly ${h.injury_health_missed!=null?h.injury_health_missed:h.injury_missed} games`:''}${(h.injury_tags||[]).length?' · '+h.injury_tags.join('; '):''}`;
-  return `<span class="injDot t${h.injury_tier}" style="margin-left:0;width:9px;height:9px" title="${esc(tip)}"></span>`;
+  return `<span class="injDot t${h.injury_tier}" style="margin-left:0;width:9px;height:9px" role="img" aria-label="${esc(tip)}" title="${esc(tip)}"></span>`;
 }
 
 function renderDraft(){
