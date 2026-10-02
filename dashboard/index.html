@@ -1425,6 +1425,7 @@ function fillNews(panel){ const el=panel.querySelector('#pcNews'); if(!el) retur
     if(!j){ el.textContent='News is unavailable right now.'; return; }
     const items=(j.players||{})[el.dataset.espn]||[];
     if(!items.length){ el.textContent='No recent news.'; return; }
+    const n=panel.querySelector('#pcNewsN'); if(n) n.textContent='· '+items.length+' item'+(items.length>1?'s':'')+(Date.now()-new Date(items[0].t).getTime()<7*864e5?' · latest '+newsAgo(items[0].t):'');
     el.className=''; el.innerHTML='<ul class="pcNews">'+items.map(n=>`<li><div class="nh">${n.u?`<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.h)}</a>`:esc(n.h)}</div>${n.s?`<div class="ns">${esc(n.s)}</div>`:''}<div class="nm">${newsAgo(n.t)} · ${esc(n.src)}</div></li>`).join('')+'</ul>'; }); }
 function pc(name){ return name?`<span class="pName" data-pc="${esc(name)}" tabindex="0" role="button">${esc(name)}</span>`:''; }
 let PC_OPEN=null;
@@ -1484,7 +1485,7 @@ function pcHtml(P){
   let avgHtml='';
   if(rd&&rd.sa){ const lbl=['PTS','REB','AST','BLK','STL','3PM','TO','FTM'], last=RD&&rd.sa_season&&RD.season_now&&rd.sa_season!==RD.season_now;
     avgHtml=`<div class="pcSec"><div class="pcH">${esc(rd.sa_season||'Season')} averages <span class="hint">· ${rd.sa_gp} GP${RD&&RD.preseason?' · last season, none played yet':''}</span></div><div class="statline g4">${rd.sa.map((v,i)=>pcTile(v.toFixed(1),lbl[i])).join('')}</div></div>`; }
-  const newsHtml=P.espnId?`<div class="pcSec"><div class="pcH">Recent news</div><div id="pcNews" data-espn="${esc(String(P.espnId))}" class="note hint">Loading…</div></div>`:'';
+  const newsHtml=P.espnId?`<details class="pcSec pcNewsBox"><summary class="pcH" style="cursor:pointer">Recent news <span class="hint" id="pcNewsN"></span></summary><div id="pcNews" data-espn="${esc(String(P.espnId))}" class="note hint" style="margin-top:.4rem">Loading…</div></details>`:'';
   // long-term add context (ROS / dynasty stash), if he's a FA flagged there
   let ltHtml='';
   if(dyn||st){
