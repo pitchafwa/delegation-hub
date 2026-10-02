@@ -42,6 +42,8 @@ N_KEEP = 700
 REPL_RANK = 165                       # 12 teams x ~14 usable players: the free-agent level a manager can actually pick up
 IR_OK = ("OUT", "INJURY_RESERVE")
 LAST_N = 10
+BOX = ["pts", "reb", "ast", "stl", "blk", "fg3m", "ftm", "tov"]        # per-game tooltip order
+BOX_AVG = ["pts", "reb", "ast", "blk", "stl", "fg3m", "tov", "ftm"]    # season-average tile order on the player card
 
 
 def key(name):
@@ -217,7 +219,11 @@ for e in raw:
         rec = {"g": [round(float(v), 1) for v in last.fp], "gm": [round(float(v)) for v in last["min"]], "gd": [str(v)[5:10] for v in last["date"]], "gs": last["season"].iloc[-1],
                "l10": round(float(last.fp.mean()), 1), "m10": round(float(last["min"].mean()), 1), "ppm": round(float(last.fp.sum() / last["min"].sum()), 2),
                "sd": round(float(pl.fp.iloc[-25:].std()), 1) if len(pl) >= 8 else None, "n_season": int(len(cur)),
-               "s_avg": round(float(cur.fp.mean()), 1) if len(cur) else None, "s_min": round(float(cur["min"].mean()), 1) if len(cur) else None}
+               "s_avg": round(float(cur.fp.mean()), 1) if len(cur) else None, "s_min": round(float(cur["min"].mean()), 1) if len(cur) else None,
+               # box-score lines for the bar tooltips: [pts, reb, ast, stl, blk, 3pm, ftm, tov] per game, aligned with g/gd/gm
+               "gx": [[int(r[c]) for c in BOX] for _, r in last.iterrows()],
+               # this season's per-game averages in BOX_AVG order, and the season they belong to (last season until games are played)
+               "sa": [round(float(cur[c].mean()), 1) for c in BOX_AVG] if len(cur) else None, "sa_gp": int(len(cur)), "sa_season": cur["season"].iloc[-1] if len(cur) else None}
     n_played = rec.get("n_season", 0) if rec.get("gs") == season_now and season_now.startswith(str(SEASON_ID - 1)) else 0
     nxt_games = [(ds, opp, home) for ds, opp, home in games_by_team[team] if ds >= t0][:3]
     nxt = [(ds[5:], ("vs " if home else "@") + opp) for ds, opp, home in nxt_games]

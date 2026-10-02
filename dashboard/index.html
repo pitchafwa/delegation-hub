@@ -111,6 +111,14 @@
   .pcSub{display:flex;align-items:center;gap:.3rem;font-size:.84rem;color:var(--ink-soft);margin-top:.15rem;flex-wrap:wrap}
   .pcTeamLogo{width:16px;height:16px;object-fit:contain;vertical-align:-3px}
   .pcTags{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.25rem}
+  .pcNews{list-style:none;margin:0;padding:0}
+  .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
+  .pcNews .nh{font-weight:600;font-size:.86rem;line-height:1.35}.pcNews .nm{font-size:.7rem;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace}
+  .pcNews .ns{font-size:.8rem;color:var(--ink-soft);margin-top:.2rem;line-height:1.4}
+  #rdTip{position:fixed;z-index:200;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:8px;padding:.4rem .55rem;box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:.72rem;display:none;max-width:260px}
+  #rdTip .th{font-weight:600;margin-bottom:.25rem}#rdTip .tg{display:grid;grid-template-columns:repeat(4,auto);gap:.1rem .7rem;font-family:"IBM Plex Mono",monospace}
+  #rdTip .tg b{display:block;font-size:.85rem}#rdTip .tg span{color:var(--ink-faint);font-size:.6rem;text-transform:uppercase}
+  .rdBar{cursor:pointer}
   .pcSec{margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--line)}
   .pcH{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
   .pName{cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:2px;transition:text-decoration-color .1s}
@@ -692,6 +700,8 @@ function assetRanks(){
   const arr = D.players.filter(p=>p.asset_k).map(p=>[p.id, p.asset_k[K]]).sort((a,b)=>b[1]-a[1]);
   return new Map(arr.map((x,i)=>[x[0], i+1]));
 }
+let _AR5=null;
+function assetRank5(id){ if(!_AR5){ const arr=D.players.filter(p=>p.asset_k).map(p=>[p.id,p.asset_k[5]]).sort((a,b)=>b[1]-a[1]); _AR5=new Map(arr.map((x,i)=>[x[0],i+1])); } return _AR5.get(id)||null; }
 function rowsFiltered(){
   let r = D.players;
   if(kind==='breakout'){
@@ -967,13 +977,13 @@ function renderTeams(){
   const league=teams.map((x,i)=>`<tr data-team="${x.t.id}" style="${x.t.id===teamSel?'background:var(--surface-2)':''}">
     <td class="num">${i+1}</td><td style="text-align:left">${esc(x.t.name)} <span class="hint">${esc(x.t.abbrev)}</span></td>
     <td class="num"><b>${x.keep.toFixed(0)}</b></td><td class="num">${x.total.toFixed(0)}</td><td class="num">${x.rookies||'—'}</td>
-    <td style="text-align:left">${x.rows[0]&&x.rows[0].p?esc(x.rows[0].p.player):'—'}</td></tr>`).join('');
+    <td style="text-align:left">${x.rows[0]&&x.rows[0].p?pc(x.rows[0].p.player):'—'}</td></tr>`).join('');
   const roster=cur.rows.map((x,i)=>{
     const p=x.p, keepRow=i<K;
     const vor=p?computeVOR(p.trajectory,K).vor:null;
     const mk=p&&p.market_rank!=null?`#${p.market_rank}`:'—';
     return `<tr style="${i===K-1?'border-bottom:2px solid var(--accent)':''}">
-      <td style="text-align:left">${keepRow?'<span class="kind rookie" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">KEEP</span> ':''}${esc(p?p.player:x.r.name)}${p&&p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${x.r.injury&&x.r.injury!=='ACTIVE'?` <span class="liveStatus">${esc(x.r.injury)}</span>`:''}${x.r.slot==='IR'?' <span class="hint">IR</span>':''}</td>
+      <td style="text-align:left">${keepRow?'<span class="kind rookie" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">KEEP</span> ':''}${pc(p?p.player:x.r.name)}${p&&p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${x.r.injury&&x.r.injury!=='ACTIVE'?` <span class="liveStatus">${esc(x.r.injury)}</span>`:''}${x.r.slot==='IR'?' <span class="hint">IR</span>':''}</td>
       <td style="text-align:left">${p?esc(p.team||'—'):'—'}</td><td style="text-align:left">${p?esc(p.pos||'—'):'—'}</td>
       <td class="num">${p&&p.age!=null?p.age.toFixed(1):'—'}</td>
       <td class="num">${p?fmt1(p.year0_ppg):'—'}</td><td class="num">${p?fmt1(p.peak_ppg):'—'}</td>
@@ -1032,7 +1042,7 @@ function renderWeek(){
     else if(d.date===M.days[M.days.length-1] && d.starts_before<M.cap) note='<span class="hint">final day: may go over the cap</span>';
     const SLOT_ORDER={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};   // ESPN's starting-lineup order
     const ordered=d.start.slice().sort((a,b)=>(SLOT_ORDER[a.slot]??9)-(SLOT_ORDER[b.slot]??9)||b.ef-a.ef);
-    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${esc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
+    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
     const sat=d.bench_playing.filter((_,i)=>d.sat>0).map(x=>`<span class="comp" style="opacity:.6">${pc(x.name)} <span class="hint">${x.ef}</span></span>`).join(' ');
     return `<tr><td style="text-align:left;white-space:nowrap">${fmtDay(d.date)}<div class="hint">${d.nba_teams/2} NBA games</div></td>
       <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${chips||'<span class="hint">no one plays</span>'}</div>${sat?`<div class="comps" style="padding:.25rem 0 0"><span class="hint">sit:</span> ${sat}</div>`:''}${note?`<div class="note">${note}</div>`:''}</td>
@@ -1277,6 +1287,20 @@ function rdSpark(p,w=118,h=30){
     <polyline points="${fx.map((i,k)=>X(i).toFixed(1)+','+(k?Y(p.ppg):Y(g[g.length-1])).toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="3 2"/>
     <circle cx="${X(g.length-1).toFixed(1)}" cy="${Y(g[g.length-1]).toFixed(1)}" r="2" fill="${col}"/></svg>`;
 }
+const BOX_LBL=['PTS','REB','AST','STL','BLK','3PM','FTM','TO'];
+function rdTipData(p,i){ const x=p.gx&&p.gx[i]; if(!x) return ''; return esc(JSON.stringify({d:p.gd[i],m:p.gm[i],f:p.g[i],x})); }
+(function(){ let tip=null;
+  const show=(el,e)=>{ let d; try{ d=JSON.parse(el.dataset.tip); }catch(_){ return; }
+    if(!tip){ tip=document.createElement('div'); tip.id='rdTip'; document.body.appendChild(tip); }
+    tip.innerHTML=`<div class="th">${esc(d.d)} · ${d.m} min · ${d.f.toFixed(0)} fantasy pts</div><div class="tg">${d.x.map((v,i)=>`<div><b>${v}</b><span>${BOX_LBL[i]}</span></div>`).join('')}</div>`;
+    tip.style.display='block'; const r=el.getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
+    tip.style.left=Math.max(6,Math.min(innerWidth-w-6,r.left+r.width/2-w/2))+'px'; tip.style.top=(r.top-h-8<6?r.bottom+8:r.top-h-8)+'px'; };
+  const hide=()=>{ if(tip) tip.style.display='none'; };
+  document.addEventListener('mouseover',e=>{ const el=e.target.closest&&e.target.closest('.rdBar[data-tip]'); if(el&&el.dataset.tip) show(el,e); });
+  document.addEventListener('mouseout',e=>{ if(e.target.closest&&e.target.closest('.rdBar')) hide(); });
+  document.addEventListener('click',e=>{ const el=e.target.closest&&e.target.closest('.rdBar[data-tip]'); if(el&&el.dataset.tip) show(el,e); else hide(); });
+  document.addEventListener('scroll',hide,true);
+})();
 function rdChart(p,W2=620,H2=250){
   const g=p.g||[]; if(!g.length) return '<div class="hint">No game log yet.</div>';
   const fwd=(p.next||[]).slice(0,3), n=g.length+fwd.length, padL=34, padB=34, padT=14, plotW=W2-padL-8, plotH=H2-padB-padT;
@@ -1287,7 +1311,7 @@ function rdChart(p,W2=620,H2=250){
   if(fwd.length) s+=`<rect x="${(X(g.length)-plotW/n/2).toFixed(1)}" y="${Y(p.p90).toFixed(1)}" width="${(plotW/n*fwd.length).toFixed(1)}" height="${(Y(p.p10)-Y(p.p90)).toFixed(1)}" fill="var(--line)" opacity=".5"/>`;
   s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(p.ppg).toFixed(1)}" y2="${Y(p.ppg).toFixed(1)}" stroke="var(--accent,#5b7cfa)" stroke-dasharray="4 3"/><text x="${padL+2}" y="${(Y(p.ppg)-3).toFixed(1)}" text-anchor="start" font-size="9" fill="var(--accent,#5b7cfa)">projection ${p.ppg}</text>`;
   g.forEach((v,i)=>{ const c=v>=p.ppg*1.15?'var(--good)':(v<=p.ppg*0.7?'var(--warn)':'var(--ink-soft)');
-    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="${c}" opacity=".75"><title>${p.gd[i]}: ${v} pts in ${p.gm[i]} min</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--ink)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">${p.gd[i]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">${p.gm[i]}m</text>`; });
+    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="${c}" opacity=".75" class="rdBar" data-tip="${rdTipData(p,i)}"><title>${p.gd[i]}: ${v} fantasy pts in ${p.gm[i]} min</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--ink)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">${p.gd[i]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">${p.gm[i]}m</text>`; });
   s+=`<polyline points="${roll.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
   fwd.forEach((f,k)=>{ const i=g.length+k, v=(p.next_proj&&p.next_proj[k]!=null)?p.next_proj[k]:p.ppg, adj=v-p.ppg;
     s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="none" stroke="var(--accent,#5b7cfa)" stroke-dasharray="3 2"><title>${f[0]} ${esc(f[1])}: ${v.toFixed(1)} pts projected${Math.abs(adj)>=0.15?` (${adj>0?'+':''}${adj.toFixed(1)} for the matchup)`:''}</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--accent,#5b7cfa)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--accent,#5b7cfa)">${f[0]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--accent,#5b7cfa)">${esc(f[1])}</text>`; });
@@ -1393,6 +1417,15 @@ function findPlayer(name){
   if(!out.hub&&!out.week&&!out.redraft&&!out.draft&&!out.sched&&!out.dynAdd&&!out.stash) return null;
   return out;
 }
+let NEWS=null, NEWS_P=null;
+function loadNews(){ if(!NEWS_P) NEWS_P=fetch('player_news.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null).then(j=>{ NEWS=j; return j; }); return NEWS_P; }
+function newsAgo(t){ const d=(Date.now()-new Date(t).getTime())/864e5; return d<1?'today':d<2?'yesterday':d<30?Math.floor(d)+' days ago':new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric',year:d>300?'numeric':undefined}); }
+function fillNews(panel){ const el=panel.querySelector('#pcNews'); if(!el) return;
+  loadNews().then(j=>{ if(!document.body.contains(el)) return;
+    if(!j){ el.textContent='News is unavailable right now.'; return; }
+    const items=(j.players||{})[el.dataset.espn]||[];
+    if(!items.length){ el.textContent='No recent news.'; return; }
+    el.className=''; el.innerHTML='<ul class="pcNews">'+items.map(n=>`<li><div class="nh">${n.u?`<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.h)}</a>`:esc(n.h)}</div>${n.s?`<div class="ns">${esc(n.s)}</div>`:''}<div class="nm">${newsAgo(n.t)} · ${esc(n.src)}</div></li>`).join('')+'</ul>'; }); }
 function pc(name){ return name?`<span class="pName" data-pc="${esc(name)}" tabindex="0" role="button">${esc(name)}</span>`:''; }
 let PC_OPEN=null;
 function pcClose(){ const el=document.getElementById('playerCard'); if(el) el.classList.remove('open'); PC_OPEN=null; try{ history.state&&history.state.pc&&history.back(); }catch(e){} }
@@ -1410,6 +1443,7 @@ function openPlayerCard(name,pushHistory=true){
   el.classList.add('open');
   PC_OPEN=name;
   panel.querySelector('.pcX').addEventListener('click',pcClose);
+  fillNews(panel);
   const ta=panel.querySelector('.tgNoteIn'); if(ta) ta.addEventListener('change',tgChange);
   panel.querySelectorAll('.tgcb').forEach(cb=>cb.addEventListener('change',tgChange));
   if(pushHistory) panel.scrollTop=0;
@@ -1446,6 +1480,11 @@ function pcHtml(P){
   } else if(sc){
     nowHtml=`<div class="pcSec"><div class="pcH">Schedule${P.schedOwner?` <span class="hint">· ${esc(P.schedOwner.abbrev)}</span>`:''}</div><div class="note">Level ${sc.level}${(sc.flags||[]).length?' · '+sc.flags.join(', '):''}</div></div>`;
   }
+  // season averages (from the redraft board's game logs) and recent news (loaded lazily, see loadNews)
+  let avgHtml='';
+  if(rd&&rd.sa){ const lbl=['PTS','REB','AST','BLK','STL','3PM','TO','FTM'], last=RD&&rd.sa_season&&RD.season_now&&rd.sa_season!==RD.season_now;
+    avgHtml=`<div class="pcSec"><div class="pcH">${esc(rd.sa_season||'Season')} averages <span class="hint">· ${rd.sa_gp} GP${RD&&RD.preseason?' · last season, none played yet':''}</span></div><div class="statline g4">${rd.sa.map((v,i)=>pcTile(v.toFixed(1),lbl[i])).join('')}</div></div>`; }
+  const newsHtml=P.espnId?`<div class="pcSec"><div class="pcH">Recent news</div><div id="pcNews" data-espn="${esc(String(P.espnId))}" class="note hint">Loading…</div></div>`:'';
   // long-term add context (ROS / dynasty stash), if he's a FA flagged there
   let ltHtml='';
   if(dyn||st){
@@ -1468,7 +1507,7 @@ function pcHtml(P){
   if(h&&h.kind){
     const assetK=h.asset_k?h.asset_k[5]:null;
     dyHtml=`<div class="pcSec"><div class="pcH">Dynasty${h.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}</div>
-      <div class="statline g4">${pcTile(assetK!=null?`<b>${assetK.toFixed(0)}</b>`:'—','Asset (5 keepers)')}${pcTile(h.market_rank!=null?'#'+h.market_rank:'—','Market rank')}${pcTile(h.year0_ppg!=null?h.year0_ppg.toFixed(1):'—','Proj PPG')}${pcTile(h.peak_ppg!=null?h.peak_ppg.toFixed(1):'—','Peak PPG')}</div>
+      <div class="statline g4">${pcTile(assetK!=null&&assetRank5(h.id)?`<b>#${assetRank5(h.id)}</b>`:'—','Asset rank')}${pcTile(h.market_rank!=null?'#'+h.market_rank:'—','Market rank')}${pcTile(h.year0_ppg!=null?h.year0_ppg.toFixed(1):'—','Proj PPG')}${pcTile(h.peak_ppg!=null?h.peak_ppg.toFixed(1):'—','Peak PPG')}</div>
       ${h.trajectory?`<div style="margin-top:.5rem">${trajChart(h.trajectory,oppCost(K),h.anchor_year,h.history_years||[],h.history_values||[],h.ceil_path||null,440,220)}</div>`:''}
       ${h.p_break!=null?`<div class="note" style="margin-top:.3rem">Breakout chance <b>${(h.p_break*100).toFixed(0)}%</b>${h.brk_tier?' ('+h.brk_tier+')':''}</div>`:''}</div>`;
   }
@@ -1484,7 +1523,7 @@ function pcHtml(P){
         <div class="pcHeadInfo"><div class="pcName">${esc(P.name)}</div>
           <div class="pcSub">${team?`<img class="pcTeamLogo" src="${teamLogoUrl(team)}" alt=""/> ${esc(team)}`:''}${pos?' · '+esc(pos):''}${age!=null?' · '+age.toFixed(1):''}${status!=='ACTIVE'?` <span class="liveStatus">${esc(status)}</span>`:''}</div>
           <div class="pcTags">${tagChips(P.tagKey)||'<span class="hint">no tags yet</span>'}</div></div></div>
-      ${nowHtml}${ltHtml}${rdHtml}${dyHtml}${injHtml}
+      ${nowHtml}${avgHtml}${newsHtml}${ltHtml}${rdHtml}${dyHtml}${injHtml}
       <div class="pcSec"><div class="pcH">Your notes</div>${tagEditor({id:P.tagKey})}</div>
       ${seenIn.length?`<div class="hint" style="margin-top:.6rem">Also on: ${seenIn.join(' · ')}</div>`:''}
     </div>`;
