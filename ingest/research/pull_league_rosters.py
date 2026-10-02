@@ -72,8 +72,13 @@ for t in lg.teams:
     teams.append({"id": t.team_id, "name": t.team_name.strip(), "abbrev": t.team_abbrev, "logo": t.logo_url,
                   "roster": roster})
 
-if len(teams) < 12 or sum(len(t["roster"]) for t in teams) < 150:
-    sys.exit(f"refusing to write: only {len(teams)} teams / {sum(len(t['roster']) for t in teams)} players came back from ESPN")
+empty_teams = [t["abbrev"] for t in teams if not t["roster"]]
+if len(teams) < 12 or empty_teams:
+    # NOT a fixed total-player floor (150, assuming a full post-draft roster): real roster size legitimately swings a lot over the season --
+    # keepers-only right after the keeper deadline (as low as ~1-5/team, confirmed 2026-09-30: this exact check wrongly refused a real, correct
+    # 36-player keepers-only pull), full after the draft, then normal add/drop churn in-season. A per-team emptiness check catches a genuine API
+    # failure (a team that got nothing back) without assuming any particular roster size is "right" for wherever the season happens to be.
+    sys.exit(f"refusing to write: only {len(teams)} teams came back from ESPN" + (f"; empty rosters: {empty_teams}" if empty_teams else ""))
 if CW_PATH.exists():  # keep the committed map current (only hub players' ids)
     nba_hub = {int(i[1:]) for i in hub_ids}
     MAP_PATH.write_text(json.dumps({str(k): v for k, v in sorted(e2n.items()) if v in nba_hub}, separators=(",", ":")))
