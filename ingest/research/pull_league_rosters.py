@@ -79,6 +79,22 @@ if len(teams) < 12 or empty_teams:
     # 36-player keepers-only pull), full after the draft, then normal add/drop churn in-season. A per-team emptiness check catches a genuine API
     # failure (a team that got nothing back) without assuming any particular roster size is "right" for wherever the season happens to be.
     sys.exit(f"refusing to write: only {len(teams)} teams came back from ESPN" + (f"; empty rosters: {empty_teams}" if empty_teams else ""))
+
+# second guard, caught 2026-10-01: ESPN itself can return a transiently inconsistent snapshot -- one real pull came back with real-looking but
+# WRONG roster sizes (5 to 19 players/team, no two alike) hours before the actual draft, which this looked like genuine data and committed. If
+# the league's own draft status says nothing has been drafted yet, nobody should have more than a few keepers on their roster; if any team does,
+# this is exactly that bad-snapshot pattern again, not a real state -- refuse rather than publish it.
+try:
+    draft_detail = lg.espn_request.get_league_draft().get("draftDetail", {})
+except Exception as ex:
+    draft_detail = {}
+    print(f"couldn't check draft status ({ex}); skipping the pre-draft roster-size guard")
+if draft_detail and not draft_detail.get("drafted") and not draft_detail.get("inProgress"):
+    KEEPER_CAP_MARGIN = 6   # real cap is 5 keepers/team; a little headroom, not enough to let a bad ~15-19 snapshot through
+    bloated = {t["abbrev"]: len(t["roster"]) for t in teams if len(t["roster"]) > KEEPER_CAP_MARGIN}
+    if bloated:
+        sys.exit(f"refusing to write: draft hasn't started yet but these teams show more than {KEEPER_CAP_MARGIN} players -- "
+                  f"a known bad-snapshot pattern (2026-10-01), not a real state: {bloated}")
 if CW_PATH.exists():  # keep the committed map current (only hub players' ids)
     nba_hub = {int(i[1:]) for i in hub_ids}
     MAP_PATH.write_text(json.dumps({str(k): v for k, v in sorted(e2n.items()) if v in nba_hub}, separators=(",", ":")))
