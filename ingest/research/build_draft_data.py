@@ -23,6 +23,7 @@ from espn_api.basketball import League
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
 from season import current_season_id
+from team_abbr import canon
 SEASON_ID = current_season_id()
 MY_ABBREV = "DRNK"
 LINEUP = {"PG", "SG", "SF", "PF", "C", "G", "F", "UT"}
@@ -49,11 +50,30 @@ trades = json.load(open(_tp, encoding="utf-8")).get("picks", []) if _tp.exists()
 my = next((t for t in teams if t["abbrev"] == MY_ABBREV), teams[0])
 
 
+# games each NBA team plays in the FIRST fantasy matchup (what a late-draft streaming slot is worth in week 1). Window comes from schedule_plan.json's
+# calendar when present (written by build_schedule_plan.py), else the 6-day opener starting on the season opener.
+OPENER = datetime(2026, 10, 20).date()   # NOT derivable from a formula; update manually each season (also in build_week_plan.py, refresh_all.py)
+try:
+    _cal = json.load(open(HUB / "schedule_plan.json", encoding="utf-8"))["calendar"][0]
+    G1_START, G1_END = _cal["start"], _cal["end"]
+except Exception:
+    from datetime import timedelta
+    G1_START, G1_END = OPENER.isoformat(), (OPENER + timedelta(days=5)).isoformat()
+_sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8")).get("games", {})
+G1 = {}
+for _ds, _gl in _sched.items():
+    if G1_START <= _ds <= G1_END:
+        for _a, _h, _ in _gl:
+            for _t in (canon(_a), canon(_h)):
+                G1[_t] = G1.get(_t, 0) + 1
+
+
 def info(p):
     st = p.stats.get(f"{SEASON_ID}_projected") or {}
     avg = st.get("avg") or {}
     return {"name": p.name, "espn_id": p.playerId, "avg": st.get("applied_avg"), "total": st.get("applied_total"), "gp": avg.get("GP"),
-            "slots": [s for s in p.eligibleSlots if s in LINEUP], "team": p.proTeam, "status": p.injuryStatus or "ACTIVE"}
+            "slots": [s for s in p.eligibleSlots if s in LINEUP], "team": p.proTeam, "status": p.injuryStatus or "ACTIVE",
+            "g1": G1.get(canon(p.proTeam or ""), 0)}
 
 
 players = {}
@@ -71,7 +91,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "draft": {"date_ms": ds.get("date"), "keeper_deadline_ms": ds.get("keeperDeadlineDate"), "keepers_now": ds.get("keeperCount"), "keepers_future": ds.get("keeperCountFuture"),
                  "type": ds.get("type"), "seconds_per_pick": ds.get("timePerSelection"), "in_progress": bool(dd.get("inProgress")), "drafted": bool(dd.get("drafted")),
                  "keeper_slots": n_kslots, "keeper_slots_filled": filled_k, "trades": trades, "picks": picks},
-       "teams": teams, "players": {str(k): v for k, v in players.items()}}
+       "g1_window": [G1_START, G1_END], "teams": teams, "players": {str(k): v for k, v in players.items()}}
 (HUB / "draft_data.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 sizes = sorted(len(t["roster"]) for t in teams)
 print(f"{len(picks)} pick slots ({n_kslots} reserved for keepers, {filled_k} filled), {len(players)} players with ESPN projections, roster sizes {sizes}, my team {my['abbrev']} id {my['id']}")

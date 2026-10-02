@@ -310,8 +310,9 @@
     table.mcards td[data-label="Games"]{grid-column:1/-1}
     /* Week: day plan */
     .dStrip{grid-template-columns:repeat(2,1fr)}
-    table.draftTbl td[data-label="Team"],table.draftTbl td[data-label="Pos"],table.draftTbl td[data-label="Age"]{font-size:.8rem;color:var(--ink-soft)}
+    table.draftTbl td[data-label="Team"],table.draftTbl td[data-label="Pos"],table.draftTbl td[data-label="Age"],table.draftTbl td[data-label="G1"]{font-size:.8rem;color:var(--ink-soft)}
     table.draftTbl td[data-label="Team"]::before,table.draftTbl td[data-label="Pos"]::before,table.draftTbl td[data-label="Age"]::before{display:none}
+    table.draftTbl td[data-label="G1"]::before{content:"Wk1 games ";color:var(--ink-faint)}
     table.draftTbl td[data-label="Score"]{order:4}table.draftTbl td[data-label="Lineup fit"]{order:5}table.draftTbl td[data-label="Dynasty fit"]{order:6}table.draftTbl td[data-label="ADP"]{order:7}
     table.draftTbl td[data-label="Redraft rk"]{order:8}table.draftTbl td[data-label="VOR"]{order:9}table.draftTbl td[data-label="Asset"]{order:10}table.draftTbl td[data-label="MKT"]{order:11}
     table.draftTbl td[data-label="Our proj"]{order:12}table.draftTbl td[data-label="ESPN proj"]{order:13}
@@ -1652,7 +1653,7 @@ function draftModel(){
     slots.add('UT');
     return {id:String(e.espn_id),name:e.name,team:h&&h.team||e.team||'',pos:h&&h.pos||[...slots].filter(x=>x!=='UT'&&x!=='G'&&x!=='F').join('/'),age:h?h.age:null,adp:h&&h.adp!=null?h.adp:null,rk:e.redraft_rank||null,
       vor:h&&h.trajectory?computeVOR(h.trajectory,K).vor:null,asset:h&&h.asset_k?h.asset_k[K]:0,asset5:h&&h.asset_k?h.asset_k[5]:0,mkt:h&&h.market_rank!=null?h.market_rank:null,bkt:h&&h.p_break!=null?h.p_break:null,ours:h?h.year0_ppg:null,
-      espn:e.avg||null,ef,slots,status:e.status,hub:h,kind:h?h.kind:null}; };
+      espn:e.avg||null,g1:e.g1==null?null:e.g1,eteam:e.team||'',ef,slots,status:e.status,hub:h,kind:h?h.kind:null}; };
   const all=new Map(); byEspn.forEach((e,id)=>all.set(id,mk(e)));
   // who is a keeper (real once ESPN fills the keeper picks; otherwise projected as each team's top-3 by asset)
   const KR=DR.draft.keepers_now||3;
@@ -1847,18 +1848,18 @@ function renderDraft(){
     const fmt=(v,d=0)=>v==null?'<span class="hint">—</span>':Number(v).toFixed(d);
     const lock=!!G&&!G.manual, liveLock=DR.draft.in_progress&&dLive;
     const cb=(kind,on)=>`<td class="cbc"><input type="checkbox" class="dcb" data-id="${p.id}" data-act="${kind}" ${on?'checked':''} ${(lock||(liveLock&&!G))?'disabled':''} /></td>`;
-    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${pc(p.name)}${tagChips(p.id)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie" title="Rookie">R</span>':''}${inj}</td><td>${esc(p.team)}</td><td>${esc(p.pos)}</td>
+    const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${pc(p.name)}${tagChips(p.id)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie" title="Rookie">R</span>':''}${inj}</td><td>${esc(p.team)}</td><td class="num" data-label="G1" title="${p.eteam?'Games for the NBA team ESPN lists him on: '+esc(p.eteam):''}">${p.g1==null?'<span class="hint">—</span>':`<b style="color:${p.g1>=4?'var(--good)':(p.g1<=2?'var(--warn)':'inherit')}">${p.g1}</b>`}</td><td>${esc(p.pos)}</td>
       <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num" data-label="Injury risk">${injDotHtml(p)}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
       <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
       ${G?'<td class="num hint">—</td><td class="num hint">—</td><td class="num hint">—</td>':`<td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td>`}</tr>`;
     if(!open) return row;
-    if(G) return row+`<tr class="detail"><td colspan="18"><div class="hint" style="margin:.2rem 0">${esc(G.tag)}. Tag him in case he is not kept or the pick falls through; tags do not change any scores.</div>${tagEditor(p)}</td></tr>`;
+    if(G) return row+`<tr class="detail"><td colspan="19"><div class="hint" style="margin:.2rem 0">${esc(G.tag)}. Tag him in case he is not kept or the pick falls through; tags do not change any scores.</div>${tagEditor(p)}</td></tr>`;
     const fmtv=(v,d=0)=>v==null?'—':Number(v).toFixed(d);
     const mStats=`<div class="mOnly">${[['VOR',p.vor!=null?p.vor.toFixed(0):'—'],['Asset',p.asset?p.asset.toFixed(0):'—'],['MKT',p.mkt!=null?'#'+p.mkt:'—'],['Breakout',p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'],['Our proj',fmtv(p.ours,1)],['ESPN proj',fmtv(p.espn,1)]].map(([l,v])=>`<div class="s"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}</div>`;
     const why=`Adds <b>${(p.fit/73).toFixed(1)}</b> pts/g to your best lineup${p.fills&&p.fills!=='bench'?` (he would start at <b>${esc(p.fills)}</b>)`:' (he would sit on your bench)'} — about <b>${p.fit.toFixed(0)}</b> season points. Dynasty: ${p.dyn>0?`raises your top-5 keeper assets for next year by <b>${p.dyn.toFixed(0)}</b>`:'does not make your top 5 keepers next year'}. Score = lineup points + ${M.w.toFixed(2)} × 73 × dynasty (${M.myDrafted<dDynPicks?'dynasty-heavy phase: your first '+dDynPicks+' picks':'points phase'}).`;
-    return row+`<tr class="detail"><td colspan="18">${mStats}<div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
+    return row+`<tr class="detail"><td colspan="19">${mStats}<div class="note" style="margin:.2rem 0">${why}</div>${tagEditor(p)}<div class="hint" style="margin-top:.3rem">Tick <b>Me</b> or <b>Oth</b> at the left of his row to mark him drafted.</div></td></tr>`;
   }).join('');
-  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="18"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
+  const more=rows.length>dLimit?`<tr class="moreRow"><td colspan="19"><button id="dMore" type="button">Show more · ${rows.length-dLimit} left</button></td></tr>`:'';
   const rosterHtml=`<details class="dTeam" ${isMobile()?'':'open'}>
       <summary class="dHd">Your team <span class="hint">${M.mine.length} players · about ${Math.round(LV*3.3)} pts/week with replacement-level fill-ins</span></summary>
       ${L.assign.map(a=>`<div class="dSlot"><b>${a.slot}</b>${a.pl&&!a.pl.repl?`<span>${esc(a.pl.name)} <span class="hint">${a.pl.ef.toFixed(1)}${M.kept.get(a.pl.id)===DR.my_id?' · keeper':''}</span></span>`:'<span class="hint">empty: draft a '+a.slot+'</span>'}</div>`).join('')}
@@ -1879,7 +1880,7 @@ function renderDraft(){
           <input type="search" id="dq" placeholder="search players…" value="${esc(dq)}" />
           <select id="dpos"><option value="all">All pos.</option>${['PG','SG','SF','PF','C','G','F'].map(x=>`<option value="${x}" ${dpos===x?'selected':''}>${x}</option>`).join('')}</select>
           <select id="dTagSel" title="show only players with a tag"><option value="all">All tags</option><option value="any" ${dTagFilter==='any'?'selected':''}>Any tag</option><option value="none" ${dTagFilter==='none'?'selected':''}>Untagged</option>${tagDefs(TG).map(d=>`<option value="${d.id}" ${dTagFilter===d.id?'selected':''}>${esc(d.i)} ${esc(d.l)}</option>`).join('')}</select>
-          <select id="dSortSel" class="mobileOnly">${[['score','Sort: Score'],['fit','Sort: Lineup fit'],['dyn','Sort: Dynasty fit'],['adp','Sort: ADP'],['rk','Sort: Redraft rank'],['vor','Sort: VOR'],['asset','Sort: Asset'],['mkt','Sort: MKT'],['ours','Sort: Our proj'],['espn','Sort: ESPN proj'],['inj','Sort: Injury risk'],['bkt','Sort: Breakout %'],['age','Sort: Age'],['name','Sort: Name']].map(([k,t])=>`<option value="${k}" ${dsort.k===k?'selected':''}>${t}</option>`).join('')}</select>
+          <select id="dSortSel" class="mobileOnly">${[['score','Sort: Score'],['fit','Sort: Lineup fit'],['dyn','Sort: Dynasty fit'],['adp','Sort: ADP'],['rk','Sort: Redraft rank'],['vor','Sort: VOR'],['asset','Sort: Asset'],['mkt','Sort: MKT'],['ours','Sort: Our proj'],['espn','Sort: ESPN proj'],['inj','Sort: Injury risk'],['bkt','Sort: Breakout %'],['g1','Sort: Games wk 1'],['age','Sort: Age'],['name','Sort: Name']].map(([k,t])=>`<option value="${k}" ${dsort.k===k?'selected':''}>${t}</option>`).join('')}</select>
           <button id="dDir" type="button" class="dbtn mobileOnly" aria-label="Reverse sort order">${dsort.asc?'↑':'↓'}</button>
         </div>
         <details class="dSet" ${isMobile()?'':'open'}><summary class="hint" style="cursor:pointer;padding:.3rem 0">Draft strategy settings (dynasty-first picks and weights)</summary><div class="controls" style="gap:1rem">
@@ -1890,8 +1891,8 @@ function renderDraft(){
         </div></details>
         ${tagManager()}
         <div class="tablewrap"><table id="draftTbl"><thead><tr>
-          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['pos','Pos'],['age','Age'],['inj','Inj','Injury risk (sort: highest risk first, then click again for lowest). Colour = tier vs other regulars (24+ min a game); the order within a tier follows his chance of being listed out with an injury or illness in 20%+ of games. Only real rotation players are rated; a dash means no rating.'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
-        </tr></thead><tbody>${trs||'<tr><td colspan="18" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
+          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['g1','G1','Games his NBA team plays in the first fantasy matchup (Oct 20-25, 6 days): more games = more value from a streaming slot in week 1. Click to sort.'],['pos','Pos'],['age','Age'],['inj','Inj','Injury risk (sort: highest risk first, then click again for lowest). Colour = tier vs other regulars (24+ min a game); the order within a tier follows his chance of being listed out with an injury or illness in 20%+ of games. Only real rotation players are rated; a dash means no rating.'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
+        </tr></thead><tbody>${trs||'<tr><td colspan="19" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
       </div>
       <div class="dSide">${rosterHtml}</div>
     </div>
