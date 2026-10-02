@@ -2,7 +2,7 @@
 
 Source: ESPN's public fantasy player-news feed (the same items ESPN's own fantasy app shows). Most are RotoWire's player-news blurbs, which name
 the reporter or outlet they came from ("per Casey Holdahl of the Trail Blazers' official site"), so beat-writer reports on injuries, minutes, role
-and coach comments come through; the rest are ESPN stories (headline + link only). No cookies needed, so this also runs in GitHub Actions.
+and coach comments come through; No cookies needed, so this also runs in GitHub Actions.
 
 Players covered: everyone on the redraft board plus everyone on a league roster. Box-score recap blurbs ("recorded 27 points (9-15 FG)...") are
 dropped, since the card already shows the game log. The page loads this file only when a player card is opened.
@@ -48,6 +48,8 @@ def fetch(pid):
 
 
 def clean(item, cutoff):
+    if item.get("type") != "Rotowire":      # the other items are generic ESPN stories/listicles, not player-specific reports
+        return None
     pub = item.get("published") or ""
     if not pub or pub < cutoff:
         return None
@@ -59,8 +61,7 @@ def clean(item, cutoff):
     story = story if story != head else ""
     if len(story) > STORY_CHARS:
         story = story[:STORY_CHARS].rsplit(" ", 1)[0] + "…"
-    link = (item.get("links") or {}).get("web", {}).get("href") if item.get("type") != "Rotowire" else None
-    return {"t": pub, "h": head, "s": story, "src": "RotoWire" if item.get("type") == "Rotowire" else "ESPN", **({"u": link} if link else {})}
+    return {"t": pub, "h": head, "s": story, "src": "RotoWire"}
 
 
 if __name__ == "__main__":
