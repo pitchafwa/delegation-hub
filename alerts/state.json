@@ -1,5 +1,190 @@
 {
  "fa_high": {
+  "1966": {
+   "asset": 26.4,
+   "name": "LeBron James",
+   "team": "PHL"
+  },
+  "3059318": {
+   "asset": 58.6,
+   "name": "Joel Embiid",
+   "team": "PHL"
+  },
+  "3155942": {
+   "asset": 54.1,
+   "name": "Domantas Sabonis",
+   "team": "SAC"
+  },
+  "3907497": {
+   "asset": 34.3,
+   "name": "Dejounte Murray",
+   "team": "NOP"
+  },
+  "3913176": {
+   "asset": 28.2,
+   "name": "Brandon Ingram",
+   "team": "LAC"
+  },
+  "3917376": {
+   "asset": 56.4,
+   "name": "Jaylen Brown",
+   "team": "PHL"
+  },
+  "3936299": {
+   "asset": 53.6,
+   "name": "Jamal Murray",
+   "team": "DEN"
+  },
+  "3992": {
+   "asset": 39.5,
+   "name": "James Harden",
+   "team": "CLE"
+  },
+  "4066259": {
+   "asset": 26.7,
+   "name": "De'Aaron Fox",
+   "team": "SAS"
+  },
+  "4066320": {
+   "asset": 26.2,
+   "name": "Desmond Bane",
+   "team": "ORL"
+  },
+  "4277961": {
+   "asset": 31.8,
+   "name": "Jaren Jackson Jr.",
+   "team": "UTA"
+  },
+  "4278104": {
+   "asset": 31.4,
+   "name": "Michael Porter Jr.",
+   "team": "BKN"
+  },
+  "4279888": {
+   "asset": 36.3,
+   "name": "Ja Morant",
+   "team": "POR"
+  },
+  "4395628": {
+   "asset": 43.6,
+   "name": "Zion Williamson",
+   "team": "NOP"
+  },
+  "4395725": {
+   "asset": 33.3,
+   "name": "Tyler Herro",
+   "team": "MIL"
+  },
+  "4396907": {
+   "asset": 29.0,
+   "name": "Darius Garland",
+   "team": "LAC"
+  },
+  "4397140": {
+   "asset": 31.0,
+   "name": "Kevin Porter Jr.",
+   "team": "MIL"
+  },
+  "4397688": {
+   "asset": 37.8,
+   "name": "Trey Murphy III",
+   "team": "NOP"
+  },
+  "4431680": {
+   "asset": 26.0,
+   "name": "Onyeka Okongwu",
+   "team": "ATL"
+  },
+  "4432158": {
+   "asset": 53.2,
+   "name": "Evan Mobley",
+   "team": "CLE"
+  },
+  "4432639": {
+   "asset": 29.2,
+   "name": "Jabari Smith Jr.",
+   "team": "HOU"
+  },
+  "4432816": {
+   "asset": 87.8,
+   "name": "LaMelo Ball",
+   "team": "MIN"
+  },
+  "4433134": {
+   "asset": 85.5,
+   "name": "Scottie Barnes",
+   "team": "TOR"
+  },
+  "4433136": {
+   "asset": 37.1,
+   "name": "Walker Kessler",
+   "team": "LAL"
+  },
+  "4433255": {
+   "asset": 59.9,
+   "name": "Chet Holmgren",
+   "team": "OKC"
+  },
+  "4437244": {
+   "asset": 27.0,
+   "name": "Jalen Green",
+   "team": "PHO"
+  },
+  "4566434": {
+   "asset": 54.2,
+   "name": "Franz Wagner",
+   "team": "ORL"
+  },
+  "4591725": {
+   "asset": 31.4,
+   "name": "Ryan Rollins",
+   "team": "MIL"
+  },
+  "4683766": {
+   "asset": 40.7,
+   "name": "Isaiah Collier",
+   "team": "UTA"
+  },
+  "4684793": {
+   "asset": 28.0,
+   "name": "Kyle Filipowski",
+   "team": "UTA"
+  },
+  "4709138": {
+   "asset": 29.3,
+   "name": "Brandin Podziemski",
+   "team": "GSW"
+  },
+  "4711294": {
+   "asset": 43.3,
+   "name": "Matas Buzelis",
+   "team": "CHI"
+  },
+  "4869342": {
+   "asset": 42.8,
+   "name": "Dyson Daniels",
+   "team": "ATL"
+  },
+  "4869780": {
+   "asset": 45.8,
+   "name": "Derik Queen",
+   "team": "NOP"
+  },
+  "4873138": {
+   "asset": 49.8,
+   "name": "Ace Bailey",
+   "team": "UTA"
+  },
+  "4903027": {
+   "asset": 27.3,
+   "name": "Cedric Coward",
+   "team": "MEM"
+  },
+  "4914336": {
+   "asset": 33.3,
+   "name": "Shaedon Sharpe",
+   "team": "POR"
+  },
   "5041935": {
    "asset": 75.4,
    "name": "Cameron Boozer",
@@ -10,10 +195,90 @@
    "name": "Darryn Peterson",
    "team": "UTA"
   },
+  "5061575": {
+   "asset": 90.6,
+   "name": "Kon Knueppel",
+   "team": "CHA"
+  },
+  "5095151": {
+   "asset": 45.5,
+   "name": "Caleb Wilson",
+   "team": "CHI"
+  },
+  "5104155": {
+   "asset": 28.2,
+   "name": "Bilal Coulibaly",
+   "team": "WAS"
+  },
+  "5105565": {
+   "asset": 54.3,
+   "name": "Donovan Clingan",
+   "team": "POR"
+  },
+  "5105623": {
+   "asset": 25.6,
+   "name": "Kel'el Ware",
+   "team": "MIL"
+  },
+  "5124612": {
+   "asset": 93.6,
+   "name": "VJ Edgecombe",
+   "team": "PHL"
+  },
+  "5142620": {
+   "asset": 25.9,
+   "name": "Darius Acuff Jr.",
+   "team": "SAC"
+  },
   "5142718": {
    "asset": 94.3,
    "name": "AJ Dybantsa",
    "team": "WAS"
+  },
+  "5144091": {
+   "asset": 50.1,
+   "name": "Jeremiah Fears",
+   "team": "NOP"
+  },
+  "5149077": {
+   "asset": 28.3,
+   "name": "Kingston Flemings",
+   "team": "ATL"
+  },
+  "5160992": {
+   "asset": 67.1,
+   "name": "Alex Sarr",
+   "team": "WAS"
+  },
+  "5174563": {
+   "asset": 31.4,
+   "name": "Kyshawn George",
+   "team": "WAS"
+  },
+  "5254165": {
+   "asset": 44.5,
+   "name": "Keaton Wagler",
+   "team": "LAC"
+  },
+  "6442": {
+   "asset": 30.9,
+   "name": "Kyrie Irving",
+   "team": "DAL"
+  },
+  "6450": {
+   "asset": 38.9,
+   "name": "Kawhi Leonard",
+   "team": "TOR"
+  },
+  "6583": {
+   "asset": 27.0,
+   "name": "Anthony Davis",
+   "team": "WAS"
+  },
+  "6606": {
+   "asset": 37.2,
+   "name": "Damian Lillard",
+   "team": "POR"
   }
  },
  "last_status": {
@@ -22,77 +287,7 @@
    "espn": "ACTIVE",
    "official": null
   },
-  "4277961": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4278585": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4396907": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4397002": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4397014": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4431680": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4432158": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4433192": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4433255": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4683678": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4683771": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
   "4684740": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4684742": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4711272": {
-   "date": "2026-10-01",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4997528": {
    "date": "2026-10-01",
    "espn": "ACTIVE",
    "official": null
