@@ -1799,7 +1799,7 @@ function simulateAvail(M,PI){
       for(const b of base){ if(gone.has(b.p.id)) continue; seen++;
         if(seen>40) break;
         let u=-seen; if(T){ u+=3.0*T.youth*b.yn+2.0*T.rookie*(b.rk?1:0)+2.0*T.injury*(b.inj?1:0); }
-        u+=gum()*(4+0.25*seen)*(b.rk?1.6:1);      // noise width fit to this league's real drafts; rookies are priced less precisely
+        u+=gum()*(4+0.25*seen);      // noise width fit to this league's real drafts (draft_avail_backtest.py)
         if(u>bv){bv=u;best=b.p.id;} }
       if(best!=null) gone.add(best);
     }
