@@ -1705,9 +1705,29 @@ function draftModel(){
   picks.filter(x=>x.player&&x.r>KR&&!x.keeper).forEach(x=>taken.set(String(x.player),{team:x.team,n:x.n}));
   const man=manualLoad();
   Object.keys(man).forEach(id=>{ if(!taken.has(id)) taken.set(id,{team:man[id]==='mine'?myId:-1,n:null,manual:true}); });
+  leagueKeys(all,kept);
   const pool=[...all.values()].filter(p=>!kept.has(p.id)&&!taken.has(p.id));
   const mine=[...all.values()].filter(p=>(kept.get(p.id)===myId)||(taken.has(p.id)&&taken.get(p.id).team===myId));
   return {all,pool,mine,kept,taken,real,man};
+}
+/* League draft order estimate (p.lk, smaller = goes earlier among players still to be drafted), used by the availability simulation. Backtested on this league's
+   2021-26 drafts (research/draft_avail_backtest.py): ESPN ADP orders veterans well (rank correlation .85-.95) but (1) most of the pool has no ADP at all, so those
+   players are priced from their redraft rank instead, and (2) rookies go far earlier than ADP says, so a rookie is priced by his NBA draft slot using this league's
+   2023-26 rookie prices (top-3 NBA picks went around picks 1-9, picks 4-6 around 7-55, 7-10 around 40-105). Rookie prices are inherently noisy (a factor of ~2). */
+function leagueKeys(all,kept){
+  const isRook=p=>p.kind==='prospect'&&p.hub&&p.hub.pick!=null;
+  const cand=[...all.values()].filter(p=>!kept.has(p.id));
+  const vets=cand.filter(p=>!isRook(p)), rooks=cand.filter(isRook);
+  const pairs=vets.filter(p=>p.adp!=null&&p.adp<135&&p.rk>0);
+  let a=0,b=1;
+  if(pairs.length>=15){ const xs=pairs.map(p=>Math.log(p.rk)), ys=pairs.map(p=>Math.log(p.adp)), mx=xs.reduce((u,v)=>u+v,0)/xs.length, my=ys.reduce((u,v)=>u+v,0)/ys.length;
+    let sxy=0,sxx=0; xs.forEach((x,i)=>{ sxy+=(x-mx)*(ys[i]-my); sxx+=(x-mx)*(x-mx); }); b=sxx>0?sxy/sxx:1; a=my-b*mx; }
+  const priced=[];
+  vets.forEach(p=>{ p.lk=null; p.lkSrc=''; const real=p.adp!=null&&p.adp<135; const px=real?p.adp:(p.rk>0?Math.exp(a+b*Math.log(p.rk)):null); if(px!=null){ p.lkSrc=real?'adp':'rr'; priced.push([p,px]); } });
+  priced.sort((u,v)=>u[1]-v[1]);
+  const rk=rooks.map(p=>({p,c:Math.exp(1.215+1.157*Math.log(Math.max(1,p.hub.pick)))})).sort((u,v)=>u.c-v.c);
+  priced.forEach(([p],i)=>{ p.lk=i+1+rk.filter(r=>r.c<=i+1).length; });
+  rk.forEach(r=>{ r.p.lk=r.c; r.p.lkSrc='nba'; });
 }
 function draftAdvice(M){
   const base=lineupValue(withRepl(M.mine)).value;
@@ -1766,7 +1786,7 @@ function simulateAvail(M,PI){
   if(gap<=0) return null;
   const sig=[M.pool.length,gap,PI.picks.slice(0,gap).map(x=>x.team).join(','),!!PROF].join('|');
   if(simCache.sig===sig) return simCache.res;
-  const pool=M.pool.filter(p=>p.adp!=null).sort((a,b)=>a.adp-b.adp).slice(0,gap+60);
+  const pool=M.pool.filter(p=>p.lk!=null).sort((a,b)=>a.lk-b.lk).slice(0,gap+60);
   const N=400, cnt=new Map(pool.map(p=>[p.id,0]));
   const tr=new Map(); PI.picks.slice(0,gap).forEach(x=>{ if(!tr.has(x.team)) tr.set(x.team,traitsFor(x.team)); });
   // base utility = negative rank within the pool; owner nudges in "rank positions"
@@ -1779,7 +1799,7 @@ function simulateAvail(M,PI){
       for(const b of base){ if(gone.has(b.p.id)) continue; seen++;
         if(seen>40) break;
         let u=-seen; if(T){ u+=3.0*T.youth*b.yn+2.0*T.rookie*(b.rk?1:0)+2.0*T.injury*(b.inj?1:0); }
-        u+=gum()*(1.5+0.12*seen);
+        u+=gum()*(4+0.25*seen)*(b.rk?1.6:1);      // noise width fit to this league's real drafts; rookies are priced less precisely
         if(u>bv){bv=u;best=b.p.id;} }
       if(best!=null) gone.add(best);
     }
@@ -1881,7 +1901,7 @@ function renderDraft(){
     const G=gonePl.get(p.id);
     const open=dOpen===p.id;
     let gone=afterIdx>=0&&p.poolRank!=null&&p.poolRank<=afterIdx?'<span class="hint" title="his ADP says he is likely gone before your following pick">take?</span>':'';
-    if(AV&&AV.has(p.id)){ const a=AV.get(p.id); gone=`<span class="hint" title="Simulated chance he is still available at your next pick, using each team's draft tendencies">${a>=0.97?'≥97':(a<=0.03?'≤3':Math.round(a*100))}%</span>`; }
+    if(AV&&AV.has(p.id)){ const a=AV.get(p.id); gone=`<span class="hint" title="Simulated chance he is still available at your next pick. Veterans are ordered by ESPN ADP (redraft rank when he has no ADP), rookies by NBA draft slot using this league's past rookie prices, plus each owner's draft tendencies">${a>=0.97?'≥97':(a<=0.03?'≤3':Math.round(a*100))}%</span>`; }
     else if(AV) gone='<span class="hint" title="Simulated chance he is still available at your next pick">≥97%</span>';
     if(G) gone='';
     const inj=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus" title="${esc(p.status)}">${p.status==='DAY_TO_DAY'?'Q':esc(p.status)}</span>`:'';
@@ -1989,7 +2009,7 @@ function kef(p){ const lvl=p.espn||p.ours||0, h=p.hub; const miss=(h&&h.injury_m
 function kmiss(p){ const h=p.hub; return (h&&h.injury_missed!=null)?h.injury_missed:null; }
 function krng(seed){ let a=seed>>>0; return ()=>{ a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
 const ktop5=a=>a.map(x=>x.asset5||0).sort((x,y)=>y-x).slice(0,5).reduce((s,v)=>s+v,0);
-function kAdpOrd(p){ return p.adp!=null?p.adp:(p.rk?p.rk*1.15:900); }
+function kAdpOrd(p){ return p.lk!=null?p.lk:(p.adp!=null?p.adp:(p.rk?p.rk*1.15:900)); }
 
 function kDraftSim(M,S,w,N,seed){
   const myId=DR.my_id, sched=draftSchedule();
