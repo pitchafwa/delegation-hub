@@ -1735,7 +1735,7 @@ function draftAdvice(M){
   const myDrafted=[...M.taken.values()].filter(t=>t.team===DR.my_id).length;
   const w=myDrafted<dDynPicks?dWEarly:dWLate;
   M.w=w; M.myDrafted=myDrafted;
-  [...M.pool].filter(p=>p.adp!=null).sort((a,b)=>a.adp-b.adp).forEach((p,i)=>{ p.poolRank=i+1; });
+  [...M.pool].filter(p=>p.lk!=null).sort((a,b)=>a.lk-b.lk).forEach((p,i)=>{ p.poolRank=i+1; });
   M.pool.forEach(p=>{
     const lv=lineupValue(withRepl(M.mine.concat([p])));
     p.fit=(lv.value-base)*73;                       // season points from a better lineup (per-game gain x ~73 games)
@@ -1865,7 +1865,7 @@ function renderDraft(){
   const tagOk=p=>{ if(dTagFilter==='all') return true; const m=TG.marks[p.id], ts=(m&&m.t)||[]; return dTagFilter==='any'?ts.length>0:(dTagFilter==='none'?ts.length===0:ts.includes(dTagFilter)); };
   let rows=M.pool.filter(p=>(!dq||p.name.toLowerCase().includes(dq.toLowerCase()))&&(dpos==='all'||p.slots.has(dpos))&&tagOk(p));
   const injv=p=>{ const h=p.hub; return h&&h.injury_p!=null?h.injury_p:(h&&h.injury_tier!=null?h.injury_tier/5:-Infinity); };
-  const get=(p,k)=>k==='name'?p.name:(k==='inj'?injv(p):(p[k]==null?-Infinity:p[k]));
+  const get=(p,k)=>k==='name'?p.name:(k==='inj'?injv(p):(k==='adp'?(p.lk==null?(p.adp==null?-Infinity:p.adp+1000):p.lk):(p[k]==null?-Infinity:p[k])));
   rows.sort((a,b)=>{ let av=get(a,dsort.k), bv=get(b,dsort.k); if(typeof av==='string') return dsort.asc?av.localeCompare(bv):bv.localeCompare(av);
     if(dsort.k==='inj'){ if(av===-Infinity&&bv===-Infinity) return 0; if(av===-Infinity) return 1; if(bv===-Infinity) return -1; return dsort.asc?av-bv:bv-av; }
     if(dsort.k==='adp'||dsort.k==='rk'||dsort.k==='mkt'){ av=av===-Infinity?Infinity:av; bv=bv===-Infinity?Infinity:bv; return dsort.asc?bv-av:av-bv; }
@@ -1909,7 +1909,7 @@ function renderDraft(){
     const lock=!!G&&!G.manual, liveLock=DR.draft.in_progress&&dLive;
     const cb=(kind,on)=>`<td class="cbc"><input type="checkbox" class="dcb" data-id="${p.id}" data-act="${kind}" ${on?'checked':''} ${(lock||(liveLock&&!G))?'disabled':''} /></td>`;
     const row=`<tr data-id="${p.id}" class="${G?'goneRow':''}">${cb('mine',!!G&&G.mine)}${cb('other',!!G&&!G.mine)}<td>${pc(p.name)}${tagChips(p.id)}${G?` <span class="hint">${esc(G.tag)}</span>`:''}${p.kind==='prospect'?' <span class="kind rookie" title="Rookie">R</span>':''}${inj}</td><td>${esc(p.team)}</td><td class="num" data-label="G1" title="${p.eteam?'Games for the NBA team ESPN lists him on: '+esc(p.eteam):''}">${p.g1==null?'<span class="hint">—</span>':`<b style="color:${p.g1>=4?'var(--good)':(p.g1<=2?'var(--warn)':'inherit')}">${p.g1}</b>`}</td><td>${esc(p.pos)}</td>
-      <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num" data-label="Injury risk">${injDotHtml(p)}</td><td class="num">${fmt(p.adp,1)} ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
+      <td class="num">${p.age!=null?p.age.toFixed(1):'—'}</td><td class="num" data-label="Injury risk">${injDotHtml(p)}</td><td class="num"><span title="${p.lk!=null?`Our expected pick number in this draft (ESPN ADP: ${p.adp!=null?p.adp.toFixed(1):'none'}${p.lkSrc==='nba'?'; rookies are priced by NBA draft slot':(p.lkSrc==='rr'?'; no ESPN ADP, priced from his redraft rank':'')})`:'No expected pick: no ESPN ADP and no redraft rank'}">${p.lk!=null?Math.round(p.lk):fmt(p.adp,1)}</span> ${gone}</td><td class="num">${p.rk||'—'}</td><td class="num">${p.vor!=null?p.vor.toFixed(0):'—'}</td>
       <td class="num">${p.asset?p.asset.toFixed(0):'—'}</td><td class="num">${p.mkt!=null?'#'+p.mkt:'—'}</td><td class="num">${p.bkt!=null?(p.bkt*100).toFixed(0)+'%':'—'}</td><td class="num">${fmt(p.ours,1)}</td><td class="num">${fmt(p.espn,1)}</td>
       ${G?'<td class="num hint">—</td><td class="num hint">—</td><td class="num hint">—</td>':`<td class="num">${p.fit>=0?'+':''}${p.fit.toFixed(0)} <span class="hint">${esc(p.fills)}</span></td><td class="num">${p.dyn>=0?'+':''}${p.dyn.toFixed(0)}</td><td class="num"><b>${p.score.toFixed(0)}</b></td>`}</tr>`;
     if(!open) return row;
@@ -1951,7 +1951,7 @@ function renderDraft(){
         </div></details>
         ${tagManager()}
         <div class="tablewrap"><table id="draftTbl"><thead><tr>
-          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['g1','G1','Games his NBA team plays in the first fantasy matchup (Oct 20-25, 6 days): more games = more value from a streaming slot in week 1. Click to sort.'],['pos','Pos'],['age','Age'],['inj','Inj','Injury risk (sort: highest risk first, then click again for lowest). Colour = tier vs other regulars (24+ min a game); the order within a tier follows his chance of being listed out with an injury or illness in 20%+ of games. Only real rotation players are rated; a dash means no rating.'],['adp','ADP'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
+          ${[['','Me','I drafted him'],['','Oth','Someone else drafted him'],['name','Player'],['team','Team'],['g1','G1','Games his NBA team plays in the first fantasy matchup (Oct 20-25, 6 days): more games = more value from a streaming slot in week 1. Click to sort.'],['pos','Pos'],['age','Age'],['inj','Inj','Injury risk (sort: highest risk first, then click again for lowest). Colour = tier vs other regulars (24+ min a game); the order within a tier follows his chance of being listed out with an injury or illness in 20%+ of games. Only real rotation players are rated; a dash means no rating.'],['adp','ADP','Our expected pick number in THIS draft (1 = the first pick), not the ESPN ADP scale. Veterans follow ESPN ADP (or redraft rank when ESPN has none); rookies are priced by NBA draft slot, based on how this league has drafted rookies since 2023. Hover a number to see the ESPN ADP.'],['rk','Redraft rk'],['vor','VOR'],['asset','Asset'],['mkt','MKT'],['bkt','BKT','Breakout chance: model probability he breaks out this season'],['ours','Our proj'],['espn','ESPN proj'],['fit','Lineup fit'],['dyn','Dynasty fit'],['score','Score']].map(([k,t,tip])=>`<th ${k?`data-k="${k}"`:''} ${tip?`title="${tip}"`:''} class="${k?(dsort.k===k?'sorted '+(dsort.asc?'asc':''):''):'cbh'}">${t}</th>`).join('')}
         </tr></thead><tbody>${trs||'<tr><td colspan="19" style="padding:1.5rem;text-align:center;color:var(--ink-faint)">no players match</td></tr>'}${more}</tbody></table></div>
       </div>
       <div class="dSide">${rosterHtml}</div>
