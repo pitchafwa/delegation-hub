@@ -25,9 +25,11 @@ Repo > Actions > "Phone alerts (ntfy)" > Run workflow > mode `test`. A notificat
    | check | `{"ref":"main","inputs":{"mode":"check"}}` | every 20 minutes from 8:00 to 23:00, every day |
    | daily | `{"ref":"main","inputs":{"mode":"daily"}}` | 8:30 every day |
    | weekly | `{"ref":"main","inputs":{"mode":"weekly"}}` | 9:30 every day (the script only sends on the first day of a matchup, Monday) |
+   | lineup | `{"ref":"main","inputs":{"mode":"lineup"}}` | every 5 minutes from 10:00 to 23:55, every day (added 2026-10-04: the LATE-SCRATCH watch; it exits in seconds unless one of your teams tips within 4 hours) |
 4. Turn on failure notifications in cron-job.org so you hear if the timer itself breaks. A successful trigger returns HTTP 204.
 
 ## What you will get
+* **Late scratch (lineup job, every 5 min):** if a player in your lineup is ruled out (official NBA report Out/Doubtful, or ESPN OUT/IR/suspended) before his game tips, you get an alert naming the best swap (a bench player, or a slide-over chain through another starter, or a free-agent option if nobody on the bench can fill the slot), and a reminder 35 minutes before his tip if the lineup still has him in. It works per game, so it covers the 10pm games too. Test it any time with `python research/alerts.py lineup --dry-run --force --now 2026-10-21T17:30 --pretend-out "Player Name"`.
 * 8:30 ET daily: today's headline moves (IR fixes, adds with the player to drop, timing, today's lineup note).
 * 9:30 ET on the first day of each matchup: the whole week's plan, light weeks for your stars, streamers.
 * On changes: injury/status changes for your players, new dynasty free agents who would crack your top 5, and a lineup check in the 90 minutes before the first tip of the day (only when something is wrong).

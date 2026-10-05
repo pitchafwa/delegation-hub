@@ -3,8 +3,11 @@
   python research/alerts.py check     every 15-20 min while games are near: status changes on your roster, new dynasty free agents, lineup problems before tip-off
   python research/alerts.py daily     ~8:30 ET: headline moves for today
   python research/alerts.py weekly    ~9:30 ET on the first day of a matchup (Monday): the week's plan
+  python research/alerts.py lineup    every ~5 min on game days (cheap; exits at once if no game of yours tips within 4h): LATE-SCRATCH watch. When a player in
+                                      your lineup is ruled out before his game, it names the swap (bench player or free agent) and re-sends a reminder 35 min before tip.
   python research/alerts.py test      one test notification
-Flags: --dry-run (print, do not send), --force (ignore time windows and the offseason gate), --now 2026-10-20T09:30 (pretend it is this ET time)
+Flags: --dry-run (print, do not send), --force (ignore time windows and the offseason gate), --now 2026-10-20T09:30 (pretend it is this ET time),
+       --pretend-out "Player Name" (test: treat him as ruled out)
 Needs NTFY_TOPIC (env).  `check` also needs ESPN_S2 / SWID.  State lives in alerts/state.json so overlapping or duplicate runs never send the same alert twice.
 Design rules: alert only on CHANGES; never alert on a suggested add unless the weekly plan actually recommends it; quiet hours 11pm-8am ET (early-tip lineup checks excepted).
 """
@@ -19,6 +22,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
+from team_abbr import canon
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -38,6 +42,10 @@ for i, a in enumerate(sys.argv):
     if a == "--now":
         NOW = datetime.fromisoformat(sys.argv[i + 1]).replace(tzinfo=ET)
 TODAY = NOW.date()
+PRETEND_OUT = set()
+for i, a in enumerate(sys.argv):
+    if a == "--pretend-out":
+        PRETEND_OUT.add(sys.argv[i + 1].lower())
 TOPIC = os.environ.get("NTFY_TOPIC")
 P_STATUS = {"ACTIVE": 0.94, "DAY_TO_DAY": 0.55, "Available": 0.94, "Probable": 0.9, "Questionable": 0.55, "Doubtful": 0.03, "OUT": 0.0, "Out": 0.0,
             "INJURY_RESERVE": 0.0, "SUSPENSION": 0.0}
@@ -322,7 +330,14 @@ def run_check():
             sent_b[key] = 1
         for k in [k for k in sent_b if not k.startswith(TODAY.isoformat())]:
             sent_b.pop(k)
-    # ---- lineup check before the first tip of the day
+    # ---- lineup checks: planned starter benched / OUT player in the lineup before the first tip, and the per-game late-scratch watch with a named swap
+    first_tip_check(W, T, mine, off, s, can_send)
+    late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id)
+    save_state(s)
+
+
+def first_tip_check(W, T, mine, off, s, can_send):
+    """lineup check in the 90 minutes before the first tip of the day: an OUT player in the lineup, or a planned starter left on the bench"""
     tip = first_tip(W, T)
     if tip and can_send and tip - timedelta(minutes=90) <= NOW < tip:
         today_plan = next((d for d in T["days"] if d["date"] == TODAY.isoformat()), None)
@@ -345,13 +360,174 @@ def run_check():
             if s.get("sent", {}).get("lineup") != key:
                 push(f"Lineup check: tip-off at {tip.strftime('%I:%M%p').lstrip('0').lower()} ET", "\n".join(probs[:6]) + "\nFix in ESPN before the first game locks.", priority=4, tags=["rotating_light"])
                 s.setdefault("sent", {})["lineup"] = key
-    save_state(s)
+
+
+# ============================================================ late-scratch watch (per game, names the swap)
+TIPS_CACHE = {}
+
+
+def team_tips():
+    """canon NBA team -> tip-off datetime (ET) of today's game"""
+    sched = load("nba_schedule.json") or {}
+    out = {}
+    for a, h, t in sched.get("games", {}).get(TODAY.isoformat(), []):
+        try:
+            hh, mm = int(t[:2]), int(t[3:5])
+        except (TypeError, ValueError):
+            continue
+        dt = datetime(TODAY.year, TODAY.month, TODAY.day, hh, mm, tzinfo=ZoneInfo("UTC"))
+        if hh < 10:
+            dt += timedelta(days=1)                            # 00:00-09:59Z is the evening of the same ET date
+        dt = dt.astimezone(ET)
+        out[canon(a)] = dt
+        out[canon(h)] = dt
+    return out
+
+
+def swap_options(out_p, roster, tips, now):
+    """ways to cover a starter who is out, best first. roster: dicts with id, name, slot, elig (slots he may fill), team, out, p (chance he plays), level.
+    A bench player must have a game that has not tipped off yet. Direct: he is eligible for the open slot. Chain: another unlocked starter slides into the
+    open slot and the bench player takes that starter's slot. Returns [(expected pts, bench player, slot he takes, starter who slides or None)]."""
+    S = out_p["slot"]
+    starters = [q for q in roster if q["slot"] not in ("BE", "IR")]
+    bench = [q for q in roster if q["slot"] == "BE" and not q["out"] and tips.get(q["team"]) is not None and tips[q["team"]] > now]
+    opts = []
+    for b in bench:
+        val = b["level"] * b["p"]
+        if S in b["elig"]:
+            opts.append((val, b, S, None))
+            continue
+        for y in starters:
+            if y is out_p or y["out"]:
+                continue
+            ty = tips.get(y["team"])
+            if ty is not None and ty <= now:                      # already locked: cannot be moved
+                continue
+            if S in y["elig"] and y["slot"] in b["elig"]:
+                opts.append((val - 0.01, b, y["slot"], y))
+                break
+    opts.sort(key=lambda o: -o[0])
+    return opts
+
+
+def fa_options(out_p, fa_pool, tips, now, n=2):
+    """best free agents who can fill the slot and whose game has not started (from the weekly plan's free-agent pool)"""
+    S = out_p["slot"]
+    res = []
+    for f in fa_pool or []:
+        t = tips.get(canon(f.get("team") or ""))
+        if t is None or t <= now or f.get("status") in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
+            continue
+        sl = f.get("slots") or []
+        if S in sl:
+            res.append((f.get("level", 0), f, t))
+    res.sort(key=lambda r: -r[0])
+    return res[:n]
+
+
+def _fmt_t(dt):
+    return dt.strftime("%I:%M%p").lstrip("0").lower()
+
+
+def scratch_message(out_p, tip, now, opts, fas, reason, tips):
+    mins = int((tip - now).total_seconds() // 60)
+    lines = [f"{out_p['name']} ({out_p['slot']} slot) is {reason}. His game tips at {_fmt_t(tip)} ET ({mins} min from now)."]
+    if opts:
+        val, b, slot, y = opts[0]
+        bt = _fmt_t(tips[b["team"]])
+        if y is None:
+            lines.append(f"BEST SWAP: start {b['name']} in the {slot} slot (about {val:.0f} expected pts, game at {bt}).")
+        else:
+            lines.append(f"BEST SWAP: move {y['name']} into the {out_p['slot']} slot and start {b['name']} at {slot} (about {val:.0f} expected pts, game at {bt}).")
+        for v2, b2, s2, y2 in opts[1:3]:
+            lines.append(f"Next best: {b2['name']} ({v2:.0f} pts)" + (f", via {y2['name']} sliding over" if y2 else "") + ".")
+    else:
+        lines.append("No bench player who plays tonight can fill that slot.")
+        if fas:
+            f = fas[0]
+            lines.append(f"Free-agent option: {f[1]['name']} ({f[1]['team']}, about {f[1]['level']:.0f} pts/g, tips {_fmt_t(f[2])}). That is a claim that may not take effect before tip-off (waiver rules unconfirmed), so check whether ESPN says Add or Claim. It also costs a drop and an add.")
+        else:
+            lines.append("No free agent fits either. Leaving the slot empty costs only that player's game.")
+    lines.append("Only matters if you are under your games cap.")
+    return "\n".join(lines)
+
+
+def late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id):
+    """for every starter whose game has not tipped off and who is ruled out (official report Out/Doubtful or ESPN OUT/IR/suspended): send the swap now, and once
+    more 35 minutes before his tip if the lineup still has him in. One alert per (player, day, stage); state in alerts/state.json under `lu`."""
+    if not can_send:
+        return
+    tips = team_tips()
+    roster = []
+    for p in mine.roster:
+        k = norm(p.name).replace(" ", "")
+        o = off.get(k)
+        status = o or p.injuryStatus or "ACTIVE"
+        pretend = p.name.lower() in PRETEND_OUT
+        out = pretend or (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or o in ("Out", "Doubtful")
+        reason = "(test) pretend-out" if pretend else ("ruled out in the official NBA report" if o in ("Out", "Doubtful") else f"listed {p.injuryStatus} by ESPN")
+        roster.append({"id": p.playerId, "name": p.name, "slot": p.lineupSlot, "elig": list(getattr(p, "eligibleSlots", []) or []), "team": canon(p.proTeam or ""),
+                       "out": out, "reason": reason if out else "", "p": 0.0 if out else P_STATUS.get(status, 0.94), "level": plan_by_id.get(p.playerId, {}).get("level", 20.0)})
+    lu = s.setdefault("lu", {})
+    for k in [k for k in lu if not k.startswith(TODAY.isoformat())]:
+        lu.pop(k)
+    for q in roster:
+        if q["slot"] in ("BE", "IR") or not q["out"]:
+            continue
+        tip = tips.get(q["team"])
+        if tip is None or tip <= NOW:
+            continue                                              # no game today, or his game has started (locked)
+        mins = (tip - NOW).total_seconds() / 60
+        if in_quiet() and not FORCE and mins > 120:
+            continue
+        key = f"{TODAY.isoformat()}:{q['id']}"
+        stage = lu.get(key, 0)
+        want = 1 if stage < 1 else (2 if (stage < 2 and mins <= 35) else 0)
+        if not want:
+            continue
+        opts = swap_options(q, roster, tips, NOW)
+        fas = [] if opts else fa_options(q, W.get("fa_pool"), tips, NOW)
+        body = scratch_message(q, tip, NOW, opts, fas, q["reason"], tips)
+        title = ("REMINDER: " if want == 2 else "Late scratch: ") + q["name"] + " is out" + (" (still in your lineup)" if want == 2 else "")
+        if push(title, body, priority=5 if mins <= 60 else 4, tags=["rotating_light"]):
+            lu[key] = want
+            _ledger("late_scratch", player=q["name"], stage=want, mins_to_tip=round(mins), swap=(opts[0][1]["name"] if opts else None))
+
+
+def run_lineup():
+    """fast path for the 5-minute timer: exits at once unless one of your teams tips off within 4 hours"""
+    W = load("week_plan.json")
+    if not W:
+        print("no plan file")
+        return
+    T = my_team(W)
+    tips = team_tips()
+    mine_teams = {canon(p["team"]) for p in T["roster"] if not p["ir"]}
+    soon = [t for tm, t in tips.items() if tm in mine_teams and NOW < t <= NOW + timedelta(hours=4)]
+    if not soon and not FORCE:
+        print("no game of yours tips within 4 hours")
+        return
+    from espn_api.basketball import League
+    import config
+    s = state()
+    lg = League(league_id=config.LEAGUE_ID, year=W["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
+    mine = next(t for t in lg.teams if t.team_abbrev == W["my_abbrev"])
+    plan_by_id = {p["id"]: p for p in T["roster"]}
+    off = official_today({norm(p.name).replace(" ", "") for p in mine.roster})
+    before = json.dumps(s, sort_keys=True)
+    can_send = active() or FORCE
+    first_tip_check(W, T, mine, off, s, can_send)
+    late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id)
+    if json.dumps(s, sort_keys=True) != before:
+        save_state(s)
 
 
 if __name__ == "__main__":
     mode = ARGS[0] if ARGS else "check"
     if mode == "test":
         push("Fantasy Hub test", "If you can read this on your phone, alerts are working.", priority=3, tags=["white_check_mark"])
+    elif mode == "lineup":
+        run_lineup()
     elif mode in ("daily", "weekly"):
         run_digest(mode)
     else:

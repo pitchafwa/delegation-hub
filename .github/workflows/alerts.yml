@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "check | daily | weekly | test"
+        description: "check | lineup | daily | weekly | test"
         default: "check"
   schedule:
     - cron: "17,47 12-23 * * *"
@@ -48,6 +48,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             python research/alerts.py check || true
+            python research/alerts.py lineup || true
             python research/alerts.py daily || true
             python research/alerts.py weekly || true
           else
