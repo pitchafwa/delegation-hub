@@ -19,6 +19,7 @@ Run from ingest/:  uv run python research/build_week_plan.py
 import json
 import math
 import os
+import random
 import re
 import sys
 import unicodedata
@@ -327,6 +328,20 @@ def day_options(roster, d):
     return cands, order, vals, cnt
 
 
+def starts_with_cover(cands, n_draw=300):
+    """expected starts for a day if you slot a bench player in for anyone who turns out to be out (what you actually do before tip-off). plan_team's own
+    count, `cnt`, sums each chosen starter's chance of playing and gives bench players no credit, so it understates starts on days with spare players.
+    DISPLAY ONLY: the points forecast and add/drop search still use the original accounting (their calibration was measured on it)."""
+    if not cands:
+        return 0.0
+    rng = random.Random(len(cands) * 7919 + int(cands[0][0] * 10))
+    tot = 0
+    for _ in range(n_draw):
+        avail = [c for c in cands if rng.random() < c[2]]
+        tot += len(slot_matcher(avail))
+    return tot / n_draw
+
+
 def assign_slots(chosen):
     """final slot names for a set of (pl) via maximum matching (small)"""
     match = {}
@@ -392,7 +407,8 @@ def plan_team(roster, c0=0.0, detail=False):
         c_after = c + (cnt[m] if not locked else 0)
         rows.append({"date": d.isoformat(), "nba_teams": len(games.get(d, {})), "start": starters, "bench_playing": benched,
                      "pts": round(vals[m] if not locked else 0.0, 1), "starts_before": round(c, 1), "starts_after": round(c_after, 1),
-                     "locked": bool(locked), "sat": (len(order) - m) if not locked else len(order)})
+                     "locked": bool(locked), "sat": (len(order) - m) if not locked else len(order),
+                     "starts_cover": round(starts_with_cover(cands), 1) if not locked else 0.0})
         # 'start everyone possible' comparison
         if naive_c < cap:
             naive_total += vals[-1]
