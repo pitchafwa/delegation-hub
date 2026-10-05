@@ -30,3 +30,4 @@ Claude: on or before Oct 20, flag this file to Tommy, walk through it, and say e
 * **Long-term adds (ROS).** Once real injuries exist, check the ROS rows' return dates against ESPN's and that the slot advice (free IR slot vs drop) matches your roster.
 * Grade the availability, usage-flow and injury-return numbers against real results using the ledger.
 * Replay the usage-flow add/drop decisions and the Phase 2 features on real 2026-27 weeks.
+* **Refinement watch-list (added 2026-10-04):** see the last section of `BACKLOG.md` ("Refinement watch-list"). After the first full week, grade: forecast vs actual points (bench-cover blind spot, item 1), the "no adds" verdicts vs how streamers actually did (item 2), Julian Reese's role (item 3), and the draft availability model vs the real draft (item 4).
