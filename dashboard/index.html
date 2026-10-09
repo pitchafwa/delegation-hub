@@ -1182,6 +1182,7 @@ function renderWeek(){
         <li><b>Judge the reliability of what you see.</b> A gain under about 10 points is noise. Players marked Questionable are coin flips, so a plan that depends on one is fragile: add a healthy backup who plays the same day. Free-agent projections are shrunk toward average because the best-looking ones are partly lucky, so treat a big claimed gain from an unknown as a maybe. "Other free agents worth a look" (collapsed) are alternatives judged one at a time; their gains overlap, so do not add them up.</li>
       </ol></div>
     ${lineupSec}
+    ${T.abbrev===W.my_abbrev?sec('setlineup','Set lineup in ESPN','preview: the rest of this matchup, one click (apply is not built yet)','<div id="slBox" class="hint">Loading preview…</div>',false):''}
     ${wrapHdr('ir',irHtml)}
     ${wrapHdr('inj',advHtml)}
     ${wrapHdr('moves',seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: your full plan for this week, in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
@@ -1198,6 +1199,7 @@ function renderWeek(){
       first.parentNode.insertBefore(jb,first);
       jb.addEventListener('click',e=>{ const b=e.target.closest('button[data-jump]'); if(!b) return; const d=document.getElementById('sec-'+b.dataset.jump); if(!d) return; d.open=true; secState[b.dataset.jump]=true; d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
     secs.forEach(d=>d.addEventListener('toggle',()=>{ secState[d.dataset.sec]=d.open; })); }
+  fillSetLineup();
   document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});
   const wa=document.getElementById('weekAfterCb'); if(wa) wa.addEventListener('change',e=>{weekAfter=e.target.checked; renderWeek();});
   mobileTables(pane); collapseLegends(pane);
@@ -1531,6 +1533,34 @@ function pcHtml(P){
 }
 
 function coverStarts(days,plain){ return days.reduce((a,d)=>a+(plain||d.starts_cover==null?(d.starts_after-d.starts_before):d.starts_cover),0)+(days.length?days[0].starts_before:0); }
+/* "Set lineup in ESPN" panel (skeleton): shows lineup_preview.json (built by research/set_lineup.py): for every remaining day of the matchup, the starters the plan wants and the
+   moves ESPN would need. Applying is NOT built yet (it needs the lineup-write request captured from a real ESPN move), so the button is disabled. */
+let SL_EXAMPLE=false;
+function slRender(pv,isExample){
+  const days=pv.days.map(d=>{
+    const mv=d.moves.length?d.moves.map(m=>`<span class="comp" title="${esc(m.name)}: ${esc(m.from)} to ${esc(m.to)}"><b>${esc(m.to==='BE'?'BENCH':m.to)}</b> ${esc(m.name)} <span class="hint">${esc(m.from==='BE'?'from bench':m.to==='BE'?'out of '+m.from:'from '+m.from)}</span></span>`).join(' '):'<span class="hint">no changes needed</span>';
+    return `<tr><td style="text-align:left;white-space:nowrap">${fmtDay(d.date)}<div class="hint">${d.n_nba_games} NBA games</div></td><td style="text-align:left;white-space:normal">${d.plan.length?d.plan.map(x=>`<span class="hint">${esc(x.slot)}</span> ${esc(x.name.split(' ').slice(-1)[0])}`).join(' · '):'<span class="hint">nobody on your roster plays</span>'}</td>
+      <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${mv}</div>${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td><td class="num">${d.moves.length}</td></tr>`; }).join('');
+  const nd=pv.days.filter(d=>d.moves.length).length;
+  const sum=pv.total_moves===0?'ESPN already has the lineup from the plan for every remaining day, so there is nothing to change.':`<b>${pv.total_moves} move${pv.total_moves>1?'s':''}</b> across ${nd} day${nd>1?'s':''} would set the planned lineup for the rest of the matchup.`;
+  return `${isExample?'<div class="note" style="margin-bottom:.4rem"><span class="liveStatus">EXAMPLE</span> This is what the panel looks like when nothing is set in ESPN yet (every move shown starts from an empty lineup). It is not your real lineup.</div>':''}
+    <div style="margin:.2rem 0 .5rem">${sum} <span class="hint">Plan from ${new Date(pv.plan_generated).toLocaleString()}; matchup ${pv.matchup} (${pv.start} to ${pv.end}).</span></div>
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starters the plan wants</th><th style="text-align:left">Moves ESPN needs</th><th>Moves</th></tr></thead><tbody>${days}</tbody></table></div>
+    <div class="controls" style="margin-top:.6rem;gap:.8rem;flex-wrap:wrap">
+      <button type="button" disabled title="Not built yet: needs a one-time capture of ESPN's lineup request" style="padding:.45rem .9rem;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-faint);font:inherit;cursor:not-allowed">Set my lineup for the rest of the matchup</button>
+      <button type="button" id="slExBtn" class="linkBtn" style="background:none;border:0;color:var(--accent,#5b7cfa);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button>
+      <span class="hint">Preview only for now.</span></div>
+    <div class="note" style="margin-top:.5rem">When apply exists it will only move players between slots (never add or drop), never touch a player whose game has started, save your current lineups first so it can be undone, and apply exactly the moves shown here. The plan it follows is the one with no adds; if you make the suggested adds first, refresh the plan before applying.</div>`;
+}
+function fillSetLineup(){
+  const box=document.getElementById('slBox'); if(!box) return;
+  const f=SL_EXAMPLE?'lineup_preview_example.json':'lineup_preview.json';
+  fetch(f,{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(pv=>{
+    if(!document.body.contains(box)) return;
+    box.className=''; box.innerHTML=slRender(pv,SL_EXAMPLE);
+    const b=box.querySelector('#slExBtn'); if(b) b.addEventListener('click',()=>{ SL_EXAMPLE=!SL_EXAMPLE; fillSetLineup(); });
+  }).catch(()=>{ box.textContent=SL_EXAMPLE?'The example is not available.':'No lineup preview yet. It is built after each plan refresh.'; });
+}
 function gamesHtml(T){
   const G=T.key_games||[]; if(!G.length) return '';
   const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
