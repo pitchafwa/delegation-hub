@@ -1561,7 +1561,7 @@ async function slRun(mode,hash){
     const res=await slFetch('lineup_result.json');
     if(res&&Date.parse(res.ts)>t0-8000&&res.mode===mode){
       say(`<b style="color:${res.ok?'var(--good)':'var(--warn)'}">${res.ok?'Done':'Not applied'}:</b> ${esc(res.message)}${res.run?` <a href="${esc(res.run)}" target="_blank" rel="noopener">run log</a>`:''}`);
-      if(mode==='preview'||res.ok) fillSetLineup(true);
+      if(mode!=='apply'||res.ok) fillSetLineup(true);
       return;
     }
   }
@@ -1583,6 +1583,7 @@ function slRender(pv,isExample){
     <div class="controls" style="margin-top:.6rem;gap:.6rem;flex-wrap:wrap">
       <button type="button" id="slApply" ${canApply?'':'disabled'} style="${btn}${canApply?'border-color:var(--accent,#5b7cfa);cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Set my lineup for the rest of the matchup</button>
       <button type="button" id="slRefresh" ${tok&&!isExample?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
+      <button type="button" id="slUndo" ${tok&&!isExample?'':'disabled'} title="Puts every player moved by the last apply back where he was" style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Undo last apply</button>
       <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent,#5b7cfa);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
     <div id="slStatus" class="note" style="margin-top:.4rem">${why?`<span class="hint">${esc(why)}</span>`:''}</div>
     <details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">${tok?'GitHub token saved on this device':'One-time setup: add a GitHub token (works on your phone too)'}</summary>
@@ -1600,6 +1601,7 @@ async function fillSetLineup(force){
   const on=(id,fn)=>{ const e=box.querySelector('#'+id); if(e) e.addEventListener('click',fn); };
   on('slExBtn',()=>{ SL_EXAMPLE=!SL_EXAMPLE; fillSetLineup(); });
   on('slRefresh',()=>slRun('preview'));
+  on('slUndo',()=>{ if(confirm('Undo the last apply? Every player it moved goes back to the slot he came from. Days whose games have started cannot be changed.')) slRun('undo'); });
   on('slApply',()=>{ const n=pv.total_moves, nd=pv.days.filter(d=>d.moves.length).length; if(confirm(`Set your ESPN lineup for the rest of matchup ${pv.matchup}?\n\n${n} move${n>1?'s':''} across ${nd} day${nd>1?'s':''}, exactly as shown in the preview. Your current lineups are saved first so they can be undone.`)) slRun('apply',pv.hash); });
   on('slTokSave',()=>{ const v=(box.querySelector('#slTokIn')||{}).value||''; if(v.trim()){ slSetTok(v.trim()); fillSetLineup(); } });
   on('slTokClear',()=>{ slSetTok(''); fillSetLineup(); });

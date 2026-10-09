@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "preview | apply"
+        description: "preview | apply | undo"
         default: "preview"
       hash:
         description: "preview hash being applied (apply only)"
@@ -38,6 +38,16 @@ jobs:
 
       - name: Install dependencies
         run: pip install --quiet espn-api pandas python-dotenv requests
+
+      - name: Carry over the last apply (for Undo) and snapshots
+        run: |
+          mkdir -p lineup_out
+          git fetch -q origin lineup-data || true
+          if git rev-parse -q --verify origin/lineup-data >/dev/null; then
+            for f in $(git ls-tree --name-only origin/lineup-data | grep -E '^lineup_(snapshot_|last_apply)' || true); do
+              git show "origin/lineup-data:$f" > "lineup_out/$f"
+            done
+          fi
 
       - name: Run
         id: run

@@ -150,7 +150,7 @@ def build_preview(from_scratch=False):
     return body
 
 
-APPLY_READY = False       # flip to True only after write_lineup() is implemented from a captured ESPN request and tested on a real lineup move
+APPLY_READY = True        # switched on 2026-10-09 after --selftest --write passed (swap + revert verified in ESPN with cookies alone)
 
 
 SLOT_ID = {v: k for k, v in SLOT_NAME.items()}
@@ -234,6 +234,28 @@ def selftest(day_iso, do_write):
         print("  lineup identical to the start:", final == cur)
 
 
+def do_undo(out_dir):
+    """reverse the most recent apply (kept in lineup_last_apply.json, carried between runs by the workflow): every moved player goes back to the slot he came from,
+    day by day, each verified. Days whose games have already started will be refused by ESPN and reported."""
+    f = out_dir / "lineup_last_apply.json"
+    if not f.exists():
+        return result_body(False, "Nothing to undo: no earlier apply was recorded.", "undo")
+    import config
+    from espn_api.basketball import League
+    last = json.loads(f.read_text(encoding="utf-8"))
+    lg = League(league_id=config.LEAGUE_ID, year=load("week_plan.json")["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
+    done = []
+    for d in last["days"]:
+        back = [{"id": m["id"], "name": m["name"], "from": m["to"], "to": m["from"]} for m in d["moves"]]
+        try:
+            write_lineup(lg, d["sp"], back, team_id=my_team_id())
+            done.append(d["date"])
+        except Exception as ex:
+            return result_body(False, f"Undo stopped at {d['date']}: {ex}. Days already undone: {', '.join(done) or 'none'}.", "undo", None, done)
+    f.rename(out_dir / "lineup_last_apply.undone.json")
+    return result_body(True, f"Undone for {len(done)} day(s): {', '.join(done)}.", "undo", None, done)
+
+
 def arg(name, default=None):
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv and sys.argv.index(name) + 1 < len(sys.argv) else default
 
@@ -268,7 +290,10 @@ def do_apply(pv, want_hash, out_dir):
             applied.append(d["date"])
         except Exception as ex:
             return result_body(False, f"Stopped at {d['date']}: {ex}. Days already set: {', '.join(applied) or 'none'}. The snapshot lineup_snapshot_{pv['hash']}.json can undo them.", "apply", pv, applied)
-    return result_body(True, f"Lineup set for {len(applied)} day(s): {', '.join(applied)}.", "apply", pv, applied)
+    last = {"ts": datetime.now(timezone.utc).isoformat(), "preview_hash": pv["hash"],
+            "days": [{"date": d["date"], "sp": d["sp"], "moves": d["moves"]} for d in pv["days"] if d["date"] in applied]}
+    (out_dir / "lineup_last_apply.json").write_text(json.dumps(last, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return result_body(True, f"Lineup set for {len(applied)} day(s): {', '.join(applied)}. Use Undo if you want it back the way it was.", "apply", pv, applied)
 
 
 if __name__ == "__main__":
@@ -279,6 +304,11 @@ if __name__ == "__main__":
     mode = arg("--mode", "demo" if demo else "preview")
     out_dir = Path(arg("--out", str(HUB)))
     out_dir.mkdir(parents=True, exist_ok=True)
+    if mode == "undo":
+        res = do_undo(out_dir)
+        (out_dir / "lineup_result.json").write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        print("RESULT:", res["message"])
+        sys.exit(0 if res["ok"] else 1)
     pv = build_preview(from_scratch=demo)
     pv["apply_supported"] = APPLY_READY
     (out_dir / ("lineup_preview_example.json" if demo else "lineup_preview.json")).write_text(json.dumps(pv, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
