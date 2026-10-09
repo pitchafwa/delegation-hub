@@ -153,10 +153,85 @@ def build_preview(from_scratch=False):
 APPLY_READY = False       # flip to True only after write_lineup() is implemented from a captured ESPN request and tested on a real lineup move
 
 
-def write_lineup(lg, sp, moves):
-    """PLACEHOLDER. Send one scoring period's lineup moves to ESPN. To be written from the request Tommy's browser makes when he moves a player in ESPN's lineup
-    page (endpoint, JSON body, slot ids). Must raise on any non-success response so a failed day is never reported as applied."""
-    raise NotImplementedError("the ESPN lineup-write request has not been captured yet")
+SLOT_ID = {v: k for k, v in SLOT_NAME.items()}
+WRITE_URL = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/fba/seasons/{season}/segments/0/leagues/{league}/transactions/"
+
+
+def lineup_payload(team_id, sp, moves):
+    """the exact body ESPN's own lineup page sends (captured 2026-10-09 from a real swap of two players): one ROSTER transaction per scoring period, one LINEUP item per player moved"""
+    import config
+    return {"isLeagueManager": False, "teamId": team_id, "type": "ROSTER", "memberId": config.SWID, "scoringPeriodId": sp, "executionType": "EXECUTE",
+            "items": [{"playerId": m["id"], "type": "LINEUP", "fromLineupSlotId": SLOT_ID[m["from"]], "toLineupSlotId": SLOT_ID[m["to"]]} for m in moves]}
+
+
+def read_day(lg, team_id, sp):
+    raw = lg.espn_request.league_get(params={"view": ["mRoster"], "scoringPeriodId": sp})
+    team = next(t for t in raw["teams"] if t["id"] == team_id)
+    return {e["playerId"]: SLOT_NAME.get(e["lineupSlotId"], str(e["lineupSlotId"])) for e in team["roster"]["entries"]}
+
+
+def my_team_id():
+    W = load("week_plan.json")
+    return next(t for t in W["teams"] if t["abbrev"] == W["my_abbrev"])["id"]
+
+
+def write_lineup(lg, sp, moves, team_id=None, dry=False):
+    """Send one scoring period's lineup moves to ESPN, then re-read that day's lineup and confirm every moved player is where he was meant to be.
+    Raises on any non-success response or any mismatch, so a failed day is never reported as applied."""
+    import config
+    import requests
+    team_id = team_id or my_team_id()
+    body = lineup_payload(team_id, sp, moves)
+    if dry:
+        print("DRY RUN, would POST:", json.dumps({**body, "memberId": "<SWID>"}))
+        return
+    url = WRITE_URL.format(season=load("week_plan.json")["season"], league=config.LEAGUE_ID)
+    r = requests.post(url, json=body, cookies={"espn_s2": config.ESPN_S2, "SWID": config.SWID}, timeout=30,
+                      headers={"Accept": "application/json", "Origin": "https://fantasy.espn.com", "Referer": "https://fantasy.espn.com/", "User-Agent": "Mozilla/5.0"})
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"ESPN answered {r.status_code}: {r.text[:200]}")
+    try:
+        j = r.json()
+        if isinstance(j, dict) and str(j.get("status", "")).upper() in ("FAILED", "ERROR", "INVALID"):
+            raise RuntimeError(f"ESPN rejected the lineup: {json.dumps(j)[:200]}")
+    except ValueError:
+        pass
+    now = read_day(lg, team_id, sp)
+    bad = [m["name"] for m in moves if now.get(m["id"]) != m["to"]]
+    if bad:
+        raise RuntimeError(f"ESPN accepted the request but these players are not in the expected slot afterwards: {', '.join(bad)}")
+
+
+def selftest(day_iso, do_write):
+    """harmless end-to-end test of the write path: swap one player who has NO game that day (in an active slot) with a bench player who also has none, check ESPN shows it,
+    swap back, check again. Without --write it only prints the payloads."""
+    import config
+    from espn_api.basketball import League
+    W = load("week_plan.json")
+    me = next(t for t in W["teams"] if t["abbrev"] == W["my_abbrev"])
+    SP = load("schedule_plan.json")
+    sp = scoring_period(date.fromisoformat(day_iso), date.fromisoformat(SP["calendar"][0]["start"]))
+    lg = League(league_id=config.LEAGUE_ID, year=W["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
+    cur = read_day(lg, me["id"], sp)
+    plays = {r["id"] for r in me["roster"] if day_iso in r.get("games", [])}
+    name = {r["id"]: r["name"] for r in me["roster"]}
+    act = [pid for pid, sl in cur.items() if sl in SLOT_CAP and pid not in plays]
+    ben = [pid for pid, sl in cur.items() if sl == "BE" and pid not in plays]
+    if not act or not ben:
+        raise SystemExit("no suitable pair (an active-slot player and a bench player who both have no game that day)")
+    A, B = act[0], ben[0]
+    sA = cur[A]
+    out = [{"id": A, "name": name.get(A, str(A)), "from": sA, "to": "BE"}, {"id": B, "name": name.get(B, str(B)), "from": "BE", "to": sA}]
+    back = [{"id": A, "name": name.get(A, str(A)), "from": "BE", "to": sA}, {"id": B, "name": name.get(B, str(B)), "from": sA, "to": "BE"}]
+    print(f"self-test on {day_iso} (scoring period {sp}): swap {out[0]['name']} ({sA}) with {out[1]['name']} (bench), neither plays that day")
+    write_lineup(lg, sp, out, me["id"], dry=not do_write)
+    if do_write:
+        print("  swap applied and verified in ESPN")
+    write_lineup(lg, sp, back, me["id"], dry=not do_write)
+    if do_write:
+        print("  swap reverted and verified in ESPN")
+        final = read_day(lg, me["id"], sp)
+        print("  lineup identical to the start:", final == cur)
 
 
 def arg(name, default=None):
@@ -189,7 +264,7 @@ def do_apply(pv, want_hash, out_dir):
         if not d["moves"]:
             continue
         try:
-            write_lineup(lg, d["sp"], d["moves"])
+            write_lineup(lg, d["sp"], d["moves"], team_id=load("week_plan.json")["teams"][0]["id"] and next(t for t in load("week_plan.json")["teams"] if t["abbrev"] == load("week_plan.json")["my_abbrev"])["id"])
             applied.append(d["date"])
         except Exception as ex:
             return result_body(False, f"Stopped at {d['date']}: {ex}. Days already set: {', '.join(applied) or 'none'}. The snapshot lineup_snapshot_{pv['hash']}.json can undo them.", "apply", pv, applied)
@@ -197,6 +272,9 @@ def do_apply(pv, want_hash, out_dir):
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        selftest(arg("--day", "2026-10-20"), "--write" in sys.argv)
+        raise SystemExit(0)
     demo = "--demo" in sys.argv
     mode = arg("--mode", "demo" if demo else "preview")
     out_dir = Path(arg("--out", str(HUB)))
