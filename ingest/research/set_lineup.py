@@ -3,7 +3,9 @@ currently has for that day, and writes the list of moves to dashboard/lineup_pre
 
   python research/set_lineup.py              build the preview (read-only; never writes to ESPN)
   python research/set_lineup.py --demo      same, but pretends nothing is set in ESPN yet (writes lineup_preview_example.json so the page can show a full example)
-  python research/set_lineup.py --apply      NOT BUILT YET: needs the lineup-write request captured from Tommy's browser (see APPLY below)
+  python research/set_lineup.py --mode apply --hash H --out DIR   apply exactly the preview with hash H (refuses if the preview changed). NOT SWITCHED ON YET
+                                             (APPLY_READY=False): needs the lineup-write request captured from Tommy's browser (see APPLY below)
+  --out DIR writes the preview/result files there (the set-lineup workflow publishes them to the lineup-data branch for the site)
 
 What the plan means per day: `week_plan.json` teams[me].days[i].start = the starters (id, slot) the cap-aware plan wants, for the plan with NO adds. Everyone else on the active
 roster should be on the bench; IR players stay put. A day the plan marks `locked` (cap already reached) is left alone. Today's players whose game has already tipped are
@@ -148,19 +150,73 @@ def build_preview(from_scratch=False):
     return body
 
 
-def apply(preview):
-    raise SystemExit("--apply is not built yet: it needs the lineup-write request captured from a real ESPN lineup move (endpoint and body shape). "
-                     "Nothing was changed in ESPN.")
+APPLY_READY = False       # flip to True only after write_lineup() is implemented from a captured ESPN request and tested on a real lineup move
+
+
+def write_lineup(lg, sp, moves):
+    """PLACEHOLDER. Send one scoring period's lineup moves to ESPN. To be written from the request Tommy's browser makes when he moves a player in ESPN's lineup
+    page (endpoint, JSON body, slot ids). Must raise on any non-success response so a failed day is never reported as applied."""
+    raise NotImplementedError("the ESPN lineup-write request has not been captured yet")
+
+
+def arg(name, default=None):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv and sys.argv.index(name) + 1 < len(sys.argv) else default
+
+
+def result_body(ok, message, mode, pv=None, applied=None):
+    return {"ok": bool(ok), "message": message, "mode": mode, "ts": datetime.now(timezone.utc).isoformat(), "preview_hash": pv["hash"] if pv else None,
+            "applied": applied or [], "run": arg("--run-url")}
+
+
+def do_apply(pv, want_hash, out_dir):
+    """apply exactly the previewed moves: refuses unless the freshly built preview has the same hash the user reviewed"""
+    if not want_hash or pv["hash"] != want_hash:
+        return result_body(False, f"The lineup or plan changed since you looked (preview {want_hash or 'none'} vs now {pv['hash']}). Refresh the preview, review it, and apply again. Nothing was changed.", "apply", pv)
+    if pv["total_moves"] == 0:
+        return result_body(True, "Nothing to change: ESPN already has the planned lineup for every remaining day.", "apply", pv)
+    if any(m.get("problem") for d in pv["days"] for m in d["moves"]):
+        return result_body(False, "The preview has a move that cannot be done (a player missing from your roster). Nothing was changed.", "apply", pv)
+    if not APPLY_READY:
+        return result_body(False, "Apply is not switched on yet: it is waiting for the ESPN lineup request to be captured and tested. Nothing was changed.", "apply", pv)
+    # snapshot of every day's current lineup, written before any change so it can be undone
+    snap = {"taken": datetime.now(timezone.utc).isoformat(), "preview_hash": pv["hash"], "days": [{"date": d["date"], "sp": d["sp"], "current": d["current"], "moves": d["moves"]} for d in pv["days"]]}
+    (out_dir / f"lineup_snapshot_{pv['hash']}.json").write_text(json.dumps(snap, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    import config
+    from espn_api.basketball import League
+    lg = League(league_id=config.LEAGUE_ID, year=load("week_plan.json")["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
+    applied = []
+    for d in pv["days"]:
+        if not d["moves"]:
+            continue
+        try:
+            write_lineup(lg, d["sp"], d["moves"])
+            applied.append(d["date"])
+        except Exception as ex:
+            return result_body(False, f"Stopped at {d['date']}: {ex}. Days already set: {', '.join(applied) or 'none'}. The snapshot lineup_snapshot_{pv['hash']}.json can undo them.", "apply", pv, applied)
+    return result_body(True, f"Lineup set for {len(applied)} day(s): {', '.join(applied)}.", "apply", pv, applied)
 
 
 if __name__ == "__main__":
     demo = "--demo" in sys.argv
+    mode = arg("--mode", "demo" if demo else "preview")
+    out_dir = Path(arg("--out", str(HUB)))
+    out_dir.mkdir(parents=True, exist_ok=True)
     pv = build_preview(from_scratch=demo)
-    (HUB / ("lineup_preview_example.json" if demo else "lineup_preview.json")).write_text(json.dumps(pv, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    pv["apply_supported"] = APPLY_READY
+    (out_dir / ("lineup_preview_example.json" if demo else "lineup_preview.json")).write_text(json.dumps(pv, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"matchup {pv['matchup']} ({pv['start']} to {pv['end']}): {pv['total_moves']} lineup moves over {len(pv['days'])} days (preview {pv['hash']})")
     for d in pv["days"]:
         print(f"  {d['date']} ({d['n_nba_games']} NBA games): {len(d['moves'])} moves" + (f"  [{d['note']}]" if d["note"] else ""))
         for m in d["moves"][:12]:
             print(f"      {m['name']:22s} {m['from']:>5s} -> {m['to']}" + (f"   !! {m['problem']}" if m.get("problem") else ""))
-    if "--apply" in sys.argv:
-        apply(pv)
+    if mode == "apply" or "--apply" in sys.argv:
+        res = do_apply(pv, arg("--hash"), out_dir)
+    elif mode == "preview":
+        res = result_body(True, "Preview refreshed.", "preview", pv)
+    else:
+        res = None
+    if res and not demo:
+        (out_dir / "lineup_result.json").write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        print("RESULT:", res["message"])
+        if not res["ok"] and mode == "apply":
+            sys.exit(1)

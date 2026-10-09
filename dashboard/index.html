@@ -1182,7 +1182,7 @@ function renderWeek(){
         <li><b>Judge the reliability of what you see.</b> A gain under about 10 points is noise. Players marked Questionable are coin flips, so a plan that depends on one is fragile: add a healthy backup who plays the same day. Free-agent projections are shrunk toward average because the best-looking ones are partly lucky, so treat a big claimed gain from an unknown as a maybe. "Other free agents worth a look" (collapsed) are alternatives judged one at a time; their gains overlap, so do not add them up.</li>
       </ol></div>
     ${lineupSec}
-    ${T.abbrev===W.my_abbrev?sec('setlineup','Set lineup in ESPN','preview: the rest of this matchup, one click (apply is not built yet)','<div id="slBox" class="hint">Loading preview…</div>',false):''}
+    ${T.abbrev===W.my_abbrev?sec('setlineup','Set lineup in ESPN','preview the rest of this matchup, then set it in one click (apply not switched on yet)','<div id="slBox" class="hint">Loading preview…</div>',false):''}
     ${wrapHdr('ir',irHtml)}
     ${wrapHdr('inj',advHtml)}
     ${wrapHdr('moves',seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: your full plan for this week, in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
@@ -1533,9 +1533,40 @@ function pcHtml(P){
 }
 
 function coverStarts(days,plain){ return days.reduce((a,d)=>a+(plain||d.starts_cover==null?(d.starts_after-d.starts_before):d.starts_cover),0)+(days.length?days[0].starts_before:0); }
-/* "Set lineup in ESPN" panel (skeleton): shows lineup_preview.json (built by research/set_lineup.py): for every remaining day of the matchup, the starters the plan wants and the
-   moves ESPN would need. Applying is NOT built yet (it needs the lineup-write request captured from a real ESPN move), so the button is disabled. */
+/* "Set lineup in ESPN" panel. Shows the preview built by research/set_lineup.py (for every remaining day of the matchup: the starters the plan wants and the moves ESPN needs).
+   Buttons call GitHub's workflow_dispatch API for .github/workflows/set-lineup.yml with a token Tommy pastes into THIS browser once (kept in this browser's localStorage only,
+   never in the page source); that workflow holds the ESPN login as a repository secret, rebuilds the preview, and (when APPLY_READY is on in set_lineup.py) applies exactly the
+   preview hash he confirmed. Results are published to the lineup-data branch and read back here. Applying is NOT switched on yet. */
+const SL_BASE='https://raw.githubusercontent.com/pitchafwa/delegation-hub/lineup-data/', SL_REPO='pitchafwa/delegation-hub';
 let SL_EXAMPLE=false;
+const slTok=()=>{ try{ return localStorage.getItem('sl_token')||''; }catch(e){ return ''; } };
+function slSetTok(v){ try{ if(v) localStorage.setItem('sl_token',v); else localStorage.removeItem('sl_token'); }catch(e){} }
+async function slFetch(name){
+  let best=null;
+  for(const u of [SL_BASE+name+'?t='+Date.now(), name+'?t='+Date.now()]){
+    try{ const r=await fetch(u,{cache:'no-store'}); if(r.ok){ const j=await r.json(); const t=Date.parse(j.generated||j.ts||0)||0; if(!best||t>best.t) best={j,t}; } }catch(e){}
+  }
+  return best?best.j:null;
+}
+async function slDispatch(mode,hash){
+  const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/set-lineup.yml/dispatches`,{method:'POST',headers:{Authorization:'Bearer '+slTok(),Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{mode,hash:hash||''}})});
+  if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the token. Check that it has Actions read and write access on this repository, and has not expired.':'GitHub returned status '+r.status);
+}
+async function slRun(mode,hash){
+  const box=document.getElementById('slStatus'), t0=Date.now(), say=m=>{ if(box) box.innerHTML=m; };
+  try{ say('Sending to GitHub...'); await slDispatch(mode,hash); }catch(e){ say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); return; }
+  say('Started. This takes about a minute...');
+  for(let i=0;i<30;i++){
+    await new Promise(r=>setTimeout(r,8000));
+    const res=await slFetch('lineup_result.json');
+    if(res&&Date.parse(res.ts)>t0-8000&&res.mode===mode){
+      say(`<b style="color:${res.ok?'var(--good)':'var(--warn)'}">${res.ok?'Done':'Not applied'}:</b> ${esc(res.message)}${res.run?` <a href="${esc(res.run)}" target="_blank" rel="noopener">run log</a>`:''}`);
+      if(mode==='preview'||res.ok) fillSetLineup(true);
+      return;
+    }
+  }
+  say('Still running after 4 minutes. Open GitHub Actions and check the "Set lineup" workflow.');
+}
 function slRender(pv,isExample){
   const days=pv.days.map(d=>{
     const mv=d.moves.length?d.moves.map(m=>`<span class="comp" title="${esc(m.name)}: ${esc(m.from)} to ${esc(m.to)}"><b>${esc(m.to==='BE'?'BENCH':m.to)}</b> ${esc(m.name)} <span class="hint">${esc(m.from==='BE'?'from bench':m.to==='BE'?'out of '+m.from:'from '+m.from)}</span></span>`).join(' '):'<span class="hint">no changes needed</span>';
@@ -1543,23 +1574,35 @@ function slRender(pv,isExample){
       <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${mv}</div>${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td><td class="num">${d.moves.length}</td></tr>`; }).join('');
   const nd=pv.days.filter(d=>d.moves.length).length;
   const sum=pv.total_moves===0?'ESPN already has the lineup from the plan for every remaining day, so there is nothing to change.':`<b>${pv.total_moves} move${pv.total_moves>1?'s':''}</b> across ${nd} day${nd>1?'s':''} would set the planned lineup for the rest of the matchup.`;
+  const tok=slTok(), canApply=!!tok&&!isExample&&pv.apply_supported&&pv.total_moves>0;
+  const why=isExample?'This is only an example.':(!tok?'Add your GitHub token below to unlock the buttons.':(!pv.apply_supported?'Applying is not switched on yet (waiting on the ESPN lineup request capture). The preview works.':(pv.total_moves===0?'Nothing to apply.':'')));
+  const btn='padding:.45rem .9rem;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;';
   return `${isExample?'<div class="note" style="margin-bottom:.4rem"><span class="liveStatus">EXAMPLE</span> This is what the panel looks like when nothing is set in ESPN yet (every move shown starts from an empty lineup). It is not your real lineup.</div>':''}
-    <div style="margin:.2rem 0 .5rem">${sum} <span class="hint">Plan from ${new Date(pv.plan_generated).toLocaleString()}; matchup ${pv.matchup} (${pv.start} to ${pv.end}).</span></div>
+    <div style="margin:.2rem 0 .5rem">${sum} <span class="hint">Preview built ${new Date(pv.generated).toLocaleString()} from the plan of ${new Date(pv.plan_generated).toLocaleString()}; matchup ${pv.matchup} (${pv.start} to ${pv.end}).</span></div>
     <div class="tablewrap"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starters the plan wants</th><th style="text-align:left">Moves ESPN needs</th><th>Moves</th></tr></thead><tbody>${days}</tbody></table></div>
-    <div class="controls" style="margin-top:.6rem;gap:.8rem;flex-wrap:wrap">
-      <button type="button" disabled title="Not built yet: needs a one-time capture of ESPN's lineup request" style="padding:.45rem .9rem;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-faint);font:inherit;cursor:not-allowed">Set my lineup for the rest of the matchup</button>
-      <button type="button" id="slExBtn" class="linkBtn" style="background:none;border:0;color:var(--accent,#5b7cfa);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button>
-      <span class="hint">Preview only for now.</span></div>
-    <div class="note" style="margin-top:.5rem">When apply exists it will only move players between slots (never add or drop), never touch a player whose game has started, save your current lineups first so it can be undone, and apply exactly the moves shown here. The plan it follows is the one with no adds; if you make the suggested adds first, refresh the plan before applying.</div>`;
+    <div class="controls" style="margin-top:.6rem;gap:.6rem;flex-wrap:wrap">
+      <button type="button" id="slApply" ${canApply?'':'disabled'} style="${btn}${canApply?'border-color:var(--accent,#5b7cfa);cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Set my lineup for the rest of the matchup</button>
+      <button type="button" id="slRefresh" ${tok&&!isExample?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
+      <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent,#5b7cfa);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
+    <div id="slStatus" class="note" style="margin-top:.4rem">${why?`<span class="hint">${esc(why)}</span>`:''}</div>
+    <details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">${tok?'GitHub token saved on this device':'One-time setup: add a GitHub token (works on your phone too)'}</summary>
+      <div class="note" style="margin-top:.4rem">${tok?`<button type="button" id="slTokClear" style="${btn}cursor:pointer">Remove token from this device</button>`:`<ol style="margin:.2rem 0 .5rem 1.1rem;padding:0"><li>On GitHub: Settings, Developer settings, Personal access tokens, <b>Fine-grained tokens</b>, Generate new token.</li><li>Repository access: <b>only</b> pitchafwa/delegation-hub. Permissions: <b>Actions: Read and write</b>. Expiration: your choice (90 days is fine).</li><li>Paste it here. It is saved only in this browser on this device. Do this once on each device you want to use (phone and computer).</li></ol>
+        <input type="password" id="slTokIn" autocomplete="off" placeholder="github_pat_..." style="padding:.4rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);width:min(22rem,100%)" /> <button type="button" id="slTokSave" style="${btn}cursor:pointer">Save</button>`}
+        <div class="hint" style="margin-top:.4rem">The token can only start GitHub workflows in this repository. Your ESPN login is never in the page or the token: it stays in GitHub's repository secrets.</div></div></details>
+    <div class="note" style="margin-top:.5rem">When apply is on it only moves players between slots (never an add or a drop), never touches a player whose game has started, saves your current lineups first so it can be undone, and applies exactly the moves shown here (it refuses if the plan or your lineup changed since you looked). The plan it follows is the one with no adds; if you make the suggested adds first, refresh the plan before applying.</div>`;
 }
-function fillSetLineup(){
+async function fillSetLineup(force){
   const box=document.getElementById('slBox'); if(!box) return;
-  const f=SL_EXAMPLE?'lineup_preview_example.json':'lineup_preview.json';
-  fetch(f,{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(pv=>{
-    if(!document.body.contains(box)) return;
-    box.className=''; box.innerHTML=slRender(pv,SL_EXAMPLE);
-    const b=box.querySelector('#slExBtn'); if(b) b.addEventListener('click',()=>{ SL_EXAMPLE=!SL_EXAMPLE; fillSetLineup(); });
-  }).catch(()=>{ box.textContent=SL_EXAMPLE?'The example is not available.':'No lineup preview yet. It is built after each plan refresh.'; });
+  const pv=await slFetch(SL_EXAMPLE?'lineup_preview_example.json':'lineup_preview.json');
+  if(!document.body.contains(box)) return;
+  if(!pv){ box.textContent=SL_EXAMPLE?'The example is not available.':'No lineup preview yet. It is built after each plan refresh.'; return; }
+  box.className=''; box.innerHTML=slRender(pv,SL_EXAMPLE);
+  const on=(id,fn)=>{ const e=box.querySelector('#'+id); if(e) e.addEventListener('click',fn); };
+  on('slExBtn',()=>{ SL_EXAMPLE=!SL_EXAMPLE; fillSetLineup(); });
+  on('slRefresh',()=>slRun('preview'));
+  on('slApply',()=>{ const n=pv.total_moves, nd=pv.days.filter(d=>d.moves.length).length; if(confirm(`Set your ESPN lineup for the rest of matchup ${pv.matchup}?\n\n${n} move${n>1?'s':''} across ${nd} day${nd>1?'s':''}, exactly as shown in the preview. Your current lineups are saved first so they can be undone.`)) slRun('apply',pv.hash); });
+  on('slTokSave',()=>{ const v=(box.querySelector('#slTokIn')||{}).value||''; if(v.trim()){ slSetTok(v.trim()); fillSetLineup(); } });
+  on('slTokClear',()=>{ slSetTok(''); fillSetLineup(); });
 }
 function gamesHtml(T){
   const G=T.key_games||[]; if(!G.length) return '';
