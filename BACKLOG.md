@@ -321,3 +321,7 @@ Things noticed while reviewing the Week 1 plan and the draft tools. None are bug
 8. **Player news (shipped 2026-10-04):** RotoWire items only via ESPN's fantasy news feed (`pull_player_news.py`, game-day workflow + local refresh). If it stops updating or returns empty, check the feed shape first; other sources considered and not built: beat-writer X accounts (no free API), Reddit r/nba, Bluesky lists.
 9. **ESPN roster snapshot guard.** A transient bad snapshot (5-19 players/team, 2026-10-01) was blocked by a draft-status check in `pull_league_rosters.py`. Watch automated refresh runs for any recurrence once the season starts (the guard only applies pre-draft).
 10. **cron-job.org alerts timeout (2026-10-03):** one `Timeout` on the alerts.yml dispatch, all later runs fine. If it repeats, raise the job's timeout setting and check GitHub API status before debugging the workflow.
+
+### Implemented (marked 2026-10-08)
+* **Late-scratch watch** (built 2026-10-04, timer live 2026-10-08): per-game alert when a starter is ruled out, names the swap (bench / slide-over chain / free agent), 35-minute reminder. `alerts.py lineup` + cron-job.org `lineup` job (every 5 min, 10:00-23:55 ET). Still to judge on the first real scratch (see OPENING_NIGHT_CHECKLIST 9b).
+* **Live draft assistant mode**, **player news on cards**, **G1 column**, **draft availability model v2** (shipped earlier; the sections above are historical). The **Automated daily refresh** exists (GitHub workflows + local `FantasyHubDailyRefresh`).
