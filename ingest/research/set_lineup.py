@@ -157,11 +157,17 @@ SLOT_ID = {v: k for k, v in SLOT_NAME.items()}
 WRITE_URL = "https://lm-api-writes.fantasy.espn.com/apis/v3/games/fba/seasons/{season}/segments/0/leagues/{league}/transactions/"
 
 
-def lineup_payload(team_id, sp, moves):
-    """the exact body ESPN's own lineup page sends (captured 2026-10-09 from a real swap of two players): one ROSTER transaction per scoring period, one LINEUP item per player moved"""
+def lineup_payload(team_id, sp, moves, current_sp):
+    """the exact bodies ESPN's own lineup page sends (captured 2026-10-09 from real swaps): the CURRENT scoring period uses type ROSTER (with the member id = SWID), every
+    LATER day uses type FUTURE_ROSTER (no member id). ESPN answers 409 'can only be executed in the current scoring period' if a future day is sent as ROSTER.
+    One transaction per scoring period, one LINEUP item per player moved."""
     import config
-    return {"isLeagueManager": False, "teamId": team_id, "type": "ROSTER", "memberId": config.SWID, "scoringPeriodId": sp, "executionType": "EXECUTE",
-            "items": [{"playerId": m["id"], "type": "LINEUP", "fromLineupSlotId": SLOT_ID[m["from"]], "toLineupSlotId": SLOT_ID[m["to"]]} for m in moves]}
+    items = [{"playerId": m["id"], "type": "LINEUP", "fromLineupSlotId": SLOT_ID[m["from"]], "toLineupSlotId": SLOT_ID[m["to"]]} for m in moves]
+    if sp < current_sp:
+        raise RuntimeError("that day is already in the past")
+    if sp == current_sp:
+        return {"isLeagueManager": False, "teamId": team_id, "type": "ROSTER", "memberId": config.SWID, "scoringPeriodId": sp, "executionType": "EXECUTE", "items": items}
+    return {"isLeagueManager": False, "teamId": team_id, "type": "FUTURE_ROSTER", "scoringPeriodId": sp, "executionType": "EXECUTE", "items": items}
 
 
 def read_day(lg, team_id, sp):
@@ -181,13 +187,13 @@ def write_lineup(lg, sp, moves, team_id=None, dry=False):
     import config
     import requests
     team_id = team_id or my_team_id()
-    body = lineup_payload(team_id, sp, moves)
+    body = lineup_payload(team_id, sp, moves, lg.scoringPeriodId)
     if dry:
-        print("DRY RUN, would POST:", json.dumps({**body, "memberId": "<SWID>"}))
+        print("DRY RUN, would POST:", json.dumps({**body, **({"memberId": "<SWID>"} if "memberId" in body else {})}))
         return
     url = WRITE_URL.format(season=load("week_plan.json")["season"], league=config.LEAGUE_ID)
     r = requests.post(url, json=body, cookies={"espn_s2": config.ESPN_S2, "SWID": config.SWID}, timeout=30,
-                      headers={"Accept": "application/json", "Origin": "https://fantasy.espn.com", "Referer": "https://fantasy.espn.com/", "User-Agent": "Mozilla/5.0"})
+                      headers={"Accept": "application/json", "X-Fantasy-Source": "kona", "Origin": "https://fantasy.espn.com", "Referer": "https://fantasy.espn.com/", "User-Agent": "Mozilla/5.0"})
     if r.status_code not in (200, 201):
         raise RuntimeError(f"ESPN answered {r.status_code}: {r.text[:200]}")
     try:
