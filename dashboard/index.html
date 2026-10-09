@@ -1538,7 +1538,7 @@ function coverStarts(days,plain){ return days.reduce((a,d)=>a+(plain||d.starts_c
    never in the page source); that workflow holds the ESPN login as a repository secret, rebuilds the preview, and (when APPLY_READY is on in set_lineup.py) applies exactly the
    preview hash he confirmed. Results are published to the lineup-data branch and read back here. Applying is NOT switched on yet. */
 const SL_BASE='https://raw.githubusercontent.com/pitchafwa/delegation-hub/lineup-data/', SL_REPO='pitchafwa/delegation-hub';
-let SL_EXAMPLE=false;
+let SL_EXAMPLE=false, SL_MSG='';
 const slTok=()=>{ try{ return localStorage.getItem('sl_token')||''; }catch(e){ return ''; } };
 function slSetTok(v){ try{ if(v) localStorage.setItem('sl_token',v); else localStorage.removeItem('sl_token'); }catch(e){} }
 async function slFetch(name){
@@ -1553,7 +1553,7 @@ async function slDispatch(mode,hash){
   if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the token. Check that it has Actions read and write access on this repository, and has not expired.':'GitHub returned status '+r.status);
 }
 async function slRun(mode,hash){
-  const box=document.getElementById('slStatus'), t0=Date.now(), say=m=>{ if(box) box.innerHTML=m; };
+  const box=document.getElementById('slStatus'), t0=Date.now(), say=m=>{ SL_MSG=m; if(box) box.innerHTML=m; };
   try{ say('Sending to GitHub...'); await slDispatch(mode,hash); }catch(e){ say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); return; }
   say('Started. This takes about a minute...');
   for(let i=0;i<30;i++){
@@ -1585,7 +1585,7 @@ function slRender(pv,isExample){
       <button type="button" id="slRefresh" ${tok&&!isExample?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
       <button type="button" id="slUndo" ${tok&&!isExample?'':'disabled'} title="Puts every player moved by the last apply back where he was" style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Undo last apply</button>
       <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent,#5b7cfa);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
-    <div id="slStatus" class="note" style="margin-top:.4rem">${why?`<span class="hint">${esc(why)}</span>`:''}</div>
+    <div id="slStatus" class="note" style="margin-top:.4rem">${SL_MSG||(why?`<span class="hint">${esc(why)}</span>`:'')}${SL_MSG&&why?` <span class="hint">(${esc(why)})</span>`:''}</div>
     <details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">${tok?'GitHub token saved on this device':'One-time setup: add a GitHub token (works on your phone too)'}</summary>
       <div class="note" style="margin-top:.4rem">${tok?`<button type="button" id="slTokClear" style="${btn}cursor:pointer">Remove token from this device</button>`:`<ol style="margin:.2rem 0 .5rem 1.1rem;padding:0"><li>On GitHub: Settings, Developer settings, Personal access tokens, <b>Fine-grained tokens</b>, Generate new token.</li><li>Repository access: <b>only</b> pitchafwa/delegation-hub. Permissions: <b>Actions: Read and write</b>. Expiration: your choice (90 days is fine).</li><li>Paste it here. It is saved only in this browser on this device. Do this once on each device you want to use (phone and computer).</li></ol>
         <input type="password" id="slTokIn" autocomplete="off" placeholder="github_pat_..." style="padding:.4rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);width:min(22rem,100%)" /> <button type="button" id="slTokSave" style="${btn}cursor:pointer">Save</button>`}
@@ -1599,7 +1599,7 @@ async function fillSetLineup(force){
   if(!pv){ box.textContent=SL_EXAMPLE?'The example is not available.':'No lineup preview yet. It is built after each plan refresh.'; return; }
   box.className=''; box.innerHTML=slRender(pv,SL_EXAMPLE);
   const on=(id,fn)=>{ const e=box.querySelector('#'+id); if(e) e.addEventListener('click',fn); };
-  on('slExBtn',()=>{ SL_EXAMPLE=!SL_EXAMPLE; fillSetLineup(); });
+  on('slExBtn',()=>{ SL_EXAMPLE=!SL_EXAMPLE; SL_MSG=''; fillSetLineup(); });
   on('slRefresh',()=>slRun('preview'));
   on('slUndo',()=>{ if(confirm('Undo the last apply? Every player it moved goes back to the slot he came from. Days whose games have started cannot be changed.')) slRun('undo'); });
   on('slApply',()=>{ const n=pv.total_moves, nd=pv.days.filter(d=>d.moves.length).length; if(confirm(`Set your ESPN lineup for the rest of matchup ${pv.matchup}?\n\n${n} move${n>1?'s':''} across ${nd} day${nd>1?'s':''}, exactly as shown in the preview. Your current lineups are saved first so they can be undone.`)) slRun('apply',pv.hash); });
