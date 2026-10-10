@@ -281,34 +281,11 @@ def run_check():
         msgs.sort(reverse=True)
         worst = msgs[0][0]
         push("Injury update: " + msgs[0][1].split(":")[0], "\n".join(m for _, m in msgs) + "\nOpen This week for replacements.", priority=4 if worst >= 20 else 3, tags=["warning"])
-    # ---- top dynasty free agents (new, and would crack your top 5)
+    # ---- pickup alert: a player who should almost certainly be picked up just became available (free agent now, or dropped onto waivers)
     try:
-        hub = load("hub_data.json")
-        by_hub = {p["id"]: p for p in hub["players"]}
-        e2n = {int(k): int(v) for k, v in json.load(open(Path(__file__).resolve().parent / "espn_id_map.json")).items()}
-
-        def a5(espn_id, name):
-            nba = e2n.get(int(espn_id))
-            hp = by_hub.get(f"c{nba}") or by_hub.get(f"p{nba}") if nba else None
-            if hp is None:
-                hp = next((q for q in hub["players"] if norm(q["player"]) == norm(name)), None)
-            return (hp["asset_k"][5] if hp and hp.get("asset_k") and len(hp["asset_k"]) > 5 else 0.0) or 0.0
-        my_assets = sorted([a5(p.playerId, p.name) for p in mine.roster], reverse=True)
-        bar = my_assets[4] if len(my_assets) >= 5 else 25.0
-        fa_now = {}
-        for p in lg.free_agents(size=250):
-            v = a5(p.playerId, p.name)
-            if v >= max(bar, 10):
-                fa_now[str(p.playerId)] = {"name": p.name, "asset": round(v, 1), "team": p.proTeam}
-        prev_fa = s.get("fa_high")
-        new = [(k, v) for k, v in fa_now.items() if prev_fa is not None and k not in prev_fa]
-        s["fa_high"] = fa_now
-        if new and can_send and (FORCE or not in_quiet()):
-            new.sort(key=lambda kv: -kv[1]["asset"])
-            body = "\n".join(f"{v['name']} ({v['team']}) just hit free agency, keeper asset {v['asset']:.0f} vs your #5 at {bar:.0f}." for _, v in new[:3])
-            push("Dynasty free agent available", body + "\nA bench spot is enough to stash him. Check the Dynasty list on This week.", priority=3, tags=["star"])
+        pickup_alert(lg, W, T, s, mine, can_send)
     except Exception as ex:
-        print("free-agent check failed:", ex)
+        print("pickup check failed:", ex)
     # ---- injury beneficiaries: only when the weekly plan itself recommends the add (it names the drop and the net gain)
     if can_send and (FORCE or not in_quiet()):
         sent_b = s.setdefault("benef_sent", {})
@@ -334,6 +311,85 @@ def run_check():
     first_tip_check(W, T, mine, off, s, can_send)
     late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id)
     save_state(s)
+
+
+def pickup_alert(lg, W, T, s, mine, can_send):
+    """Phone alert when a player you should almost certainly pick up becomes available, and whether that means ADD NOW (free agent) or CLAIM BEFORE ~3AM ET (just dropped onto
+    waivers, 24h+). "Almost certainly" = either a keeper asset that would crack your top 5 (the old dynasty alert), or a player ranked in the top 150 for the rest of this season
+    who projects at least 3 points per game above your cheapest droppable player. Each player alerts once per availability (a second, shorter alert only if a player we flagged on
+    waivers clears with nobody claiming him). State in alerts/state.json: avail_prev (who was available last run) and pickup_sent."""
+    import waivers as WV
+    from espn_api.basketball.constant import PRO_TEAM_MAP
+    pool = WV.available_pool(lg, 300)
+    wm = WV.waiver_map(lg)
+    hub = load("hub_data.json")
+    by_hub = {p["id"]: p for p in hub["players"]}
+    e2n = {int(k): int(v) for k, v in json.load(open(Path(__file__).resolve().parent / "espn_id_map.json")).items()}
+    rd = {str(p["id"]): p for p in (load("redraft_data.json") or {"players": []})["players"]}
+
+    def a5(espn_id, name):
+        nba = e2n.get(int(espn_id))
+        hp = by_hub.get(f"c{nba}") or by_hub.get(f"p{nba}") if nba else None
+        if hp is None:
+            hp = next((q for q in hub["players"] if norm(q["player"]) == norm(name)), None)
+        return (hp["asset_k"][5] if hp and hp.get("asset_k") and len(hp["asset_k"]) > 5 else 0.0) or 0.0
+    my_assets = sorted([a5(p.playerId, p.name) for p in mine.roster], reverse=True)
+    bar = my_assets[4] if len(my_assets) >= 5 else 25.0
+    droppable = sorted((p["level"], p["name"]) for p in T["roster"] if not p.get("protected") and not p.get("ir"))
+    worst = droppable[0] if droppable else None
+    cur = {}
+    for p in pool:
+        pid = str(p["id"])
+        v = a5(p["id"], p["name"])
+        r = rd.get(pid)
+        dyn = v >= max(bar, 10)
+        good = bool(r and r.get("rank") and r["rank"] <= 150 and worst and r["ppg"] >= worst[0] + 3)
+        if dyn or good:
+            cur[pid] = {"name": p["name"], "status": p["status"], "asset": round(v, 1), "ppg": (r or {}).get("ppg"), "rank": (r or {}).get("rank"),
+                        "team": canon(PRO_TEAM_MAP.get(p["pro_team_id"]) or ""), "dyn": dyn, "good": good}
+    prev = s.get("avail_prev")
+    sent = s.setdefault("pickup_sent", {})
+    for k in [k for k, d in sent.items() if (TODAY - date.fromisoformat(d)).days > 7]:
+        sent.pop(k)
+    new_prev = {k: v["status"] for k, v in cur.items()}
+    if prev is None:
+        s["avail_prev"] = new_prev                               # first run: remember who is available, alert on nothing
+        return
+    can = can_send and (FORCE or not in_quiet())
+    events = []
+    for pid, v in cur.items():
+        was = prev.get(pid)
+        if was is None:
+            events.append((pid, v, "new"))
+        elif was == "WAIVERS" and v["status"] == "FREEAGENT" and f"{pid}:WAIVERS" in sent:
+            events.append((pid, v, "cleared"))
+    if events and not can:
+        for pid, v, _ in events:
+            new_prev.pop(pid, None)                              # keep them 'new' so they alert when alerts are allowed again
+    s["avail_prev"] = new_prev
+    if not events or not can:
+        return
+    events.sort(key=lambda e: -((e[1]["ppg"] or 0) + e[1]["asset"]))
+    pri, n = WV.my_priority(lg, T["id"])
+    lines, title = [], None
+    for pid, v, kind in events[:3]:
+        val = f"about {v['ppg']:.0f} pts/g, redraft rank #{v['rank']}" if v["ppg"] else "no rest-of-season projection yet"
+        extra = f"; keeper asset {v['asset']:.0f} vs your #5 at {bar:.0f}" if v["dyn"] else ""
+        drop = f" Your cheapest drop is {worst[1]} ({worst[0]:.0f} pts/g)." if worst else ""
+        if v["status"] == "FREEAGENT":
+            head = f"{v['name']} ({v['team']}) cleared waivers and nobody claimed him." if kind == "cleared" else f"{v['name']} ({v['team']}) just became a FREE AGENT."
+            lines.append(f"{head} {val}{extra}. ADD HIM NOW: free agents are added instantly, any hour.{drop}")
+            tag = "FREE AGENT, add now"
+        else:
+            w = wm.get(int(pid))
+            when = WV.when(w) if w else "the next 3am ET run"
+            prio = f" Your waiver priority is {pri} of {n} (1 = first), so a team ahead of you could win him." if pri else " A team ahead of you in waiver order could win him."
+            lines.append(f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. CLAIM HIM BEFORE the run at {when} (he cannot be added directly).{prio} If nobody claims him he becomes a free agent after that run.{drop}")
+            tag = f"ON WAIVERS, claim before {when}"
+        sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
+        title = title or f"Pickup alert: {v['name']} ({tag})"
+    push(title, "\n".join(lines) + "\nSee Suggested moves on This week for who to drop.", priority=4, tags=["star"])
+    _ledger("pickup", names=[e[1]["name"] for e in events[:3]], kinds=[e[2] for e in events[:3]])
 
 
 def first_tip_check(W, T, mine, off, s, can_send):
@@ -416,6 +472,8 @@ def fa_options(out_p, fa_pool, tips, now, n=2):
     res = []
     for f in fa_pool or []:
         t = tips.get(canon(f.get("team") or ""))
+        if f.get("waiver"):
+            continue                                              # on waivers: can only be claimed (about 3am ET), so he cannot fill a slot tonight
         if t is None or t <= now or f.get("status") in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
             continue
         sl = f.get("slots") or []
@@ -445,7 +503,7 @@ def scratch_message(out_p, tip, now, opts, fas, reason, tips):
         lines.append("No bench player who plays tonight can fill that slot.")
         if fas:
             f = fas[0]
-            lines.append(f"Free-agent option: {f[1]['name']} ({f[1]['team']}, about {f[1]['level']:.0f} pts/g, tips {_fmt_t(f[2])}). That is a claim that may not take effect before tip-off (waiver rules unconfirmed), so check whether ESPN says Add or Claim. It also costs a drop and an add.")
+            lines.append(f"Free-agent option: {f[1]['name']} ({f[1]['team']}, about {f[1]['level']:.0f} pts/g, tips {_fmt_t(f[2])}). He is a true free agent (nobody dropped him recently), so the add takes effect immediately; it costs one of your adds and a drop.")
         else:
             lines.append("No free agent fits either. Leaving the slot empty costs only that player's game.")
     lines.append("Only matters if you are under your games cap.")

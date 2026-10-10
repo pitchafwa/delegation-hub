@@ -464,23 +464,23 @@ rosters = {}
 for t in lg.teams:
     rosters[t.team_id] = [make_player(p, p.lineupSlot) for p in t.roster]
 
-def waiver_ids():
-    """ids of players ON WAIVERS right now. ESPN's free_agents() returns FREEAGENT and WAIVERS players together, but this league uses standard waivers (confirmed 2026-10-10
-    from ESPN's settings and last season's 4,556 transactions): a player somebody just dropped sits on waivers for at least 24 hours and can only be CLAIMED (processed around
-    3am ET, in waiver order, so not usable today), while every other unrostered player is a true free agent who can be added instantly at any hour. Planning an instant add of
-    a player who is on waivers would be wrong, so they are left out of the add search."""
-    try:
-        flt = {"players": {"limit": 400, "sortPercOwned": {"sortPriority": 1, "sortAsc": False}, "filterStatus": {"value": ["WAIVERS"]}}}
-        raw = lg.espn_request.league_get(params={"view": "kona_player_info"}, headers={"x-fantasy-filter": json.dumps(flt)})["players"]
-        return {e["id"] for e in raw}
-    except Exception as ex:
-        print("could not read the waiver list (", repr(ex)[:80], ") - treating everyone as a free agent")
-        return set()
+import waivers as WV
+WM = WV.waiver_map(lg)        # players on waivers right now -> when the nightly run releases/awards them (waivers.py). Everyone else unrostered is an instant free agent.
+print(f"{len(WM)} players on waivers right now: tagged, and only usable from the day the run clears them")
 
 
-WAIVERED = waiver_ids()
-print(f"{len(WAIVERED)} players on waivers right now (excluded from the add search)")
-fa_players = [make_player(p) for p in lg.free_agents(size=400) if p.playerId not in WAIVERED]   # matches stash_pool/dyn_pool's pull size (was 150: a real, valuable, healthy
+def _tag_waivers(players):
+    """ESPN's free_agents() returns free agents AND waiver players. A waiver player can only be claimed (processed ~3am ET, at least 24h after the drop), so he joins the roster
+    on his clear date: the planner's `from` mechanism then keeps him out of earlier days, and the UI shows a WAIVERS tag with the date."""
+    for f in players:
+        w = WM.get(f["espn_id"])
+        if w:
+            f["waiver"] = WV.export(w)
+            f["from"] = w["clear"].date()
+    return players
+
+
+fa_players = _tag_waivers([make_player(p) for p in lg.free_agents(size=400)])   # matches stash_pool/dyn_pool's pull size (was 150: a real, valuable, healthy
 # free agent could rank outside ESPN's global top-150-by-default-relevance in this specific league and so never surface here at all -- found
 # 2026-09-27 via Jalen Green missing "This week" info on his player card entirely. The later sort-and-trim (see below) also had to widen for the
 # same reason -- 400 alone wasn't enough once he was still getting cut at that later step.
@@ -507,6 +507,8 @@ for _p in lg.free_agents(size=400):
                          "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
                          "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1), "level_raw": round(_hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
 dyn_pool.sort(key=lambda x: -x["asset"])
+for _x in dyn_pool:
+    _x["waiver"] = WV.export(WM.get(_x["id"]))
 SEEN_PATH = HUB / "fa_seen.json"
 _seen_old = json.load(open(SEEN_PATH, encoding="utf-8")) if SEEN_PATH.exists() else None
 _now_ids = {str(x["id"]) for x in dyn_pool}
@@ -836,7 +838,7 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
             g, dr, wk = best_move
             moves.append({"add": {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
                                   "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
-                                  "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
+                                  "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0], "waiver": f.get("waiver")},
                           "drop": ({"form": dr.get("form"), "ramp": dr.get("ramp_note"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                           "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1)})
     moves.sort(key=lambda x: -x["gain"])
@@ -863,13 +865,13 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
         # ADD TIMING for this step: its net gain if made on each remaining day (earlier steps assumed made already). Adds are capped per matchup and
         # unspent adds expire, so this shows what waiting costs
         base_r = [p for p in r2 if p is not dr]
-        by_day = [{"date": d.isoformat(), "gain": round(plan_team(base_r + [dict(f, **{"from": d})], c0) - cur - future_cost(dr, f), 1)} for d in plan_days]
+        by_day = [{"date": d.isoformat(), "gain": round(plan_team(base_r + [dict(f, **{"from": max(d, f["from"]) if f.get("from") else d})], c0) - cur - future_cost(dr, f), 1)} for d in plan_days]
         r2 = [p for p in r2 if p is not dr] + [f]
         cur += wk
         used.add(f["espn_id"])
         seq.append({"add": {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"],
                             "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
-                            "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]},
+                            "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0], "waiver": f.get("waiver")},
                     "drop": ({"form": dr.get("form"), "ramp": dr.get("ramp_note"), "id": dr["espn_id"], "name": dr["name"], "level": dr["level"], "asset_rank": dr["asset_rank"], "flag": drop_flag(dr)} if dr else None),
                     "gain": round(g, 1), "week_gain": round(wk, 1), "future_cost": round(wk - g, 1), "cum": round(cur - total, 1), "by_day": by_day})
     return moves, seq
@@ -1132,6 +1134,7 @@ def build_stash():
             row.update({"games_out": round(pg, 1), "back_date": ds_[i_] if i_ < len(ds_) else None, "espn_return": (info or {}).get("return_date"),
                         "injury": " ".join(x for x in [((info or {}).get("side") or ""), ((info or {}).get("type") or (info or {}).get("detail") or "")] if x).strip() or None,
                         "p_back_playoffs": round(IA.p_back_within(curve, team_games(f["team"], t0, PLAYOFF_START.isoformat()) if PLAYOFF_START else 55), 2)})
+        row["waiver"] = WV.export(WM.get(f["espn_id"]))      # on waivers: a claim, not an instant add
         res.append(row)
     res.sort(key=lambda x: -x["level"])
     print(f"stash pool: {len(res)} free agents (out now or idle this window); top:", [(x['name'], x['level'], x.get('games_out')) for x in res[:6]])
@@ -1188,7 +1191,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "boost": f.get("boost", {}),
+       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
