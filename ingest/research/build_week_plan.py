@@ -464,7 +464,23 @@ rosters = {}
 for t in lg.teams:
     rosters[t.team_id] = [make_player(p, p.lineupSlot) for p in t.roster]
 
-fa_players = [make_player(p) for p in lg.free_agents(size=400)]   # matches stash_pool/dyn_pool's pull size (was 150: a real, valuable, healthy
+def waiver_ids():
+    """ids of players ON WAIVERS right now. ESPN's free_agents() returns FREEAGENT and WAIVERS players together, but this league uses standard waivers (confirmed 2026-10-10
+    from ESPN's settings and last season's 4,556 transactions): a player somebody just dropped sits on waivers for at least 24 hours and can only be CLAIMED (processed around
+    3am ET, in waiver order, so not usable today), while every other unrostered player is a true free agent who can be added instantly at any hour. Planning an instant add of
+    a player who is on waivers would be wrong, so they are left out of the add search."""
+    try:
+        flt = {"players": {"limit": 400, "sortPercOwned": {"sortPriority": 1, "sortAsc": False}, "filterStatus": {"value": ["WAIVERS"]}}}
+        raw = lg.espn_request.league_get(params={"view": "kona_player_info"}, headers={"x-fantasy-filter": json.dumps(flt)})["players"]
+        return {e["id"] for e in raw}
+    except Exception as ex:
+        print("could not read the waiver list (", repr(ex)[:80], ") - treating everyone as a free agent")
+        return set()
+
+
+WAIVERED = waiver_ids()
+print(f"{len(WAIVERED)} players on waivers right now (excluded from the add search)")
+fa_players = [make_player(p) for p in lg.free_agents(size=400) if p.playerId not in WAIVERED]   # matches stash_pool/dyn_pool's pull size (was 150: a real, valuable, healthy
 # free agent could rank outside ESPN's global top-150-by-default-relevance in this specific league and so never surface here at all -- found
 # 2026-09-27 via Jalen Green missing "This week" info on his player card entirely. The later sort-and-trim (see below) also had to widen for the
 # same reason -- 400 alone wasn't enough once he was still getting cut at that later step.

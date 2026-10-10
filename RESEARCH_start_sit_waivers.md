@@ -167,3 +167,7 @@ for a player with no designation today). **Official NBA injury designations (06:
 Available 88% (rotation 96%, bench 65%); Probable 86% (92% / 77%); **Questionable 49% (57% rotation / 37% bench)**; **Doubtful 3.5% (not the league's nominal 25%)**; Out 0.4%.
 A morning Questionable resolves by evening: 42% stay Questionable, 25% Available, 23% Out. The 'day-to-day' guess of 55% happened to match rotation Questionable (57%), but the plan now uses the
 official designation directly when a report is available (free PDFs, every 15 minutes) and the measured rates above.
+
+
+## Waiver rules CONFIRMED (2026-10-10)
+League settings (ESPN mSettings): standard (traditional) waivers, 24-hour waiver period, no FAAB, one-add-per-day-ish limit (8 per 7 days), per-game lineup lock. Last season's 4,556 transactions (waiver_history_check.py): 522 free-agent adds (instant, all hours) vs 43 waiver claims (all ~3am ET, at least 24.7h after the drop, every weekday). Unrostered players are true free agents; only players dropped by a team sit on waivers. The planner now excludes players currently on waivers from the instant-add search.
