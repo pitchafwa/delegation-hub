@@ -111,3 +111,31 @@ def export(w):
     if not w:
         return None
     return {"clear": w["clear"].isoformat(timespec="minutes"), "date": w["clear"].date().isoformat(), "when": when(w), "approx": bool(w.get("approx"))}
+
+
+# ---------------------------------------------------------------- competition intel (dashboard/waiver_intel.json, built by waiver_intel.py from 2024-26 transactions)
+def all_priorities(lg):
+    """{team id: waiver rank} for every team (1 = first claim), from ESPN's raw team data"""
+    try:
+        teams = lg.espn_request.league_get(params={"view": ["mTeam"]})["teams"]
+        return {t["id"]: int(t["waiverRank"]) for t in teams if t.get("waiverRank") is not None}
+    except Exception:
+        return {}
+
+
+def win_chance(intel, ppg, my_id, ranks):
+    """(probability you win a claim, [(team id, probability that team claims him)] for the teams ahead of you). Each team ahead of you wins him only if it claims him:
+    P(team claims) = claims-per-drop for his quality tier x that team's share of the league's claims (capped at 0.9). Needs ranks from all_priorities()."""
+    if not intel or not ranks or my_id not in ranks:
+        return None, []
+    tier = "star" if (ppg or 0) >= intel["tier_cuts"]["star"] else ("good" if (ppg or 0) >= intel["tier_cuts"]["good"] else "filler")
+    m = intel["tiers"][tier]["claims_per_drop"]
+    ahead = []
+    p_win = 1.0
+    for tid, rk in ranks.items():
+        if rk < ranks[my_id]:
+            sh = intel["teams"].get(str(tid), {}).get("share", 1 / 12)
+            q = min(0.9, m * sh * 1.0)
+            ahead.append((tid, q))
+            p_win *= 1 - q
+    return p_win, sorted(ahead, key=lambda x: -x[1])

@@ -396,6 +396,16 @@ def pickup_alert(lg, W, T, s, mine, can_send):
             w = wm.get(int(pid))
             when = WV.when(w) if w else "the next 3am ET run"
             prio = f" Your waiver priority is {pri} of {n} (1 = first), so a team ahead of you could win him." if pri else " A team ahead of you in waiver order could win him."
+            try:
+                intel = load("waiver_intel.json")
+                ranks = WV.all_priorities(lg)
+                pw, ahead = WV.win_chance(intel, v["ppg"] or (35.0 if v["dyn"] else 28.0), T["id"], ranks)
+                if pw is not None:
+                    names = {t.team_id: t.team_abbrev for t in lg.teams}
+                    top = ", ".join(f"{names.get(t, t)} {q:.0%}" for t, q in ahead[:2] if q >= 0.03)
+                    prio = f" Odds you win the claim: about {pw:.0%} (priority {pri} of {n}" + (f"; likeliest rivals ahead of you: {top}" if top else "; no team ahead of you has claimed players like him often") + ")."
+            except Exception as ex:
+                print("claim-odds estimate failed:", repr(ex)[:80])
             lines.append(f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. CLAIM HIM BEFORE the run at {when} (he cannot be added directly).{prio} If nobody claims him he becomes a free agent after that run.{drop}")
             tag = f"ON WAIVERS, claim before {when}"
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
