@@ -32,7 +32,11 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 DASH = ROOT / "dashboard"
 STATE_PATH = ROOT / "alerts" / "state.json"
 SITE = "https://pitchafwa.github.io/delegation-hub/"
-ACTIVE_FROM = date(2026, 10, 19)          # the day before the opener: nothing is sent before this except `test` and --force
+try:
+    import season_calendar as _SCAL
+    ACTIVE_FROM = _SCAL.opener() - timedelta(days=1)   # the day before the opener (derived): nothing is sent before this except `test` and --force
+except Exception:
+    ACTIVE_FROM = date(2026, 10, 19)
 QUIET = (23, 8)                           # no status/FA alerts from 11pm to 8am ET
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 DRY = "--dry-run" in sys.argv

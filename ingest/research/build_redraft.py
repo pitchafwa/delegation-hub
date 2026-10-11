@@ -37,7 +37,9 @@ from season import current_season_id
 SEASON_ID = current_season_id()
 from team_abbr import canon
 today = datetime.now(ET).date()
-SEASON_START = date(2026, 10, 20)
+import season_calendar as SCAL
+_CAL = SCAL.load()
+SEASON_START = SCAL.opener(_CAL)
 N_KEEP = 700
 REPL_RANK = 165                       # 12 teams x ~14 usable players: the free-agent level a manager can actually pick up
 IR_OK = ("OUT", "INJURY_RESERVE")
@@ -104,7 +106,7 @@ print(f"market sources: FantasyPros {len(FP_RANK)} players ({fp_src}), ESPN rank
 sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))
 sp = json.load(open(HUB / "schedule_plan.json", encoding="utf-8"))
 END = max(w["end"] for w in sp["calendar"])
-PLAYOFF_START = next(w["start"] for w in sp["calendar"] if w["id"] == 20)
+PLAYOFF_START = next(w["start"] for w in sp["calendar"] if w["id"] == _CAL["playoff_weeks"][0])
 games_by_team = {}                    # team -> [(date, opp, home)]
 for ds, gl in sorted(sched["games"].items()):
     for a, h, tip in gl:

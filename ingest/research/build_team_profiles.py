@@ -75,7 +75,7 @@ for yr in YEARS:
 d = pd.DataFrame(rows)
 d["key"] = d.name.map(norm)
 d["owners"] = [owners.get((t, y), ()) for t, y in zip(d.team, d.year)]
-lg27 = League(league_id=config.LEAGUE_ID, year=2027, espn_s2=config.ESPN_S2, swid=config.SWID)
+lg27 = League(league_id=config.LEAGUE_ID, year=__import__("season").current_season_id(), espn_s2=config.ESPN_S2, swid=config.SWID)
 current = {t.team_id: {"abbrev": t.team_abbrev, "owners": set(o.get("id", "") for o in (t.owners or []))} for t in lg27.teams}
 
 

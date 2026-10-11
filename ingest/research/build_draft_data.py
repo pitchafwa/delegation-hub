@@ -52,7 +52,8 @@ my = next((t for t in teams if t["abbrev"] == MY_ABBREV), teams[0])
 
 # games each NBA team plays in the FIRST fantasy matchup (what a late-draft streaming slot is worth in week 1). Window comes from schedule_plan.json's
 # calendar when present (written by build_schedule_plan.py), else the 6-day opener starting on the season opener.
-OPENER = datetime(2026, 10, 20).date()   # NOT derivable from a formula; update manually each season (also in build_week_plan.py, refresh_all.py)
+import season_calendar as SCAL
+OPENER = SCAL.opener()                      # derived from the NBA schedule (season_calendar.py)
 try:
     _cal = json.load(open(HUB / "schedule_plan.json", encoding="utf-8"))["calendar"][0]
     G1_START, G1_END = _cal["start"], _cal["end"]

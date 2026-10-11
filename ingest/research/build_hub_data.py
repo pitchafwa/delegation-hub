@@ -38,7 +38,8 @@ OUT_PATH = ROOT.parent.parent / "dashboard" / f"hub_data{SFX}.json"
 
 OPP_FLOOR, OPP_AMP, OPP_TAU = 14.84, 20.37, 19.96
 HORIZON_YEARS = 10
-CURRENT_SEASON_END_YEAR = 2027  # matches kalman_vor.py's NEXT_SEASON_START = 2026-10-20 (the 2026-27 season)
+from season import current_season_id, current_season_str
+CURRENT_SEASON_END_YEAR = current_season_id()  # 2027 for the 2026-27 season; follows the calendar
 PROSPECT_RECENCY_CUTOFF = 2025  # drop draft classes older than this that never became a current player
 
 # ESPN's team-logo CDN slug differs from the NBA API's own abbreviation for
@@ -148,7 +149,7 @@ current = current.merge(
     bio[["PERSON_ID", "POSITION", "TEAM_ABBREVIATION", "ROSTER_STATUS"]].rename(columns={"PERSON_ID": "PLAYER_ID"}),
     on="PLAYER_ID", how="left",
 )
-_espn_now = set(pd.read_csv(ROOT / "data" / "espn_adp.csv").query("season_id == 2027")["PLAYER_ID"].dropna().astype(int))
+_espn_now = set(pd.read_csv(ROOT / "data" / "espn_adp.csv").query(f"season_id == {CURRENT_SEASON_END_YEAR}")["PLAYER_ID"].dropna().astype(int))
 # keep unsigned free agents (Cam Thomas, Jaden Ivey...) when ESPN still lists them for this season: the league can roster them
 current = current[(current["ROSTER_STATUS"] == 1.0) | current["PLAYER_ID"].isin(_espn_now)].copy()
 print(f"Current players: {n_before} -> {len(current)} after filtering to real active roster status "
@@ -157,9 +158,10 @@ current = current.merge(espn_pos[["PLAYER_ID", "espn_position", "injury_status"]
 # breakout-candidate probabilities (breakout_model.py) -- only players below the
 # quality line last season are scored, everyone else stays null
 import datetime as _dt
-LEDGER_CSV = ROOT / "data" / "breakout_ledger" / "2026-27.csv"
-LEDGER_META = ROOT / "data" / "breakout_ledger" / "2026-27.json"
-OPENER = _dt.date(2026, 10, 20)
+import season_calendar as SCAL
+LEDGER_CSV = ROOT / "data" / "breakout_ledger" / f"{current_season_str()}.csv"
+LEDGER_META = ROOT / "data" / "breakout_ledger" / f"{current_season_str()}.json"
+OPENER = SCAL.opener()
 frozen = LEDGER_CSV.exists()
 breakouts = pd.read_csv(LEDGER_CSV if frozen else ROOT / "data" / "breakout_candidates.csv")[
     ["PLAYER_ID", "tier", "p_break", "p_baseline", "p_bust", "fpg_last", "proj_fpg", "proj_lo", "proj_hi", "proj_gp", "adp",

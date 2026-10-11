@@ -34,9 +34,12 @@ D = R / "data"
 LOGDIR = ING / "logs"
 LOGDIR.mkdir(exist_ok=True)
 ET = ZoneInfo("America/New_York")
-OPENER = date(2026, 10, 20)
-FIRST_TIP = datetime(2026, 10, 20, 15, 0, tzinfo=ET)     # opening night tips at 3pm ET (RotoWire schedule); conservative
-LEDGER_CSV = D / "breakout_ledger" / "2026-27.csv"
+import season_calendar as SCAL
+from season import current_season_id, current_season_str
+OPENER = SCAL.opener()                                     # derived from the NBA schedule
+_o, _t = SCAL.first_tip()
+FIRST_TIP = (datetime.fromisoformat(f"{_o.isoformat()}T{_t}:00+00:00").astimezone(ET) if _t else datetime(OPENER.year, OPENER.month, OPENER.day, 15, 0, tzinfo=ET))   # earliest tip on opening day
+LEDGER_CSV = D / "breakout_ledger" / f"{current_season_str()}.csv"
 args = set(sys.argv[1:])
 FULL, NO_PUSH = "--full" in args, "--no-push" in args
 now = datetime.now(ET)
@@ -94,7 +97,7 @@ try:
 
     # 1. inputs
     run("hashtag_mkt", "pull_hashtag_dynasty.py")
-    run("espn_adp", "pull_espn_adp.py", "2027")
+    run("espn_adp", "pull_espn_adp.py", str(current_season_id()))
     run("espn_positions", "pull_espn_positions.py")
 
     # 2. model chain, only when new games could have arrived (or --full)
@@ -147,7 +150,7 @@ try:
     else:
         def git(*g):
             return subprocess.run(["git", *g], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        git("add", "dashboard/redraft_data.json", "dashboard/player_news.json", "dashboard/form_split.json", "dashboard/team_matchup.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
+        git("add", "dashboard/redraft_data.json", "dashboard/season_calendar.json", "dashboard/player_news.json", "dashboard/form_split.json", "dashboard/team_matchup.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
             "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json")
         if git("diff", "--cached", "--quiet").returncode == 0:
             say("nothing changed: no commit")

@@ -482,7 +482,7 @@ def nn_(n):
 
 res["norm"] = res["player"].apply(nn_)
 dyn = pd.read_csv(D / "hashtag_dynasty_latest.csv"); dyn["norm"] = dyn["player"].apply(nn_)
-adp = pd.read_csv(D / "espn_adp.csv"); adp = adp[(adp["season_id"] == 2027) & adp["adp"].notna() & adp["PLAYER_ID"].notna()]
+adp = pd.read_csv(D / "espn_adp.csv"); adp = adp[(adp["season_id"] == __import__("season").current_season_id()) & adp["adp"].notna() & adp["PLAYER_ID"].notna()]
 adp["PLAYER_ID"] = adp["PLAYER_ID"].astype(int)
 res = res.drop_duplicates("norm").merge(dyn[["norm", "rank"]].rename(columns={"rank": "dyn"}), on="norm", how="left")
 res = res.merge(adp.sort_values("adp").drop_duplicates("PLAYER_ID")[["PLAYER_ID", "adp"]], on="PLAYER_ID", how="left")

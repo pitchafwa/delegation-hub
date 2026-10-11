@@ -24,22 +24,20 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
-SEASON_START = date(2026, 10, 20)
+import season_calendar as SCAL
+_CAL = SCAL.load()
+SEASON_START = SCAL.opener(_CAL)
 SLOTS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
 CAP_PER_7 = 40.0
-LENGTHS = [6] + [7] * 16 + [14] + [7] * 4      # confirmed vs ESPN's real scoreboard 2026-09-27: the 14-day All-Star week is matchup 18 (Feb 15-28), not 17
-PLAYOFF_WEEKS = (20, 21, 22)
+PLAYOFF_WEEKS = tuple(_CAL["playoff_weeks"])
 from team_abbr import canon
 OUT_STATUS = ("OUT", "INJURY_RESERVE", "SUSPENSION")
 RETURN_FACTOR = 0.6      # ASSUMPTION: a player who is OUT now is back for weeks 3+ at 60% of the normal play rate (unknown return dates)
 NEAR_WEEKS = 2           # ...and counts as absent for this many upcoming weeks
 FA_ANCHOR, FA_SHRINK = 22.0, 0.6   # (fa_pool levels in week_plan.json are already shrunk)
 
-CAL = []
-_d = SEASON_START
-for i, n in enumerate(LENGTHS, start=1):
-    CAL.append({"id": i, "start": _d, "end": _d + timedelta(days=n - 1), "days": n, "cap": round(CAP_PER_7 * n / 7.0, 1), "playoff": i in PLAYOFF_WEEKS})
-    _d += timedelta(days=n)
+CAL = [{"id": p["id"], "start": date.fromisoformat(p["start"]), "end": date.fromisoformat(p["end"]), "days": p["days"], "cap": p["cap"], "playoff": p["playoff"]} for p in _CAL["periods"]]
+SPECIAL_WEEKS = {w["id"] for w in CAL if w["days"] != 7}      # the short opener and the 14-day All-Star matchup: not comparable to a normal 7-day week
 
 sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))
 GAMES = {}    # date -> set of teams playing
@@ -193,7 +191,7 @@ for t in wp["teams"]:
                      "x4": round(n4 - avg_next4, 1), "xp": round(npo - avg_play, 1), "flags": flags})
     active = [p for p in r]
     raw_proj = {w: week_points(active, w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
-    wa = {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if CAL[int(k) - 1]["days"] == 7 and int(k) not in (1, 18)}
+    wa = {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if CAL[int(k) - 1]["days"] == 7 and int(k) not in SPECIAL_WEEKS}
     anchors = sorted(wa)[-3:]
     if anchors:       # BLEND (backtested: beats the raw solver, MAE 178 vs 207 one week ahead): real scoring in recent full weeks x how much lighter/heavier the target week is
         ratios = {w: sum(wa[a] * raw_proj[w] / max(week_points(active, a), 1.0) for a in anchors) / len(anchors) for w in raw_proj}
@@ -296,7 +294,7 @@ keep = [e for e in stash if e["gain"] >= 100]       # anyone who adds real point
 keep.sort(key=lambda e: -e["gain"])
 print("long-term (ROS) stash:", [(e["name"], e["gain"], e["next4"]) for e in keep[:6]])
 
-out = {"generated": datetime.now(timezone.utc).isoformat(), "calendar_assumed": True, "schedule_provisional": True,
+out = {"generated": datetime.now(timezone.utc).isoformat(), "calendar_assumed": not SCAL.verified(_CAL), "schedule_provisional": True,
        "calendar": [{"id": w["id"], "start": w["start"].isoformat(), "end": w["end"].isoformat(), "days": w["days"], "cap": w["cap"], "playoff": w["playoff"]} for w in CAL],
        "current_week": FIRST, "next4": NEXT4, "playoff_weeks": PLAY, "avg_games": avg_games, "avg_next4": round(avg_next4, 1), "avg_playoffs": round(avg_play, 1),
        "nba": heat, "teams": teams_out, "my_abbrev": wp["my_abbrev"],

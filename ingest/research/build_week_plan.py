@@ -38,7 +38,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
 from season import current_season_id
 SEASON_ID = current_season_id()
-SEASON_START = date(2026, 10, 20)          # scoring period 1 (season opener, a Tuesday)
+import season_calendar as SCAL
+_CAL = SCAL.load()                          # derived from the NBA schedule + ESPN's counts (season_calendar.py); refreshed below once ESPN is open
+SEASON_START = SCAL.opener(_CAL)           # scoring period 1 (season opener)
 MY_ABBREV = "DRNK"
 SLOTS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
 CAP_PER_7 = 40.0
@@ -55,11 +57,7 @@ def norm(n):
 
 
 # ---------- calendar (confirmed against ESPN's real scoreboard 2026-09-27: 6-day opener, 7-day weeks, one 14-day All-Star matchup #18 = Feb 15-28)
-LENGTHS = [6] + [7] * 16 + [14] + [7] * 4      # confirmed vs ESPN's real scoreboard 2026-09-27: the 14-day All-Star week is matchup 18 (Feb 15-28), not 17
-BOUNDS, _d = [], SEASON_START
-for _i, _n in enumerate(LENGTHS, start=1):
-    BOUNDS.append((_i, _d, _d + timedelta(days=_n - 1)))
-    _d += timedelta(days=_n)
+BOUNDS = SCAL.bounds(_CAL)                     # [(matchup id, first day, last day)] derived, no longer typed in (season_calendar.py); same values ESPN's scoreboard confirmed on 2026-09-27
 
 
 def matchup_for(day):
@@ -71,6 +69,14 @@ def matchup_for(day):
 
 # ---------- data
 lg = League(league_id=config.LEAGUE_ID, year=SEASON_ID, espn_s2=config.ESPN_S2, swid=config.SWID)
+try:                                          # ESPN is open now: refresh/verify the calendar; if it changed, use the new one
+    _newc = SCAL.refresh(lg)
+    if _newc["periods"] != _CAL["periods"]:
+        _CAL, SEASON_START, BOUNDS = _newc, SCAL.opener(_newc), SCAL.bounds(_newc)
+    CAL_VERIFIED = SCAL.verified(_newc)
+except Exception as _ex:
+    print("season calendar refresh failed:", repr(_ex)[:100])
+    CAL_VERIFIED = SCAL.verified(_CAL)
 hub = json.load(open(HUB / "hub_data.json", encoding="utf-8"))
 hub_by_id = {p["id"]: p for p in hub["players"]}
 hub_by_name = {norm(p["player"]): p for p in hub["players"]}
@@ -107,7 +113,7 @@ def protected_ids(roster):
     return keep
 
 
-LAST_WEEK = 22             # last fantasy week (playoffs included)
+LAST_WEEK = _CAL["last_week"]      # last fantasy week (playoffs included), derived
 KEEPERS_LATER = 5          # keepers per team in future years: the players who actually carry dynasty value
 
 
@@ -998,7 +1004,7 @@ if _sp.exists():
                 if _t != "TBD":
                     TEAM_DATES.setdefault(canon(_t), set()).add(_ds)
 SEASON_END = max((max(v) for v in TEAM_DATES.values()), default=None)
-PLAYOFF_START = next((a for i, a, b in BOUNDS if i == 20), None)
+PLAYOFF_START = next((a for i, a, b in BOUNDS if i == _CAL["playoff_weeks"][0]), None)
 REPL_LEVEL = 24.0
 
 
@@ -1306,7 +1312,7 @@ for tm in out_teams:
 
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_abbrev": MY_ABBREV,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
-                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": True,
+                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": not CAL_VERIFIED,
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
        "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],

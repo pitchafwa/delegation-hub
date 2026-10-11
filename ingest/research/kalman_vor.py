@@ -42,7 +42,8 @@ df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 df = df.sort_values(["PLAYER_ID", "GAME_DATE"]).reset_index(drop=True)
 
 TODAY = pd.Timestamp.today().normalize()
-NEXT_SEASON_START = pd.Timestamp("2026-10-20")
+import season_calendar as _SCAL
+NEXT_SEASON_START = pd.Timestamp(_SCAL.opener())   # derived from the NBA schedule (was typed in each year)
 
 player_ids = df["PLAYER_ID"].to_numpy()
 days = df["DAYS_SINCE_LAST"].to_numpy(dtype=float)
