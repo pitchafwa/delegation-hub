@@ -27,8 +27,10 @@ ET = ZoneInfo("America/New_York")
 ROOT = Path(__file__).resolve().parent.parent.parent
 DASH = ROOT / "dashboard"
 RAW_URL = "https://raw.githubusercontent.com/pitchafwa/delegation-hub/live-data/live_matchup.json"
-YEAR = int(os.environ.get("LIVE_YEAR", 2027))
-SEASON_START = {2027: date(2026, 10, 20), 2026: date(2025, 10, 21)}.get(YEAR, date(2026, 10, 20))
+from season import current_season_id
+YEAR = int(os.environ.get("LIVE_YEAR", current_season_id()))
+import season_calendar as SCAL
+SEASON_START = SCAL.opener() if YEAR == current_season_id() else {2026: date(2025, 10, 21)}.get(YEAR, SCAL.opener())      # derived for this season; last season's opener only for the --dry replay test
 TODAY = date.fromisoformat(os.environ["LIVE_DATE"]) if os.environ.get("LIVE_DATE") else datetime.now(ET).date()
 NOW = datetime.now(ET)
 DRY = "--dry" in sys.argv
@@ -115,6 +117,7 @@ def main():
 
     # ---- starts so far (past days + players who already played today)
     starts = {my_id: 0, opp_id: 0}
+    sb = {my_id: 0, opp_id: 0}                       # starts at the START of today: ESPN checks the games cap at the start of each day
     today_box = None
     for d in days:
         if d > TODAY:
@@ -123,7 +126,10 @@ def main():
         if d == TODAY:
             today_box = b
         for tid in (my_id, opp_id):
-            starts[tid] += sum(1 for e in b[tid] if e["slot"] is not None and e["slot"] <= 11 and e["played"])
+            n_ = sum(1 for e in b[tid] if e["slot"] is not None and e["slot"] <= 11 and e["played"])
+            starts[tid] += n_
+            if d < TODAY:
+                sb[tid] += n_
     # ---- expected points still to come
     plan_team = {t["id"]: t for t in W.get("teams", [])} if plan_match else {}
     plan_roster = {tid: {p["id"]: p for p in plan_team[tid]["roster"]} for tid in plan_team}
@@ -145,6 +151,16 @@ def main():
                 ef = (lvl + boost) * p_play
                 rem_today[tid] += ef
                 left_today[tid].append({"name": e["name"], "ef": round(ef, 1)})
+    # GAMES CAP, for BOTH teams: a team that began today at or over the cap cannot start anyone today or later (nothing more counts), and a team projected to cross it by the end of
+    # today loses the days after. The plan assumes every team uses the cap perfectly and is only refreshed a few times a day, so without this a locked opponent still "scores" in the forecast.
+    lock_note = {}
+    cum = {}
+    for tid in (my_id, opp_id):
+        if sb[tid] >= cap:
+            rem_today[tid], left_today[tid] = 0.0, []
+            lock_note[tid] = "locked"
+        started_today = sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
+        cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else len(left_today[tid]) * 0.94)
     fut = {my_id: 0.0, opp_id: 0.0}
     fut_days = 0
     for d in days:
@@ -154,8 +170,12 @@ def main():
         for tid in (my_id, opp_id):
             t = plan_team.get(tid)
             dd = next((x for x in (t or {}).get("days", []) if x["date"] == d.isoformat()), None)
+            if cum[tid] >= cap:                                   # already at the cap when this day begins: the day is locked
+                lock_note.setdefault(tid, "locks after today" if d == next((x for x in days if x > TODAY), None) else "locked")
+                continue
             if dd:
                 fut[tid] += dd["pts"]
+                cum[tid] += max(0.0, dd.get("starts_after", 0) - dd.get("starts_before", 0))
                 got = got or dd["pts"] > 0
             elif not plan_match:                             # crude fallback: this team's average points per day so far
                 played_days = max(1, len(by_sp[tid]))
@@ -186,6 +206,8 @@ def main():
     adds_used = my_plan.get("adds_used")
     best_add = next((a for a in (my_plan.get("sequence") or [])[:1]), None)
     advice = []
+    if lock_note.get(opp_id):
+        advice.append(f"Your opponent {'has reached' if lock_note[opp_id] == 'locked' else 'will reach'} the games cap ({lock_note[opp_id]}): nothing more counts for them, and your win probability reflects that.")
     locked = starts[my_id] >= cap
     if locked:
         advice.append("You have reached the games cap: nothing else counts this week.")
