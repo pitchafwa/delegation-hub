@@ -77,6 +77,10 @@ def parse_height(h):
 bio["height_in"] = bio["HEIGHT"].apply(parse_height)
 
 espn_pos = pd.read_csv(ROOT / "data" / "espn_positions.csv")
+# ESPN's CURRENT NBA team per player (pull_espn_positions.py; blank for unsigned free agents). Current players' `team` used to come only from their last box-score game, which is
+# stale after every offseason trade/signing (2026-10-10: 190 of 360 matched players differed from ESPN, e.g. Giannis MIL vs MIA), so ESPN wins and the old value is kept as team_last.
+ESPN_TEAM = {int(r.PLAYER_ID): r.pro_team for r in espn_pos.itertuples() if pd.notna(r.pro_team)}
+ESPN_UNSIGNED = {int(r.PLAYER_ID) for r in espn_pos.itertuples() if pd.isna(r.pro_team)}      # ESPN lists them with no NBA team (unsigned free agents): the hub keeps their last team
 
 # --- real, standing injury-risk tier for EVERY player (generalized from
 # injury_risk_flag.py, which only computed this for Tommy's own roster) ---
@@ -213,8 +217,10 @@ for _, r in current.iterrows():
         "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
         "player": r["player"],
         "pos": pos if pd.notna(pos) else None,
-        "team": r["TEAM_ABBREVIATION"] if pd.notna(r.get("TEAM_ABBREVIATION")) else None,
-        "team_logo": logo_url(r.get("TEAM_ABBREVIATION")),
+        "team": ESPN_TEAM.get(int(r["PLAYER_ID"])) or (r["TEAM_ABBREVIATION"] if pd.notna(r.get("TEAM_ABBREVIATION")) else None),
+        "team_last": r["TEAM_ABBREVIATION"] if pd.notna(r.get("TEAM_ABBREVIATION")) else None,
+        "unsigned": int(r["PLAYER_ID"]) in ESPN_UNSIGNED,
+        "team_logo": logo_url(ESPN_TEAM.get(int(r["PLAYER_ID"])) or r.get("TEAM_ABBREVIATION")),
         "age": round_or_none(r["age"], 1),
         "data_source": None,
         "anchor_year": CURRENT_SEASON_END_YEAR,

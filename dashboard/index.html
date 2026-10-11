@@ -1525,7 +1525,7 @@ function pcHtml(P){
     <div class="pcBody">
       <div class="pcHead">${headshotEl(headId,P.espnId,76)}
         <div class="pcHeadInfo"><div class="pcName">${esc(P.name)}</div>
-          <div class="pcSub">${team?`<img class="pcTeamLogo" src="${teamLogoUrl(team)}" alt=""/> ${esc(team)}`:''}${pos?' · '+esc(pos):''}${age!=null?' · '+age.toFixed(1):''}${status!=='ACTIVE'?` <span class="liveStatus">${esc(status)}</span>`:''}${wvTag((wk&&wk.waiver)||(dyn&&dyn.waiver)||(st&&st.waiver))}</div>
+          <div class="pcSub">${team?`<img class="pcTeamLogo" src="${teamLogoUrl(team)}" alt=""/> ${esc(team)}${h&&h.unsigned?' <span class="hint" title="ESPN lists him with no NBA team right now; this is his last team">(unsigned)</span>':''}`:''}${pos?' · '+esc(pos):''}${age!=null?' · '+age.toFixed(1):''}${status!=='ACTIVE'?` <span class="liveStatus">${esc(status)}</span>`:''}${wvTag((wk&&wk.waiver)||(dyn&&dyn.waiver)||(st&&st.waiver))}</div>
           <div class="pcTags">${tagChips(P.tagKey)||'<span class="hint">no tags yet</span>'}</div></div></div>
       ${nowHtml}${avgHtml}${newsHtml}${ltHtml}${rdHtml}${dyHtml}${injHtml}
       <div class="pcSec"><div class="pcH">Your notes</div>${tagEditor({id:P.tagKey})}</div>

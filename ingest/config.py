@@ -12,7 +12,16 @@ ROOT = Path(__file__).resolve().parent.parent  # fantasy-basketball-hub/
 load_dotenv(ROOT / ".env")
 
 LEAGUE_ID = int(os.getenv("LEAGUE_ID", "600271905"))
-SEASON = int(os.getenv("SEASON", "2026"))
+def _current_season_id():
+    """ESPN seasonId = the year the season ENDS (2026-27 -> 2027); a new season starts counting in July. Same rule as research/season.py."""
+    from datetime import date
+    t = date.today()
+    return t.year + 1 if t.month >= 7 else t.year
+
+
+# was hard-coded to 2026 until 2026-10-10, which made pull_espn_positions.py (and every script reading config.SEASON) read LAST season's ESPN player pool: stale pro teams,
+# injury statuses and position eligibility in the hub. Override with the SEASON env var only to look at an older year.
+SEASON = int(os.getenv("SEASON") or _current_season_id())
 
 ESPN_S2 = os.getenv("ESPN_S2") or None
 SWID = os.getenv("SWID") or None
