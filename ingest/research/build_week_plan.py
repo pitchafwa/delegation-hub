@@ -140,6 +140,8 @@ def drop_flag(p):
 
 
 today = datetime.now(ET).date()
+if os.environ.get("PLAN_TODAY"):                       # TEST HOOK: pretend today is this date (e.g. a Sunday) to exercise the lookahead; never set in production
+    today = date.fromisoformat(os.environ["PLAN_TODAY"])
 mp_id, mp_start, mp_end = matchup_for(max(today, SEASON_START))
 days = [mp_start + timedelta(days=i) for i in range((mp_end - mp_start).days + 1)]
 plan_days = [d for d in days if d >= today]
@@ -150,10 +152,21 @@ cap = CAP_PER_7 * n_days / 7.0
 adds_limit = round(ADDS_PER_DAY * n_days)
 print(f"matchup {mp_id}: {mp_start}..{mp_end} ({n_days} days), cap {cap:.1f}, adds limit {adds_limit}; planning {len(plan_days)} days from {plan_days[0]}")
 
+# SUNDAY LOOKAHEAD (2026-10-10). Adds are counted per matchup and unspent adds EXPIRE when it ends, so on the last two days of a matchup the stream manager may add players
+# whose value is next matchup's first days (Mon-Wed). Those days are scored with their own fresh start count and cap; nothing changes mid-week.
+LOOKAHEAD_DAYS = 3
+LOOK_DAYS, NEXT_CAP = [], cap
+if len(plan_days) <= 2 and plan_days[-1] == mp_end and mp_id < _CAL["last_week"]:
+    _nx = next(((a_, b_) for i_, a_, b_ in BOUNDS if i_ == mp_id + 1), None)
+    if _nx:
+        LOOK_DAYS = [_nx[0] + timedelta(days=k) for k in range(LOOKAHEAD_DAYS) if _nx[0] + timedelta(days=k) <= _nx[1]]
+        NEXT_CAP = next(p_["cap"] for p_ in _CAL["periods"] if p_["id"] == mp_id + 1)
+        print(f"lookahead on: also scoring next matchup's first days {[d.isoformat() for d in LOOK_DAYS]} (cap {NEXT_CAP})")
+
 # NBA schedule for the matchup (+ the day before, for back-to-back detection)
 games = {}     # date -> {team: iso tipoff}
 opp_of = {}    # date -> {team: opponent abbrev} (for the matchup-context adjustment: who is he actually facing that day)
-for d in [days[0] - timedelta(days=1)] + days:
+for d in [days[0] - timedelta(days=1)] + days + LOOK_DAYS:
     try:
         j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard", params={"dates": d.strftime("%Y%m%d")}, timeout=30).json()
     except Exception:
@@ -371,21 +384,23 @@ def assign_slots(chosen):
     return [out.get(i, "UT") for i in range(len(chosen))]
 
 
-def plan_team(roster, c0=0.0, detail=False):
-    opts = [day_options(roster, d) for d in plan_days]
-    NS = int(cap) + 12
+def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None):
+    pdays = plan_days if days_ is None else days_       # days to score (default: the rest of this matchup) and the games capv that applies to them
+    capv = cap if cap_ is None else cap_
+    opts = [day_options(roster, d) for d in pdays]
+    NS = int(capv) + 12
     NEG = -1e9
     # dp[day][c] = best expected points from this day on, given c starts so far (c integer, capped)
     memo = {}
 
     def best(di, c):
-        if di == len(plan_days):
+        if di == len(pdays):
             return 0.0, None
         key = (di, c)
         if key in memo:
             return memo[key]
         cands, order, vals, cnt = opts[di]
-        if c >= cap:                       # locked: nothing counts for the rest of the matchup
+        if c >= capv:                       # locked: nothing counts for the rest of the matchup
             memo[key] = (0.0, None)
             return memo[key]
         top = (NEG, None)
@@ -402,9 +417,9 @@ def plan_team(roster, c0=0.0, detail=False):
         return total
     rows, c = [], int(round(c0))
     naive_c, naive_total = c, 0.0
-    for di, d in enumerate(plan_days):
+    for di, d in enumerate(pdays):
         cands, order, vals, cnt = opts[di]
-        locked = c >= cap
+        locked = c >= capv
         m = 0 if locked else best(di, c)[1]
         chosen = [cands[order[k]][1] for k in range(m)]
         slots = assign_slots(chosen)
@@ -418,7 +433,7 @@ def plan_team(roster, c0=0.0, detail=False):
                      "locked": bool(locked), "sat": (len(order) - m) if not locked else len(order),
                      "starts_cover": round(starts_with_cover(cands), 1) if not locked else 0.0})
         # 'start everyone possible' comparison
-        if naive_c < cap:
+        if naive_c < capv:
             naive_total += vals[-1]
             naive_c += cnt[-1]
         c = int(round(c_after))
@@ -496,7 +511,7 @@ for _p in fa_players:
     _p["level_raw"] = _p["level"]                                             # true level, before the weekly-decision shrink below
     _p["level"] = round(FA_ANCHOR + FA_SHRINK * (_p["level"] - FA_ANCHOR), 1)  # shrink toward replacement for THIS WEEK's add decision only (see FA_SHRINK's comment) -- a
                                                                                 # long-horizon evaluation (Long-term adds) should use level_raw instead; see build_schedule_plan.py
-fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days)]
+fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days + LOOK_DAYS)]
 
 
 # ---------- DYNASTY ADDS: free agents with long-term value (keeper-league asset value at 5 keepers), whether or not they help this week.
@@ -532,7 +547,7 @@ print(f"dynasty free agents: {len(dyn_pool)} with asset >= {DYN_MIN_ASSET}; top:
 
 
 def week_games(pl):
-    return sum(1 for d in plan_days if p_play(pl, d) > 0)
+    return sum(1 for d in plan_days + LOOK_DAYS if p_play(pl, d) > 0)
 
 
 fa_players.sort(key=lambda p: -(p["level"] * week_games(p)))
@@ -896,7 +911,12 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
 # Greedy: each round picks the single best (player, add day, who to drop) by points gained this week minus that future cost, until nothing is worth MIN_NET_GAIN or the adds run out.
 def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     prot = protected_ids(r) | set(extra_protect)
-    cand = [f for f in fa_players if any(p_play(f, d) > 0 for d in plan_days)][:n_cand]
+    look = LOOK_DAYS
+    all_days = plan_days + look
+
+    def val(ros):                                                  # this matchup's points, plus (Sunday lookahead) next matchup's first days with a fresh start count
+        return plan_team(ros, c0) + (plan_team(ros, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0)
+    cand = [f for f in fa_players if any(p_play(f, d) > 0 for d in all_days)][:n_cand]
     fl = sorted(f["level"] for f in fa_players if not f.get("waiver"))
     restream = fl[-3] if len(fl) >= 3 else REPL_LEVEL
     wk_left = min(ROS_WEEKS, weeks_after())
@@ -905,7 +925,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         return max(0.0, dr["level"] - restream) * GAMES_PER_WEEK * wk_left if dr is not None else 0.0
 
     def roster_ok(ros):
-        for d in plan_days:
+        for d in all_days:
             n = sum(1 for x in ros if not x["ir"] and not (x.get("from") and x["from"] > d) and not (x.get("until") and x["until"] < d))
             if n > ROSTER_SPOTS:
                 return False
@@ -919,17 +939,19 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         new.append(fs)
         return new
 
-    cur, cur_total, used, infos = list(r), total, set(), []
+    cur, cur_total, used, infos = list(r), total + (plan_team(r, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0), set(), []
     for _ in range(steps):
         best = None
         for f in cand:
             if f["espn_id"] in used:
                 continue
             fd = [d for d in plan_days if p_play(f, d) > 0]
-            if not fd:
+            fdl = [d for d in look if p_play(f, d) > 0]
+            if not fd and not fdl:
                 continue
-            e_ = fd[-1]
-            for s_ in fd:
+            e_ = (fdl or fd)[-1]                                    # held through his last game in view (possibly next week's Mon-Wed)
+            starts = list(fd) + ([plan_days[-1]] if fdl and plan_days[-1] not in fd else [])
+            for s_ in starts:
                 fs = option(f, s_, e_)
                 targets = [(None, "open")]
                 for x in cur:
@@ -944,7 +966,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                     new = build(cur, fs, tgt, s_)
                     if not roster_ok(new):
                         continue
-                    wk = plan_team(new, c0) - cur_total
+                    wk = val(new) - cur_total
                     net = wk - (fut(tgt) if kind == "roster" else 0.0)
                     if best is None or net > best["net"]:
                         best = {"net": net, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fut(tgt) if kind == "roster" else 0.0}
@@ -958,12 +980,13 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
             fd2 = option(f, d, best["e"])
             try:
                 nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
-                v = plan_team(nn, c0) - cur_total - best["fut"] if roster_ok(nn) else -999.0
+                v = val(nn) - cur_total - best["fut"] if roster_ok(nn) else -999.0
             except Exception:
                 v = -999.0
             if v > -900:
                 by_day.append({"date": d.isoformat(), "gain": round(float(v), 1)})
         infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day})
+        infos[-1]["wk_next"] = (plan_team(best["new"], 0.0, days_=look, cap_=NEXT_CAP) - plan_team(cur, 0.0, days_=look, cap_=NEXT_CAP)) if look else 0.0
         cur, cur_total = best["new"], cur_total + best["wk"]
         used.add(f["espn_id"])
     # chronological order, with the running total recomputed in that order
@@ -978,7 +1001,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                             "games": [d.isoformat() for d in plan_days if d >= i["s"] and d <= i["e"] and p_play(f, d) > 0], "waiver": f.get("waiver")},
                     "drop": ({"form": tgt.get("form"), "ramp": tgt.get("ramp_note"), "id": tgt["espn_id"], "name": tgt["name"], "level": tgt["level"], "asset_rank": tgt["asset_rank"], "flag": drop_flag(tgt),
                               "streamer": bool(tgt.get("_stream"))} if tgt else None),
-                    "gain": round(i["net"], 1), "week_gain": round(i["wk"], 1), "future_cost": round(i["fut"], 1), "cum": round(plan_team(ros, c0) - total, 1), "by_day": i["by_day"],
+                    "gain": round(i["net"], 1), "week_gain": round(i["wk"] - i.get("wk_next", 0.0), 1), "next_gain": round(i.get("wk_next", 0.0), 1), "future_cost": round(i["fut"], 1),
+                    "games_next": [d.isoformat() for d in look if i["s"] <= d <= i["e"] and p_play(f, d) > 0], "cum": round(plan_team(ros, c0) - total, 1), "by_day": i["by_day"],
                     "on": i["s"].isoformat(), "hold_through": i["e"].isoformat(), "release": None})
     for k, i in enumerate(infos):                                   # a streamer who is replaced later: say when he goes
         if i["tgt_id"]:
@@ -1312,7 +1336,7 @@ for tm in out_teams:
 
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_abbrev": MY_ABBREV,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
-                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": not CAL_VERIFIED,
+                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
        "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],

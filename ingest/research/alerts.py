@@ -130,6 +130,8 @@ def best_moves(T, n=3):
             timing = " (add now)" if m["on"] <= TODAY.isoformat() else f" (add on {datetime.fromisoformat(m['on']).strftime('%a')})"
             if m.get("release"):
                 timing += f", hold until {datetime.fromisoformat(m['release']).strftime('%a')}"
+            if m.get("games_next"):
+                timing += " (also lines up next week's first days)"
         elif len(g) > 1 and g[0] >= max(g) - 5:
             timing = " (add now" + (f"; waiting a day costs {g[0] - g[1]:.0f})" if g[0] - g[1] >= 3 else ")")
         elif g:
