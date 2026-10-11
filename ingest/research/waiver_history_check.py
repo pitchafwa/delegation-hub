@@ -13,16 +13,17 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 ET = ZoneInfo("America/New_York")
-OUT = Path(__file__).resolve().parent / "data" / "league_transactions_2026.json"
+YEAR = int(next((a for a in sys.argv[1:] if a.isdigit()), 2026))
+OUT = Path(__file__).resolve().parent / "data" / f"league_transactions_{YEAR}.json"
 
 if "--cached" in sys.argv and OUT.exists():
     tx = json.load(open(OUT))
 else:
     import config
     from espn_api.basketball import League
-    lg = League(league_id=config.LEAGUE_ID, year=2026, espn_s2=config.ESPN_S2, swid=config.SWID)
+    lg = League(league_id=config.LEAGUE_ID, year=YEAR, espn_s2=config.ESPN_S2, swid=config.SWID)
     byid = {}
-    for d in range(1, 161):
+    for d in range(1, 181):
         try:
             raw = lg.espn_request.league_get(params={"view": "mTransactions2", "scoringPeriodId": d})
         except Exception as e:
