@@ -67,3 +67,16 @@ You pick a partner, add players (and later picks) on each side. It shows, for yo
 3. Contender/rebuilder: automatic from the simulator with a manual override (recommended)?
 4. Perceived value source: league draft pricing + Hashtag + ADP blend (recommended).
 5. Acceptance shown as bands, not percentages (recommended).
+
+## 7. Validation result 1: season-points replay (2026-10-11, `ingest/research/trade_replay.py`)
+2,880 hypothetical trade sides (1-for-1 up to 3-for-1) at the start of matchup weeks 5, 9 and 13 of the 2023-24, 2024-25 and 2025-26 seasons, using real rosters and real daily results. Truth = change in the perfect-hindsight lineup value (10 a day, 40-game cap) over the next 8 weeks. Predictors see only the prior 28 days.
+
+| Group | n | Lineup-aware: rank corr / right sign | Sum of per-game levels: rank corr / right sign |
+|---|---|---|---|
+| All | 2880 | 0.67 / 86% | 0.60 / 65% |
+| Even swaps | 1266 | 0.59 / 87% | 0.38 / 60% |
+| You receive MORE players | 807 | 0.51 / 73% | 0.40 / 41% |
+| You receive FEWER players | 807 | 0.60 / 97% | 0.53 / 97% |
+Consistent across all three seasons (sign accuracy 84-87% vs 60-73%).
+
+Reading: modeling the lineup (10 slots, 40-game cap, play rate, forced drops) is clearly better than adding up player levels, mainly on the trades where roster structure matters (even swaps and trades that change how many players you hold). Caveats: this replay uses a simplified version of the lineup logic and trailing-average forecasts, ignores positions, and says nothing about the title-odds conversion, the keeper side or acceptance. Remaining validation: acceptance fit on proposals; case studies (Tatum-for-Quickley, vetoed trade).
