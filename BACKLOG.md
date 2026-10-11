@@ -351,3 +351,9 @@ TO DO: (1) Tommy captures one real ESPN lineup move (browser network request: en
 ### Trade analyzer + trade values model (Tommy's request 2026-10-11; two parts: analyzer first, then draft-pick values)
 Research and the proposed model are in `RESEARCH_trade_value.md` (market calculators, roster-aware methods, endowment effect, this league's constraints, validation plan, build phases, decisions needed). No code yet. Existing: Trades tab = finder v1 (`build_trades.py`, unvalidated), no analyzer. Part 2 (draft-pick values) plugs into the same engine. Also done 2026-10-11: live win probability now zeroes a team that has reached the games cap (opponent lockout); `live_matchup.py` year/opener derived.
 
+
+## Trade analyzer (built 2026-10-11, part 1 of trade values)
+- Trades tab top panel: instant check (market balance, acceptance band, top-5 keeper change) + "Analyze exactly" button (workflow trade-analyze.yml, token sl_token, result on branch trade-data).
+- Engine: ingest/research/trade_value.py. Judgment parameters: future weight lambda (slider, default 0.15), posture weights (rebuild 0.7/1.4, balanced 1/1, contend 1.25/0.7), keeper noise 25%.
+- trade_context.json / trade_market.json are built LOCALLY (build_trade_context.py needs the gitignored Hashtag CSV); re-run weekly and commit.
+- TODO: validation replay (RESEARCH_trade_value.md section 4); part 2 draft-pick values; finder v2 on this engine.

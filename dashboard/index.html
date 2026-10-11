@@ -111,6 +111,7 @@
   .pcSub{display:flex;align-items:center;gap:.3rem;font-size:.84rem;color:var(--ink-soft);margin-top:.15rem;flex-wrap:wrap}
   .pcTeamLogo{width:16px;height:16px;object-fit:contain;vertical-align:-3px}
   .pcTags{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.25rem}
+  .taCols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.5rem 0}.taList{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:.3rem}@media(max-width:640px){.taCols{grid-template-columns:1fr}}
   .pcNews{list-style:none;margin:0;padding:0}
   .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
   .pcNews .nh{font-weight:600;font-size:.86rem;line-height:1.35}.pcNews .nm{font-size:.7rem;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace}
@@ -1726,6 +1727,7 @@ function renderTrades(){
       <div class="tradeRow small hint">Their view: they receive ${i.mk[0]} vs give ${i.mk[1]} · <b>${i.ratioNow.toFixed(2)}×</b> with the star premium (${i.ratio_lin}× plain) · ${themLine}</div>
     </div>`;}).join('') || '<div class="hint" style="padding:1rem">No ideas at these settings. Lower the fairness minimum.</div>'; };
   pane.innerHTML=`
+    <div id="taBox"></div>
     <div class="controls"><select id="tradeSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${TR.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
       <span class="hint">Trade ideas · updated ${new Date(meta.generated).toLocaleString()} · ${meta.K} keepers assumed</span></div>
     <div class="tradeCtl">
@@ -1742,8 +1744,120 @@ function renderTrades(){
   document.getElementById('ts').addEventListener('input',e=>{tradeS=+e.target.value; document.getElementById('tsv').textContent=tradeS.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
   document.getElementById('tr').addEventListener('input',e=>{tradeRatio=+e.target.value; document.getElementById('trv').textContent=tradeRatio.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
   collapseLegends(pane);
+  taInit();
 }
 
+/* ===================== TRADE ANALYZER =====================
+   Pick a partner and the players on each side. INSTANT check in the browser (data from trade_market.json): how the other owner sees the trade and how it changes each team's
+   top-5 future keeper assets. EXACT analysis through a workflow (research/trade_value.py): rebuilds both teams' lineups for every remaining week, re-runs the playoff simulation,
+   charges forced drops, credits free-agent fill, and reports title / playoff odds and next year's keeper strength. The button uses the same GitHub token as the lineup button. */
+const TA={partner:null,give:new Set(),get:new Set(),pm:"auto",pt:"auto",lam:0.15,res:null,status:"",mk:null,ctx:null,rid:null};
+const TA_BASE="https://raw.githubusercontent.com/pitchafwa/delegation-hub/trade-data/";
+const TA_POST={auto:"Auto",rebuild:"Rebuilding",balanced:"Balanced",contend:"Contending"};
+async function taLoad(){
+  if(TA.mk) return;
+  try{ TA.mk=(await (await fetch("trade_market.json",{cache:"no-cache"})).json()).players||{}; }catch(e){ TA.mk={}; }
+  try{ TA.ctx=await (await fetch("trade_context.json",{cache:"no-cache"})).json(); }catch(e){ TA.ctx=null; }
+}
+function taTeams(){
+  if(!W||!W.teams) return null;
+  const me=W.teams.find(t=>t.abbrev===W.my_abbrev);
+  return {me, others:W.teams.filter(t=>t!==me)};
+}
+function taTop5(ids,extraIn,extraOut){
+  const v=[]; for(const id of ids){ if(extraOut.has(id)) continue; const m=TA.mk[String(id)]; if(m) v.push(m.af||0); }
+  for(const id of extraIn){ const m=TA.mk[String(id)]; if(m) v.push(m.af||0); }
+  return v.sort((a,b)=>b-a).slice(0,5).reduce((a,b)=>a+b,0);
+}
+function taInstant(box){
+  const el=box.querySelector("#taInstant"); if(!el) return;
+  const T=taTeams(); const P=T&&T.others.find(t=>t.id===TA.partner);
+  if(!P||(!TA.give.size&&!TA.get.size)){ el.innerHTML="<span class=hint>Pick a partner and the players on each side for an instant check.</span>"; return; }
+  const val=id=>(TA.mk[String(id)]||{}).v||0;
+  const recv=[...TA.give].reduce((a,id)=>a+val(id),0), sent=[...TA.get].reduce((a,id)=>a+val(id),0);
+  const ratio=sent>0?recv/sent:null, band=ratio==null?"likely":(ratio>=1.10?"likely":(ratio>=0.92?"possible":"unlikely"));
+  const cMe=band==="likely"?"var(--good)":(band==="possible"?"var(--accent,#5b7cfa)":"var(--warn)");
+  const meIds=T.me.roster.map(p=>p.id), thIds=P.roster.map(p=>p.id);
+  const m0=taTop5(meIds,new Set(),new Set()), m1=taTop5(meIds,TA.get,TA.give), t0=taTop5(thIds,new Set(),new Set()), t1=taTop5(thIds,TA.give,TA.get);
+  el.innerHTML=`<b>Instant check</b> <span class=hint>(rough; the exact run below counts lineups, injuries and playoff odds)</span><br>
+    How ${esc(P.abbrev)} sees it: they receive <b>${Math.round(recv)}</b> market value and send <b>${Math.round(sent)}</b>${ratio!=null?` (ratio ${ratio.toFixed(2)})`:""}: acceptance <b style="color:${cMe}">${band.toUpperCase()}</b>.<br>
+    Next-year keeper strength (top 5 future assets): you <b>${m0.toFixed(0)} to ${m1.toFixed(0)}</b> (${(m1-m0>=0?"+":"")+(m1-m0).toFixed(0)}), ${esc(P.abbrev)} <b>${t0.toFixed(0)} to ${t1.toFixed(0)}</b> (${(t1-t0>=0?"+":"")+(t1-t0).toFixed(0)}).`;
+}
+function taRenderInputs(box){
+  const T=taTeams(); if(!T){ box.innerHTML="<div class=hint style=\"padding:1rem\">Loading the weekly plan...</div>"; return; }
+  if(TA.partner==null||!T.others.some(t=>t.id===TA.partner)) TA.partner=T.others[0].id;
+  const P=T.others.find(t=>t.id===TA.partner);
+  const posture=a=>{ const x=TA.ctx&&TA.ctx.teams&&TA.ctx.teams[String(a)]; return x?TA_POST[x.posture]:null; };
+  const list=(team,set,kind)=>`<div class="taList">${team.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<label style="display:flex;gap:.4rem;align-items:baseline;padding:.15rem .25rem;cursor:pointer"><input type="checkbox" data-k="${kind}" data-id="${p.id}" ${set.has(p.id)?"checked":""}> <span>${esc(p.name)} <span class=hint>${p.level.toFixed?p.level.toFixed(0):p.level}${p.asset_rank?" · asset #"+p.asset_rank:""}${p.ir||p.status==="OUT"?" · OUT":""}</span></span></label>`).join("")}</div>`;
+  const pSel=(id,cur,autoTxt)=>`<select id="${id}" style="padding:.35rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${["auto","rebuild","balanced","contend"].map(k=>`<option value="${k}" ${cur===k?"selected":""}>${k==="auto"?"Auto"+(autoTxt?" ("+autoTxt+")":""):TA_POST[k]}</option>`).join("")}</select>`;
+  const tok=slTok();
+  box.innerHTML=`<details class="sec" open><summary><span class="secT">Trade analyzer</span><span class="secM">change in each team's title odds and keeper strength, for any trade you build</span></summary><div class="secB">
+    <div class="controls" style="gap:.6rem;flex-wrap:wrap"><label>Trade with <select id="taPartner" style="padding:.35rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${T.others.map(t=>`<option value="${t.id}" ${t.id===TA.partner?"selected":""}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join("")}</select></label>
+      <label>Your team is ${pSel("taPm",TA.pm,posture(T.me.id))}</label><label>${esc(P.abbrev)} is ${pSel("taPt",TA.pt,posture(P.id))}</label></div>
+    <div class="taCols"><div><div class="hint">You give</div>${list(T.me,TA.give,"give")}</div><div><div class="hint">You get from ${esc(P.abbrev)}</div>${list(P,TA.get,"get")}</div></div>
+    <div id="taInstant" class="note" style="margin:.5rem 0"></div>
+    <div class="controls" style="gap:.8rem;flex-wrap:wrap;align-items:center"><label>Weight on next years' keeper value <b id="taLamV">${TA.lam.toFixed(2)}</b><input type="range" id="taLam" min="0" max="0.4" step="0.01" value="${TA.lam}"></label>
+      <button type="button" id="taGo" ${tok&&(TA.give.size||TA.get.size)?"":"disabled"} style="padding:.45rem .9rem;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;${tok?"cursor:pointer":"cursor:not-allowed;color:var(--ink-faint)"}">Analyze exactly (about a minute)</button></div>
+    <div id="taStatus" class="note" style="margin-top:.3rem">${TA.status||(tok?"":"<span class=hint>Add your GitHub token first: it is the same one the lineup button uses (This week, Set lineup in ESPN, one-time setup).</span>")}</div>
+    <div id="taResult">${TA.res?taResultHtml(TA.res):""}</div>
+    <div class="legend" style="margin-top:.6rem"><b>How to read it.</b> Value is measured in <i>title probability points</i>: the change in the team's chance to win the league this season (from the playoff simulation, with the lineups rebuilt for every remaining week and the games cap) plus next year's keeper strength converted to the same units. A player who is hurt now costs the weeks he misses and pays in the playoff weeks. Free-agent adds and forced drops are included. "Acceptance" is how the other owner will see it in market value (they must come out about 10% ahead), not whether it is good for them. Posture changes the weights: rebuilding counts the future more, contending counts this season more.</div></div></details>`;
+  const on=(sel,ev,fn)=>box.querySelectorAll(sel).forEach(e=>e.addEventListener(ev,fn));
+  on("#taPartner","change",e=>{ TA.partner=+e.target.value; TA.get=new Set(); TA.res=null; TA.status=""; taRenderInputs(box); taInstant(box); });
+  on("#taPm","change",e=>{ TA.pm=e.target.value; });
+  on("#taPt","change",e=>{ TA.pt=e.target.value; });
+  on("input[type=checkbox][data-k]","change",e=>{ const set=e.target.dataset.k==="give"?TA.give:TA.get, id=+e.target.dataset.id; if(e.target.checked) set.add(id); else set.delete(id); const g=box.querySelector("#taGo"); if(g&&slTok()) g.disabled=!(TA.give.size||TA.get.size); taInstant(box); });
+  on("#taLam","input",e=>{ TA.lam=+e.target.value; box.querySelector("#taLamV").textContent=TA.lam.toFixed(2); });
+  on("#taGo","click",()=>taRun(box));
+  taInstant(box);
+}
+function taResultHtml(r){
+  if(r.error) return `<div class="note" style="color:var(--warn)">${esc(r.error)}</div>`;
+  const pct=x=>(100*x).toFixed(1)+"%", sg=(x,d=2)=>(x>=0?"+":"")+x.toFixed(d);
+  const col=x=>`<td style="text-align:left"><b>${esc(x.abbrev)}</b><div class="hint">${esc(TA_POST[x.posture]||x.posture)}${x.posture_auto?" (auto)":""}</div></td>`;
+  const cell=(a,b)=>`<td>${a}</td><td>${b}</td>`;
+  const m=r.me, t=r.them, vc=x=>x>0.15?"var(--good)":(x<-0.15?"var(--warn)":"inherit");
+  const vcls=r.verdict.indexOf("bad for you")===0?"var(--warn)":(r.verdict.indexOf("good for you")===0?"var(--good)":"inherit");
+  return `<div class="tradeCard" style="margin-top:.6rem"><div class="tradeHd"><b>Give ${r.give.map(esc).join(" + ")}</b> <span class=hint>for</span> <b>${r.get.map(esc).join(" + ")}</b></div>
+    <div class="tablewrap"><table><thead><tr><th style="text-align:left"></th>${col(m)}${col(t)}</tr></thead><tbody>
+      <tr><td style="text-align:left">Title odds</td>${cell(`${pct(m.odds_before.title)} to <b>${pct(m.odds_after.title)}</b> (${sg(m.d_title_pp)} pts)`,`${pct(t.odds_before.title)} to <b>${pct(t.odds_after.title)}</b> (${sg(t.d_title_pp)} pts)`)}</tr>
+      <tr><td style="text-align:left">Playoff odds</td>${cell(`${pct(m.odds_before.made)} to ${pct(m.odds_after.made)}`,`${pct(t.odds_before.made)} to ${pct(t.odds_after.made)}`)}</tr>
+      <tr><td style="text-align:left">Season points</td>${cell(`${sg(m.season_points.regular,0)} regular, ${sg(m.season_points.playoffs,0)} playoffs`,`${sg(t.season_points.regular,0)} regular, ${sg(t.season_points.playoffs,0)} playoffs`)}</tr>
+      <tr><td style="text-align:left">Next-year keeper strength</td>${cell(`${m.keeper_strength.before} to ${m.keeper_strength.after}`,`${t.keeper_strength.before} to ${t.keeper_strength.after}`)}</tr>
+      <tr><td style="text-align:left">Value: this season / future</td>${cell(`${sg(m.value.now)} / ${sg(m.value.future)}`,`${sg(t.value.now)} / ${sg(t.value.future)}`)}</tr>
+      <tr><td style="text-align:left"><b>Total value</b> <span class=hint>(title points)</span></td>${cell(`<b style="color:${vc(m.value.total)}">${sg(m.value.total)}</b>`,`<b style="color:${vc(t.value.total)}">${sg(t.value.total)}</b>`)}</tr>
+      <tr><td style="text-align:left">Forced drops</td>${cell(m.drops.length?m.drops.map(esc).join(", "):"none",t.drops.length?t.drops.map(esc).join(", "):"none")}</tr>
+      <tr><td style="text-align:left">Free agent added</td>${cell(m.adds.length?m.adds.map(esc).join(", "):"none",t.adds.length?t.adds.map(esc).join(", "):"none")}</tr>
+    </tbody></table></div>
+    <div class="tradeRow small" style="margin-top:.4rem">Market view for ${esc(t.abbrev)}: they receive <b>${r.market.recv}</b> and send <b>${r.market.sent}</b>${r.market.ratio!=null?` (ratio ${r.market.ratio})`:""}: acceptance <b>${r.market.band.toUpperCase()}</b></div>
+    <div class="tradeRow" style="margin-top:.3rem;font-weight:600;color:${vcls}">Verdict: ${esc(r.verdict)}</div>
+    <div class="tradeRow small hint">Assumptions: next-year keeper weight ${r.assumptions.future_lambda}, asset uncertainty ${r.assumptions.asset_noise}, chip value ${r.assumptions.chip_weight}, return ramp ${r.assumptions.ramp_mult}, ${r.assumptions.sims} simulated seasons, forecast basis ${esc(r.assumptions.proj_basis||"")}. Run ${new Date(r.generated).toLocaleString()}.</div></div>`;
+}
+async function taRun(box){
+  const T=taTeams(); const P=T.others.find(t=>t.id===TA.partner); const st=box.querySelector("#taStatus"), say=m=>{ TA.status=m; if(st) st.innerHTML=m; };
+  const names=(team,set)=>team.roster.filter(p=>set.has(p.id)).map(p=>p.name).join(";");
+  const rid=Date.now().toString(36); TA.rid=rid; TA.res=null; const out=box.querySelector("#taResult"); if(out) out.innerHTML="";
+  try{
+    say("Sending to GitHub...");
+    const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/trade-analyze.yml/dispatches`,{method:"POST",headers:{Authorization:"Bearer "+slTok(),Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"},
+      body:JSON.stringify({ref:"main",inputs:{partner:P.abbrev,give:names(T.me,TA.give),get:names(P,TA.get),posture_me:TA.pm,posture_them:TA.pt,future_lambda:String(TA.lam),rid}})});
+    if(r.status!==204) throw new Error(r.status===401||r.status===403?"GitHub rejected the token. Check that it has Actions read and write access on this repository, and has not expired.":"GitHub returned status "+r.status);
+  }catch(e){ say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); return; }
+  say("Running. This takes about a minute...");
+  for(let i=0;i<40;i++){
+    await new Promise(r=>setTimeout(r,10000));
+    if(TA.rid!==rid) return;
+    try{
+      const j=await (await fetch(TA_BASE+"trade_result.json?t="+Date.now(),{cache:"no-store"})).json();
+      if(j&&j.rid===rid){ TA.res=j; say(""); const o2=box.querySelector("#taResult"); if(o2) o2.innerHTML=taResultHtml(j); return; }
+    }catch(e){}
+  }
+  say("Still running after several minutes. Open GitHub Actions and check the Trade analyzer workflow.");
+}
+async function taInit(){
+  const box=document.getElementById("taBox"); if(!box) return;
+  await taLoad();
+  taRenderInputs(box);
+}
 /* ===================== DRAFT ASSISTANT ===================== */
 const DSLOTS=['PG','SG','SF','PF','C','G','F','UT','UT','UT'];
 const nname=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\b(jr|sr|ii|iii|iv)\b\.?/gi,'').toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+/g,' ').trim();

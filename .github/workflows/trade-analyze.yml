@@ -1,0 +1,85 @@
+name: Trade analyzer (button on the Trades tab)
+
+# Triggered by the Analyzer on the Trades tab (workflow_dispatch with the same GitHub token Tommy already pasted for the lineup button; it lives only in his browser).
+# Runs research/trade_value.py: rebuilds both teams' lineups for every remaining week with the trade, re-runs the playoff simulation, and publishes ONE result file to the
+# throwaway `trade-data` branch (the site is not rebuilt). `rid` ties a result to the click that asked for it. ESPN_S2 / SWID are the usual repository secrets (standings).
+on:
+  workflow_dispatch:
+    inputs:
+      partner:
+        description: "partner team abbreviation, e.g. YUNG"
+        default: ""
+      give:
+        description: "players you give, separated by semicolons"
+        default: ""
+      get:
+        description: "players you get, separated by semicolons"
+        default: ""
+      posture_me:
+        description: "auto | rebuild | balanced | contend"
+        default: "auto"
+      posture_them:
+        description: "auto | rebuild | balanced | contend"
+        default: "auto"
+      future_lambda:
+        description: "weight on next years' keeper value (default 0.15)"
+        default: "0.15"
+      rid:
+        description: "request id from the page"
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trade-analyze
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .github/workflows/trade-analyze.yml
+
+      - name: Install dependencies
+        run: pip install --quiet espn-api pandas numpy python-dotenv requests
+
+      - name: Analyze
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+          IN_PARTNER: ${{ inputs.partner }}
+          IN_GIVE: ${{ inputs.give }}
+          IN_GET: ${{ inputs.get }}
+          IN_PME: ${{ inputs.posture_me }}
+          IN_PTH: ${{ inputs.posture_them }}
+          IN_LAM: ${{ inputs.future_lambda }}
+          IN_RID: ${{ inputs.rid }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/trade_out"
+          python research/trade_value.py --partner "$IN_PARTNER" --give "$IN_GIVE" --get "$IN_GET" --posture-me "$IN_PME" --posture-them "$IN_PTH" --lambda "$IN_LAM" --rid "$IN_RID" --out "$GITHUB_WORKSPACE/trade_out/trade_result.json" \
+            || echo "{\"rid\":\"$IN_RID\",\"error\":\"The analysis failed. Check the player names and open the workflow run for details.\"}" > "$GITHUB_WORKSPACE/trade_out/trade_result.json"
+
+      - name: Publish result
+        if: always()
+        run: |
+          if [ -f trade_out/trade_result.json ]; then
+            cd trade_out
+            git init -q -b trade-data
+            git config user.name "trade-bot"
+            git config user.email "trade-bot@users.noreply.github.com"
+            git add .
+            git commit -q -m "trade result"
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+            git push -q -f origin trade-data
+          fi
