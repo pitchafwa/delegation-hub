@@ -1766,14 +1766,14 @@ function taTeams(){
 }
 function taTop5(ids,extraIn,extraOut){
   const v=[]; for(const id of ids){ if(extraOut.has(id)) continue; const m=TA.mk[String(id)]; if(m) v.push(m.af||0); }
-  for(const id of extraIn){ const m=TA.mk[String(id)]; if(m) v.push(m.af||0); }
+  for(const id of extraIn){ if(typeof id==="string") continue; const m=TA.mk[String(id)]; if(m) v.push(m.af||0); }
   return v.sort((a,b)=>b-a).slice(0,5).reduce((a,b)=>a+b,0);
 }
 function taInstant(box){
   const el=box.querySelector("#taInstant"); if(!el) return;
   const T=taTeams(); const P=T&&T.others.find(t=>t.id===TA.partner);
   if(!P||(!TA.give.size&&!TA.get.size)){ el.innerHTML="<span class=hint>Pick a partner and the players on each side for an instant check.</span>"; return; }
-  const val=id=>(TA.mk[String(id)]||{}).v||0;
+  const val=id=>{ if(typeof id==="string"){ const x=TA.ctx&&TA.ctx.picks&&TA.ctx.picks[id.slice(5)]; return x?x.mkt:0; } return (TA.mk[String(id)]||{}).v||0; };
   const recv=[...TA.give].reduce((a,id)=>a+val(id),0), sent=[...TA.get].reduce((a,id)=>a+val(id),0);
   const ratio=sent>0?recv/sent:null, band=ratio==null?"likely":(ratio>=1.10?"likely":(ratio>=0.92?"possible":"unlikely"));
   const cMe=band==="likely"?"var(--good)":(band==="possible"?"var(--accent,#5b7cfa)":"var(--warn)");
@@ -1788,7 +1788,8 @@ function taRenderInputs(box){
   if(TA.partner==null||!T.others.some(t=>t.id===TA.partner)) TA.partner=T.others[0].id;
   const P=T.others.find(t=>t.id===TA.partner);
   const posture=a=>{ const x=TA.ctx&&TA.ctx.teams&&TA.ctx.teams[String(a)]; return x?TA_POST[x.posture]:null; };
-  const list=(team,set,kind)=>`<div class="taList">${team.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<label style="display:flex;gap:.4rem;align-items:baseline;padding:.15rem .25rem;cursor:pointer"><input type="checkbox" data-k="${kind}" data-id="${p.id}" ${set.has(p.id)?"checked":""}> <span>${esc(p.name)} <span class=hint>${p.level.toFixed?p.level.toFixed(0):p.level}${p.asset_rank?" · asset #"+p.asset_rank:""}${p.ir||p.status==="OUT"?" · OUT":""}</span></span></label>`).join("")}</div>`;
+  const pickList=(team,set,kind)=>{ const pk=(TA.ctx&&TA.ctx.picks)?Object.values(TA.ctx.picks).filter(x=>x.owner===team.id).sort((a,b)=>a.round-b.round||a.slot-b.slot):[]; return pk.length?`<div class=hint style="margin:.3rem 0 .1rem">Next draft's picks</div>`+pk.map(x=>{ const key="PICK:"+x.orig+":"+x.round; return `<label style="display:flex;gap:.4rem;align-items:baseline;padding:.15rem .25rem;cursor:pointer"><input type="checkbox" data-k="${kind}" data-id="${key}" ${set.has(key)?"checked":""}> <span>Round ${x.round} pick${x.orig===team.abbrev?"":" (from "+esc(x.orig)+")"} <span class=hint>expected slot ${x.slot.toFixed(1)}</span></span></label>`; }).join(""):""; };
+  const list=(team,set,kind)=>`<div class="taList">${team.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<label style="display:flex;gap:.4rem;align-items:baseline;padding:.15rem .25rem;cursor:pointer"><input type="checkbox" data-k="${kind}" data-id="${p.id}" ${set.has(p.id)?"checked":""}> <span>${esc(p.name)} <span class=hint>${p.level.toFixed?p.level.toFixed(0):p.level}${p.asset_rank?" · asset #"+p.asset_rank:""}${p.ir||p.status==="OUT"?" · OUT":""}</span></span></label>`).join("")}${pickList(team,set,kind)}</div>`;
   const pSel=(id,cur,autoTxt)=>`<select id="${id}" style="padding:.35rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${["auto","rebuild","balanced","contend"].map(k=>`<option value="${k}" ${cur===k?"selected":""}>${k==="auto"?"Auto"+(autoTxt?" ("+autoTxt+")":""):TA_POST[k]}</option>`).join("")}</select>`;
   const tok=slTok();
   box.innerHTML=`<details class="sec" open><summary><span class="secT">Trade analyzer</span><span class="secM">change in each team's title odds and keeper strength, for any trade you build</span></summary><div class="secB">
@@ -1805,7 +1806,7 @@ function taRenderInputs(box){
   on("#taPartner","change",e=>{ TA.partner=+e.target.value; TA.get=new Set(); TA.res=null; TA.status=""; taRenderInputs(box); taInstant(box); });
   on("#taPm","change",e=>{ TA.pm=e.target.value; });
   on("#taPt","change",e=>{ TA.pt=e.target.value; });
-  on("input[type=checkbox][data-k]","change",e=>{ const set=e.target.dataset.k==="give"?TA.give:TA.get, id=+e.target.dataset.id; if(e.target.checked) set.add(id); else set.delete(id); const g=box.querySelector("#taGo"); if(g&&slTok()) g.disabled=!(TA.give.size||TA.get.size); taInstant(box); });
+  on("input[type=checkbox][data-k]","change",e=>{ const set=e.target.dataset.k==="give"?TA.give:TA.get, id=/^PICK:/.test(e.target.dataset.id)?e.target.dataset.id:+e.target.dataset.id; if(e.target.checked) set.add(id); else set.delete(id); const g=box.querySelector("#taGo"); if(g&&slTok()) g.disabled=!(TA.give.size||TA.get.size); taInstant(box); });
   on("#taLam","input",e=>{ TA.lam=+e.target.value; box.querySelector("#taLamV").textContent=TA.lam.toFixed(2); });
   on("#taGo","click",()=>taRun(box));
   taInstant(box);
@@ -1834,7 +1835,7 @@ function taResultHtml(r){
 }
 async function taRun(box){
   const T=taTeams(); const P=T.others.find(t=>t.id===TA.partner); const st=box.querySelector("#taStatus"), say=m=>{ TA.status=m; if(st) st.innerHTML=m; };
-  const names=(team,set)=>team.roster.filter(p=>set.has(p.id)).map(p=>p.name).join(";");
+  const names=(team,set)=>team.roster.filter(p=>set.has(p.id)).map(p=>p.name).concat([...set].filter(k=>typeof k==="string")).join(";");
   const rid=Date.now().toString(36); TA.rid=rid; TA.res=null; const out=box.querySelector("#taResult"); if(out) out.innerHTML="";
   try{
     say("Sending to GitHub...");

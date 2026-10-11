@@ -99,6 +99,7 @@ class World:
             self.games[date.fromisoformat(ds)] = {canon(t) for g in gl for t in g[:2] if t != "TBD"}
         self.teams = {t["id"]: t for t in self.wp["teams"]}
         self.by_abbrev = {t["abbrev"]: t["id"] for t in self.wp["teams"]}
+        self.abbrev_of = {v: k for k, v in self.by_abbrev.items()}
         self.base_proj = {t["id"]: {int(w): float(v) for w, v in t["proj"].items()} for t in self.sp["teams"]}
         self.proj_basis = self.sp["teams"][0].get("proj_basis")
         self.fa_pool = [self.mk(dict(f, ir=False), None) for f in self.wp.get("fa_pool", []) if not f.get("waiver")]
@@ -387,6 +388,82 @@ def acceptance(give_vals, get_vals):
     return {"ratio": round(r, 2), "band": band, "recv": round(recv), "sent": round(sent)}
 
 
+# =============================================================== draft picks (next draft)
+# A pick is valued as the player it will turn into. Draft order = reverse of finish (regular-season rank for teams that miss the playoffs, playoff finish for the others), so the slot
+# comes from the simulation's draft-position distribution for the pick's ORIGINAL owner. Snake: even rounds run backwards. What a slot produces = this league's own draft history
+# (draft_capital_curve.py: 612 non-keeper picks 2021-25, realized fantasy points per game that season; power-law fit below, spread 15 early to 11 late).
+PICK_K, PICK_C, PICK_P = 70.2, 1.96, 0.1995
+PICK_STARTER_LEVEL = 30.0        # a drafted player only helps if he beats the replacement-level free agent (3rd-best free agent is about 27-30 points per game)
+PICK_KEEPER_LEVEL = 42.0         # ... and he is kept (free) the next year if he is about a top-5 asset level
+PICK_KEEP_YEARS = 0.95           # extra discounted year of value for a kept player
+TEAMS_N = 12
+
+
+def pick_slot_probs(draft_pos_row, rnd):
+    """probability over the overall slot (1-based) for a real-round pick given the owner's draft-position distribution (row of T probabilities, index 0 = first pick)"""
+    out = {}
+    for k, pr in enumerate(draft_pos_row):
+        pos = k + 1 if rnd % 2 == 1 else TEAMS_N - k
+        out[(rnd - 1) * TEAMS_N + pos] = out.get((rnd - 1) * TEAMS_N + pos, 0.0) + float(pr)
+    return out
+
+
+def pick_value(slot_probs, lvl_to_v):
+    """expected (points-per-game-equivalent for the title model, market value) of a pick"""
+    grid = np.arange(0.0, 91.0, 1.0)
+    ppg_eq, mkt = 0.0, 0.0
+    for slot, pr in slot_probs.items():
+        mu = PICK_K * (slot + PICK_C) ** (-PICK_P)
+        sd = 15.0 - 3.5 * min(max(slot - 12, 0), 88) / 88
+        w = np.exp(-0.5 * ((grid - mu) / sd) ** 2)
+        w /= w.sum()
+        ppg_eq += pr * float(np.sum(w * (np.maximum(0, grid - PICK_STARTER_LEVEL) + PICK_KEEP_YEARS * np.maximum(0, grid - PICK_KEEPER_LEVEL))))
+        mkt += pr * float(np.sum(w * lvl_to_v(grid)))
+    return ppg_eq, mkt
+
+
+def level_to_market():
+    """points-per-game level -> perceived market value, from the committed player table (binned medians, forced to rise)"""
+    m = json.load(open(HUB / "trade_market.json", encoding="utf-8"))["players"]
+    pts = sorted((v["lvl"], v["v"]) for v in m.values() if v.get("lvl"))
+    xs = np.array([p[0] for p in pts])
+    bins = np.linspace(xs.min(), xs.max(), 14)
+    bx, by = [], []
+    for lo, hi in zip(bins[:-1], bins[1:]):
+        sel = [v for x, v in pts if lo <= x <= hi]
+        if sel:
+            bx.append((lo + hi) / 2)
+            by.append(float(np.median(sel)))
+    by = np.maximum.accumulate(by)
+    return lambda g: np.where(g < bx[0], 0.0, np.interp(g, bx, by))
+
+
+def pick_owner_map(world):
+    """(original team id, real round) -> current owner id, from the hand ledger of picks ESPN's board does not show"""
+    led = ROOT / "draft_trades.json"
+    out = {}
+    if led.exists():
+        for t in json.load(open(led, encoding="utf-8")).get("picks", []):
+            out[(t["from"], t["real_round"])] = t["to"]
+    return out
+
+
+def pick_label(world, k):
+    return f"{world.abbrev_of[k[0]]} round {k[1]} pick (next draft)"
+
+
+def parse_picks(names, world):
+    """'PICK:YUNG:1' -> (original team id, round); returns (players, picks)"""
+    ps, pk = [], []
+    for nm in names:
+        if nm.upper().startswith("PICK:"):
+            _, ab, r = nm.split(":")
+            pk.append((world.by_abbrev[ab.strip().upper()], int(r)))
+        else:
+            ps.append(nm)
+    return ps, pk
+
+
 # =============================================================== the trade
 def find(roster, names):
     out = []
@@ -407,6 +484,8 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
     W = world or World()
     inp = inp or sim_inputs(W)
     me_id, th_id = W.by_abbrev[me_abbrev], W.by_abbrev[partner_abbrev]
+    give_names, give_picks = parse_picks(give_names, W)
+    get_names, get_picks = parse_picks(get_names, W)
     r_me, r_th = W.roster(me_id), W.roster(th_id)
     give, get = find(r_me, give_names), find(r_th, get_names)
     r_me, _, _ = fix_roster(W, r_me, "me")            # baseline: rosters as they would legally stand (ESPN rosters can sit above 15 right after a draft)
@@ -434,6 +513,10 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
     after = run_odds(W, inp, mu1, n)
     ids = inp[0]
     res = {}
+    l2v = level_to_market()
+    pv = {}
+    for (oid, rnd) in set(give_picks) | set(get_picks):
+        pv[(oid, rnd)] = pick_value(pick_slot_probs(after['draft_pos'][ids.index(oid)], rnd), l2v)
     for who, tid, post_in, rb, ra, drops, adds in (("me", me_id, posture_me, r_me, new_me, drops_me, adds_me), ("them", th_id, posture_them, r_th, new_th, drops_th, adds_th)):
         i = ids.index(tid)
         b = {k: float(base[k][i]) for k in ("made", "bye", "final", "title")}
@@ -446,7 +529,9 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
         k0, k1 = keeper_strength(rb), keeper_strength(ra)
         d_title_pp = 100 * (a["title"] - b["title"])
         v_now = w_now * d_title_pp
-        v_fut = w_fut * FUTURE_LAMBDA * c_asset * (k1 - k0)
+        pk_in, pk_out = (get_picks, give_picks) if who == "me" else (give_picks, get_picks)
+        d_pick = sum(pv[k][0] for k in pk_in) - sum(pv[k][0] for k in pk_out)
+        v_fut = w_fut * FUTURE_LAMBDA * c_asset * ((k1 - k0) + d_pick)
         wb, wa = wk[tid]
         res[who] = {"abbrev": me_abbrev if who == "me" else partner_abbrev, "posture": post, "posture_auto": post_in == "auto",
                     "odds_before": {k: round(v, 4) for k, v in b.items()}, "odds_after": {k: round(v, 4) for k, v in a.items()},
@@ -457,8 +542,8 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
                     "drops": [p["name"] for p in drops], "adds": [p["name"] for p in adds],
                     "spots_after": spots_used(ra), "ir_used": sum(1 for p in ra if p["out"])}
     mv = market_lookup(W)
-    gv = [mv(p) for p in give]
-    tv = [mv(p) for p in get]
+    gv = [mv(p) for p in give] + [pv[k][1] for k in give_picks]
+    tv = [mv(p) for p in get] + [pv[k][1] for k in get_picks]
     acc = acceptance(gv, tv)
     me_v, th_v = res["me"]["value"]["total"], res["them"]["value"]["total"]
     if me_v > 0.15 and acc["band"] != "unlikely":
@@ -469,7 +554,8 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
         verdict = "bad for you"
     else:
         verdict = "close to neutral for you"
-    return {"generated": datetime.now(timezone.utc).isoformat(), "rid": rid, "give": [p["name"] for p in give], "get": [p["name"] for p in get], "me": res["me"], "them": res["them"],
+    return {"generated": datetime.now(timezone.utc).isoformat(), "rid": rid, "give": [p["name"] for p in give] + [pick_label(W, k) for k in give_picks], "get": [p["name"] for p in get] + [pick_label(W, k) for k in get_picks],
+            "picks": {pick_label(W, k): {"owner_finish_slot": round(sum(s * pr for s, pr in pick_slot_probs(after["draft_pos"][ids.index(k[0])], k[1]).items()), 1), "ppg_equiv": round(v[0], 1), "market": round(v[1])} for k, v in pv.items()}, "me": res["me"], "them": res["them"],
             "market": {"you_send_value": [round(x) for x in gv], "you_get_value": [round(x) for x in tv], **acc}, "verdict": verdict,
             "assumptions": {"future_lambda": FUTURE_LAMBDA, "asset_noise": ASSET_NOISE, "chip_weight": CHIP_WEIGHT, "ramp_mult": RAMP_MULT, "sims": n, "proj_basis": W.proj_basis}}
 

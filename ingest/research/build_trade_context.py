@@ -36,5 +36,15 @@ for tid, t in W.teams.items():
     for p in W.roster(tid):
         market[str(p["id"])] = {"n": p["name"], "t": t["abbrev"], "pr": round(ranks.get(p["id"], 400), 1), "v": round(TV.value_of_rank(hvals, ranks.get(p["id"], 400))), "af": round(p["asset_f"], 1), "lvl": p["level"], "age": p["age"], "out": p["out"]}
 (DASH / "trade_market.json").write_text(json.dumps({"generated": res["generated"], "players": market}, separators=(",", ":")), encoding="utf-8")
+# next draft's picks (original owner, round) -> current owner, expected slot, value in points-per-game-equivalent and in market value
+l2v, own, picks = TV.level_to_market(), TV.pick_owner_map(W), {}
+for t in ids:
+    ab = out[str(t)]["abbrev"]
+    for rnd in range(1, 6):
+        probs = TV.pick_slot_probs(base["draft_pos"][ids.index(t)], rnd)
+        e, m = TV.pick_value(probs, l2v)
+        picks[f"{ab}:{rnd}"] = {"orig": ab, "round": rnd, "owner": own.get((t, rnd), t), "slot": round(sum(s * q for s, q in probs.items()), 1), "ppg_eq": round(e, 1), "mkt": round(m)}
+res["picks"] = picks
+(DASH / "trade_context.json").write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
 print("wrote trade_context.json and trade_market.json (%d players)" % len(market))
 print("league-average slope %.3f title pp per +1 pt/week; per team:" % mean, {out[k]["abbrev"]: (slope[k], out[k]["posture"]) for k in slope})

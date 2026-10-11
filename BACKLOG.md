@@ -357,3 +357,4 @@ Research and the proposed model are in `RESEARCH_trade_value.md` (market calcula
 - Engine: ingest/research/trade_value.py. Judgment parameters: future weight lambda (slider, default 0.15), posture weights (rebuild 0.7/1.4, balanced 1/1, contend 1.25/0.7), keeper noise 25%.
 - trade_context.json / trade_market.json are built LOCALLY (build_trade_context.py needs the gitignored Hashtag CSV); re-run weekly and commit.
 - TODO: validation replay (RESEARCH_trade_value.md section 4); part 2 draft-pick values; finder v2 on this engine.
+- Draft-pick values built 2026-10-11 (RESEARCH_trade_value.md section 8). Open: re-run build_trade_context.py weekly; add new traded picks to ingest/research/draft_trades.json; Tommy-first draft-order fix is not modeled; finder v2 on this engine.

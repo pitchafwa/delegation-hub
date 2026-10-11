@@ -65,7 +65,28 @@ def simulate(team_ids, wins, pf, pairs, mu, lens, reg_weeks, playoff_weeks=(20, 
         title[t] = (champ == t).mean()
         finalists[t] = ((f1 == t) | (f2 == t)).mean()
     wins_final = W
-    out = {"made": made.mean(axis=0), "seed": seed_counts, "bye": (seed_of < BYE).mean(axis=0), "title": title, "final": finalists, "wins": wins_final.mean(axis=0),
+    # next draft's order: reverse of finish. Non-playoff teams by regular-season rank (worst first = pick 1), playoff teams by how far they got (first-round losers, semifinal losers, runner-up, champion), ties random
+    tie = rng.random((n, T))
+    r1_losers_mask = np.zeros((n, T), bool)
+    r1_losers_mask[rows[:, 0], np.where(a36 == p3, p6, p3)] = True
+    r1_losers_mask[rows[:, 0], np.where(a45 == p4, p5, p4)] = True
+    sf_losers_mask = np.zeros((n, T), bool)
+    sf_losers_mask[rows[:, 0], np.where(f1 == p1, a45, p1)] = True
+    sf_losers_mask[rows[:, 0], np.where(f2 == p2, a36, p2)] = True
+    runner = np.where(champ == f1, f2, f1)
+    ru_mask = np.zeros((n, T), bool)
+    ru_mask[rows[:, 0], runner] = True
+    ch_mask = np.zeros((n, T), bool)
+    ch_mask[rows[:, 0], champ] = True
+    lvl = r1_losers_mask * 1 + sf_losers_mask * 2 + ru_mask * 3 + ch_mask * 4
+    sortkey = np.where(seed_of >= QUAL, -1000 + (T - seed_of), lvl * 100 + tie)       # non-playoff teams first, worst seed first (largest seed number -> smallest T - seed)
+    dorder = np.argsort(sortkey, axis=1)
+    dpos = np.empty_like(dorder)
+    dpos[rows, dorder] = np.arange(T)[None, :]
+    draft_pos = np.zeros((T, T))
+    for k in range(T):
+        draft_pos[:, k] = (dpos == k).mean(axis=0)
+    out = {"draft_pos": draft_pos, "made": made.mean(axis=0), "seed": seed_counts, "bye": (seed_of < BYE).mean(axis=0), "title": title, "final": finalists, "wins": wins_final.mean(axis=0),
            "team_ids": team_ids}
     if focus is not None and focus_won is not None:
         fi = idx[focus]
