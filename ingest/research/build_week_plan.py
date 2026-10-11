@@ -1368,7 +1368,7 @@ print("wrote", OUTP.name, round(OUTP.stat().st_size / 1024), "KB")
 
 # ---------- ACCOUNTABILITY LEDGER: what we predicted and recommended, appended every run from opening night (grade it against real results later; see ledger/README.md)
 try:
-    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0:
+    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0 and not os.environ.get("PLAN_TODAY"):      # a simulated day (PLAN_TODAY) must never write the real ledger
         LEDGER = HUB.parent / "ledger"
         LEDGER.mkdir(exist_ok=True)
         _lf = LEDGER / f"plan-{today.strftime('%Y-%m')}.jsonl"
