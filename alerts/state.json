@@ -1,4 +1,7 @@
 {
+ "avail_prev": {
+  "4593125": "FREEAGENT"
+ },
  "fa_high": {},
  "last_status": {
   "3135045": {
@@ -18,7 +21,7 @@
   },
   "4065648": {
    "date": "2026-10-10",
-   "espn": "DAY_TO_DAY",
+   "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
@@ -81,5 +84,6 @@
    "espn": "OUT",
    "official": null
   }
- }
+ },
+ "pickup_sent": {}
 }
