@@ -47,6 +47,7 @@ CAP_PER_7 = 40.0
 ADDS_PER_DAY = 8 / 7
 WEEK_SD = 253.0                             # measured week-to-week SD of a team's weekly points (2025-26)
 from team_abbr import canon
+import late_swap as LS
 ET = ZoneInfo("America/New_York")
 
 
@@ -384,7 +385,7 @@ def assign_slots(chosen):
     return [out.get(i, "UT") for i in range(len(chosen))]
 
 
-def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None):
+def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None, lateswap=False):
     pdays = plan_days if days_ is None else days_       # days to score (default: the rest of this matchup) and the games capv that applies to them
     capv = cap if cap_ is None else cap_
     opts = [day_options(roster, d) for d in pdays]
@@ -423,14 +424,30 @@ def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None):
         m = 0 if locked else best(di, c)[1]
         chosen = [cands[order[k]][1] for k in range(m)]
         slots = assign_slots(chosen)
+        ls_info = None
+        if lateswap and chosen and not locked:
+            try:
+                tipof = lambda pl: games.get(d, {}).get(canon(pl["team"]), "z")
+                st_ = [{"i": pl["espn_id"], "slots": [x for x in pl["slots"]], "p": cands[order[k]][2], "pts": cands[order[k]][0] / max(cands[order[k]][2], 1e-6), "tip": tipof(pl)} for k, pl in enumerate(chosen)]
+                chosen_ids = {pl["espn_id"] for pl in chosen}
+                bn_ = [{"i": c_[1]["espn_id"], "slots": [x for x in c_[1]["slots"]], "p": c_[2], "pts": c_[0] / max(c_[2], 1e-6), "tip": tipof(c_[1])} for c_ in cands if c_[1]["espn_id"] not in chosen_ids]
+                new_, ls_info = LS.best_assignment(st_, bn_, {st["i"]: sl for st, sl in zip(st_, slots)})
+                if ls_info and ls_info.get("changed"):
+                    slots = [new_[pl["espn_id"]] for pl in chosen]
+                if ls_info and any(x["p"] < 0.985 for x in st_):
+                    nm_ = {b["i"]: next(c_[1]["name"] for c_ in cands if c_[1]["espn_id"] == b["i"]) for b in bn_}
+                    cov_ = LS.cover_for(st_, bn_, {pl["espn_id"]: sl for pl, sl in zip(chosen, slots)})
+                    ls_info["cover"] = {str(k_): [nm_[x] for x in v_] for k_, v_ in cov_.items()}
+            except Exception as ex_:
+                print("late-swap planning skipped:", repr(ex_)[:100])
         starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2), "props": d.isoformat() in pl.get("lvl_by_date", {}),
-                     "boost": round(pl.get("boost", {}).get(d.isoformat(), 0.0), 1)}
+                     "boost": round(pl.get("boost", {}).get(d.isoformat(), 0.0), 1), "tip": games.get(d, {}).get(canon(pl["team"]))}
                     for k, (pl, s) in enumerate(zip(chosen, slots))]
         benched = [{"id": cands[order[k]][1]["espn_id"], "name": cands[order[k]][1]["name"], "ef": round(cands[order[k]][0], 1)} for k in range(m, len(order))]
         c_after = c + (cnt[m] if not locked else 0)
         rows.append({"date": d.isoformat(), "nba_teams": len(games.get(d, {})), "start": starters, "bench_playing": benched,
                      "pts": round(vals[m] if not locked else 0.0, 1), "starts_before": round(c, 1), "starts_after": round(c_after, 1),
-                     "locked": bool(locked), "sat": (len(order) - m) if not locked else len(order),
+                     "locked": bool(locked), "sat": (len(order) - m) if not locked else len(order), "late_swap": ls_info,
                      "starts_cover": round(starts_with_cover(cands), 1) if not locked else 0.0})
         # 'start everyone possible' comparison
         if naive_c < capv:
@@ -1188,7 +1205,7 @@ for t in lg.teams:
     r_orig = rosters[t.team_id]
     r, ir_moves = plan_ir(r_orig)
     c0 = so_far[t.team_id]["starts"]
-    total, rows, naive = plan_team(r, c0, detail=True)
+    total, rows, naive = plan_team(r, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV))
     plans[t.team_id] = total + so_far[t.team_id]["pts"]
     tc = counters.get(t.team_id, {})
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
@@ -1218,7 +1235,7 @@ for t in lg.teams:
     fa_map2 = {f["espn_id"]: f for f in fa_players}
     dropped = {m["drop"]["id"] for m in seq if m["drop"]}
     r_after = r_stream if r_stream is not None else [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
-    total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
+    total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV)) if seq else (total, rows, naive)
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
                       "asset_5th": round(_a5th(r), 1), "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"]), dyn_pts=dyn_pts(x["asset"], _a5th(r))) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),

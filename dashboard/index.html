@@ -1043,10 +1043,15 @@ function renderWeek(){
     else if(d.date===M.days[M.days.length-1] && d.starts_before<M.cap) note='<span class="hint">final day: may go over the cap</span>';
     const SLOT_ORDER={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};   // ESPN's starting-lineup order
     const ordered=d.start.slice().sort((a,b)=>(SLOT_ORDER[a.slot]??9)-(SLOT_ORDER[b.slot]??9)||b.ef-a.ef);
-    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
+    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.tip?' · tips off '+new Date(x.tip).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
+    let lsNote='';
+    if(d.late_swap&&!d.locked){ const L=d.late_swap, dbt=d.start.filter(x=>x.p<0.8&&L.cover&&L.cover[String(x.id)]!==undefined);
+      const cov=dbt.map(x=>{ const c=L.cover[String(x.id)]||[]; return `${pc(x.name)} (${esc(x.slot)}): ${c.length?'if he is scratched, '+c.map(esc).join(' or ')+' can take the slot':'<b style="color:var(--warn)">no bench player can replace him after the earlier games lock</b>'}`; });
+      if(L.changed) lsNote+=`<div class="hint" style="padding:.25rem 0 0"><b>Late-swap slots:</b> arranged so doubtful or late-tipping players sit in the flexible slots and early reliable players hold the restrictive ones (+${L.gain} pts expected tonight).</div>`;
+      if(cov.length) lsNote+=`<div class="hint" style="padding:.15rem 0 0">${cov.join(' · ')}</div>`; }
     const sat=d.bench_playing.filter((_,i)=>d.sat>0).map(x=>`<span class="comp" style="opacity:.6">${pc(x.name)} <span class="hint">${x.ef}</span></span>`).join(' ');
     return `<tr><td style="text-align:left;white-space:nowrap">${fmtDay(d.date)}<div class="hint">${d.nba_teams/2} NBA games</div></td>
-      <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${chips||'<span class="hint">no one plays</span>'}</div>${sat?`<div class="comps" style="padding:.25rem 0 0"><span class="hint">sit:</span> ${sat}</div>`:''}${note?`<div class="note">${note}</div>`:''}</td>
+      <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${chips||'<span class="hint">no one plays</span>'}</div>${sat?`<div class="comps" style="padding:.25rem 0 0"><span class="hint">sit:</span> ${sat}</div>`:''}${lsNote}${note?`<div class="note">${note}</div>`:''}</td>
       <td class="num">${d.start.length}${d.start.length<10&&d.nba_teams>0&&!d.locked?` <span class="hint">(${10-d.start.length} empty)</span>`:''}</td>
       <td class="num"><b>${d.pts.toFixed(0)}</b></td><td class="num">${d.starts_before.toFixed(0)} → ${d.starts_after.toFixed(0)}</td></tr>`;}).join('');
   const addRows=T.adds.length?T.adds.map(a=>`<tr><td style="text-align:left"><b>${pc(a.add.name)}</b>${wvTag(a.add.waiver)} <span class="hint">${esc(a.add.team)} · ${a.add.slots.filter(x=>x!=='UT').join('/')||'UT'}${a.add.status!=='ACTIVE'?' · '+esc(a.add.status):''}</span>${rampTag(a.add.ramp)}</td>
