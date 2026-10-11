@@ -270,6 +270,8 @@ def p_play(pl, d):
         return 0.0
     if pl.get("from") and d < pl["from"]:         # add-timing what-ifs: he joins the roster on this date
         return 0.0
+    if pl.get("until") and d > pl["until"]:       # stream manager: he is dropped after this date (last day he is on the roster)
+        return 0.0
     if pl["ir"] or pl["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
         return 0.0
     tier = "rotation" if pl["level"] >= ROTATION_LEVEL else "bench"
@@ -877,6 +879,109 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
     return moves, seq
 
 
+# ---------- STREAM MANAGER (built 2026-10-10): the week's adds planned DAY BY DAY as rentals, not one-way swaps.
+# search_moves() above judges each add on its own and only ever adds (every add burns one of the few droppable players, and an add worse than the dropped player is charged six
+# weeks of lost production, which blocked cheap rental streamers that fill the empty slot-days). stream_search() instead:
+#   * considers every day a free agent plays as a possible ADD DAY and holds him through his last game that week (a rental window);
+#   * lets a new add replace an EARLIER STREAMER (drop him the day the next one is needed) so one slot rotates through the week inside the add budget;
+#   * checks the 15-man roster limit on every single day;
+#   * charges a real contributor you drop only the gap to the free agent you could re-stream with (not six weeks of the add's own level);
+#   * only uses true free agents any day, and waiver players only from the day they clear (their `from`, set in _tag_waivers).
+# Greedy: each round picks the single best (player, add day, who to drop) by points gained this week minus that future cost, until nothing is worth MIN_NET_GAIN or the adds run out.
+def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
+    prot = protected_ids(r) | set(extra_protect)
+    cand = [f for f in fa_players if any(p_play(f, d) > 0 for d in plan_days)][:n_cand]
+    fl = sorted(f["level"] for f in fa_players if not f.get("waiver"))
+    restream = fl[-3] if len(fl) >= 3 else REPL_LEVEL
+    wk_left = min(ROS_WEEKS, weeks_after())
+
+    def fut(dr):
+        return max(0.0, dr["level"] - restream) * GAMES_PER_WEEK * wk_left if dr is not None else 0.0
+
+    def roster_ok(ros):
+        for d in plan_days:
+            n = sum(1 for x in ros if not x["ir"] and not (x.get("from") and x["from"] > d) and not (x.get("until") and x["until"] < d))
+            if n > ROSTER_SPOTS:
+                return False
+        return True
+
+    def option(f, s_, e_):
+        return dict(f, **{"from": max(s_, f["from"]) if f.get("from") else s_, "until": e_, "_stream": True})
+
+    def build(cur, fs, tgt, s_):
+        new = [dict(x, until=s_ - timedelta(days=1)) if (tgt is not None and x is tgt) else x for x in cur]
+        new.append(fs)
+        return new
+
+    cur, cur_total, used, infos = list(r), total, set(), []
+    for _ in range(steps):
+        best = None
+        for f in cand:
+            if f["espn_id"] in used:
+                continue
+            fd = [d for d in plan_days if p_play(f, d) > 0]
+            if not fd:
+                continue
+            e_ = fd[-1]
+            for s_ in fd:
+                fs = option(f, s_, e_)
+                targets = [(None, "open")]
+                for x in cur:
+                    if x["ir"]:
+                        continue
+                    if x.get("_stream"):
+                        if x["from"] < s_ and (not x.get("until") or x["until"] >= s_):
+                            targets.append((x, "streamer"))
+                    elif x["espn_id"] not in prot and not x.get("until"):
+                        targets.append((x, "roster"))
+                for tgt, kind in targets:
+                    new = build(cur, fs, tgt, s_)
+                    if not roster_ok(new):
+                        continue
+                    wk = plan_team(new, c0) - cur_total
+                    net = wk - (fut(tgt) if kind == "roster" else 0.0)
+                    if best is None or net > best["net"]:
+                        best = {"net": net, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fut(tgt) if kind == "roster" else 0.0}
+        if os.environ.get("STREAM_DEBUG"):
+            print("  [stream] round best:", None if best is None else (best["f"]["name"], "add day", best["s"].isoformat(), "hold to", best["e"].isoformat(), "drop", (best["tgt"] or {}).get("name"), best["kind"], "week", round(best["wk"], 1), "future", round(best["fut"], 1), "net", round(best["net"], 1)))
+        if best is None or best["net"] < MIN_NET_GAIN:
+            break
+        f, tgt = best["f"], best["tgt"]
+        by_day = []
+        for d in plan_days:                                         # what the same swap is worth if made on each other day
+            fd2 = option(f, d, best["e"])
+            try:
+                nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
+                v = plan_team(nn, c0) - cur_total - best["fut"] if roster_ok(nn) else -999.0
+            except Exception:
+                v = -999.0
+            if v > -900:
+                by_day.append({"date": d.isoformat(), "gain": round(float(v), 1)})
+        infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day})
+        cur, cur_total = best["new"], cur_total + best["wk"]
+        used.add(f["espn_id"])
+    # chronological order, with the running total recomputed in that order
+    infos.sort(key=lambda i: i["s"])
+    ros, seq = list(r), []
+    for i in infos:
+        f = i["f"]
+        tgt = next((x for x in ros if x["espn_id"] == i["tgt_id"]), None) if i["tgt_id"] else None
+        ros = build(ros, option(f, i["s"], i["e"]), tgt, i["s"])
+        seq.append({"add": {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
+                            "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
+                            "games": [d.isoformat() for d in plan_days if d >= i["s"] and d <= i["e"] and p_play(f, d) > 0], "waiver": f.get("waiver")},
+                    "drop": ({"form": tgt.get("form"), "ramp": tgt.get("ramp_note"), "id": tgt["espn_id"], "name": tgt["name"], "level": tgt["level"], "asset_rank": tgt["asset_rank"], "flag": drop_flag(tgt),
+                              "streamer": bool(tgt.get("_stream"))} if tgt else None),
+                    "gain": round(i["net"], 1), "week_gain": round(i["wk"], 1), "future_cost": round(i["fut"], 1), "cum": round(plan_team(ros, c0) - total, 1), "by_day": i["by_day"],
+                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat(), "release": None})
+    for k, i in enumerate(infos):                                   # a streamer who is replaced later: say when he goes
+        if i["tgt_id"]:
+            for q in seq[:k]:
+                if q["add"]["id"] == i["tgt_id"]:
+                    q["release"] = i["s"].isoformat()
+    return seq, ros
+
+
 # ---------- INJURED-PLAYER ADVISOR (injury_advisor.py): how long will he be out, how does he come back, is he worth the roster spot
 try:
     import injury_advisor as IA
@@ -1059,6 +1164,18 @@ for t in lg.teams:
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
     moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
+    r_stream = None
+    if t.team_abbrev == MY_ABBREV:
+        try:
+            _rs, _tot = r, total
+            if os.environ.get("STREAM_TEST_WEAKEN"):      # TEST HOOK: pretend these rostered players (comma-separated surnames) are 14 points worse, to exercise the chain logic
+                _w = [x.strip().lower() for x in os.environ["STREAM_TEST_WEAKEN"].split(",")]
+                _rs = [dict(x, level=round(x["level"] - 14, 1)) if any(k in x["name"].lower() for k in _w) else x for x in r]
+                _tot = plan_team(_rs, c0)
+            seq, r_stream = stream_search(_rs, _tot, c0, steps=min(max(adds_left, 1), 8))
+        except Exception as _ex:
+            print("stream manager failed, keeping the greedy sequence:", repr(_ex)[:160])
+            r_stream = None
     _ir_free = max(0, 4 - len([p for p in r if p["ir"]]))
     advice = advise_injuries(r, total, c0, lambda n: norm(n).replace(" ", ""), _ir_free)
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
@@ -1070,7 +1187,7 @@ for t in lg.teams:
     # the lineup plan above assumes NO adds; also plan the week as if every suggested move were made, so the page can show both
     fa_map2 = {f["espn_id"]: f for f in fa_players}
     dropped = {m["drop"]["id"] for m in seq if m["drop"]}
-    r_after = [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
+    r_after = r_stream if r_stream is not None else [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True) if seq else (total, rows, naive)
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
                       "asset_5th": round(_a5th(r), 1), "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"]), dyn_pts=dyn_pts(x["asset"], _a5th(r))) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),

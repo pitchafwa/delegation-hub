@@ -122,7 +122,11 @@ def best_moves(T, n=3):
         by = m.get("by_day") or []
         g = [x["gain"] for x in by]
         timing = ""
-        if len(g) > 1 and g[0] >= max(g) - 5:
+        if m.get("on"):                                           # stream manager step: it names the day itself
+            timing = " (add now)" if m["on"] <= TODAY.isoformat() else f" (add on {datetime.fromisoformat(m['on']).strftime('%a')})"
+            if m.get("release"):
+                timing += f", hold until {datetime.fromisoformat(m['release']).strftime('%a')}"
+        elif len(g) > 1 and g[0] >= max(g) - 5:
             timing = " (add now" + (f"; waiting a day costs {g[0] - g[1]:.0f})" if g[0] - g[1] >= 3 else ")")
         elif g:
             timing = f" (best on {datetime.fromisoformat(by[g.index(max(g))]['date']).strftime('%a')})"
@@ -291,6 +295,8 @@ def run_check():
         sent_b = s.setdefault("benef_sent", {})
         for m in (T.get("sequence") or []):
             add = m["add"]
+            if m.get("on") and m["on"] > TODAY.isoformat():
+                continue                                           # a later-day step of the stream plan: not an injury-opportunity add for today
             fresh = [n for n in (add.get("boost_why") or []) if next((o["absent"]["streak"] for o in (W.get("opportunities") or []) if o["absent"]["name"] == n), 99) < 8]
             boost_pts = add.get("boost", 0) * len(add.get("games", []))
             # only NEWS (someone recently ruled out) and only when the boost is a real part of why the plan wants him
