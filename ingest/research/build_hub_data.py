@@ -146,12 +146,15 @@ current["trajectory"] = current["trajectory"].apply(ast.literal_eval)
 current["next_season_proj"] = current["next_season_proj"].apply(ast.literal_eval)
 n_before = len(current)
 current = current.merge(
-    bio[["PERSON_ID", "POSITION", "TEAM_ABBREVIATION", "ROSTER_STATUS"]].rename(columns={"PERSON_ID": "PLAYER_ID"}),
+    bio[["PERSON_ID", "POSITION", "TEAM_ABBREVIATION", "ROSTER_STATUS", "TO_YEAR"]].rename(columns={"PERSON_ID": "PLAYER_ID"}),
     on="PLAYER_ID", how="left",
 )
 _espn_now = set(pd.read_csv(ROOT / "data" / "espn_adp.csv").query(f"season_id == {CURRENT_SEASON_END_YEAR}")["PLAYER_ID"].dropna().astype(int))
 # keep unsigned free agents (Cam Thomas, Jaden Ivey...) when ESPN still lists them for this season: the league can roster them
-current = current[(current["ROSTER_STATUS"] == 1.0) | current["PLAYER_ID"].isin(_espn_now)].copy()
+# ESPN's player database lists thousands of long-retired players (Sullinger, Bhullar...) for any season, so 'ESPN lists him' alone is not enough: he must also have played in the NBA in
+# the last three seasons (TO_YEAR = start year of his last season), otherwise he is projected from a decade-old line as if he were active and tops the free-agent board.
+_recent = current["TO_YEAR"].fillna(0) >= CURRENT_SEASON_END_YEAR - 3
+current = current[(current["ROSTER_STATUS"] == 1.0) | (current["PLAYER_ID"].isin(_espn_now) & _recent)].copy()
 print(f"Current players: {n_before} -> {len(current)} after filtering to real active roster status "
       f"(drops retired/inactive players like Shaquille O'Neal)", flush=True)
 current = current.merge(espn_pos[["PLAYER_ID", "espn_position", "injury_status"]], on="PLAYER_ID", how="left")
