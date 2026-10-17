@@ -340,6 +340,13 @@ def day_options(roster, d):
         if p > 0:
             cands.append((p * level_on(pl, d), pl, p))
     cands.sort(key=lambda x: -x[0])
+    # WHO GETS A STARTING SLOT is decided by what a slot is worth with the late-swap safety net, not by level x chance of playing: before a game tips you can see who is playing and swap in a
+    # bench player, so a 50%-to-play 50-point player is worth 0.5 x 50 + 0.5 x (the bench player who would take his slot), which beats a 90%-to-play 35-pointer. The cover value R is the
+    # expected points of the best player left out of the 10 slots (0 when nobody is left: then nothing covers a scratch and the plain level x chance ordering applies).
+    # Only the ORDER of selection changes; ef (level x chance) and the point totals are still accounted the old way, whose calibration was measured on that accounting.
+    R = cands[len(SLOTS)][0] if len(cands) > len(SLOTS) else 0.0
+    if R > 0:
+        cands.sort(key=lambda x: -(x[0] + (1 - x[2]) * R))
     acc = slot_matcher(cands)
     vals, cnt, order = [0.0], [0], []
     for ci in acc:
@@ -1253,7 +1260,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -1365,7 +1372,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "dfs": dfs_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
+       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
@@ -1412,8 +1419,8 @@ try:
                   "ir_moves": [{"name": m["name"], "action": m["action"]} for m in _me["ir_moves"]],
                   "lineup": [{"id": x["id"], "name": x["name"], "slot": x["slot"], "ef": x["ef"], "p": x["p"], "boost": x.get("boost", 0)} for x in (_me["days"][0]["start"] if _me["days"] and _me["days"][0]["date"] == _iso else [])],
                   "players": [{"id": p["espn_id"], "name": p["name"], "status": p["status"], "official": p["official"].get(_iso), "state": p.get("avail_state"), "level": p["level"], "level_pre": p.get("level_pre"), "form_d": (p.get("form") or {}).get("d"), "form_keep": (p.get("form") or {}).get("keep"),
-                               "boost": (p.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(p, today), 3)} for p in _mine],
-                  "fa_top": [{"id": f["espn_id"], "name": f["name"], "level": f["level"], "level_pre": f.get("level_pre"), "form_d": (f.get("form") or {}).get("d"), "form_keep": (f.get("form") or {}).get("keep"), "boost": (f.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(f, today), 3)} for f in fa_players[:15]]}]
+                               "boost": (p.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(p, today), 3), "tonight": round(level_on(p, today), 1), "dfs": _iso in p.get("dfs_dates", ())} for p in _mine],
+                  "fa_top": [{"id": f["espn_id"], "name": f["name"], "level": f["level"], "level_pre": f.get("level_pre"), "form_d": (f.get("form") or {}).get("d"), "form_keep": (f.get("form") or {}).get("keep"), "boost": (f.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(f, today), 3), "tonight": round(level_on(f, today), 1)} for f in fa_players[:15]]}]
         if _me.get("injury_advice"):
             _recs.append({"kind": "injury", "ts": _recs[0]["ts"], "date": _iso, "items": [{"id": a["id"], "name": a["name"], "verdict": a["verdict"], "plan_games": a["plan_games"], "median": a["median_games"], "p80": a["p80_games"],
                                                                                           "espn_return": a["injury"].get("espn_return"), "p_back_playoffs": a["p_back_playoffs"], "streak": a["streak"]} for a in _me["injury_advice"]]})

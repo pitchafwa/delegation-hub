@@ -500,7 +500,7 @@ def fa_options(out_p, fa_pool, tips, now, n=2):
             continue
         sl = f.get("slots") or []
         if S in sl:
-            res.append((f.get("level", 0), f, t))
+            res.append((f.get("tonight") or f.get("level", 0), f, t))
     res.sort(key=lambda r: -r[0])
     return res[:n]
 
@@ -525,7 +525,7 @@ def scratch_message(out_p, tip, now, opts, fas, reason, tips):
         lines.append("No bench player who plays tonight can fill that slot.")
         if fas:
             f = fas[0]
-            lines.append(f"Free-agent option: {f[1]['name']} ({f[1]['team']}, about {f[1]['level']:.0f} pts/g, tips {_fmt_t(f[2])}). He is a true free agent (nobody dropped him recently), so the add takes effect immediately; it costs one of your adds and a drop.")
+            lines.append(f"Free-agent option: {f[1]['name']} ({f[1]['team']}, about {(f[1].get('tonight') or f[1]['level']):.0f} pts tonight, tips {_fmt_t(f[2])}). He is a true free agent (nobody dropped him recently), so the add takes effect immediately; it costs one of your adds and a drop.")
         else:
             lines.append("No free agent fits either. Leaving the slot empty costs only that player's game.")
     lines.append("Only matters if you are under your games cap.")
@@ -547,7 +547,7 @@ def late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id):
         out = pretend or (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or o in ("Out", "Doubtful")
         reason = "(test) pretend-out" if pretend else ("ruled out in the official NBA report" if o in ("Out", "Doubtful") else f"listed {p.injuryStatus} by ESPN")
         roster.append({"id": p.playerId, "name": p.name, "slot": p.lineupSlot, "elig": list(getattr(p, "eligibleSlots", []) or []), "team": canon(p.proTeam or ""),
-                       "out": out, "reason": reason if out else "", "p": 0.0 if out else P_STATUS.get(status, 0.94), "level": plan_by_id.get(p.playerId, {}).get("level", 20.0)})
+                       "out": out, "reason": reason if out else "", "p": 0.0 if out else P_STATUS.get(status, 0.94), "level": plan_by_id.get(p.playerId, {}).get("tonight") or plan_by_id.get(p.playerId, {}).get("level", 20.0)})
     lu = s.setdefault("lu", {})
     for k in [k for k in lu if not k.startswith(TODAY.isoformat())]:
         lu.pop(k)
