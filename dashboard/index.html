@@ -1020,6 +1020,7 @@ function renderTeams(){
   const models=L.teams.map(t=>teamModel(t,byId,rdBy));
   const avg=f=>{ const v=models.map(f).filter(x=>x!=null); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
   const rankOf=(m,f,high)=>{ const v=f(m); if(v==null) return null; const all=models.map(f).filter(x=>x!=null).sort((a,b)=>high?b-a:a-b); return all.indexOf(v)+1; };
+  if(pendingTeam){ const f=models.find(x=>x.t.abbrev.toLowerCase()===String(pendingTeam).toLowerCase()); if(f) teamSel=f.t.id; pendingTeam=null; }
   if(teamSel==null||!models.find(x=>x.t.id===teamSel)) teamSel=models.slice().sort((a,b)=>b.keep-a.keep)[0].t.id;
   const cur=models.find(x=>x.t.id===teamSel), post=TCX&&TCX.teams?TCX.teams[String(cur.t.id)]:null;
   // ---- league table
@@ -1035,6 +1036,7 @@ function renderTeams(){
   const la=(f,fmt)=>{ const v=avg(f); return v==null?'—':fmt(v); };
   const leagueAvgRow=`<tr style="color:var(--ink-faint)"><td></td><td style="text-align:left">League average</td><td></td><td class="num">${la(m=>m.made,pctf)}</td><td class="num">${la(m=>m.title,pctf)}</td><td class="num">${la(m=>m.projW,v=>v.toFixed(0))}</td><td class="num">${la(m=>m.keep,v=>v.toFixed(0))}</td><td class="num">${la(m=>m.avgAge,v=>v.toFixed(1))}</td><td class="num">${la(m=>m.wAge,v=>v.toFixed(1))}</td><td></td></tr>`;
   // ---- header
+  setHash('teams',cur.t.abbrev,true);
   const wp=cur.wp, oppT=wp&&wp.opp!=null?L.teams.find(x=>x.id==wp.opp):null;
   const postChip=post?`<span class="comp" title="from the playoff simulation: ${pctf(post.made)} to make the playoffs, ${pctf(post.title)} for the title">${{contend:'Contending',rebuild:'Rebuilding',balanced:'Balanced'}[post.posture]||post.posture}</span>`:'';
   const nextLine=wp&&oppT?`This week vs <b>${esc(oppT.abbrev)}</b>: ${wp.win_prob!=null?`<b>${(wp.win_prob*100).toFixed(0)}%</b> to win`:''}${wp.expected_total?` · projected ${Math.round(wp.expected_total)} to ${Math.round(wp.opp_expected||0)}`:''}`:'';
@@ -1351,6 +1353,21 @@ function collapseLegends(root){
   });
 }
 const activeView=()=>{const b=document.querySelector('#segView button[aria-pressed="true"]'); return b?b.dataset.v:null;};
+const VIEWS=['week','sched','board','redraft','teams','trades','keepers','draft','about'];
+let pendingTeam=null;
+function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
+  const h='#'+v+(extra?'/'+extra:'');
+  if(location.hash===h||(!extra&&location.hash.startsWith('#'+v+'/'))) return;
+  try{ (replace?history.replaceState:history.pushState).call(history,null,'',h); }catch(e){}
+}
+function applyHash(){
+  const m=location.hash.replace(/^#/,'').split('/'); const v=m[0];
+  if(!VIEWS.includes(v)) return false;
+  if(v==='teams'&&m[1]) pendingTeam=decodeURIComponent(m[1]);
+  if(v!==activeView()) setView(v); else if(v==='teams'&&L&&D) renderTeams();
+  return true;
+}
+window.addEventListener('hashchange',applyHash);
 function setView(v){
   const b=document.querySelector(`#segView button[data-v="${v}"]`); if(b && b.style.display!=='none') b.click();
 }
@@ -2526,7 +2543,7 @@ function wire(){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
       ['board','redraft','about','teams','week','trades','sched','draft','keepers'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
       const pn=document.getElementById(b.dataset.v+'Pane'); if(pn&&!pn.innerText.trim()) pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
-      renderNav(); return;
+      setHash(b.dataset.v); renderNav(); return;
     }
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
     document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
@@ -2548,7 +2565,7 @@ function wire(){
     if(b.dataset.v==='teams') renderTeams();
     if(b.dataset.v==='board' && D) render();
     try{localStorage.setItem('hubView',b.dataset.v);}catch(e){}
-    renderNav(); window.scrollTo(0,0);
+    setHash(b.dataset.v); renderNav(); window.scrollTo(0,0);
   });
   document.getElementById('segKind').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
@@ -2593,7 +2610,7 @@ function wire(){
    parallel and everything else after it. If the weekly plan is unavailable, fall back to the Board. */
 wire();
 renderNav();
-{ const want=new URLSearchParams(location.search).get('view'); if(want&&['week','sched','board','redraft','teams','trades','keepers','draft','about'].includes(want)) setView(want); }   // ?view=draft opens that tab first (the local draft server uses it); no parameter = This week as before
+{ const want=new URLSearchParams(location.search).get('view'); if(applyHash()){} else if(want&&['week','sched','board','redraft','teams','trades','keepers','draft','about'].includes(want)) setView(want); }   // ?view=draft opens that tab first (the local draft server uses it); no parameter = This week as before
 (function(){ try{ const mine=(document.querySelector('meta[name=build]')||{}).content; const UNSTAMPED='__'+'BUILD__'; if(!mine||mine===UNSTAMPED) return;
   fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!==UNSTAMPED&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
 new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});
