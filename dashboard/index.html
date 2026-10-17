@@ -1090,7 +1090,7 @@ function renderTeams(){
   pane.innerHTML=`
     <div class="controls"><div class="kbox"><span>Keepers/team:</span><input type="range" id="tSlider" min="0" max="19" value="${K}" step="1" /><input type="number" id="tNum" min="0" max="19" step="1" value="${K}" /></div>
       <span class="hint">Rosters as of ${new Date(L.generated).toLocaleString()}. The top ${K} assets on each team are marked KEEP.</span></div>
-    <div class="mobileOnly teamPick"><select id="teamPickSel" aria-label="Choose a team">${srt.map(x=>`<option value="${x.t.id}" ${x.t.id===teamSel?'selected':''}>${esc(x.t.name)} (${esc(x.t.abbrev)})</option>`).join('')}</select></div>
+    <div class="jumpBar teamBar"><span class="hint">Team</span><button type="button" id="teamPrev" aria-label="Previous team">◀</button><select id="teamBarSel" aria-label="Choose a team" style="padding:.3rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;max-width:60vw">${srt.map(x=>`<option value="${x.t.id}" ${x.t.id===teamSel?'selected':''}>${esc(x.t.name)} (${esc(x.t.abbrev)})</option>`).join('')}</select><button type="button" id="teamNext" aria-label="Next team">▶</button></div>
     <div class="tablewrap leagueWrap" style="margin-bottom:1rem"><table id="leagueTbl"><thead><tr><th>#</th><th style="text-align:left">Team</th>${th('rec','Record')}${th('made','Playoffs')}${th('title','Title')}${th('projW','Proj pts/wk')}${th('keep','Keeper value')}${th('avgAge','Avg age')}${th('wAge','Wtd age')}<th style="text-align:left">Best asset</th></tr></thead><tbody>${leagueRows}${leagueAvgRow}</tbody></table></div>
     ${header}
     <div class="statline" style="grid-template-columns:repeat(auto-fill,minmax(118px,1fr));margin:.6rem 0 1rem">${tiles}</div>
@@ -1105,8 +1105,12 @@ function renderTeams(){
     </div>
     <div class="legend" style="margin-top:1rem"><b>Keeper value</b> = sum of a team's top ${K} asset values (keepers cost nothing, only a slot, so the best ${K} assets are who you would keep; position eligibility is not considered). Weighted age weights each player by his projected points per game. VOR is value over the keeper-cutoff replacement across the player's remaining years. Player-games are for the ten highest-scoring non-IR players.</div>`;
   const rerender=()=>renderTeams();
-  document.getElementById('teamPickSel').addEventListener('change',e=>{teamSel=+e.target.value; rerender();});
-  document.getElementById('leagueTbl').addEventListener('click',e=>{ const h=e.target.closest('th[data-lg]'); if(h){ const k=h.dataset.lg; if(lgSort.k===k) lgSort.asc=!lgSort.asc; else lgSort={k,asc:false}; rerender(); return; } const tr=e.target.closest('tr[data-team]'); if(!tr) return; teamSel=+tr.dataset.team; rerender(); });
+  const goTeam=id=>{ const y=window.scrollY; teamSel=id; renderTeams(); window.scrollTo(0,y); };
+  document.getElementById('teamBarSel').addEventListener('change',e=>goTeam(+e.target.value));
+  const stepTeam=d=>{ const i=srt.findIndex(x=>x.t.id===teamSel); goTeam(srt[(i+d+srt.length)%srt.length].t.id); };
+  document.getElementById('teamPrev').addEventListener('click',()=>stepTeam(-1));
+  document.getElementById('teamNext').addEventListener('click',()=>stepTeam(1));
+  document.getElementById('leagueTbl').addEventListener('click',e=>{ const h=e.target.closest('th[data-lg]'); if(h){ const k=h.dataset.lg; if(lgSort.k===k) lgSort.asc=!lgSort.asc; else lgSort={k,asc:false}; rerender(); return; } const tr=e.target.closest('tr[data-team]'); if(!tr) return; goTeam(+tr.dataset.team); });
   const LOW_FIRST=new Set(['age','slot','mkt','player','pos','nba','acq']);
   document.getElementById('tmSortSel').addEventListener('change',e=>{ tmSort={k:e.target.value,asc:LOW_FIRST.has(e.target.value)}; rerender(); });
   pane.querySelector('.rosterWrap thead').addEventListener('click',e=>{ const h=e.target.closest('th[data-tm]'); if(!h) return; const k=h.dataset.tm; if(tmSort.k===k) tmSort.asc=!tmSort.asc; else tmSort={k,asc:LOW_FIRST.has(k)}; rerender(); });
