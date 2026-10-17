@@ -177,11 +177,12 @@ for e in raw:
     st = {s["id"]: s for s in p.get("stats", [])}
     proj = st.get(f"10{SEASON_ID}") or {}
     espn_ppg = proj.get("appliedAverage") or 0.0
-    if espn_ppg < 8:
-        continue
     own = p.get("ownership") or {}
     hp = hub_by.get(key(name))
     ours = hp.get("year0_ppg") if hp else None
+    # ESPN publishes no preseason projection for most rookies and some young players (Aday Mara shows 0): keep them when our own model has them at 8+ points a game
+    if espn_ppg < 8 and not (ours and ours >= 8):
+        continue
     ppg = ours if ours else espn_ppg
     status = p.get("injuryStatus") or "ACTIVE"
     info = ESPN_INJ.get(int(p["id"]))
@@ -272,7 +273,7 @@ for r in rows:
     r["pts"] = round(r["ppg"] * r["exp_gp"])
     r["vor"] = round((r["ppg"] - repl) * r["exp_gp"])
     r["pts90"] = round(r["p90"] * r["exp_gp"])
-    r["espn_pts"] = round(r["espn_ppg"] * r["exp_gp"])
+    r["espn_pts"] = round((r["espn_ppg"] or (r["ppg"] if r["our"] else 0)) * r["exp_gp"])      # ESPN has no projection for some rookies: use ours for the fallback market order
 for i, r in enumerate(sorted(rows, key=lambda r: -r["pts"]), 1):
     r["rank"] = i
 for i, r in enumerate(sorted(rows, key=lambda r: -r["espn_pts"]), 1):

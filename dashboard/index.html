@@ -1354,7 +1354,7 @@ function renderRedraft(){
     const inj=p.inj_tier!=null?`<span class="injDot t${p.inj_tier}" role="img" aria-label="${esc(injTierTip)}" title="${esc(injTierTip)}"></span>`:'';
     const gap=p.mkt!=null?p.mkt-p.rank:null;
     let row=`<tr data-id="${p.id}"><td data-label="Player">${pc(p.name)}${inj}${st}</td><td data-label="Pos">${esc(p.pos)}</td><td data-label="Team"><div class="teamCell">${esc(p.team)}</div></td><td class="num" data-label="Age">${p.age!=null?p.age.toFixed(1):'—'}</td>
-      <td class="num" data-label="Rank">#${p.rank}</td><td class="num" data-label="Proj PTS"><b>${p.pts.toLocaleString()}</b></td><td class="num" data-label="PPG"><b>${p.ppg.toFixed(1)}</b> <span class="hint" title="ESPN's projection">${p.espn_ppg.toFixed(1)}</span></td>
+      <td class="num" data-label="Rank">#${p.rank}</td><td class="num" data-label="Proj PTS"><b>${p.pts.toLocaleString()}</b></td><td class="num" data-label="PPG"><b>${p.ppg.toFixed(1)}</b> <span class="hint" title="ESPN's projection">${p.espn_ppg?p.espn_ppg.toFixed(1):'n/a'}</span></td>
       <td class="num" data-label="GP left">${p.exp_gp.toFixed(0)}<span class="hint">/${p.g_rem}</span></td><td class="num" data-label="VOR"><b style="color:${p.vor<0?'var(--warn)':'inherit'}">${p.vor.toLocaleString()}</b></td>
       <td class="num" data-label="MKT">${p.mkt!=null?`<b>#${p.mkt}</b>${p.mkt_src==='blend'?` <span title="FantasyPros ranks him #${p.mkt_diff[0]} and ESPN (rankings + ADP) #${p.mkt_diff[1]}: they disagree, so the market rank is their average" style="color:var(--warn)">⚠</span>`:''} <span class="hint" title="market rank minus our rank; + means we rank him higher than the market does">${gap>0?'+':''}${gap}</span>`:'<span class="hint">—</span>'}</td><td class="num" data-label="90PCT PTS">${p.pts90.toLocaleString()}</td>
       <td class="num" data-label="L10">${p.l10!=null?`<b style="color:${p.l10>=p.ppg*1.07?'var(--good)':(p.l10<=p.ppg*0.93?'var(--warn)':'inherit')}">${p.l10.toFixed(1)}</b> <span class="hint">${p.m10}m</span>`:'<span class="hint">—</span>'}</td>
@@ -1509,7 +1509,7 @@ function pcHtml(P){
   let rdHtml='';
   if(rd){
     rdHtml=`<div class="pcSec"><div class="pcH">Redraft (rest of season)</div>
-      <div class="statline g4">${pcTile('<b>#'+rd.rank+'</b>',"Rank")}${pcTile(rd.ppg.toFixed(1)+`<span class="hint"> / ${rd.espn_ppg.toFixed(1)}</span>`,'PPG (ours/ESPN)')}${pcTile(rd.vor.toLocaleString(),'VOR')}${pcTile(rd.exp_gp.toFixed(0)+'/'+rd.g_rem,'Games left')}</div>
+      <div class="statline g4">${pcTile('<b>#'+rd.rank+'</b>',"Rank")}${pcTile(rd.ppg.toFixed(1)+`<span class="hint"> / ${rd.espn_ppg?rd.espn_ppg.toFixed(1):'n/a'}</span>`,'PPG (ours/ESPN)')}${pcTile(rd.vor.toLocaleString(),'VOR')}${pcTile(rd.exp_gp.toFixed(0)+'/'+rd.g_rem,'Games left')}</div>
       <div class="statline g4" style="margin-top:.35rem">${pcTile(rd.mkt!=null?'#'+rd.mkt:'—','Market rank')}${pcTile(rd.pts90.toLocaleString(),'90th pct pts')}${pcTile(rd.l10!=null?rd.l10.toFixed(1):'—','Last 10 avg')}${pcTile(rd.own!=null?rd.own.toFixed(0)+'%':'—','Owned (ESPN)')}</div>
       ${rd.g&&rd.g.length?`<div style="margin-top:.5rem" title="Bars: last 10 games (green above his projection, red well below). Line: 3-game rolling average. Dashed bars: next 3 games projected, adjusted for that game's opponent, 80% range shaded.">${rdChart(rd,440,220)}${rd.gs&&RD&&RD.season_now&&rd.gs!==RD.season_now?`<div class="note">These are ${esc(rd.gs)} games (last season).</div>`:''}</div>`:''}</div>`;
   }
