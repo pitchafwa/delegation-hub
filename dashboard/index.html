@@ -1043,7 +1043,7 @@ function renderWeek(){
     else if(d.date===M.days[M.days.length-1] && d.starts_before<M.cap) note='<span class="hint">final day: may go over the cap</span>';
     const SLOT_ORDER={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};   // ESPN's starting-lineup order
     const ordered=d.start.slice().sort((a,b)=>(SLOT_ORDER[a.slot]??9)-(SLOT_ORDER[b.slot]??9)||b.ef-a.ef);
-    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.tip?' · tips off '+new Date(x.tip).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
+    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.tip?' · tips off '+new Date(x.tip).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.tonight?' · day-specific projection':(x.props?' · props':'')}</span></span>`).join(' ');
     let lsNote='';
     if(d.late_swap&&!d.locked){ const L=d.late_swap, dbt=d.start.filter(x=>x.p<0.8&&L.cover&&L.cover[String(x.id)]!==undefined);
       const cov=dbt.map(x=>{ const c=L.cover[String(x.id)]||[]; return `${pc(x.name)} (${esc(x.slot)}): ${c.length?'if he is scratched, '+c.map(esc).join(' or ')+' can take the slot':'<b style="color:var(--warn)">no bench player can replace him after the earlier games lock</b>'}`; });

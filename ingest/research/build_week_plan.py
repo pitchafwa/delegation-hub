@@ -292,7 +292,7 @@ def p_play(pl, d):
         return 0.0
     if pl.get("until") and d > pl["until"]:       # stream manager: he is dropped after this date (last day he is on the roster)
         return 0.0
-    if pl["ir"] or pl["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
+    if pl["ir"] or pl["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or d.isoformat() in pl.get("dfs_out", ()):
         return 0.0
     tier = "rotation" if pl["level"] >= ROTATION_LEVEL else "bench"
     off = pl.get("official", {}).get(d.isoformat())
@@ -440,7 +440,7 @@ def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None, lateswap=Fals
                     ls_info["cover"] = {str(k_): [nm_[x] for x in v_] for k_, v_ in cov_.items()}
             except Exception as ex_:
                 print("late-swap planning skipped:", repr(ex_)[:100])
-        starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2), "props": d.isoformat() in pl.get("lvl_by_date", {}),
+        starters = [{"id": pl["espn_id"], "name": pl["name"], "slot": s, "ef": round(cands[order[k]][0], 1), "p": round(cands[order[k]][2], 2), "props": d.isoformat() in pl.get("lvl_by_date", {}) and d.isoformat() not in pl.get("dfs_dates", ()), "tonight": d.isoformat() in pl.get("dfs_dates", ()),
                      "boost": round(pl.get("boost", {}).get(d.isoformat(), 0.0), 1), "tip": games.get(d, {}).get(canon(pl["team"]))}
                     for k, (pl, s) in enumerate(zip(chosen, slots))]
         benched = [{"id": cands[order[k]][1]["espn_id"], "name": cands[order[k]][1]["name"], "ef": round(cands[order[k]][0], 1)} for k in range(m, len(order))]
@@ -834,6 +834,16 @@ if ODDS_KEY:
     except Exception as ex:
         props_meta = {"enabled": False, "error": str(ex)[:120]}
         print("props unavailable:", ex)
+
+# ---------- DailyFantasyFuel per-day projections: the standard 'what will he do tonight' number. Overrides the per-day level (after the sportsbook props) for every date the table lists.
+dfs_meta = {"enabled": False}
+try:
+    import dfs_proj as DFSP
+    dfs_meta = DFSP.apply([x for rr in rosters.values() for x in rr] + fa_players, plan_days + LOOK_DAYS)
+    print("dfs projections:", dfs_meta)
+except Exception as ex:
+    dfs_meta = {"enabled": False, "error": str(ex)[:120]}
+    print("dfs projections unavailable:", repr(ex)[:120])
 
 # ---------- shadow log: today's projections from each source, so they can be scored against real results once games are played
 import csv
@@ -1353,7 +1363,7 @@ for tm in out_teams:
 
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_abbrev": MY_ABBREV,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
-                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
+                   "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "dfs": dfs_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
        "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
