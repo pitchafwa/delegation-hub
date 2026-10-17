@@ -969,9 +969,10 @@ function profileHtml(teamId){
    League table on top (tap a team), then for the chosen team: a header (record, odds, posture, next opponent), comparison tiles against the league, the full roster with the numbers that
    matter (asset rank, actual or projected points, last 10, rest-of-season projection, peak, VOR, games ahead, injury, how acquired), then collapsible sections: roster construction,
    schedule outlook, draft tendencies, picks and waiver habits. Works in the offseason (projections) and in season (actuals). */
-let TCX, WIN, tmSort={k:'asset',asc:false}, lgSort={k:'keep',asc:false};
+let TCX, WIN, TU, tmSort={k:'asset',asc:false}, lgSort={k:'keep',asc:false};
 function teamsAux(){
   if(TCX===undefined){ TCX=null; fetch('trade_context.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{TCX=x; if(activeView()==='teams') renderTeams();}).catch(()=>{}); }
+  if(TU===undefined){ TU=null; fetch('team_usage.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{TU=x; if(activeView()==='teams') renderTeams();}).catch(()=>{}); }
   if(WIN===undefined){ WIN=null; fetch('waiver_intel.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{WIN=x; if(activeView()==='teams') renderTeams();}).catch(()=>{}); }
 }
 const posGroup=pos=>{ const f=String(pos||'').split(/[\/-]/)[0]; return {PG:'G',SG:'G',G:'G',SF:'F',PF:'F',F:'F',C:'C'}[f]||'F'; };
@@ -994,19 +995,21 @@ function teamModel(t,byId,rdBy){
   const wkGames=w=>{ let s=0,n=0; top10.forEach(x=>{ const g=gamesOf(x); if(g&&g[w-1]!=null){s+=g[w-1];n++;} }); return n?s:null; };
   const next4=[0,1,2,3].map(i=>wkGames(cw+i)).filter(v=>v!=null);
   const projW=sp&&sp.proj?[0,1,2,3].map(i=>sp.proj[String(cw+i)]).filter(v=>v!=null):[];
+  const use=TU&&TU.rows?TU.rows.filter(r=>r.team===t.id).sort((a,b)=>a.y-b.y||a.mp-b.mp).slice(-10):[];
+  const useAvg=use.length?use.reduce((s,r)=>s+r.total/r.cap*40,0)/use.length:null;
   const od=ODDS&&ODDS.teams?ODDS.teams.find(x=>x.id===t.id):null, done=ODDS?Math.max(0,(ODDS.current_week||1)-1):0;
   const wp=W&&W.teams?W.teams.find(x=>x.id==t.id):null;
   return {t,rows,act,top10,keep,total,avgAge,wAge,sum10,top3share:sum10?top3/sum10:null,
     young:act.filter(x=>x.p&&x.p.age!=null&&x.p.age<=23).length, rookies:rows.filter(x=>x.p&&x.p.kind==='prospect').length,
     hurt:rows.filter(x=>x.r.injury&&x.r.injury!=='ACTIVE').length,
-    gpw:next4.length?next4.reduce((a,b)=>a+b,0)/next4.length:null, projW:projW.length?projW.reduce((a,b)=>a+b,0)/projW.length:null,
+    gpw:next4.length?next4.reduce((a,b)=>a+b,0)/next4.length:null, use, useAvg, useLock:use.length?use.filter(r=>r.locked_last).length/use.length:null, useFull:use.length?use.filter(r=>r.total>=r.cap).length/use.length:null, projW:projW.length?projW.reduce((a,b)=>a+b,0)/projW.length:null,
     actPPW:od&&done>0?od.pf/done:null, wins:od?od.wins:null, losses:od&&done>0?done-od.wins:null, made:od?od.made:null, title:od?od.title:null, od, wp, sp, cw, gamesOf,
     pos:{G:top10.filter(x=>posGroup(x.p&&x.p.pos)==='G').length,F:top10.filter(x=>posGroup(x.p&&x.p.pos)==='F').length,C:top10.filter(x=>posGroup(x.p&&x.p.pos)==='C').length}};
 }
 const TILES=[
   ['keep','Keeper value',m=>m.keep,v=>v.toFixed(0),1],['avgAge','Average age',m=>m.avgAge,v=>v.toFixed(1),0],['wAge','Age weighted by production',m=>m.wAge,v=>v.toFixed(1),0],
   ['sum10','Top-10 points per game',m=>m.sum10,v=>v.toFixed(0),1],['top3share','Share from top 3 players',m=>m.top3share,v=>(v*100).toFixed(0)+'%',0],
-  ['projW','Projected points per week',m=>m.projW,v=>v.toFixed(0),1],['gpw','Top-10 player-games per week',m=>m.gpw,v=>v.toFixed(1),1],
+  ['projW','Projected points per week',m=>m.projW,v=>v.toFixed(0),1],['useAvg','Starts per matchup, last 10 (cap 40)',m=>m.useAvg,v=>v.toFixed(1),1],
   ['young','Players 23 or younger',m=>m.young,v=>v.toFixed(0),0],['hurt','Injured or out',m=>m.hurt,v=>v.toFixed(0),0]];
 function renderTeams(){
   teamsAux();
@@ -1046,8 +1049,10 @@ function renderTeams(){
     const ppg=played?rd.s_avg:(x.p?x.p.year0_ppg:null);
     return {ppg,played,l10:played?rd.l10:null,ros:(rd&&rd.ppg)||(x.p&&x.p.year0_ppg)||null,vor:x.p?computeVOR(x.p.trajectory,K).vor:null,
       g4:(()=>{ const g=cur.gamesOf(x); return g?[0,1,2,3].reduce((s,i)=>s+(g[cur.cw-1+i]||0),0):null; })()}; };
-  const SORTS={asset:x=>x.asset,ppg:x=>val(x).ppg||0,ros:x=>val(x).ros||0,age:x=>x.p&&x.p.age!=null?x.p.age:99,vor:x=>val(x).vor==null?-1e9:val(x).vor,slot:x=>({PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7,BE:8,IR:9}[x.r.slot]??9)};
-  const rows=cur.rows.slice().sort((a,b)=>{ const f=SORTS[tmSort.k]||SORTS.asset; return tmSort.asc?f(a)-f(b):f(b)-f(a); });
+  const SORTS={player:x=>(x.p?x.p.player:x.r.name)||'',slot:x=>({PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7,BE:8,IR:9}[x.r.slot]??9),pos:x=>(x.p&&x.p.pos)||'',age:x=>x.p&&x.p.age!=null?x.p.age:99,nba:x=>(x.p&&x.p.team)||'',
+    asset:x=>x.asset,ppg:x=>val(x).ppg==null?-1e9:val(x).ppg,l10:x=>val(x).l10==null?-1e9:val(x).l10,ros:x=>val(x).ros==null?-1e9:val(x).ros,peak:x=>x.p&&x.p.peak_ppg!=null?x.p.peak_ppg:-1e9,
+    vor:x=>val(x).vor==null?-1e9:val(x).vor,g4:x=>val(x).g4==null?-1e9:val(x).g4,mkt:x=>x.p&&x.p.market_rank!=null?x.p.market_rank:1e9,acq:x=>x.r.acq||''};
+  const rows=cur.rows.slice().sort((a,b)=>{ const f=SORTS[tmSort.k]||SORTS.asset, x=f(a), y=f(b); const c=typeof x==='string'?x.localeCompare(y):x-y; return tmSort.asc?c:-c; });
   const roster=rows.map(x=>{
     const p=x.p, v=val(x), ai=cur.rows.indexOf(x), keepRow=ai<K;
     const inj=x.r.injury&&x.r.injury!=='ACTIVE'?`<span class="liveStatus">${esc(x.r.injury.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','DTD'))}</span>`:'';
@@ -1062,7 +1067,7 @@ function renderTeams(){
       <td class="num">${p?fmt1(p.peak_ppg):'—'}</td><td class="num">${v.vor!=null?v.vor.toFixed(1):'—'}</td>
       <td class="num">${v.g4!=null?v.g4:'—'}</td><td class="num">${p&&p.market_rank!=null?'#'+p.market_rank:'—'}</td>
       <td style="text-align:left" class="hint">${esc(({DRAFT:'Draft',ADD:'Free agent',TRADE:'Trade',WAIVER:'Waivers',KEEPER:'Keeper'})[x.r.acq]||x.r.acq||'')}</td></tr>`; }).join('');
-  const sortSel=`<select id="tmSortSel" style="padding:.3rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${[['asset','Asset value'],['ppg',inSeason?'Points per game':'Projected points per game'],['ros','Rest-of-season projection'],['age','Age (youngest first)'],['vor','VOR'],['slot','Lineup slot']].map(([k,l])=>`<option value="${k}" ${tmSort.k===k?'selected':''}>${l}</option>`).join('')}</select>`;
+  const sortSel=`<select id="tmSortSel" class="mobileOnly" style="padding:.3rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${[['asset','Asset value'],['ppg',inSeason?'Points per game':'Projected points per game'],['l10','Last 10'],['ros','Rest of season'],['age','Age (youngest first)'],['vor','VOR'],['g4','Games, 4 wks'],['mkt','Market rank'],['slot','Lineup slot']].map(([k,l])=>`<option value="${k}" ${tmSort.k===k?'selected':''}>${l}</option>`).join('')}</select>`;
   // ---- sections
   const sec=(title,meta,body)=>`<details class="sec"><summary><span class="secT">${title}</span><span class="secM">${meta}</span></summary><div class="secB">${body}</div></details>`;
   const ageBins=[['22 and under',a=>a<=22],['23-25',a=>a>=23&&a<=25],['26-28',a=>a>=26&&a<=28],['29-31',a=>a>=29&&a<=31],['32 and over',a=>a>=32]];
@@ -1072,6 +1077,9 @@ function renderTeams(){
   const weeks=SP?Array.from({length:8},(_,i)=>cur.cw+i).filter(w=>w<=22):[];
   const schedBody=SP&&cur.sp?`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Top-10 player-games</th>${weeks.map(w=>`<th>Wk ${w}</th>`).join('')}</tr></thead><tbody>
     <tr><td style="text-align:left"><b>${esc(cur.t.abbrev)}</b></td>${weeks.map(w=>{ const v=models.map(m=>m.top10.reduce((s,x)=>{const g=m.gamesOf(x);return s+(g&&g[w-1]||0);},0)); const mine=cur.top10.reduce((s,x)=>{const g=cur.gamesOf(x);return s+(g&&g[w-1]||0);},0); const a=v.reduce((p,q)=>p+q,0)/v.length; return `<td class="num"><b>${mine}</b> <span class="hint">${sgn(mine-a,1)}</span></td>`; }).join('')}</tr></tbody></table></div><div class="note">Small gray number = difference from the league average that week. Player-games are how many games the team's ten best players have, which drives how many starts it can use under the ${W&&W.matchup?W.matchup.cap:40}-game cap.</div>`:'<div class="hint">Schedule data is still loading.</div>';
+  const useBody=cur.use.length?`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Last ${cur.use.length} matchups</th>${cur.use.map(r=>`<th>${String(r.y).slice(2)}-${r.mp}</th>`).join('')}</tr></thead><tbody>
+    <tr><td style="text-align:left">Starts <span class="hint">(cap ${cur.use[cur.use.length-1].cap.toFixed(0)})</span></td>${cur.use.map(r=>`<td class="num" style="${r.locked_last?'color:var(--warn)':''}"><b>${r.total}</b></td>`).join('')}</tr></tbody></table></div>
+    <div class="note">Average <b>${cur.useAvg.toFixed(1)}</b> of 40 (league ${avg(m=>m.useAvg).toFixed(1)}) · reached the cap in <b>${(cur.useFull*100).toFixed(0)}%</b> of these matchups (league ${(avg(m=>m.useFull)*100).toFixed(0)}%) · arrived at the last day already locked out in <b>${(cur.useLock*100).toFixed(0)}%</b> (league ${(avg(m=>m.useLock)*100).toFixed(0)}%). Orange = lost the final day to the cap. Rolling window of the most recent 10 matchups, carrying over from last season early in the year; the owner may have changed since.</div>`:'<div class="hint">No matchup history yet.</div>';
   const myPicks=TCX&&TCX.picks?Object.values(TCX.picks).filter(p=>p.owner===cur.t.id).sort((a,b)=>a.round-b.round):[];
   const gone=TCX&&TCX.picks?Object.values(TCX.picks).filter(p=>p.orig===cur.t.abbrev&&p.owner!==cur.t.id):[];
   const acq={}; cur.rows.forEach(x=>{ const k=x.r.acq||'?'; acq[k]=(acq[k]||0)+1; });
@@ -1087,9 +1095,10 @@ function renderTeams(){
     ${header}
     <div class="statline" style="grid-template-columns:repeat(auto-fill,minmax(118px,1fr));margin:.6rem 0 1rem">${tiles}</div>
     <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.2rem 0"><span style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)">${esc(cur.t.name)} · roster</span><span class="hint">sort</span>${sortSel}<span class="hint">${inSeason?'Points per game are this season\'s actual average (gray "proj" = no games yet).':'Preseason: points per game are projections.'}</span></div>
-    <div class="tablewrap rosterWrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">Slot</th><th style="text-align:left">Pos</th><th>Age</th><th style="text-align:left">NBA</th><th>Asset</th><th>${inSeason?'PPG':'Proj PPG'}</th><th>Last 10</th><th>Rest of season</th><th>Peak PPG</th><th>VOR</th><th>Games, 4 wks</th><th>Market</th><th style="text-align:left">Acquired</th></tr></thead><tbody>${roster}</tbody></table></div>
+    <div class="tablewrap rosterWrap"><table><thead><tr>${[['player','Player',1],['slot','Slot',1],['pos','Pos',1],['age','Age',0],['nba','NBA',1],['asset','Asset',0],['ppg',inSeason?'PPG':'Proj PPG',0],['l10','Last 10',0],['ros','Rest of season',0],['peak','Peak PPG',0],['vor','VOR',0],['g4','Games, 4 wks',0],['mkt','Market',0],['acq','Acquired',1]].map(([k,l,left])=>`<th data-tm="${k}" style="cursor:pointer;${left?'text-align:left;':''}${tmSort.k===k?'color:var(--accent)':''}">${l}${tmSort.k===k?(tmSort.asc?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>${roster}</tbody></table></div>
     <div style="margin-top:1rem">
     ${sec('Roster construction','positions, age mix and depth vs the league',constr)}
+    ${sec('Games-cap usage','how many of the allowed starts this team uses, last 10 matchups',useBody)}
     ${sec('Schedule outlook','games the top ten players have over the next weeks',schedBody)}
     ${sec('Draft profile and tendencies','how this owner drafts and keeps',profileHtml(teamSel)||'<div class="hint">No draft profile available.</div>')}
     ${sec('Picks and habits','how the roster was built, waiver activity, next draft picks',habits)}
@@ -1098,7 +1107,9 @@ function renderTeams(){
   const rerender=()=>renderTeams();
   document.getElementById('teamPickSel').addEventListener('change',e=>{teamSel=+e.target.value; rerender();});
   document.getElementById('leagueTbl').addEventListener('click',e=>{ const h=e.target.closest('th[data-lg]'); if(h){ const k=h.dataset.lg; if(lgSort.k===k) lgSort.asc=!lgSort.asc; else lgSort={k,asc:false}; rerender(); return; } const tr=e.target.closest('tr[data-team]'); if(!tr) return; teamSel=+tr.dataset.team; rerender(); });
-  document.getElementById('tmSortSel').addEventListener('change',e=>{ tmSort={k:e.target.value,asc:e.target.value==='age'||e.target.value==='slot'}; rerender(); });
+  const LOW_FIRST=new Set(['age','slot','mkt','player','pos','nba','acq']);
+  document.getElementById('tmSortSel').addEventListener('change',e=>{ tmSort={k:e.target.value,asc:LOW_FIRST.has(e.target.value)}; rerender(); });
+  pane.querySelector('.rosterWrap thead').addEventListener('click',e=>{ const h=e.target.closest('th[data-tm]'); if(!h) return; const k=h.dataset.tm; if(tmSort.k===k) tmSort.asc=!tmSort.asc; else tmSort={k,asc:LOW_FIRST.has(k)}; rerender(); });
   mobileTables(pane); collapseLegends(pane);
   const setK=v=>{K=Math.max(0,Math.min(19,Math.round(v))); document.getElementById('kSlider').value=K; document.getElementById('kNum').value=K; renderTeams();};
   document.getElementById('tSlider').addEventListener('input',e=>setK(+e.target.value));
