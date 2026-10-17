@@ -206,6 +206,13 @@ def _nk(n):
 _hk = pd.read_csv(ROOT / "data" / "hashtag_dynasty_latest.csv")
 MARKET = {_nk(r.player): int(r.rank) for r in _hk.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
+# THIN-SAMPLE SHRINKAGE. The Kalman path trusts a short NBA record almost as much as a long one, so a player who got 13 games of big minutes (Julian Reese: 13 games, 31 mpg, 35.8 points
+# per game) was projected at 35.9 for a full season. Fitted on 2010-2024 player-seasons (390 players with <=30 games and little earlier NBA time, who then played 15+ games the next year):
+# next-year points per game = 14.6 + (this year - 14.6) x G / (G + 30.5). Rows error 6.7 vs 8.8 unshrunk. Applied to players with <=40 career games in our box scores and no draft-based
+# prior (rookies with a draft prior and the unified projection keep their own information).
+THIN_MU, THIN_K, THIN_MAX_GP = 14.6, 30.5, 40
+_sb = pd.read_csv(ROOT / "data" / "player_season_base.csv")
+CAREER_GP = _sb.groupby("PLAYER_ID")["GP"].sum().to_dict()
 current_out = []
 for _, r in current.iterrows():
     pos = r["espn_position"] if pd.notna(r.get("espn_position")) else r.get("POSITION")
@@ -213,6 +220,15 @@ for _, r in current.iterrows():
     _uni = UNIFIED.get(int(r["PLAYER_ID"]))
     _traj_c = _uni if _uni else [round(float(v), 1) for v in r["trajectory"]]
     _fc = float(np.clip(_traj_c[0] / r["trajectory"][0], 0.6, 1.6)) if (_uni and r["trajectory"][0] > 0) else 1.0
+    _kal = [round(float(v), 1) for v in r["trajectory"]]
+    _thin = None
+    _g = CAREER_GP.get(int(r["PLAYER_ID"]), 0)
+    if not _uni and not bool(r["had_output_b_prior"]) and 0 < _g <= THIN_MAX_GP and _traj_c[0] > THIN_MU:
+        _w = _g / (_g + THIN_K)
+        _f = (THIN_MU + _w * (_traj_c[0] - THIN_MU)) / _traj_c[0]
+        _thin = {"games": int(_g), "factor": round(_f, 3), "before": _traj_c[0]}
+        _traj_c = [round(v * _f, 1) for v in _traj_c]
+        _kal = [round(v * _f, 1) for v in _kal]
     current_out.append({
         "kind": "current",
         "id": f"c{int(r['PLAYER_ID'])}",
@@ -235,7 +251,8 @@ for _, r in current.iterrows():
         "peak_ppg": max(_traj_c),
         "peak_year_index": int(np.argmax(_traj_c)),
         "trajectory": _traj_c,
-        "trajectory_kalman": [round(float(v), 1) for v in r["trajectory"]],
+        "trajectory_kalman": _kal,
+        "thin_sample": _thin,
         "unified_projection": bool(_uni),
         "had_output_b_prior": bool(r["had_output_b_prior"]),
         "injury_risk": risk_tier(r["PLAYER_ID"]),
