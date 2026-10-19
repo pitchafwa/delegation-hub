@@ -176,9 +176,6 @@ def digest(kind):
                 flags = [f"{p['name']} ({p['games'][SP['current_week'] - 1]} games)" for p in me["players"] if "light week soon" in p["flags"] and not p["ir"]][:4]
                 if flags:
                     lines.append("Light weeks ahead: " + ", ".join(flags))
-            st = SP["playoffs"]["streamers_next_week"][:3]
-            if st:
-                lines.append("Streamers this week: " + ", ".join(f"{s['name']} ({s['games']}g)" for s in st))
     dy = [x for x in (T.get("dynasty_adds") or []) if x.get("new") and x["would_rank"] <= 5][:1]
     if dy:
         lines.append(f"Dynasty stash: {dy[0]['name']} ({dy[0]['age']:.0f}yo) would be your #{dy[0]['would_rank']} keeper asset.")
