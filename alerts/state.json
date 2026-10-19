@@ -87,5 +87,8 @@
   }
  },
  "lu": {},
- "pickup_sent": {}
+ "pickup_sent": {},
+ "sent": {
+  "daily": "2026-10-19"
+ }
 }
