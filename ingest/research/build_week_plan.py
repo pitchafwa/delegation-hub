@@ -102,10 +102,10 @@ KEEPER_PROTECT = 6         # (see keeper_protect(): 5 keepers + a margin of 1, m
 PROTECT_LEVEL = 35         # projects 35+ pts/g: never dropped, valued or not (catches stars our model can't value, e.g. after a long injury)
 ROS_WEEKS = 6              # if the player you drop is better than the one you add, count that gap for this many future weeks (before you could re-stream)
 GAMES_PER_WEEK = 3.3
-RECLAIM_LOSE = 0.25        # stream manager: a rostered player you drop for a rental can be re-added when the stream ends (he clears waivers in about 40 hours, then anyone can add him); the chance he is
+RECLAIM_LOSE = float(os.environ.get("RECLAIM_LOSE", "0.15"))       # stream manager: a rostered player you drop for a rental can be re-added when the stream ends (he clears waivers in about 40 hours, then anyone can add him); the chance he is
                            # lost meanwhile (claimed by a team, or picked up as a free agent) is about 18% (waiver_intel.json: a good starter on waivers is claimed ~18% of the time) plus some free-agent exposure
-CHAIN_STEP_MIN = 5         # inside a stream chain (the slot's future cost is already paid) a further rental that only swaps one streamer for another is worth making from this many points: unspent adds are wasted
-MIN_NET_GAIN = 10          # a move must be worth at least this many points AFTER subtracting the future cost
+CHAIN_STEP_MIN = float(os.environ.get("CHAIN_STEP_MIN", "5"))        # inside a stream chain (the slot's future cost is already paid) a further rental that only swaps one streamer for another is worth making from this many points: unspent adds are wasted
+MIN_NET_GAIN = float(os.environ.get("MIN_NET_GAIN", "6"))         # a move must be worth at least this many points AFTER subtracting the future cost
 SOLID_LEVEL = 28           # drops at/above this projection are flagged 'solid contributor'
 NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / "never_drop.json")).get("names", [])} if (Path(__file__).resolve().parent / "never_drop.json").exists() else set()
 
