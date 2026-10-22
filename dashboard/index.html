@@ -1258,13 +1258,13 @@ function renderWeek(){
   let liveHtml='';
   if(liveOk){
     const L2=LIVE, ago=Math.max(0,Math.round((Date.now()-new Date(L2.generated).getTime())/60000));
-    const pc=Math.round(L2.win_prob*100), col=pc>=60?'var(--good)':(pc<=40?'var(--warn)':'var(--ink)');
+    const wpPct=Math.round(L2.win_prob*100), col=wpPct>=60?'var(--good)':(wpPct<=40?'var(--warn)':'var(--ink)');   // not named pc: that shadowed the player-name link helper pc() and froze this page whenever live data was present
     const h=(L2.history||[]).map(x=>x.wp), W2=150, H2=34;
     const spark=h.length>1?`<svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}" style="vertical-align:middle"><line x1="0" x2="${W2}" y1="${H2/2}" y2="${H2/2}" stroke="var(--line-strong)" stroke-dasharray="2 3"/><polyline fill="none" stroke="${col}" stroke-width="2" points="${h.map((v,i)=>`${(i/(h.length-1)*(W2-4)+2).toFixed(1)},${(H2-2-v*(H2-4)).toFixed(1)}`).join(' ')}"/></svg>`:'';
     const list=(a)=>a.length?a.map(x=>`${pc(x.name)} <span class="hint">${x.ef}</span>`).join(', '):'<span class="hint">no one left</span>';
     liveHtml=`<div class="liveCard"><div class="liveHd"><span class="liveDot"></span> LIVE · matchup ${L2.matchup} <span class="hint">updated ${ago<1?'just now':ago+' min ago'}${L2.days_left<0.05?' · finished':''}</span></div>
       <div class="liveScore"><div><span class="hint">${esc(L2.me.abbrev)}</span><b>${L2.me.pts.toFixed(0)}</b><span class="hint">projected ${L2.me.exp_final.toFixed(0)}</span></div>
-        <div class="liveWp"><b style="color:${col}">${pc}%</b><span class="hint">win chance</span>${spark}</div>
+        <div class="liveWp"><b style="color:${col}">${wpPct}%</b><span class="hint">win chance</span>${spark}</div>
         <div style="text-align:right"><span class="hint">${esc(L2.opp.abbrev)}</span><b>${L2.opp.pts.toFixed(0)}</b><span class="hint">projected ${L2.opp.exp_final.toFixed(0)}</span></div></div>
       <div class="liveRow hint">Starts used: you ${L2.me.starts} / ${L2.cap} · ${esc(L2.opp.abbrev)} ${L2.opp.starts} / ${L2.cap} · ${L2.days_left.toFixed(1)} days left${L2.me.adds_used!=null?` · adds used ${L2.me.adds_used}`:''}</div>
       ${(L2.advice||[]).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')}
