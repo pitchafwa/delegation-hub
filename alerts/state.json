@@ -1,5 +1,10 @@
 {
- "avail_prev": {},
+ "avail_prev": {
+  "3059319": "WAIVERS",
+  "4278594": "FREEAGENT",
+  "4395626": "FREEAGENT",
+  "4594327": "WAIVERS"
+ },
  "benef_sent": {},
  "fa_high": {},
  "last_status": {
@@ -85,7 +90,11 @@
   }
  },
  "lu": {},
- "pickup_sent": {},
+ "pickup_sent": {
+  "3059319:WAIVERS": "2026-10-22",
+  "4395626:FREEAGENT": "2026-10-22",
+  "4594327:WAIVERS": "2026-10-22"
+ },
  "sent": {
   "daily": "2026-10-22",
   "lineup": "2026-10-21:553c90d0df",
