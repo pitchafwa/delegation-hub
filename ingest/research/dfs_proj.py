@@ -15,7 +15,10 @@ import unicodedata
 from pull_dfs_projections import parse, URL
 import requests
 
-BLEND_BASE = float(os.environ.get("DFS_BLEND", "1.0"))          # share of the per-day level taken from the table (1.0 = fully replace the base level on listed days)
+BLEND_BASE = float(os.environ.get("DFS_BLEND", "1.0"))
+UNLISTED_MIN_ROWS = 8                                   # a team counts as 'slate posted' for a date when the table lists at least this many of its players
+UNLISTED_P = 0.1                                               # chance of playing for a player the posted slate leaves out
+FA_CARRY = float(os.environ.get("DFS_FA_CARRY", "0.6"))      # free agents only: days the table does not list yet are valued 60% on what the table says he does NOW (role, minutes) and 40% on his season level          # share of the per-day level taken from the table (1.0 = fully replace the base level on listed days)
 
 
 def norm(n):
@@ -38,9 +41,13 @@ def fetch():
     return out
 
 
-def apply(players, plan_days, table=None):
+def apply(players, plan_days, table=None, fa_ids=frozenset()):
     table = fetch() if table is None else table
     dates = {d.isoformat() for d in plan_days}
+    posted = {}                                                    # (date, team) -> rows the table lists: a team whose slate is posted lists everyone expected to play
+    for byd in table.values():
+        for dt, x in byd.items():
+            posted[(dt, (x["team"] or "").upper())] = posted.get((dt, (x["team"] or "").upper()), 0) + 1
     used, out_n, rows = 0, 0, sum(len(v) for v in table.values())
     for pl in players:
         byd = table.get(norm(pl["name"]))
@@ -62,4 +69,14 @@ def apply(players, plan_days, table=None):
             pl.setdefault("dfs_dates", set()).add(dt)
             pl.setdefault("dfs_tag", {})[dt] = x["inj"]
             used += 1
+    for pl in players:                                           # a player on a team whose slate is posted but missing from the table is not expected to play (Caleb Love, Cam Whitmore...)
+        byd = table.get(norm(pl["name"])) or {}
+        for dt in dates:
+            if dt not in byd and posted.get((dt, (pl.get("team") or "").upper()), 0) >= UNLISTED_MIN_ROWS and not pl.get("ir") and pl.get("espn_id") in fa_ids:     # free agents only: for your own players a name mismatch must not bench them
+                pl.setdefault("dfs_unlisted", set()).add(dt)
+    for pl in players:                                           # free-agent streamers: carry what the table says about his current role to the days it has not posted yet
+        if pl.get("espn_id") in fa_ids and pl.get("dfs_dates"):
+            vals = [pl["lvl_by_date"][d] for d in pl["dfs_dates"] if d in pl.get("lvl_by_date", {})]
+            if vals:
+                pl["dfs_carry"] = round(sum(vals) / len(vals), 1)
     return {"enabled": rows > 0, "rows": rows, "player_days_used": used, "listed_out": out_n}

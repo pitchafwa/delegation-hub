@@ -282,13 +282,26 @@ def level_on(pl, d):
     """projected points per game on date d: sportsbook-prop-derived when we have it for that day, else the base level; discounted by the
     post-return ramp if he is still shaking off a recent long absence (ramp_by_date, set below)"""
     iso = d.isoformat()
-    base = pl.get("lvl_by_date", {}).get(iso, pl["level"] + pl.get("boost", {}).get(iso, 0.0))
+    if iso in pl.get("lvl_by_date", {}):
+        base = pl["lvl_by_date"][iso]
+    elif pl.get("dfs_carry"):                       # a free agent the daily table has priced for a day already posted: his current role is the better guide for the days not posted yet
+        base = DFSP.FA_CARRY * pl["dfs_carry"] + (1 - DFSP.FA_CARRY) * pl["level"] + pl.get("boost", {}).get(iso, 0.0)
+    else:
+        base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     base += pl.get("matchup_by_date", {}).get(iso, 0.0)
     r = pl.get("ramp_by_date", {}).get(iso)
     return base * r if r is not None else base
 
 
 def p_play(pl, d):
+    p = _p_play0(pl, d) * pl.get("p_scale", 1.0)
+    return p * DFSP_UNLISTED_P if d.isoformat() in pl.get("dfs_unlisted", ()) else p
+
+
+DFSP_UNLISTED_P = 0.1      # see dfs_proj.UNLISTED_P
+
+
+def _p_play0(pl, d):
     if not plays(pl["team"], d):
         return 0.0
     if pl.get("from") and d < pl["from"]:         # add-timing what-ifs: he joins the roster on this date
@@ -849,7 +862,7 @@ if ODDS_KEY:
 dfs_meta = {"enabled": False}
 try:
     import dfs_proj as DFSP
-    dfs_meta = DFSP.apply([x for rr in rosters.values() for x in rr] + fa_players, plan_days + LOOK_DAYS)
+    dfs_meta = DFSP.apply([x for rr in rosters.values() for x in rr] + fa_players, plan_days + LOOK_DAYS, fa_ids={f["espn_id"] for f in fa_players})
     print("dfs projections:", dfs_meta)
 except Exception as ex:
     dfs_meta = {"enabled": False, "error": str(ex)[:120]}
@@ -975,6 +988,10 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     def build(cur, fs, tgt, s_):
         new = [dict(x, until=s_ - timedelta(days=1)) if (tgt is not None and x is tgt) else x for x in cur]
         new.append(fs)
+        if tgt is not None and not tgt.get("_stream") and not tgt.get("_rejoin"):
+            # a rostered player you drop can be claimed back: he clears waivers at the first 3am run at least 24 hours after the drop (drop in the morning of s_ -> back for s_ + 2),
+            # and the chance he is still there is 1 - RECLAIM_LOSE. He takes a roster spot again from that day, so any stream must be over by then (roster_ok checks it).
+            new.append(dict(tgt, **{"from": s_ + timedelta(days=2), "until": None, "p_scale": 1.0 - RECLAIM_LOSE, "_rejoin": True}))
         return new
 
     def run(forced):
@@ -992,9 +1009,9 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                 fdl = [d for d in look if p_play(f, d) > 0]
                 if not fd and not fdl:
                     continue
-                e_ = (fdl or fd)[-1]                                    # held through his last game in view (possibly next week's Mon-Wed)
+                e_last = (fdl or fd)[-1]                                # held through his last game in view (possibly next week's Mon-Wed)
                 starts = list(fd) + ([plan_days[-1]] if fdl and plan_days[-1] not in fd else [])
-                for s_ in starts:
+                for s_, e_ in {(s0, ee) for s0 in starts for ee in {e_last, next((d for d in (fd + fdl) if d >= s0), e_last)}}:   # hold to his last game, or release him after his first game (one-day rentals)
                     fs = option(f, s_, e_)
                     targets = [(None, "open")]
                     for x in cur:
@@ -1003,7 +1020,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                         if x.get("_stream"):
                             if x["from"] < s_ and (not x.get("until") or x["until"] >= s_):
                                 targets.append((x, "streamer"))
-                        elif x["espn_id"] not in prot and not x.get("until"):
+                        elif x["espn_id"] not in prot and not x.get("until") and not x.get("_rejoin"):
                             targets.append((x, "roster"))
                     if first_forced:
                         targets = [(forced, "roster")]
@@ -1262,6 +1279,20 @@ for t in lg.teams:
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
     moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
     r_stream = None
+    tonight_picks = None
+    if t.team_abbrev == MY_ABBREV and today in plan_days:
+        try:                                                  # single-day pickups for TONIGHT ranked by the day-specific projection: what each free agent adds to tonight's lineup (needs a drop; not netted)
+            _base = plan_team(r, c0)
+            _tp = []
+            for f in fa_players:
+                if f.get("waiver") or p_play(f, today) <= 0:
+                    continue
+                g1 = plan_team(r + [dict(f, **{"from": today, "until": today})], c0) - _base
+                _tp.append({"id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "status": f["status"], "tonight": round(level_on(f, today), 1), "dfs": today.isoformat() in f.get("dfs_dates", ()),
+                            "p": round(p_play(f, today), 2), "gain": round(g1, 1), "games": [d.isoformat() for d in plan_days if p_play(f, d) > 0]})
+            tonight_picks = sorted(_tp, key=lambda x: -x["gain"])[:8]
+        except Exception as _ex:
+            print("tonight pickups skipped:", repr(_ex)[:100])
     if t.team_abbrev == MY_ABBREV:
         try:
             _rs, _tot = r, total
@@ -1286,7 +1317,7 @@ for t in lg.teams:
     dropped = {m["drop"]["id"] for m in seq if m["drop"]}
     r_after = r_stream if r_stream is not None else [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV)) if seq else (total, rows, naive)
-    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
+    out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "tonight_picks": tonight_picks, "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
                       "asset_5th": round(_a5th(r), 1), "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"]), dyn_pts=dyn_pts(x["asset"], _a5th(r))) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),

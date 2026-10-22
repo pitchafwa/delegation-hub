@@ -171,7 +171,7 @@ def main():
             t = plan_team.get(tid)
             dd = next((x for x in (t or {}).get("days", []) if x["date"] == d.isoformat()), None)
             if cum[tid] >= cap:                                   # already at the cap when this day begins: the day is locked
-                lock_note.setdefault(tid, "locks after today" if d == next((x for x in days if x > TODAY), None) else "locked")
+                lock_note.setdefault(tid, "locks after today" if d == next((x for x in days if x > TODAY), None) else "locked from " + d.strftime("%a"))
                 continue
             if dd:
                 fut[tid] += dd["pts"]
@@ -207,7 +207,13 @@ def main():
     best_add = next((a for a in (my_plan.get("sequence") or [])[:1]), None)
     advice = []
     if lock_note.get(opp_id):
-        advice.append(f"Your opponent {'has reached' if lock_note[opp_id] == 'locked' else 'will reach'} the games cap ({lock_note[opp_id]}): nothing more counts for them, and your win probability reflects that.")
+        _ln = lock_note[opp_id]
+        if _ln == "locked":
+            advice.append("Your opponent has reached the games cap: nothing more counts for them, and your win probability reflects that.")
+        elif _ln == "locks after today":
+            advice.append("Your opponent will reach the games cap after today: nothing counts for them after that, and your win probability reflects that.")
+        else:
+            advice.append(f"Your opponent is projected to reach the games cap before {_ln.replace('locked from ', '')}: days after that should not count for them, and your win probability reflects that (it is a projection, not yet true).")
     locked = starts[my_id] >= cap
     if locked:
         advice.append("You have reached the games cap: nothing else counts this week.")
