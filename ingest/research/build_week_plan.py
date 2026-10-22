@@ -102,6 +102,9 @@ KEEPER_PROTECT = 6         # (see keeper_protect(): 5 keepers + a margin of 1, m
 PROTECT_LEVEL = 35         # projects 35+ pts/g: never dropped, valued or not (catches stars our model can't value, e.g. after a long injury)
 ROS_WEEKS = 6              # if the player you drop is better than the one you add, count that gap for this many future weeks (before you could re-stream)
 GAMES_PER_WEEK = 3.3
+RECLAIM_LOSE = 0.25        # stream manager: a rostered player you drop for a rental can be re-added when the stream ends (he clears waivers in about 40 hours, then anyone can add him); the chance he is
+                           # lost meanwhile (claimed by a team, or picked up as a free agent) is about 18% (waiver_intel.json: a good starter on waivers is claimed ~18% of the time) plus some free-agent exposure
+CHAIN_STEP_MIN = 5         # inside a stream chain (the slot's future cost is already paid) a further rental that only swaps one streamer for another is worth making from this many points: unspent adds are wasted
 MIN_NET_GAIN = 10          # a move must be worth at least this many points AFTER subtracting the future cost
 SOLID_LEVEL = 28           # drops at/above this projection are flagged 'solid contributor'
 NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / "never_drop.json")).get("names", [])} if (Path(__file__).resolve().parent / "never_drop.json").exists() else set()
@@ -956,7 +959,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     wk_left = min(ROS_WEEKS, weeks_after())
 
     def fut(dr):
-        return max(0.0, dr["level"] - restream) * GAMES_PER_WEEK * wk_left if dr is not None else 0.0
+        # the gap to the free agent you could re-stream with, for the rest of the season, but only the share we expect to actually lose: you can re-add the player you drop once the stream is over
+        return max(0.0, dr["level"] - restream) * GAMES_PER_WEEK * wk_left * RECLAIM_LOSE if dr is not None else 0.0
 
     def roster_ok(ros):
         for d in all_days:
@@ -973,56 +977,85 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         new.append(fs)
         return new
 
-    cur, cur_total, used, infos = list(r), total + (plan_team(r, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0), set(), []
-    for _ in range(steps):
-        best = None
-        for f in cand:
-            if f["espn_id"] in used:
-                continue
-            fd = [d for d in plan_days if p_play(f, d) > 0]
-            fdl = [d for d in look if p_play(f, d) > 0]
-            if not fd and not fdl:
-                continue
-            e_ = (fdl or fd)[-1]                                    # held through his last game in view (possibly next week's Mon-Wed)
-            starts = list(fd) + ([plan_days[-1]] if fdl and plan_days[-1] not in fd else [])
-            for s_ in starts:
-                fs = option(f, s_, e_)
-                targets = [(None, "open")]
-                for x in cur:
-                    if x["ir"]:
-                        continue
-                    if x.get("_stream"):
-                        if x["from"] < s_ and (not x.get("until") or x["until"] >= s_):
-                            targets.append((x, "streamer"))
-                    elif x["espn_id"] not in prot and not x.get("until"):
-                        targets.append((x, "roster"))
-                for tgt, kind in targets:
-                    new = build(cur, fs, tgt, s_)
-                    if not roster_ok(new):
-                        continue
-                    wk = val(new) - cur_total
-                    net = wk - (fut(tgt) if kind == "roster" else 0.0)
-                    if best is None or net > best["net"]:
-                        best = {"net": net, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fut(tgt) if kind == "roster" else 0.0}
+    def run(forced):
+        """one greedy pass. forced = a roster player whose slot is turned into a rotating stream slot: the FIRST add must drop him, his future cost (the gap to the free agent you could
+        re-stream with, for the rest of the season) is charged ONCE for the whole chain, and later adds replace the earlier streamer for free. A single add that cannot beat his own future cost
+        (+30 this week but -109 later) is correctly rejected by the one-at-a-time rule; a week of rotating streams through that slot can still be worth it, and this is how the plan sees it."""
+        cur, cur_total, used, infos = list(r), total + (plan_team(r, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0), set(), []
+        for step in range(steps):
+            first_forced = forced is not None and step == 0
+            best = None
+            for f in cand:
+                if f["espn_id"] in used:
+                    continue
+                fd = [d for d in plan_days if p_play(f, d) > 0]
+                fdl = [d for d in look if p_play(f, d) > 0]
+                if not fd and not fdl:
+                    continue
+                e_ = (fdl or fd)[-1]                                    # held through his last game in view (possibly next week's Mon-Wed)
+                starts = list(fd) + ([plan_days[-1]] if fdl and plan_days[-1] not in fd else [])
+                for s_ in starts:
+                    fs = option(f, s_, e_)
+                    targets = [(None, "open")]
+                    for x in cur:
+                        if x["ir"]:
+                            continue
+                        if x.get("_stream"):
+                            if x["from"] < s_ and (not x.get("until") or x["until"] >= s_):
+                                targets.append((x, "streamer"))
+                        elif x["espn_id"] not in prot and not x.get("until"):
+                            targets.append((x, "roster"))
+                    if first_forced:
+                        targets = [(forced, "roster")]
+                    for tgt, kind in targets:
+                        new = build(cur, fs, tgt, s_)
+                        if not roster_ok(new):
+                            continue
+                        wk = val(new) - cur_total
+                        fc = fut(tgt) if kind == "roster" else 0.0
+                        net = wk if first_forced else wk - fc
+                        if best is None or net > best["net"]:
+                            best = {"net": net, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fc}
+            if os.environ.get("STREAM_DEBUG"):
+                print("  [stream]", ("chain via " + forced["name"] + " ") if forced is not None else "", "round best:", None if best is None else (best["f"]["name"], "add day", best["s"].isoformat(), "hold to", best["e"].isoformat(), "drop", (best["tgt"] or {}).get("name"), best["kind"], "week", round(best["wk"], 1), "future", round(best["fut"], 1), "net", round(best["net"], 1)))
+            if best is None or best["net"] < (1.0 if first_forced else (CHAIN_STEP_MIN if (forced is not None and best["kind"] != "roster") else MIN_NET_GAIN)):
+                break
+            f, tgt = best["f"], best["tgt"]
+            by_day = []
+            for d in plan_days:                                         # what the same swap is worth if made on each other day
+                fd2 = option(f, d, best["e"])
+                try:
+                    nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
+                    v = val(nn) - cur_total - best["fut"] if roster_ok(nn) else -999.0
+                except Exception:
+                    v = -999.0
+                if v > -900:
+                    by_day.append({"date": d.isoformat(), "gain": round(float(v), 1)})
+            infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day})
+            infos[-1]["wk_next"] = (plan_team(best["new"], 0.0, days_=look, cap_=NEXT_CAP) - plan_team(cur, 0.0, days_=look, cap_=NEXT_CAP)) if look else 0.0
+            cur, cur_total = best["new"], cur_total + best["wk"]
+            used.add(f["espn_id"])
+        return infos, cur
+
+    infos, cur = run(None)
+    best_total = sum(i["net"] for i in infos)
+    # chains: turn the cheapest-to-lose roster player's slot into a stream slot for the week (a slot rotating one-day rentals), and keep it if the whole chain beats the best one-at-a-time plan
+    pool = sorted([x for x in r if not x["ir"] and x["espn_id"] not in prot and not x.get("until") and not x.get("_stream")], key=fut)[:3]
+    for T in pool:
+        ci, cc = run(T)
+        if len(ci) < 2:
+            continue
+        fT = fut(T)
+        chain_total = sum(i["wk"] for i in ci) - fT
         if os.environ.get("STREAM_DEBUG"):
-            print("  [stream] round best:", None if best is None else (best["f"]["name"], "add day", best["s"].isoformat(), "hold to", best["e"].isoformat(), "drop", (best["tgt"] or {}).get("name"), best["kind"], "week", round(best["wk"], 1), "future", round(best["fut"], 1), "net", round(best["net"], 1)))
-        if best is None or best["net"] < MIN_NET_GAIN:
-            break
-        f, tgt = best["f"], best["tgt"]
-        by_day = []
-        for d in plan_days:                                         # what the same swap is worth if made on each other day
-            fd2 = option(f, d, best["e"])
-            try:
-                nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
-                v = val(nn) - cur_total - best["fut"] if roster_ok(nn) else -999.0
-            except Exception:
-                v = -999.0
-            if v > -900:
-                by_day.append({"date": d.isoformat(), "gain": round(float(v), 1)})
-        infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day})
-        infos[-1]["wk_next"] = (plan_team(best["new"], 0.0, days_=look, cap_=NEXT_CAP) - plan_team(cur, 0.0, days_=look, cap_=NEXT_CAP)) if look else 0.0
-        cur, cur_total = best["new"], cur_total + best["wk"]
-        used.add(f["espn_id"])
+            print("  [stream] chain via", T["name"], "steps", len(ci), "weeks", round(sum(i["wk"] for i in ci), 1), "slot cost", round(fT, 1), "net", round(chain_total, 1), "vs best so far", round(best_total, 1))
+        if chain_total >= MIN_NET_GAIN and chain_total > best_total:
+            wsum = sum(i["wk"] for i in ci)
+            for i in ci:                                                # share the one-time slot cost across the steps in proportion to what each earns, so every step shows a net gain and they add up to the chain's net
+                i["net"] = i["wk"] * chain_total / wsum
+                i["fut"] = i["wk"] - i["net"]
+                i["chain"] = T["name"]
+            infos, cur, best_total = ci, cc, chain_total
     # chronological order, with the running total recomputed in that order
     infos.sort(key=lambda i: i["s"])
     ros, seq = list(r), []
@@ -1037,7 +1070,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                               "streamer": bool(tgt.get("_stream"))} if tgt else None),
                     "gain": round(i["net"], 1), "week_gain": round(i["wk"] - i.get("wk_next", 0.0), 1), "next_gain": round(i.get("wk_next", 0.0), 1), "future_cost": round(i["fut"], 1),
                     "games_next": [d.isoformat() for d in look if i["s"] <= d <= i["e"] and p_play(f, d) > 0], "cum": round(plan_team(ros, c0) - total, 1), "by_day": i["by_day"],
-                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat(), "release": None})
+                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat(), "release": None, "chain": i.get("chain"), "reclaim": bool(tgt and not tgt.get("_stream"))})
     for k, i in enumerate(infos):                                   # a streamer who is replaced later: say when he goes
         if i["tgt_id"]:
             for q in seq[:k]:
