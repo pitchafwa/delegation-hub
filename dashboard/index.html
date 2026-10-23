@@ -549,9 +549,9 @@
   [style*="IBM Plex Mono"][style*="uppercase"]{font-family:inherit !important;font-size:.84rem !important;letter-spacing:.02em !important;font-weight:600}
   td[data-label]::before{font-family:inherit !important;letter-spacing:.02em !important}
   @media (pointer:coarse),(max-width:720px){
-    button,select,input[type=search],input[type=number],.seg button,.jumpBar button,summary{min-height:44px}
+    button,select,input[type=search],input[type=number],.seg button,.jumpBar button{min-height:44px}
     .seg button,.jumpBar button{display:inline-flex;align-items:center;justify-content:center}
-    summary{display:flex;align-items:center}
+    details:not(.sec)>summary{padding:.6rem 0}
     .hint{font-size:.84rem}
     .secM{font-size:.84rem}
     .jumpBar button{font-size:.84rem;padding:.3rem .7rem}
