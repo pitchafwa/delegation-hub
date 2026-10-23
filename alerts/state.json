@@ -3,7 +3,7 @@
   "3059319": "WAIVERS",
   "4278594": "FREEAGENT",
   "4395626": "FREEAGENT",
-  "4594327": "WAIVERS"
+  "4594327": "FREEAGENT"
  },
  "benef_sent": {},
  "fa_high": {},
@@ -93,6 +93,7 @@
  "pickup_sent": {
   "3059319:WAIVERS": "2026-10-22",
   "4395626:FREEAGENT": "2026-10-22",
+  "4594327:FREEAGENT": "2026-10-23",
   "4594327:WAIVERS": "2026-10-22"
  },
  "sent": {
