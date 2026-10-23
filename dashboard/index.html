@@ -127,6 +127,8 @@
   .ib:hover,.ib:focus{color:var(--accent);outline:none}
   @media (pointer:coarse){.ib{min-width:28px;min-height:28px}}
   #infoPop{position:fixed;z-index:120;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:10px;padding:.7rem .85rem;font-size:.9rem;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+.stamp{font-size:.86rem;color:var(--ink-soft);margin:0 0 1rem}.stamp.stale{color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);border-radius:8px;padding:.5rem .75rem}.stamp.stale .hint{color:var(--ink-soft)}
+  .glH{font-size:1rem;margin:1.3rem 0 .4rem}.gloss{margin:0;display:flex;flex-direction:column;gap:.55rem}.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.65rem .85rem}.gloss dt{font-weight:700}.gloss dd{margin:.15rem 0 0;color:var(--ink-soft);font-size:.94rem;line-height:1.5}
   .taCols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.5rem 0}.taList{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:.3rem}@media(max-width:640px){.taCols{grid-template-columns:1fr}}
   .pcNews{list-style:none;margin:0;padding:0}
   .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
@@ -560,6 +562,7 @@
 <body>
 <div class="wrap">
   <h1>Fantasy Hub</h1>
+  <div class="stamp" id="dataStamp" aria-live="polite"></div>
   <div class="sub" id="hSub"></div>
 
   <div class="controls" style="margin-bottom:.5rem"><div class="seg" id="navTop"></div></div>
@@ -574,7 +577,7 @@
       <button data-v="trades" id="tradesBtn">Trades</button>
       <button data-v="keepers" id="keepersBtn">Keepers</button>
       <button data-v="draft" id="draftBtn">Draft</button>
-      <button data-v="about">About</button>
+      <button data-v="about">Glossary</button>
     </div>
   </div>
 
@@ -1405,7 +1408,7 @@ function renderWeek(){
 `,false);
   pane.innerHTML=`
     <div class="controls"><select id="weekSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${W.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
-      <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days) · updated ${new Date(W.generated).toLocaleString()}</span></div>
+      <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days)</span></div>
     ${scoreHtml}
     ${doNowHtml}
     ${tonightLineupHtml}
@@ -2657,26 +2660,9 @@ async function pollDraftLive(){
 }
 
 function renderAbout(){
-  document.getElementById('aboutPane').innerHTML = `
-    <h2>What changed</h2>
-    <p>This used to be a prospect ranking board -- a model trying to predict which rookies would become elite fantasy contributors, graded against a percentile score. After an exhaustive search (hand-built formulas, purpose-built ranking ML, tree ensembles, all validated on genuinely unseen draft classes), <b>nothing beat simply trusting real draft position</b> at that specific task. Rather than keep a ranking that can't out-perform what NBA front offices already collectively know, this hub was rebuilt around a different, more useful question: <b>given a prospect's real profile, what does a grounded multi-year trajectory and value estimate actually look like -- on the exact same scale as a real player already on your roster?</b></p>
-    <div class="warn-box">This does <b>not</b> claim to out-scout anyone. It's a data-grounded projection, not a "this player will be a star" call. Regularized models like this one systematically <b>undershoot true outliers</b> -- Wembanyama, Doncic, and Cooper Flagg's early real production all ran ahead of their model projections. Treat the numbers as a floor-ish, defensible baseline, not a ceiling.</div>
-
-    <h2>How the numbers are built (DELCO)</h2>
-    <p><b>Current players</b> use the same validated Kalman-filter engine as the rest of this league's valuation model: a separately-fit aging curve per stat (points, rebounds, assists, blocks, turnovers, 3PM, FTM, FTA, minutes), continuously updated against real game logs.</p>
-    <p><b>Prospects</b> (nobody in the NBA yet, or very early in their rookie year) don't have real game history to filter against. Instead, a real regression model ("Output B") projects their expected rookie-season per-minute rates directly from their pre-NBA profile -- college or international production, recruiting rank, combine testing, draft position -- validated against 704 real college rookies (2010-2025) and, separately, 52 real international rookies. That projection becomes the starting point, then ages forward using the exact same per-stat curves used for real players.</p>
-    <p>Real, honest validation numbers (R² over a "same number for every rookie" baseline, cross-validated by draft class): assists +0.52, rebounds +0.45, minutes +0.37, threes +0.38, blocks +0.28 (college); assists +0.64, blocks +0.57, rebounds +0.44 (international, smaller n=52 sample -- directional). <b>Steals has no real signal in either model</b> (consistent with an earlier, separate finding that even a full in-season Kalman filter for steals lost to a flat career rate) -- treat that one number skeptically.</p>
-
-    <h2>VOR and the keeper slider</h2>
-    <p>Value over opportunity cost: how much better a player's projected trajectory is than what you'd get back drafting fresh instead, summed year-by-year, stopping at the first season the trajectory dips below that bar. The opportunity-cost curve itself is fit from this league's own real keeper history, and depends on how many keepers exist league-wide -- drag the slider to see value shift for a shallower or deeper keeper format.</p>
-
-    <h2>Known gaps, disclosed</h2>
-    <ul>
-      <li>International prospects: smaller training sample (52 rookies) and a cruder feature set (no play-by-play advanced stats equivalent to college's) -- flagged with ⚠ in the detail view.</li>
-      <li>Triple-doubles aren't projected for prospects (no real prior exists pre-NBA) -- defaulted out rather than guessed.</li>
-      <li>Steals: essentially unpredictable from any static profile tested so far, in-season or pre-draft.</li>
-      <li>True outlier talents get undershot by design (regularization pulls toward the typical case).</li>
-    </ul>`;
+  const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['Trades',['Acceptance']]];
+  document.getElementById('aboutPane').innerHTML=`<h2>Glossary</h2>${groups.map(([g,ks])=>`<h3 class="glH">${g}</h3><dl class="gloss">${ks.map(k=>`<div><dt>${esc(k)}</dt><dd>${esc(GLOSS_MAP[k])}</dd></div>`).join('')}</dl>`).join('')}
+    <h3 class="glH">Where the numbers come from</h3><dl class="gloss"><div><dt>DELCO</dt><dd>Our projection model for every player: per-stat aging curves updated against each game log, plus a pre-NBA model for rookies. Its rest-of-season numbers are averaged with ESPN's.</dd></div><div><dt>DailyFantasyFuel</dt><dd>Day-of projections that react to injury news; used for tonight's and tomorrow's games once the slate is posted.</dd></div></dl>`;
 }
 
 /* Two-level navigation: four groups on the bottom bar (phones) or top bar, and a row of sub-tabs for the active group.
@@ -2684,8 +2670,8 @@ function renderAbout(){
 /* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
 const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
 const navGroups=()=>offseason()
-  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','About'],['week','Last week']]]]
-  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','About'],['keepers','Keepers'],['draft','Draft']]]];
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['week','Last week']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['keepers','Keepers'],['draft','Draft']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
@@ -2789,9 +2775,23 @@ renderNav();
   fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!==UNSTAMPED&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
 new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});
 fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{
-  if(w&&w.teams){ W=w; if(activeView()==='week') setView('week'); if(activeView()==='teams'&&L&&D) renderTeams(); } else throw new Error('no plan');
+  if(w&&w.teams){ W=w; renderStamp(); if(activeView()==='week') setView('week'); if(activeView()==='teams'&&L&&D) renderTeams(); } else throw new Error('no plan');
 }).catch(err=>{ const pn=document.getElementById('weekPane'); if(activeView()==='week') pn.innerHTML=`<div class="err" style="padding:1rem">Couldn't load this week's plan (${esc(String(err&&err.message||err))}). <button class="dbtn" id="weekRetry" type="button">Retry</button> <span class="hint">or open Players &gt; Board</span></div>`;
   const rb=document.getElementById('weekRetry'); if(rb) rb.addEventListener('click',()=>location.reload()); });
+let RS=null;   // local_refresh_status.json: when the daily model refresh on Tommy's PC last finished, and which steps failed
+function renderStamp(){
+  const el=document.getElementById('dataStamp'); if(!el) return;
+  const fmtT=d=>{ const sameDay=d.toDateString()===new Date().toDateString(); return (sameDay?'':d.toLocaleDateString(undefined,{weekday:'short'})+' ')+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}); };
+  const warn=[]; let main='';
+  if(W&&W.generated){ const g=new Date(W.generated); main='Data as of '+fmtT(g); if(!offseason()&&Date.now()-g>12*3600e3) warn.push('the plan has not updated since '+fmtT(g)); }
+  const pcT=RS&&RS.finished?new Date(RS.finished):(RD&&RD.generated?new Date(RD.generated):null);
+  if(pcT&&!offseason()&&Date.now()-pcT>30*3600e3) warn.push('the daily model refresh on your PC last finished '+fmtT(pcT));
+  if(RS&&(RS.failed||[]).length) warn.push('the last PC refresh had failed steps ('+RS.failed.map(esc).join(', ')+')');
+  el.innerHTML=warn.length?`<b>Stale data:</b> ${warn.join('; ')}.${main?` <span class="hint">${main}</span>`:''}`:main;
+  el.classList.toggle('stale',warn.length>0);
+}
+fetch('local_refresh_status.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x){ RS=x; renderStamp(); } }).catch(()=>{});
+setInterval(renderStamp,300000);
 const LIVE_URL='https://raw.githubusercontent.com/pitchafwa/delegation-hub/live-data/live_matchup.json';
 async function loadLive(){
   for(const u of [LIVE_URL+'?t='+Date.now(),'live_matchup.json?t='+Date.now()]){
@@ -2800,7 +2800,7 @@ async function loadLive(){
 }
 loadLive(); setInterval(loadLive,120000);
 fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week') setView('week'); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
-fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
+fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
