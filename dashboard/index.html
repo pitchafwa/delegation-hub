@@ -1845,52 +1845,37 @@ function renderSchedule(){
 }
 function renderTrades(){
   const pane=document.getElementById('tradesPane');
-  const meta=TR.meta;
-  if(tradeTeam==null){ const me=TR.teams.find(t=>t.abbrev===(W&&W.my_abbrev)); tradeTeam=(me||TR.teams[0]).id; }
-  const T=TR.teams.find(t=>t.id===tradeTeam);
-  const k2p=meta.asset_to_points;
-  if(tradeS==null) tradeS=meta.default_premium;
-  const VM=meta.v_max;
-  const rawAdj=(p,t,s)=>p<=0?0:p*(0.10+s*(0.20*Math.pow(p/t,4)+0.124*Math.pow(p/VM,1.3)));
-  const pkg=(i,s)=>{const t=Math.max(1,...i.mkg,...i.mkr); const a=i.mkg.reduce((x,p)=>x+rawAdj(p,t,s),0), b=i.mkr.reduce((x,p)=>x+rawAdj(p,t,s),0); return b>0?a/b:(a>0?9.9:1);};
-  const score=i=>i.me[0]+tradeW*k2p*i.me[1];
-  const nm=n=>esc(n);
-  const buildCards=()=>{ const ideas=T.ideas.map(i=>Object.assign(i,{ratioNow:pkg(i,tradeS)})).filter(i=>i.ratioNow>=tradeRatio).sort((a,b)=>score(b)-score(a)).slice(0,25);
-  return ideas.map(i=>{
-    const P=meta.teams[i.p];
-    const before=new Set(i.kbefore), after=new Set(i.kafter);
-    const keepTxt=i.kafter.map(n=>before.has(n)?nm(n):`<b style="color:var(--good)">${nm(n)}</b>`).join(', ');
-    const lost=i.kbefore.filter(n=>!after.has(n));
-    const thPts=i.them[0], thKeep=i.them[1];
-    const themLine=(thPts>=0&&thKeep>=0)?'<span style="color:var(--good)">helps them too</span>':`for them: season ${thPts>=0?'+':''}${thPts}, keeper ${thKeep>=0?'+':''}${thKeep}`;
-    return `<div class="tradeCard">
-      <div class="tradeHd"><span class="hint">with</span> <b>${esc(P.name)}</b> <span class="hint">${esc(P.abbrev)} · ${esc(P.window||'')}${(P.tags&&P.tags.length)?' · '+P.tags.map(esc).join(', '):''}</span><span class="tradeScore">+${score(i).toFixed(0)}</span></div>
-      <div class="tradeRow"><span class="lbl">You give</span> ${i.give.map(nm).join(' + ')}</div>
-      <div class="tradeRow"><span class="lbl">You get</span> <b>${i.get.map(nm).join(' + ')}</b></div>
-      <div class="tradeRow small">Your season <b>${i.me[0]>=0?'+':''}${i.me[0]}</b> pts · keeper value <b>${i.me[1]>=0?'+':''}${i.me[1]}</b></div>
-      <div class="tradeRow small">Keepers after: ${keepTxt}${lost.length?` <span class="hint">(out: ${lost.map(nm).join(', ')})</span>`:''}</div>
-      ${(i.why&&i.why.length)?`<div class="tradeRow small" style="color:var(--good)">Why they might say yes: ${i.why.map(esc).join('; ')}</div>`:''}
-      <div class="tradeRow small hint">Their view: they receive ${i.mk[0]} vs give ${i.mk[1]} · <b>${i.ratioNow.toFixed(2)}×</b> with the star premium (${i.ratio_lin}× plain) · ${themLine}</div>
-    </div>`;}).join('') || '<div class="hint" style="padding:1rem">No ideas at these settings. Lower the fairness minimum.</div>'; };
-  pane.innerHTML=`
-    <div id="taBox"></div>
-    <div class="controls"><select id="tradeSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${TR.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
-      <span class="hint">Trade ideas · updated ${new Date(meta.generated).toLocaleString()} · ${meta.K} keepers assumed</span></div>
-    <div class="tradeCtl">
-      <label>Weight on keeper value <b id="twv">${tradeW.toFixed(2)}</b><input type="range" id="tw" min="0" max="0.4" step="0.01" value="${tradeW}"></label>
-      <label>Least fair to them I'll offer <b id="trv">${tradeRatio.toFixed(2)}</b>×<input type="range" id="tr" min="0.6" max="1.4" step="0.01" value="${tradeRatio}"></label>
-      <label>Star premium <b id="tsv">${tradeS.toFixed(2)}</b> <span class="hint">(0 = plain sum)</span><input type="range" id="ts" min="0" max="1" step="0.05" value="${tradeS}"></label>
-    </div>
-    <div class="legend" style="margin:0 0 1rem"><b>Your keepers now:</b> ${T.keepers.map(nm).join(', ')}. Ideas are ranked by how much they raise <i>your</i> value; the number top-right is season points plus weighted keeper value.</div>
-    ${signalsHtml(T)}
-    <div id="tradeCards">${buildCards()}</div>
-    <div class="legend" style="margin-top:1rem"><b>How this works (first version, not backtested).</b> Only ${meta.K} players are kept, so a player is worth different amounts to different teams. <b>Market</b> = Hashtag's crowd dynasty value above a replaceable player; a trade "looks fair" to the other side when the value they receive is at least about what they give up. <b>Market value blends Hashtag's dynasty ranking with ESPN's draft ADP</b> (owners here draft by ADP, so current production matters as much as youth), converted to price with Hashtag's own rank-to-value curve. A <b>KeepTradeCut-style star premium</b> (slider) is then applied: owners prefer one star to several mid players ("four quarters don't equal a dollar"), so each player's value is weighted by how close he is to the best asset in the trade and in the league (a 1,500 star counts about 4× a 750 player, not 2×). The × number is the ratio after that premium; the plain-sum ratio is in brackets. The premium's exact constants are our own guess at KTC's published shape (10%–42% of value); KTC doesn't publish theirs. <b>Your season</b> = change in your lineup strength (best 10 players plus a quarter of the next 5, over about ${meta.weeks_left} weeks, with replacement-level fill-ins). <b>Keeper value</b> = change in the total dynasty asset value of your top ${meta.K}, converted to points at the weight above (1 asset point ≈ ${k2p} points of output; the default 0.10 discounts the ten-year horizon heavily). A team's season value is zero-sum in most trades, so the edge comes mostly from keeper fit and from IR or depth quirks. <b>Who says yes:</b> each idea is priced from the <i>other team's</i> point of view. Their draft profile shifts what they pay for youth, rookies, and injured players (only teams with 2+ seasons of history); their window (contender, middle, rebuilding, from projected roster strength) shifts production versus youth; and owners who anchor on last season's numbers overpay for a spike and underpay for a slump. These are modest, hand-set adjustments (roughly 3-15%), not fitted from past trades. Not modeled yet: positions, schedules, and whether an owner will actually say yes.</div>`;
-  document.getElementById('tradeSel').addEventListener('change',e=>{tradeTeam=+e.target.value; renderTrades();});
-  document.getElementById('tw').addEventListener('input',e=>{tradeW=+e.target.value; document.getElementById('twv').textContent=tradeW.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
-  document.getElementById('ts').addEventListener('input',e=>{tradeS=+e.target.value; document.getElementById('tsv').textContent=tradeS.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
-  document.getElementById('tr').addEventListener('input',e=>{tradeRatio=+e.target.value; document.getElementById('trv').textContent=tradeRatio.toFixed(2); document.getElementById('tradeCards').innerHTML=buildCards();});
+  const myT=TR&&TR.teams?TR.teams.find(t=>t.abbrev===(W&&W.my_abbrev)):null;
+  pane.innerHTML=`<div id="taBox"></div><div id="tiBox"></div>${myT&&((myT.sell_high||[]).length||(myT.buy_low||[]).length)?signalsHtml(myT):''}`;
   collapseLegends(pane);
   taInit();
+  tiInit();
+}
+/* trade ideas v2: built weekly by research/find_trades.py; every idea already passed the full analyzer and the league-perception acceptance check */
+let TI=null;
+async function tiInit(){
+  const box=document.getElementById('tiBox'); if(!box) return;
+  if(TI===null){ try{ TI=await (await fetch('trade_ideas_v2.json',{cache:'no-cache'})).json(); }catch(e){ TI=false; } }
+  if(!TI||!TI.ideas){ box.innerHTML=''; return; }
+  const pct=x=>(100*x).toFixed(0)+'%', sg=(x,d=1)=>(x>=0?'+':'')+x.toFixed(d);
+  const bandC=b=>b==='likely'?'var(--good)':(b==='possible'?'var(--accent,#5b7cfa)':'var(--warn)');
+  const cards=TI.ideas.slice(0,15).map((i,k)=>`<div class="tradeCard">
+      <div class="tradeHd"><span class="hint">with</span> <b>${esc(i.partner)}</b><span class="tradeScore">${sg(i.me.value.total,1)}</span></div>
+      <div class="tradeRow"><span class="lbl">You give</span> ${i.give.map(pc).join(' + ')}</div>
+      <div class="tradeRow"><span class="lbl">You get</span> <b>${i.get.map(pc).join(' + ')}</b></div>
+      <div class="tradeRow small">You: title ${pct(i.me.odds_before.title)} to <b>${pct(i.me.odds_after.title)}</b>, keeper strength ${i.me.keeper_strength.before} to ${i.me.keeper_strength.after}${i.me.drops.length?` · drops ${i.me.drops.map(esc).join(', ')}`:''}</div>${(i.my_keepers_given||[]).length?`<div class="tradeRow small" style="color:var(--warn)">Gives up your likely keeper: ${i.my_keepers_given.map(esc).join(', ')}</div>`:''}
+      <div class="tradeRow small">${esc(i.partner)}: value ${sg(i.them.value.total,1)} (title ${pct(i.them.odds_before.title)} to ${pct(i.them.odds_after.title)})</div>
+      <div class="tradeRow small">Acceptance: <b style="color:${bandC(i.market.band)}">${i.market.band.toUpperCase()}</b> <span class="hint">(they receive ${i.market.recv} vs send ${i.market.sent} in this league's valuations${(i.market.keepers_sent||[]).length?'; includes their likely keeper '+i.market.keepers_sent.map(esc).join(', '):''})</span></div>
+      <div class="tradeRow"><button type="button" class="dbtn" data-ti="${k}">Open in the analyzer</button></div></div>`).join('');
+  box.innerHTML=`<details class="sec" open><summary><span class="secT">Trade ideas</span><span class="secM">checked by the analyzer and likely or possible to be accepted · updated ${new Date(TI.generated).toLocaleDateString()}</span></summary><div class="secB">${cards||'<div class="hint" style="padding:.6rem">No trade that helps you also clears the acceptance check this week.</div>'}</div></details>`;
+  box.querySelectorAll('button[data-ti]').forEach(b=>b.addEventListener('click',()=>{
+    const i=TI.ideas[+b.dataset.ti]; const Tm=taTeams(); if(!Tm) return;
+    const P=Tm.others.find(t=>t.abbrev===i.partner); if(!P) return;
+    TA.partner=P.id; TA.res=null; TA.status='';
+    TA.give=new Set(Tm.me.roster.filter(p=>i.give.includes(p.name)).map(p=>p.id));
+    TA.get=new Set(P.roster.filter(p=>i.get.includes(p.name)).map(p=>p.id));
+    const tb=document.getElementById('taBox'); taRenderInputs(tb); tb.scrollIntoView({behavior:'smooth'});
+  }));
 }
 
 /* ===================== TRADE ANALYZER =====================
@@ -1919,14 +1904,15 @@ function taInstant(box){
   const el=box.querySelector("#taInstant"); if(!el) return;
   const T=taTeams(); const P=T&&T.others.find(t=>t.id===TA.partner);
   if(!P||(!TA.give.size&&!TA.get.size)){ el.innerHTML="<span class=hint>Pick a partner and the players on each side for an instant check.</span>"; return; }
-  const val=id=>{ if(typeof id==="string"){ const x=TA.ctx&&TA.ctx.picks&&TA.ctx.picks[id.slice(5)]; return x?x.mkt:0; } return (TA.mk[String(id)]||{}).v||0; };
-  const recv=[...TA.give].reduce((a,id)=>a+val(id),0), sent=[...TA.get].reduce((a,id)=>a+val(id),0);
-  const ratio=sent>0?recv/sent:null, band=ratio==null?"likely":(ratio>=1.10?"likely":(ratio>=0.92?"possible":"unlikely"));
+  const val=(id,endow)=>{ if(typeof id==="string"){ const x=TA.ctx&&TA.ctx.picks&&TA.ctx.picks[id.slice(5)]; return x?(x.pv!=null?x.pv:0):0; } const m=TA.mk[String(id)]||{}; return (m.pv||0)*(endow&&m.t5?1.25:1); };
+  const side=vs=>vs.sort((a,b)=>b-a).reduce((a,v,i)=>a+v*([1,0.5,0.3,0.2][Math.min(i,3)]),0);   // star premium: this league does not trade stars for quantity
+  const recv=side([...TA.give].map(id=>val(id,false))), sent=side([...TA.get].map(id=>val(id,true)));   // their likely keepers count 25% more when they give them up
+  const ratio=sent>0?recv/sent:null, band=ratio==null?"likely":(ratio>=1.15?"likely":(ratio>=0.95?"possible":"unlikely"));
   const cMe=band==="likely"?"var(--good)":(band==="possible"?"var(--accent,#5b7cfa)":"var(--warn)");
   const meIds=T.me.roster.map(p=>p.id), thIds=P.roster.map(p=>p.id);
   const m0=taTop5(meIds,new Set(),new Set()), m1=taTop5(meIds,TA.get,TA.give), t0=taTop5(thIds,new Set(),new Set()), t1=taTop5(thIds,TA.give,TA.get);
   el.innerHTML=`<b>Instant check</b> <span class=hint>(rough; the exact run below counts lineups, injuries and playoff odds)</span><br>
-    How ${esc(P.abbrev)} sees it: they receive <b>${Math.round(recv)}</b> market value and send <b>${Math.round(sent)}</b>${ratio!=null?` (ratio ${ratio.toFixed(2)})`:""}: acceptance <b style="color:${cMe}">${band.toUpperCase()}</b>.<br>
+    How ${esc(P.abbrev)} is likely to see it (this league's valuations): they receive <b>${recv.toFixed(0)}</b> and send <b>${sent.toFixed(0)}</b>${ratio!=null?` (ratio ${ratio.toFixed(2)})`:""}: acceptance <b style="color:${cMe}">${band.toUpperCase()}</b>.<br>
     Next-year keeper strength (top 5 future assets): you <b>${m0.toFixed(0)} to ${m1.toFixed(0)}</b> (${(m1-m0>=0?"+":"")+(m1-m0).toFixed(0)}), ${esc(P.abbrev)} <b>${t0.toFixed(0)} to ${t1.toFixed(0)}</b> (${(t1-t0>=0?"+":"")+(t1-t0).toFixed(0)}).`;
 }
 function taRenderInputs(box){
@@ -1947,7 +1933,7 @@ function taRenderInputs(box){
       <button type="button" id="taGo" ${tok&&(TA.give.size||TA.get.size)?"":"disabled"} style="padding:.45rem .9rem;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;${tok?"cursor:pointer":"cursor:not-allowed;color:var(--ink-faint)"}">Analyze exactly (about a minute)</button></div>
     <div id="taStatus" class="note" style="margin-top:.3rem">${TA.status||(tok?"":"<span class=hint>Add your GitHub token first: it is the same one the lineup button uses (This week, Set lineup in ESPN, one-time setup).</span>")}</div>
     <div id="taResult">${TA.res?taResultHtml(TA.res):""}</div>
-    <div class="legend" style="margin-top:.6rem"><b>How to read it.</b> Value is measured in <i>title probability points</i>: the change in the team's chance to win the league this season (from the playoff simulation, with the lineups rebuilt for every remaining week and the games cap) plus next year's keeper strength converted to the same units. A player who is hurt now costs the weeks he misses and pays in the playoff weeks. Free-agent adds and forced drops are included. "Acceptance" is how the other owner will see it in market value (they must come out about 10% ahead), not whether it is good for them. Posture changes the weights: rebuilding counts the future more, contending counts this season more.</div></div></details>`;
+    <div class="legend" style="margin-top:.6rem"><b>How to read it.</b> Value is measured in <i>title probability points</i>: the change in the team's chance to win the league this season (from the playoff simulation, with the lineups rebuilt for every remaining week and the games cap) plus next year's keeper strength converted to the same units. A player who is hurt now costs the weeks he misses and pays in the playoff weeks. Free-agent adds and forced drops are included. "Acceptance" is how the other owner is likely to see it, from how this league has valued players: production, what owners paid in the draft and keeper rounds, a youth premium, a star premium (stars are not traded for quantity) and extra weight on his likely keepers. Posture changes the weights: rebuilding counts the future more, contending counts this season more.</div></div></details>`;
   const on=(sel,ev,fn)=>box.querySelectorAll(sel).forEach(e=>e.addEventListener(ev,fn));
   on("#taPartner","change",e=>{ TA.partner=+e.target.value; TA.get=new Set(); TA.res=null; TA.status=""; taRenderInputs(box); taInstant(box); });
   on("#taPm","change",e=>{ TA.pm=e.target.value; });
@@ -1975,7 +1961,7 @@ function taResultHtml(r){
       <tr><td style="text-align:left">Forced drops</td>${cell(m.drops.length?m.drops.map(esc).join(", "):"none",t.drops.length?t.drops.map(esc).join(", "):"none")}</tr>
       <tr><td style="text-align:left">Free agent added</td>${cell(m.adds.length?m.adds.map(esc).join(", "):"none",t.adds.length?t.adds.map(esc).join(", "):"none")}</tr>
     </tbody></table></div>
-    <div class="tradeRow small" style="margin-top:.4rem">Market view for ${esc(t.abbrev)}: they receive <b>${r.market.recv}</b> and send <b>${r.market.sent}</b>${r.market.ratio!=null?` (ratio ${r.market.ratio})`:""}: acceptance <b>${r.market.band.toUpperCase()}</b></div>
+    <div class="tradeRow small" style="margin-top:.4rem">How ${esc(t.abbrev)} is likely to see it (this league's valuations): they receive <b>${r.market.recv}</b> and send <b>${r.market.sent}</b>${r.market.ratio!=null?` (ratio ${r.market.ratio})`:""}: acceptance <b>${r.market.band.toUpperCase()}</b></div>
     <div class="tradeRow" style="margin-top:.3rem;font-weight:600;color:${vcls}">Verdict: ${esc(r.verdict)}</div>
     <div class="tradeRow small hint">Assumptions: next-year keeper weight ${r.assumptions.future_lambda}, asset uncertainty ${r.assumptions.asset_noise}, chip value ${r.assumptions.chip_weight}, return ramp ${r.assumptions.ramp_mult}, ${r.assumptions.sims} simulated seasons, forecast basis ${esc(r.assumptions.proj_basis||"")}. Run ${new Date(r.generated).toLocaleString()}.</div></div>`;
 }

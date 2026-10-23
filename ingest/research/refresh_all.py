@@ -148,6 +148,9 @@ try:
     _tc = REPO / "dashboard" / "trade_context.json"
     if not _tc.exists() or (time.time() - _tc.stat().st_mtime) > 6 * 86400:
         run("trade_context", "build_trade_context.py")
+    _ti = REPO / "dashboard" / "trade_ideas_v2.json"
+    if not _ti.exists() or (time.time() - _ti.stat().st_mtime) > 6 * 86400:
+        run("trade_finder", "find_trades.py", "--per-team", "5", "--n", "3000")      # trade ideas checked by the full analyzer; weekly
     # 4c. a heartbeat the cloud alerts can see: the morning brief warns when this local refresh has stopped running
     (REPO / "dashboard" / "local_refresh_status.json").write_text(json.dumps({"finished": datetime.now(ET).isoformat(timespec="seconds"),
         "failed": [k for k, v in status["steps"].items() if not v.get("ok")]}), encoding="utf-8")
@@ -160,7 +163,7 @@ try:
             return subprocess.run(["git", *g], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
         git("add", "dashboard/redraft_data.json", "dashboard/season_calendar.json", "dashboard/player_news.json", "dashboard/form_split.json", "dashboard/team_matchup.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
             "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json",
-            "dashboard/local_refresh_status.json", "dashboard/trade_context.json", "dashboard/trade_market.json")
+            "dashboard/local_refresh_status.json", "dashboard/trade_context.json", "dashboard/trade_market.json", "dashboard/trade_ideas_v2.json")
         if git("diff", "--cached", "--quiet").returncode == 0:
             say("nothing changed: no commit")
         else:

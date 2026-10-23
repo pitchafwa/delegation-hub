@@ -388,6 +388,86 @@ def acceptance(give_vals, get_vals):
     return {"ratio": round(r, 2), "band": band, "recv": round(recv), "sent": round(sent)}
 
 
+# =============================================================== how THIS league's owners see a trade (acceptance)
+# Fitted 2026-10-23 (research/trade_acceptance_fit.py) on what the league actually did: only 9 trades were completed in 2023-26 (all league-wide evidence ESPN shows) plus Tommy's
+# declined offers. Perceived value of a player = half production as everyone sees it (ESPN's projection, blended with this season's average once he has 5 games) above
+# replacement, half what this league PAID for him in this season's draft or keeper rounds; 25% more for players 25 and under (the league's rookie and youth premium).
+# A side is valued with a STAR PREMIUM: best player at full value, then 0.5, 0.3, 0.2 for the rest (owners do not trade stars for quantity: Tommy's 5-for-1 offer for Doncic
+# looked like a 1.66x win for them on a plain sum and was declined; with the star premium it is about even). The owner's own likely keepers (his top 5 by this value) count
+# 25% more when he gives them up. Bands on value received / value given by the other owner: likely >= 1.15, possible >= 1.0 (he must come out ahead by his own valuation). Thin data: these are priors with a sanity check,
+# not a fitted probability.
+LEAGUE_PV = {"w_prod": 0.5, "repl": 25.0, "draft_scale": 35.0, "youth": 0.25, "youth_age": 25, "star_w": [1.0, 0.5, 0.3, 0.2], "keeper_endow": 0.25, "likely": 1.15, "possible": 1.0}
+
+
+class LeaguePerception:
+    def __init__(self, world):
+        rdp = HUB / "redraft_data.json"
+        self.rd = {str(x["id"]): x for x in (json.load(open(rdp, encoding="utf-8"))["players"] if rdp.exists() else [])}
+        ddp = HUB / "draft_data.json"
+        self.pick = {}
+        if ddp.exists():
+            for x in json.load(open(ddp, encoding="utf-8"))["draft"].get("picks", []):
+                if x.get("player"):
+                    self.pick[int(x["player"])] = 1 if x.get("keeper") else x["n"]      # a keeper is what his owner valued most: priced like a first-round pick (keeper rounds sit at the end of the board)
+        self.rows, self.team_ids = {}, {}
+        for t in world.wp["teams"]:
+            self.team_ids[t["id"]] = [p["id"] for p in t["roster"]]
+            for p in t["roster"]:
+                hp = world.hub_by_id.get(p.get("hub_id")) or {}
+                self.rows[p["id"]] = {"espn": p.get("espn_level") or p.get("level") or 0.0, "age": hp.get("age")}
+        self.cache = {}
+
+    def pv(self, pid):
+        pid = int(pid)
+        if pid in self.cache:
+            return self.cache[pid]
+        P = LEAGUE_PV
+        row = self.rows.get(pid, {})
+        r = self.rd.get(str(pid), {})
+        seen = row.get("espn") or r.get("espn_ppg") or r.get("ppg") or 0.0
+        if (r.get("n_season") or 0) >= 5 and r.get("s_avg") is not None and r.get("sa_season") == r.get("gs"):
+            seen = 0.5 * seen + 0.5 * r["s_avg"]
+        prod = max(0.0, seen - P["repl"])
+        n = self.pick.get(pid)
+        draft = max(0.0, 150.0 - n) / 150.0 * P["draft_scale"] if n else 0.0
+        v = P["w_prod"] * prod + (1 - P["w_prod"]) * draft
+        age = row.get("age") if row.get("age") is not None else r.get("age")
+        if age is not None and age <= P["youth_age"]:
+            v *= 1 + P["youth"]
+        self.cache[pid] = v
+        return v
+
+    def top5(self, team_id):
+        return set(sorted(self.team_ids.get(team_id, []), key=lambda i: -self.pv(i))[:5])
+
+    @staticmethod
+    def side(vals):
+        w = LEAGUE_PV["star_w"]
+        return sum(v * (w[i] if i < len(w) else w[-1]) for i, v in enumerate(sorted(vals, reverse=True)))
+
+    def accept(self, give_ids, get_ids, them_id, give_extra=(), get_extra=()):
+        """the OTHER owner's view: he receives give_ids (+ picks given) and sends get_ids (+ picks). His likely keepers count extra when he sends them."""
+        t5 = self.top5(them_id)
+        recv = self.side([self.pv(i) for i in give_ids] + list(give_extra))
+        sent = self.side([self.pv(i) * (1 + LEAGUE_PV["keeper_endow"] if int(i) in t5 else 1.0) for i in get_ids] + list(get_extra))
+        if sent <= 0:
+            return {"ratio": None, "band": "likely", "recv": round(recv, 1), "sent": round(sent, 1)}
+        r = recv / sent
+        band = "likely" if r >= LEAGUE_PV["likely"] else ("possible" if r >= LEAGUE_PV["possible"] else "unlikely")
+        return {"ratio": round(r, 2), "band": band, "recv": round(recv, 1), "sent": round(sent, 1), "keepers_sent": [int(i) for i in get_ids if int(i) in t5]}
+
+
+def pick_pv(slot_probs):
+    """a pick as this league sees it: what the slot costs in its draft plus the player it usually brings, with the youth premium"""
+    P = LEAGUE_PV
+    v = 0.0
+    for slot, pr in slot_probs.items():
+        draft = max(0.0, 150.0 - slot) / 150.0 * P["draft_scale"]
+        prod = max(0.0, PICK_K * (slot + PICK_C) ** (-PICK_P) - P["repl"])
+        v += pr * (1 + P["youth"]) * (P["w_prod"] * prod + (1 - P["w_prod"]) * draft)
+    return v
+
+
 # =============================================================== draft picks (next draft)
 # A pick is valued as the player it will turn into. Draft order = reverse of finish (regular-season rank for teams that miss the playoffs, playoff finish for the others), so the slot
 # comes from the simulation's draft-position distribution for the pick's ORIGINAL owner. Snake: even rounds run backwards. What a slot produces = this league's own draft history
@@ -541,10 +621,12 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
                     "value": {"now": round(v_now, 2), "future": round(v_fut, 2), "total": round(v_now + v_fut, 2), "w_now": w_now, "w_future": w_fut},
                     "drops": [p["name"] for p in drops], "adds": [p["name"] for p in adds],
                     "spots_after": spots_used(ra), "ir_used": sum(1 for p in ra if p["out"])}
-    mv = market_lookup(W)
-    gv = [mv(p) for p in give] + [pv[k][1] for k in give_picks]
-    tv = [mv(p) for p in get] + [pv[k][1] for k in get_picks]
-    acc = acceptance(gv, tv)
+    LP = LeaguePerception(W)
+    ppv = {k: pick_pv(pick_slot_probs(after["draft_pos"][ids.index(k[0])], k[1])) for k in set(give_picks) | set(get_picks)}
+    acc = LP.accept([p["id"] for p in give], [p["id"] for p in get], th_id, [ppv[k] for k in give_picks], [ppv[k] for k in get_picks])
+    gv = [LP.pv(p["id"]) for p in give] + [ppv[k] for k in give_picks]
+    tv = [LP.pv(p["id"]) for p in get] + [ppv[k] for k in get_picks]
+    acc["keepers_sent"] = [next(p["name"] for p in get if p["id"] == i) for i in acc.get("keepers_sent", [])]
     me_v, th_v = res["me"]["value"]["total"], res["them"]["value"]["total"]
     if me_v > 0.15 and acc["band"] != "unlikely":
         verdict = "good for you and the other owner is likely to see it as fair" if th_v > 0 else "good for you; they may accept on market value, but it is a worse deal for them than it looks"
@@ -556,7 +638,7 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
         verdict = "close to neutral for you"
     return {"generated": datetime.now(timezone.utc).isoformat(), "rid": rid, "give": [p["name"] for p in give] + [pick_label(W, k) for k in give_picks], "get": [p["name"] for p in get] + [pick_label(W, k) for k in get_picks],
             "picks": {pick_label(W, k): {"owner_finish_slot": round(sum(s * pr for s, pr in pick_slot_probs(after["draft_pos"][ids.index(k[0])], k[1]).items()), 1), "ppg_equiv": round(v[0], 1), "market": round(v[1])} for k, v in pv.items()}, "me": res["me"], "them": res["them"],
-            "market": {"you_send_value": [round(x) for x in gv], "you_get_value": [round(x) for x in tv], **acc}, "verdict": verdict,
+            "market": {"you_send_value": [round(x, 1) for x in gv], "you_get_value": [round(x, 1) for x in tv], "model": "league perception (production + this league's draft/keeper price, youth premium, star premium, keeper attachment)", **acc}, "verdict": verdict,
             "assumptions": {"future_lambda": FUTURE_LAMBDA, "asset_noise": ASSET_NOISE, "chip_weight": CHIP_WEIGHT, "ramp_mult": RAMP_MULT, "sims": n, "proj_basis": W.proj_basis}}
 
 
