@@ -30,8 +30,12 @@ Repo > Actions > "Phone alerts (ntfy)" > Run workflow > mode `test`. A notificat
 
 ## What you will get
 * **Late scratch (lineup job, every 5 min):** if a player in your lineup is ruled out (official NBA report Out/Doubtful, or ESPN OUT/IR/suspended) before his game tips, you get an alert naming the best swap (a bench player, or a slide-over chain through another starter, or a free-agent option if nobody on the bench can fill the slot), and a reminder 35 minutes before his tip if the lineup still has him in. It works per game, so it covers the 10pm games too. Test it any time with `python research/alerts.py lineup --dry-run --force --now 2026-10-21T17:30 --pretend-out "Player Name"`.
-* 8:30 ET daily: today's headline moves (IR fixes, adds with the player to drop, timing, today's lineup note).
-* 9:30 ET on the first day of each matchup: the whole week's plan, light weeks for your stars, streamers.
-* On changes: injury/status changes for your players, new dynasty free agents who would crack your top 5, and a lineup check in the 90 minutes before the first tip of the day (only when something is wrong).
+* **Plan move (today / tomorrow evening):** the plan wants an add; names the drop, the gain and a backup, and says when a waiver claim must be in. A reminder follows about 2 hours before his game if the add is still open.
+* **Lineup check:** in the 90 minutes before the first tip, only when an Out player is in your lineup or a planned starter is benched.
+* **Roster fix:** a free IR move the plan wants (move an injured player to IR, activate a healthy one), checked against ESPN so a done move is not repeated.
+* **Keeper-level free agent:** a newly available player who would be one of your top 5 keepers.
+* **PC refresh needs attention (8:30 ET slot):** only when the daily model refresh on the PC is stale (36h+) or had failed steps; at most once a day.
+* **Weekly brief (9:30 ET, first day of a matchup):** the week's plan, last week's review, light weeks ahead.
+* Silent (no message, 2026-10-23): roster moves, a planned target taken, and new free agents the plan has not seen each start a plan rebuild; a worthwhile result arrives as a plan-move alert. Injury status changes are logged only (late scratch covers tonight's starters). The daily brief is retired.
 * Nothing is sent before Oct 19 (`ACTIVE_FROM` in `ingest/research/alerts.py`) except the test message. No status or free-agent alerts from 11pm to 8am ET.
 * Alerts read the newest plan (refreshed overnight and about 3pm and 6pm ET), so a lineup alert can be a few hours behind the plan; status changes are read live from ESPN and the official injury report.

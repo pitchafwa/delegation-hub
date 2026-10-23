@@ -234,18 +234,43 @@ def digest(kind):
     dy = [x for x in (T.get("dynasty_adds") or []) if x.get("new") and x["would_rank"] <= 5][:1]
     if dy:
         lines.append(f"Dynasty stash: {dy[0]['name']} ({dy[0]['age']:.0f}yo) would be your #{dy[0]['would_rank']} keeper asset.")
-    hb = load("local_refresh_status.json")                  # the daily model refresh runs on Tommy's PC: say so when it has stopped (it failed silently for 12 days in October 2026)
+    lines.append(f"(plan built {gen.strftime('%a %I:%M%p').lstrip('0')} ET)")
+    title = ("Week ahead: " if kind == "weekly" else "Today: ") + ("moves to make" if mv else "no moves needed")
+    return title, "\n".join(lines)
+
+
+def heartbeat_problem():
+    """the daily model refresh runs on Tommy's PC (it failed silently for 12 days in October 2026): a one-line problem, or None when it is fine"""
+    hb = load("local_refresh_status.json")
     try:
         hb_t = datetime.fromisoformat(hb["finished"]) if hb else None
     except Exception:
         hb_t = None
-    if hb_t is None or (NOW - hb_t).total_seconds() > 36 * 3600:
-        lines.append("Note: the model refresh on your PC has not run since " + (hb_t.strftime("%a %b %d") if hb_t else "an unknown date") + " (redraft list, player news, season model are stale). Check the PC or the FantasyHubDailyRefresh task.")
-    elif hb.get("failed"):
-        lines.append("Note: the PC model refresh had failed steps: " + ", ".join(hb["failed"][:4]) + ".")
-    lines.append(f"(plan built {gen.strftime('%a %I:%M%p').lstrip('0')} ET)")
-    title = ("Week ahead: " if kind == "weekly" else "Today: ") + ("moves to make" if mv else "no moves needed")
-    return title, "\n".join(lines)
+    if hb_t is None:
+        rd = load("redraft_data.json") or {}
+        try:
+            hb_t = datetime.fromisoformat(rd["generated"]).astimezone(ET)    # before the first heartbeat file: the redraft build is part of the same refresh
+        except Exception:
+            return None
+    if (NOW - hb_t).total_seconds() > 36 * 3600:
+        return ("The daily model refresh on your PC has not finished since " + hb_t.strftime("%a %b %d") +
+                ", so the redraft list, player news and season model are going stale. Check that the PC is on and the FantasyHubDailyRefresh task is running.")
+    if hb and hb.get("failed"):
+        return "This morning's model refresh on your PC had failed steps: " + ", ".join(hb["failed"][:4]) + ". The rest of the site still updates."
+    return None
+
+
+def run_heartbeat():
+    """runs in the daily-brief slot (8:30am ET): an alert only when the PC refresh is stale or failed, at most once a day"""
+    s = state()
+    if not (active() or FORCE):
+        return
+    if not FORCE and s.get("sent", {}).get("heartbeat") == TODAY.isoformat():
+        return
+    msg = heartbeat_problem()
+    if msg and push("PC refresh needs attention", msg, priority=3, tags=["warning"]) and not DRY:
+        s.setdefault("sent", {})["heartbeat"] = TODAY.isoformat()
+        save_state(s)
 
 
 def run_digest(kind):
@@ -408,15 +433,17 @@ def run_check():
         except Exception as ex:
             print("plan rebuild check failed:", repr(ex)[:120])
     # ---- status alerts
-    if msgs and can_send and not first_run and (FORCE or not in_quiet()):
-        msgs.sort(reverse=True)
-        worst = msgs[0][0]
-        push("Injury update: " + msgs[0][1].split(":")[0], "\n".join(m for _, m in msgs) + "\nOpen the Today tab for replacements.", priority=4 if worst >= 20 else 3, tags=["warning"])
+    if msgs:
+        print("status changes (no alert; late-scratch and the plan handle them):", "; ".join(m for _, m in msgs)[:300])
     # ---- pickup alert: a player who should almost certainly be picked up just became available (free agent now, or dropped onto waivers)
     try:
         pickup_alert(lg, W, T, s, mine, can_send)
     except Exception as ex:
         print("pickup check failed:", ex)
+    try:
+        roster_fix_alert(T, s, mine, can_send)
+    except Exception as ex:
+        print("roster fix check skipped:", repr(ex)[:90])
     try:
         plan_move_alert(lg, T, s, mine, can_send)
         plan_target_watch(lg, T, s, mine, can_send)
@@ -491,6 +518,36 @@ def _mark_announced(T, pid, s):
             ann.setdefault(base, TODAY.isoformat())
 
 
+def roster_fix_alert(T, s, mine, can_send):
+    """free IR moves the plan wants (move an injured player into an open IR slot, activate a healthy one): checked against ESPN right now so a move you already made is not repeated"""
+    if not can_send or (in_quiet() and not FORCE):
+        return
+    sent = s.setdefault("rosterfix_sent", {})
+    for k in [k for k, d in sent.items() if (TODAY - date.fromisoformat(d)).days > 3]:
+        sent.pop(k)
+    slot = {int(p.playerId): p.lineupSlot for p in mine.roster}
+    for m in (T.get("ir_moves") or []):
+        pid = int(m["id"]) if m.get("id") is not None else None
+        if pid is None or pid not in slot:
+            continue
+        in_ir = slot[pid] == "IR"
+        if (m["action"] == "to_ir" and in_ir) or (m["action"] != "to_ir" and not in_ir):
+            continue                                             # already done in ESPN
+        key = f"{pid}:{m['action']}"
+        if key in sent:
+            continue
+        if m["action"] == "to_ir":
+            title, body = f"Roster fix: move {m['name']} to IR", f"{m['name']} ({m.get('status', 'out')}) can go into an open IR slot. It is free and opens a roster spot for the plan's adds."
+        elif m["action"] == "activate_swap":
+            title, body = f"Roster fix: activate {m['name']}", f"{m['name']} is healthy but stuck in an IR slot, so he cannot play. Activate him and drop {(m.get('drop') or {}).get('name', 'your cheapest player')}."
+        else:
+            title, body = f"Roster fix: activate {m['name']}", f"{m['name']} is healthy but stuck in an IR slot, so he cannot play. Move him to your bench or lineup."
+        if m.get("unlocks") and m["unlocks"] > 0.5:
+            body += f" Worth about +{m['unlocks']:.0f} points this week."
+        if push(title, body, priority=4, tags=["hospital"]):
+            sent[key] = TODAY.isoformat()
+
+
 def plan_move_alert(lg, T, s, mine, can_send):
     """Tells you when the weekly plan wants a pickup, so you never have to open the page to find out:
       * TODAY'S move, the first time the plan has it (one message per player, day and drop; if the plan changes the drop you get the new version);
@@ -562,13 +619,10 @@ def plan_target_watch(lg, T, s, mine, can_send):
         if not (0 <= (on - TODAY).days <= 2) or pid in pool or pid in mine_ids:
             continue
         key = f"{pid}:{m['on']}"
-        if key in seen or (in_quiet() and not FORCE) or not any(k.startswith(f"{pid}:{m['on']}:") for k in s.get("plan_announced", {})):
-            continue                                              # only report a target as taken if he was announced to you first
-        bk = m.get("backups") or []
-        body = (f"{m['add']['name']} was in the plan for {on.strftime('%a')} (drop {(m.get('drop') or {}).get('name') or 'an open spot'}) but is no longer available: another team took him."
-                + (f" Next best for that slot: {_backup_text(bk, 3)}." if bk else "") + " The plan updates at its next refresh.")
-        if push(f"Plan target taken: {m['add']['name']}", body, priority=3, tags=["warning"]):
-            seen[key] = TODAY.isoformat()
+        if key in seen:
+            continue
+        request_rebuild(s, f"plan target taken: {m['add']['name']}")     # no message: the rebuilt plan's next move comes as a plan-move alert
+        seen[key] = TODAY.isoformat()
 
 
 def pickup_alert(lg, W, T, s, mine, can_send):
@@ -617,11 +671,17 @@ def pickup_alert(lg, W, T, s, mine, can_send):
     can = can_send and (FORCE or not in_quiet())
     events = []
     my_drops = s.get("my_drops") or {}
+    unseen = [v["name"] for pid, v in cur.items() if prev.get(pid) is None and pid not in my_drops and str(pid) not in (T.get("pickup_checks") or {})
+              and str(pid) not in {str(m["add"]["id"]) for m in (T.get("sequence") or [])}]
+    if unseen and can_send:
+        request_rebuild(s, "new free agent(s) to evaluate: " + ", ".join(unseen[:4]))       # the plan decides; a worthwhile one comes back as a plan-move alert
     in_plan = {str(m["add"]["id"]) for m in (T.get("sequence") or [])}
     for pid, v in cur.items():
         was = prev.get(pid)
         if pid in my_drops and pid not in in_plan:
             continue                                             # the player you just dropped: the plan decides if and when he comes back (plan move alert)
+        if not v["dyn"]:
+            continue                                             # only keeper-level players (would be one of your top 5 keepers) get their own message
         if was is None:
             events.append((pid, v, "new"))
         elif was == "WAIVERS" and v["status"] == "FREEAGENT" and f"{pid}:WAIVERS" in sent:
@@ -668,17 +728,13 @@ def pickup_alert(lg, W, T, s, mine, can_send):
                 pg = "The plan has not seen him yet and is re-checking now: if the new plan wants him you get a Plan move alert (on the day of the move, or the evening before); otherwise skip him."
             lines.append((ptag, v["name"], f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. A claim is processed at {when}.{prio} {pg}"))
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
-    if recheck:
+    if recheck and not (s.get("plan_rebuild") or {}).get("why", "").startswith("new free agent"):
         request_rebuild(s, "new free agent(s) to evaluate: " + ", ".join(recheck))
     act = [x for x in lines if x[0] and x[0] not in ("plan: not needed", "plan: fallback only")]
     lines.sort(key=lambda x: (0 if x in act else (1 if not x[0] else 2)))
-    if act:
-        title, prio_n = f"Pickup: {act[0][1]} ({act[0][0].replace('plan: ', '')})", 4
-    elif recheck:
-        title, prio_n = "New free agents: plan is re-checking " + ", ".join(recheck[:2]), 3
-    else:
-        title, prio_n = "New free agents: nothing to do (plan unchanged)", 2
-    push(title, "\n".join(x[2] for x in lines) + "\nThe Today tab has the full plan; this alert follows it.", priority=prio_n, tags=["star"] if act else ["information_source"])
+    first = lines[0]
+    title = f"Keeper-level free agent: {first[1]}" + (f" ({first[0].replace('plan: ', '')})" if first[0] else "")
+    push(title, "\n".join(x[2] for x in lines) + "\nHe would be one of your top 5 keepers. This-season value is in the Today tab; the keeper call is yours.", priority=4, tags=["star"])
     _ledger("pickup", names=[e[1]["name"] for e in events[:3]], kinds=[e[2] for e in events[:3]])
 
 
@@ -886,7 +942,9 @@ if __name__ == "__main__":
         push("Fantasy Hub test", "If you can read this on your phone, alerts are working.", priority=3, tags=["white_check_mark"])
     elif mode == "lineup":
         run_lineup()
-    elif mode in ("daily", "weekly"):
+    elif mode == "daily":
+        run_heartbeat()                                     # the daily brief is retired (only actionable alerts); this slot keeps the PC-refresh check
+    elif mode == "weekly":
         run_digest(mode)
     else:
         run_check()
