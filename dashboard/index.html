@@ -1064,7 +1064,7 @@ function renderTeams(){
       <td style="text-align:left">${esc(x.r.slot||'')}</td><td style="text-align:left">${p?esc(p.pos||'—'):'—'}</td><td class="num">${p&&p.age!=null?p.age.toFixed(1):'—'}</td>
       <td style="text-align:left">${p?esc(p.team||'—'):'—'}</td>
       <td class="num">${p&&p.asset_k?`<b>${p.asset_k[K].toFixed(1)}</b> <span class="hint">#${ranks.get(p.id)}</span>`:'<span class="hint">none</span>'}</td>
-      <td class="num">${v.ppg!=null?`<b>${v.ppg.toFixed(1)}</b>`:'—'}${v.played||!inSeason?'':'<span class="hint"> proj</span>'}</td>
+      <td class="num">${v.ppg!=null?`<b>${v.ppg.toFixed(1)}</b>`:'—'}${v.played?`<span class="hint"> ${x.rd.n_season}g</span>`:(inSeason?'<span class="hint"> proj</span>':'')}</td>
       <td class="num">${v.l10!=null?v.l10.toFixed(1):'—'}</td><td class="num">${v.ros!=null?v.ros.toFixed(1):'—'}</td>
       <td class="num">${p?fmt1(p.peak_ppg):'—'}</td><td class="num">${v.vor!=null?v.vor.toFixed(1):'—'}</td>
       <td class="num">${v.g4!=null?v.g4:'—'}</td><td class="num">${p&&p.market_rank!=null?'#'+p.market_rank:'—'}</td>
