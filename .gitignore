@@ -46,3 +46,4 @@ dashboard/live_matchup.json
 ingest/research/data/form/
 ingest/research/data/market/
 ingest/research/data/gamelevel/
+ingest/rebuild_request.txt

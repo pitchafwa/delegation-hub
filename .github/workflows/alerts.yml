@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  actions: write      # to start a plan rebuild after a roster move or a skipped scheduled build
 
 concurrency:
   group: alerts
@@ -53,6 +54,17 @@ jobs:
             python research/alerts.py weekly || true
           else
             python research/alerts.py "${{ inputs.mode }}"
+          fi
+
+      # alerts.py check writes rebuild_request.txt when Tommy's ESPN roster no longer matches the plan (he made a move) or a scheduled plan build was skipped
+      - name: Rebuild the plan if needed
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f ingest/rebuild_request.txt ]; then
+            echo "Rebuilding the plan: $(cat ingest/rebuild_request.txt)"
+            gh workflow run refresh-gameday.yml --ref main || echo "dispatch failed"
           fi
 
       # Live matchup tracker: score, expected rest of the week, win probability. Published to a throwaway branch (one commit, force-pushed) so the site is not rebuilt.

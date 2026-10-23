@@ -304,6 +304,50 @@ def first_tip(W, T):
     return min(tips) if tips else None
 
 
+PLAN_RUNS_UTC = [(1, 7), (9, 37), (19, 7), (22, 7)]   # scheduled plan builds: refresh-gameday x3 and the morning refresh-league
+
+
+def plan_rebuild_check(W, T, mine, s):
+    """Ask for a fresh plan (the workflow step after this script dispatches refresh-gameday when rebuild_request.txt exists) when
+    (a) Tommy's ESPN roster no longer matches the roster the plan was built from (he made a move), or (b) a scheduled plan build was skipped.
+    At most one request every 10 minutes; a skipped run is retried once."""
+    now = datetime.now(ZoneInfo("UTC")) if "--now" not in sys.argv else NOW.astimezone(ZoneInfo("UTC"))
+    last = s.get("plan_rebuild") or {}
+    last_at = datetime.fromisoformat(last["at"]) if last.get("at") else None
+    if last_at and (now - last_at) < timedelta(minutes=10):
+        return
+    gen = datetime.fromisoformat(W["generated"]).astimezone(ZoneInfo("UTC"))
+    plan_ids = sorted(int(p["id"]) for p in T["roster"])
+    espn_ids = sorted(int(p.playerId) for p in mine.roster)
+    why = None
+    if plan_ids != espn_ids:
+        added = [p.name for p in mine.roster if int(p.playerId) not in set(plan_ids)]
+        gone = [p["name"] for p in T["roster"] if int(p["id"]) not in set(espn_ids)]
+        sig = ",".join(map(str, espn_ids))
+        if last.get("sig") == sig and last_at and gen > last_at:
+            return                                             # already rebuilt for this roster (e.g. ESPN's roster read lags); do not loop
+        why = "roster changed: " + ", ".join([f"+{n}" for n in added] + [f"-{n}" for n in gone])
+    else:
+        sig = last.get("sig")
+        # most recent scheduled build that should have finished by now (30 min grace for GitHub's delays)
+        cands = []
+        for d in (0, 1):
+            day = (now - timedelta(days=d)).date()
+            for hh, mm in PLAN_RUNS_UTC:
+                t = datetime(day.year, day.month, day.day, hh, mm, tzinfo=ZoneInfo("UTC"))
+                if t <= now - timedelta(minutes=30):
+                    cands.append(t)
+        exp = max(cands) if cands else None
+        if exp and gen < exp - timedelta(minutes=10) and not (last_at and last_at >= exp):
+            why = f"scheduled build at {exp.strftime('%H:%MZ')} did not run (plan from {gen.strftime('%H:%MZ')})"
+    if not why:
+        return
+    print("plan rebuild requested:", why)
+    s["plan_rebuild"] = {"at": now.isoformat(timespec="seconds"), "sig": sig, "why": why}
+    if not DRY:
+        (Path(__file__).resolve().parent.parent / "rebuild_request.txt").write_text(why, encoding="utf-8")
+
+
 def run_check():
     from espn_api.basketball import League
     import config
@@ -347,6 +391,11 @@ def run_check():
         msgs.append((abs(impact), f"{p.name}: {what}" + (f" (official: {o})" if o and changed_e else "") + (f". About {impact:+.0f} pts over {left} game(s) left this week." if left and abs(impact) >= 5 else ".")
                      + (" He is in your lineup." if p.lineupSlot not in ("BE", "IR") else "")))
     s["last_status"] = cur
+    if active() or FORCE:
+        try:
+            plan_rebuild_check(W, T, mine, s)
+        except Exception as ex:
+            print("plan rebuild check failed:", repr(ex)[:120])
     # ---- status alerts
     if msgs and can_send and not first_run and (FORCE or not in_quiet()):
         msgs.sort(reverse=True)
