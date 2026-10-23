@@ -322,6 +322,35 @@ def run_check():
     save_state(s)
 
 
+P_TAKEN_48H = 0.16      # measured 2024-26: a dropped player at 27-34 points per game was picked up by another team within 48 hours about 16% of the time
+
+
+def plan_guidance(T, pid):
+    """what the weekly plan says about this player, so the alert and the plan agree. Returns (text, short tag) or ('', '').
+    The plan values a free agent day by day against the lineup you will actually have, so a great player can still be worth NOTHING today (every slot is full, or the player you would drop still has games)."""
+    sq = next((m for m in (T.get("sequence") or []) if str(m["add"]["id"]) == str(pid)), None)
+    pc = (T.get("pickup_checks") or {}).get(str(pid))
+    now = (pc or {}).get("now")
+    if sq:
+        day = datetime.fromisoformat(sq["on"]).strftime("%a")
+        drop = (sq.get("drop") or {}).get("name") or "an open spot"
+        if sq.get("keep"):
+            t = f"PLAN: add him {day} and drop {drop}; keep him (about +{sq['gain']:.0f} net)."
+            return t, f"plan: add {day}"
+        t = f"PLAN: he is a one-day rental on {day}: add him that morning and drop {drop} then (about +{sq['gain']:.0f} net). Adding him earlier gains nothing this week and costs {drop}'s games in between."
+        if now:
+            ev_wait = (1 - P_TAKEN_48H) * sq["gain"]
+            if now["net"] > ev_wait:
+                return t + f" Locking him in now (drop {now['drop']}) is worth more on average ({now['net']:+.0f} vs {ev_wait:+.0f} for waiting, after a {P_TAKEN_48H:.0%} chance he is taken first): do that instead.", "plan: add now"
+            return t + f" If you add him now instead (drop {now['drop']}) this week changes by {now['wk']:+.0f}. The cost of waiting is the {P_TAKEN_48H:.0%} chance someone else takes him first.", f"plan: wait for {day}"
+        return t, f"plan: wait for {day}"
+    if pc:
+        if pc["net"] >= 6:
+            return f"PLAN CHECK: worth adding as a keeper: add {datetime.fromisoformat(pc['on']).strftime('%a')}, drop {pc['drop']} (about {pc['net']:+.0f} net).", "plan: worth adding"
+        return f"PLAN CHECK: no help this week. Adding him and dropping {pc['drop']} changes this week by {pc['wk']:+.0f} and the rest of the season by {-pc['fut']:+.0f}. Skip unless you want him as a stash.", "plan: not needed"
+    return "", ""
+
+
 def pickup_alert(lg, W, T, s, mine, can_send):
     """Phone alert when a player you should almost certainly pick up becomes available, and whether that means ADD NOW (free agent) or CLAIM BEFORE ~3AM ET (just dropped onto
     waivers, 24h+). "Almost certainly" = either a keeper asset that would crack your top 5 (the old dynasty alert), or a player ranked in the top 150 for the rest of this season
@@ -387,8 +416,9 @@ def pickup_alert(lg, W, T, s, mine, can_send):
         drop = f" Your cheapest drop is {worst[1]} ({worst[0]:.0f} pts/g)." if worst else ""
         if v["status"] == "FREEAGENT":
             head = f"{v['name']} ({v['team']}) cleared waivers and nobody claimed him." if kind == "cleared" else f"{v['name']} ({v['team']}) just became a FREE AGENT."
-            lines.append(f"{head} {val}{extra}. ADD HIM NOW: free agents are added instantly, any hour.{drop}")
-            tag = "FREE AGENT, add now"
+            pg, ptag = plan_guidance(T, pid)
+            lines.append(f"{head} {val}{extra}. " + (pg if pg else "ADD HIM NOW: free agents are added instantly, any hour.") + ("" if pg else drop))
+            tag = ("FREE AGENT, " + ptag) if ptag else "FREE AGENT, add now"
         else:
             w = wm.get(int(pid))
             when = WV.when(w) if w else "the next 3am ET run"
@@ -403,11 +433,12 @@ def pickup_alert(lg, W, T, s, mine, can_send):
                     prio = f" Odds you win the claim: about {pw:.0%} (priority {pri} of {n}" + (f"; likeliest rivals ahead of you: {top}" if top else "; no team ahead of you has claimed players like him often") + ")."
             except Exception as ex:
                 print("claim-odds estimate failed:", repr(ex)[:80])
-            lines.append(f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. CLAIM HIM BEFORE the run at {when} (he cannot be added directly).{prio} If nobody claims him he becomes a free agent after that run.{drop}")
-            tag = f"ON WAIVERS, claim before {when}"
+            pg, ptag = plan_guidance(T, pid)
+            lines.append(f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. He cannot be added directly: a claim is processed at {when}.{prio} If nobody claims him he becomes a free agent after that run. " + (pg if pg else f"CLAIM HIM BEFORE the run if you want him.{drop}"))
+            tag = f"ON WAIVERS ({when})" + (f", {ptag}" if ptag else "")
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
         title = title or f"Pickup alert: {v['name']} ({tag})"
-    push(title, "\n".join(lines) + "\nSee Suggested moves on This week for who to drop.", priority=4, tags=["star"])
+    push(title, "\n".join(lines) + "\nThe This week tab has the full plan; this alert follows it.", priority=4, tags=["star"])
     _ledger("pickup", names=[e[1]["name"] for e in events[:3]], kinds=[e[2] for e in events[:3]])
 
 
