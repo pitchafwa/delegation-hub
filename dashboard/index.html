@@ -111,6 +111,15 @@
   .pcSub{display:flex;align-items:center;gap:.3rem;font-size:.84rem;color:var(--ink-soft);margin-top:.15rem;flex-wrap:wrap}
   .pcTeamLogo{width:16px;height:16px;object-fit:contain;vertical-align:-3px}
   .pcTags{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.25rem}
+.todayH{font-family:'Zilla Slab',Georgia,serif;font-weight:700;font-size:1.25rem;margin:1.3rem 0 .55rem;display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap}.todayH .hint{font-family:inherit}
+  .scoreCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem;margin:.4rem 0 .2rem}.scoreLive{font-size:.82rem;font-weight:600;margin-bottom:.4rem;display:flex;align-items:center;gap:.35rem}
+  .scoreTop{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.6rem}.scoreBig{font-family:'IBM Plex Mono',monospace;font-size:2.4rem;font-weight:600;line-height:1.05}.scoreLbl{font-size:.8rem;color:var(--ink-soft)}.scoreMid{text-align:center}.scoreWp{font-family:'Zilla Slab',Georgia,serif;font-size:2rem;font-weight:700;line-height:1.1}
+  .scoreStrip{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;padding-top:.75rem;border-top:1px solid var(--line);font-size:.9rem;color:var(--ink-soft)}.scoreStrip b{font-family:'IBM Plex Mono',monospace;color:var(--ink)}
+  .scoreCard .liveAdv{margin-top:.5rem}
+  .doList{display:flex;flex-direction:column;gap:.5rem}.doItem{display:flex;gap:.8rem;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem}.doWhen{min-width:3.2rem;font-family:'IBM Plex Mono',monospace;font-size:.8rem;font-weight:600;color:var(--accent);padding-top:.15rem}.doBody{flex:1;display:flex;flex-direction:column;gap:.2rem;font-size:.97rem}.doBody span{font-size:.86rem;color:var(--ink-soft)}.doGain{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--good)}
+  .lineupBox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.15rem .9rem}.luRow{display:flex;gap:.7rem;align-items:center;min-height:2.6rem;border-bottom:1px solid var(--line)}.luRow:last-child{border-bottom:0}.luSlot{width:2rem;font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--ink-soft)}.luName{flex:1;font-size:.97rem}.luPts{font-family:'IBM Plex Mono',monospace;font-weight:600}
+  .faTabs{display:flex;gap:.4rem;margin:0 0 .6rem}.faTabs button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--line-strong);background:transparent;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}.faTabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  .faRow{display:flex;gap:.7rem;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .9rem;margin-bottom:.4rem}.faName{flex:1;font-size:.97rem;display:flex;flex-direction:column;gap:.15rem}.faSub{font-size:.84rem;color:var(--ink-soft)}.faGain{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--good);min-width:2.6rem;text-align:right}
   .taCols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.5rem 0}.taList{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:.3rem}@media(max-width:640px){.taCols{grid-template-columns:1fr}}
   .pcNews{list-style:none;margin:0;padding:0}
   .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
@@ -520,7 +529,7 @@
   <div class="controls" id="navSubWrap" style="margin-bottom:1rem"><div class="seg" id="navSub"></div></div>
   <div class="controls" style="display:none">
     <div class="seg" id="segView" style="display:none !important">
-      <button data-v="week" id="weekBtn" aria-pressed="true">This week</button>
+      <button data-v="week" id="weekBtn" aria-pressed="true">Today</button>
       <button data-v="sched" id="schedBtn">Schedule</button>
       <button data-v="board">Board</button>
       <button data-v="redraft" id="redraftBtn">Redraft</button>
@@ -1272,7 +1281,7 @@ function renderWeek(){
   const meT=W.teams.find(t=>t.abbrev===W.my_abbrev);
   const liveOk=LIVE&&meT&&T.id===meT.id&&LIVE.season===W.season&&LIVE.matchup===M.id&&LIVE.me&&LIVE.me.abbrev===W.my_abbrev;
   let liveHtml='';
-  if(liveOk){
+  if(false){
     const L2=LIVE, ago=Math.max(0,Math.round((Date.now()-new Date(L2.generated).getTime())/60000));
     const wpPct=Math.round(L2.win_prob*100), col=wpPct>=60?'var(--good)':(wpPct<=40?'var(--warn)':'var(--ink)');   // not named pc: that shadowed the player-name link helper pc() and froze this page whenever live data was present
     const h=(L2.history||[]).map(x=>x.wp), W2=150, H2=34;
@@ -1287,53 +1296,104 @@ function renderWeek(){
       <details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${list(L2.me.left_today||[])}</div><div class="liveRow"><b>${esc(L2.opp.abbrev)}:</b> ${list(L2.opp.left_today||[])}</div></details>
 </div>`;
   }
+  // ===== TODAY: scoreboard, Do now, tonight's lineup, one free-agent list; everything else sits collapsed below
+  const isMe=T.abbrev===W.my_abbrev;
+  const todayIso=M.planned_days[0];
+  const dShort=iso=>iso===todayIso?'Today':fmtDow(iso);
+  const sgn0=v=>(v>=0?'+':'')+v.toFixed(0);
+  const dayRow=(T.days||[]).find(d=>d.date===todayIso);
+  // scoreboard: live numbers when the alerts job has them, the plan's otherwise
+  const sb=liveOk?{me:LIVE.me.pts,meP:LIVE.me.exp_final,op:LIVE.opp.pts,opP:LIVE.opp.exp_final,oa:LIVE.opp.abbrev,wp:LIVE.win_prob,st:LIVE.me.starts,cap:LIVE.cap,au:LIVE.me.adds_used!=null?LIVE.me.adds_used:T.adds_used,dl:LIVE.days_left}
+    :{me:T.pts_so_far||0,meP:T.expected_total,op:O?(O.pts_so_far||0):null,opP:O?O.expected_total:null,oa:O?O.abbrev:'',wp:T.win_prob,st:T.starts_so_far,cap:M.cap,au:T.adds_used,dl:M.planned_days.length};
+  const wpN=sb.wp!=null?Math.round(sb.wp*100):null, wpCol=wpN==null?'var(--ink)':(wpN>=60?'var(--good)':(wpN<=40?'var(--warn)':'var(--ink)'));
+  const dlTxt=sb.dl<0.05?'final':(liveOk?sb.dl.toFixed(1):String(sb.dl));
+  let spark='';
+  if(liveOk){ const h=(LIVE.history||[]).map(x=>x.wp), W2=120, H2=26;
+    if(h.length>1) spark=`<svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}" aria-hidden="true"><line x1="0" x2="${W2}" y1="${H2/2}" y2="${H2/2}" stroke="var(--line-strong)" stroke-dasharray="2 3"/><polyline fill="none" stroke="${wpCol}" stroke-width="2" points="${h.map((v,i)=>`${(i/(h.length-1)*(W2-4)+2).toFixed(1)},${(H2-2-v*(H2-4)).toFixed(1)}`).join(' ')}"/></svg>`; }
+  const liveAgo=liveOk?Math.max(0,Math.round((Date.now()-new Date(LIVE.generated).getTime())/60000)):0;
+  const leftList=a=>a.length?a.map(x=>`${pc(x.name)} <span class="hint">${x.ef}</span>`).join(', '):'<span class="hint">no one left</span>';
+  const scoreHtml=`<div class="scoreCard">
+    ${liveOk?`<div class="scoreLive"><span class="liveDot"></span> Live <span class="hint">· updated ${liveAgo<1?'just now':liveAgo+' min ago'}</span></div>`:''}
+    <div class="scoreTop"><div><div class="scoreLbl">${isMe?'You · ':''}${esc(T.abbrev)}</div><div class="scoreBig">${sb.me.toFixed(0)}</div><div class="scoreLbl">projected ${sb.meP.toFixed(0)}</div></div>
+      <div class="scoreMid"><div class="scoreWp" style="color:${wpCol}">${wpN!=null?wpN+'%':'—'}</div><div class="scoreLbl">win chance</div>${spark}</div>
+      <div style="text-align:right"><div class="scoreLbl">${esc(sb.oa||'opponent')}</div><div class="scoreBig" style="color:var(--ink-soft)">${sb.op!=null?sb.op.toFixed(0):'—'}</div><div class="scoreLbl">${sb.opP!=null?'projected '+sb.opP.toFixed(0):''}</div></div></div>
+    <div class="scoreStrip"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b> starts</span><span><b>${Math.max(0,M.adds_limit-sb.au)}</b> adds left</span><span><b>${dlTxt}</b> ${sb.dl===1?'day':'days'} left</span></div>
+    ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')+`<details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${leftList(LIVE.me.left_today||[])}</div><div class="liveRow"><b>${esc(LIVE.opp.abbrev)}:</b> ${leftList(LIVE.opp.left_today||[])}</div></details>`:''}
+  </div>`;
+  // Do now: the same dated steps the phone alerts use
+  const doItems=[];
+  if(isMe){
+    (T.ir_moves||[]).forEach(m=>doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`,activate_swap:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}));
+    if(dayRow&&dayRow.locked) doItems.push({when:'Today',what:'Cap reached: nothing counts today',sub:'',gain:''});
+    else if(dayRow&&dayRow.start.length){
+      const doubt=dayRow.start.filter(x=>x.p<0.8).map(x=>x.name);
+      doItems.push({when:'Today',what:`Start ${dayRow.start.length} tonight`,sub:(dayRow.sat>0?`Bench ${dayRow.sat} who play, to save starts for later. `:'')+(doubt.length?`At risk: ${doubt.join(', ')}. `:'')+'Lineup below; set it in one click under Set lineup in ESPN.',gain:''});
+    }
+    const seq=(T.sequence||[]).map(a=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); return {a,d:a.on||(g.length?a.by_day[bi].date:todayIso)}; }).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
+    seq.forEach(({a,d})=>{
+      const kind=a.keep?'Keep him':(a.release?`Keep him until ${fmtDow(a.release)}`:(a.hold_through&&a.hold_through>(a.on||d)?`Rental through ${fmtDow(a.hold_through)}`:'One-day rental'));
+      const risk=(a.p_taken||0)>0.01?` · ${sgn0(a.gain_adj)} after a ${Math.round(a.p_taken*100)}% chance he is taken`:'';
+      const bk=(a.backups||[]).length?` · backup ${a.backups[0].name}`:'';
+      const wv=a.add.waiver?' · on waivers':'';
+      doItems.push({when:dShort(d),what:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`,sub:kind+wv+risk+bk,gain:sgn0(a.gain)}); });
+    if(!seq.length) doItems.push({when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
+  }
+  const doNowHtml=isMe?`<h2 class="todayH">Do now</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
+  // tonight's lineup in ESPN slot order, points if he plays
+  const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
+  const luNow=dayRow&&!dayRow.locked?dayRow.start.slice().sort((a,b)=>(SLOT_O[a.slot]??9)-(SLOT_O[b.slot]??9)||b.ef-a.ef):[];
+  const ifPlays=x=>x.p>0?x.ef/x.p:x.ef;
+  const tonightLineupHtml=luNow.length?`<h2 class="todayH">Tonight's lineup <span class="hint">${luNow.length} of 10 · ${luNow.reduce((a,x)=>a+ifPlays(x),0).toFixed(0)} projected</span></h2><div class="lineupBox">${luNow.map(x=>`<div class="luRow"><span class="luSlot">${esc(x.slot)}</span><span class="luName">${pc(x.name)}${x.p<0.8?` <span class="liveStatus">${x.p<0.3?'doubtful':'questionable'}</span>`:''}${x.tip?` <span class="hint">${new Date(x.tip).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>`:''}</span><span class="luPts num">${ifPlays(x).toFixed(0)}</span></div>`).join('')}</div>`:'';
+  // one free-agent list, three horizons
+  const faRow=(name,team,tags,sub,gain)=>`<div class="faRow"><span class="faName"><span>${pc(name)}${team?` <span class="hint">${esc(team)}</span>`:''}${tags||''}</span>${sub?`<span class="faSub">${sub}</span>`:''}</span><span class="faGain num">${gain}</span></div>`;
+  const inPlan=new Set((T.sequence||[]).map(a=>a.add.id));
+  const faTonight=(T.tonight_picks||[]).filter(x=>x.gain>=1).slice(0,8).map(x=>faRow(x.name,x.team,x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',`${x.tonight.toFixed(0)} projected tonight${x.dfs?'':' (season level)'} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${inPlan.has(x.id)?' · in your plan':''}`,sgn0(x.gain))).join('');
+  const faWeek=(()=>{ const PCK=T.pickup_checks; if(!PCK) return '';
+    return Object.entries(PCK).map(([id,v])=>{ const keep=(v.net>-1e8&&v.drop)?{kind:'keep',net:v.net,adj:(v.adj!=null?v.adj:v.net),drop:v.drop,on:v.on}:null; const rent=v.rent?Object.assign({kind:'rent'},v.rent):null;
+        const opt=(rent&&(!keep||rent.adj>=keep.adj))?rent:keep; return {id:+id,v,opt}; })
+      .filter(x=>x.opt&&x.opt.net>0&&!inPlan.has(x.id)).sort((a,b)=>b.opt.adj-a.opt.adj).slice(0,10)
+      .map(({v,opt})=>{ const mv=opt.kind==='keep'?`keep him from ${dShort(opt.on).toLowerCase()==='today'?'today':fmtDow(opt.on)}`:(opt.on===opt.until?`one-day rental ${dShort(opt.on)}`:`rent ${dShort(opt.on)}–${fmtDow(opt.until)}`);
+        const risk=(opt.risk||0)>0.01?` · ${sgn0(opt.adj)} after a ${Math.round(opt.risk*100)}% chance he is taken`:'';
+        return faRow(v.name,v.team,v.waiver?wvTag(v.waiver):'',`${mv} · drop ${opt.drop?esc(opt.drop):'nobody'}${risk}`,sgn0(opt.net)); }).join(''); })();
+  const faSeason=dyn.map(e=>{ const x=e.d||e.s, S=e.s;
+    const bits=[`${x.level} a game`];
+    if(S&&S.out_now) bits.push(`${esc(S.injury||'out')}${S.back_date?', back about '+dfmt(S.back_date):''}`);
+    if(S) bits.push(S.to_ir?'goes into a free IR slot':(S.drop?'drop '+esc(S.drop):'open roster spot'));
+    return faRow(x.name,x.team,x.status&&x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',bits.join(' · '),'+'+e.pr.ros); }).join('');
+  const faPanels=[['tonight','Tonight',faTonight,'Points each adds to tonight alone','No pickup adds to tonight: your best lineup is already full.'],['week','This week',faWeek,'Best single move for each, judged one at a time (they overlap)','Nobody beyond the plan is worth an add this week.'],['season','Season',faSeason,'Points each adds over the rest of the season','No free agent beats streaming over the rest of the season.']];
+  const faFirst=Math.max(0,faPanels.findIndex(x=>x[2]));   // open on the first horizon that has someone in it
+  const faTabsHtml=isMe?`<h2 class="todayH">Free agents</h2><div class="faTabs" role="tablist">${faPanels.map((x,i)=>`<button type="button" role="tab" data-fat="${x[0]}" aria-selected="${i===faFirst}">${x[1]}</button>`).join('')}</div>${faPanels.map((x,i)=>`<div class="faPanel" data-fap="${x[0]}" ${i===faFirst?'':'hidden'}><div class="hint" style="margin:0 0 .4rem">${x[3]}</div>${x[2]||`<div class="hint" style="padding:.6rem 0">${x[4]}</div>`}</div>`).join('')}`:'';
   const lineupSec=sec('lineup','Lineup plan by day',`${T.expected.toFixed(0)} expected points`,`
     <div class="hint" style="margin:0 0 1rem">${gainVsAll>=0.5?`Following the plan is worth <b>+${gainVsAll.toFixed(0)} points</b> over starting everyone who plays, by saving games for better days once the cap matters. `:`Your roster is expected to use about ${Math.min(M.cap,coverStarts(T.days)).toFixed(0)} of the ${M.cap} cap games this week (counting a bench player stepping in for anyone who is ruled out${coverStarts(T.days)>coverStarts(T.days,true)+1?`; the day-by-day table below counts only the players already in the lineup, so it shows about ${(T.days[T.days.length-1].starts_after).toFixed(0)}`:''}), so starting everyone who plays is best.${T.days_after&&(T.sequence||[]).length?` With the suggested moves it reaches about ${Math.min(M.cap,coverStarts(T.days_after)).toFixed(0)}. `:' '}`}${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule, so adds that play then are worth the most. `:''}Numbers are expected fantasy points (chance of playing x projected points per game).</div>
     ${T.days_after&&(T.sequence||[]).length?`<label class="kbox" style="margin:0 0 .5rem;gap:.5rem"><input type="checkbox" id="weekAfterCb" ${weekAfter?'checked':''} /> <span>Show plan after suggested moves <span class="hint">(${T.expected.toFixed(0)} now, ${T.expected_after.toFixed(0)} with all ${(T.sequence||[]).length} moves)</span></span></label>`:''}
     <div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starting lineup (expected pts)</th><th>Starters</th><th>Day pts</th><th>Starts so far</th></tr></thead><tbody>${dayRows}</tbody></table></div>
-`,true);
+`,false);
   pane.innerHTML=`
     <div class="controls"><select id="weekSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${W.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
       <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days) · updated ${new Date(W.generated).toLocaleString()}</span></div>
-    ${liveHtml}
-    <div class="cardPair">${oddsHtml(T.id===meT.id)}${gamesHtml(T)}</div>
-    <div class="statbar" style="margin-bottom:1rem;${liveOk?'display:none':''}">
-      <div><b>${T.expected_total.toFixed(0)}</b>expected points${T.pts_so_far?` (${T.pts_so_far.toFixed(0)} banked)`:''}</div>
-      <div><b>${O?O.expected_total.toFixed(0):'—'}</b>${O?'vs '+esc(O.abbrev):'opponent'}</div>
-      <div><b>${wp}</b>win chance</div>
-      <div><b>${T.starts_so_far.toFixed(0)} / ${M.cap}</b>games-played cap used</div>
-      <div><b>${T.adds_used} / ${M.adds_limit}</b>adds used</div>
-    </div>
-    <div class="legend" style="margin:0 0 1rem"><b>How to use this page to make decisions.</b> Open it once each morning (the plan also refreshes at about 3pm and 6pm ET, after injury news lands). Every block below the top cards is a collapsible section; the <b>Jump to</b> bar opens one and scrolls to it, and the page remembers which you closed. Work top to bottom:
-      <ol style="margin:.4rem 0 .6rem 1.2rem;padding:0;line-height:1.5">
-        <li><b>Read the top of the page.</b> During a game day the <b>live card</b> shows the score, your win chance and who is still to play. The strip below it (expected points, win chance, games-played cap used, adds used) tells you how much this week matters: near 50% means every move counts; above 80% or below 20% means small edges will not change the result, so do not burn adds or risk your roster. Two collapsed cards sit beside each other: <b>Playoff odds</b> (your chance to make the playoffs, get a bye and win the title, what this week's result is worth, and the other 11 teams) and <b>Games to watch</b> (up to two games a day where the most of your and your opponent's best players are on the floor, with tip time and national TV). Open them when you want the big picture or something to watch; you do not need them to set a lineup.</li>
-        <li><b>Fix roster and IR problems first (the "Roster and IR moves" section).</b> These are free and come before everything else. Move an injured player to an open IR slot, and activate anyone healthy who is stuck in IR. This frees roster spots that make the add suggestions possible.</li>
-        
-        <li><b>Set today's lineup from "Lineup plan by day".</b> The table shows your plan for the roster as it stands. Use <b>Show plan after suggested moves</b> to see the same week if you make every suggested add, which is the plan you are working toward. Once you actually make moves in ESPN, the page rebuilds from your real roster at the next refresh and the moves you made disappear from the suggestions. Start exactly the names in today's row, in those slots. If the row says <b>Sits N playing players to protect the cap</b>, bench them on purpose: those games are worth more later this week. If it says <b>crosses the cap today</b>, today is the last day that counts. Re-check after 3pm and 6pm: if a starter picks up an official Out or Doubtful tag, swap him for your best bench player who plays that day, before that game tips off. Games already started cannot be changed. A small arrow tag under a player's name (for example "▲ +7.1, about +4.9 should last: minutes +6.1") says why he is hot or cold and how much of it usually lasts: minutes and shot volume mostly stick, shooting luck mostly fades.</li>
-        <li><b>Decide on adds in "Suggested moves".</b> Start with the box at the top, <b>The plan across the week</b>: what to do now, what is better on a later day, any injured player due back that changes the plan, and how many adds are left. Below it, one table holds the whole plan in the order to make the moves, each with its net gain after the cost of dropping a better player later; the last column shows what each move is worth if made on each day, so you can see what waiting costs. Every move listed already clears the bar (about 6 points net), and adds you do not use expire at the end of the matchup, so make them; you get a phone alert when a move is due today or tomorrow, with backups if the player is taken first. With 3 or more adds left, keep one in reserve for an injury. If it shows no moves, do nothing: standing still is a real answer. The plan is re-run every morning, so a later step can change as news lands.</li><li><b>Check "Injured players".</b> For each hurt player it gives the injury, how long he is likely out (ours and ESPN's), when he is back, and a verdict: activate, hold on IR, stash, or drop. Follow the verdict unless you have news it does not.</li>
-        <li><b>Look at "Injuries creating opportunity" when a rotation player is out.</b> His teammates pick up about 70% of his production, and the biggest gainers are usually low-minute teammates at the same position. The boosts are already built into the lineup and the suggested moves, so an add that shows "+3.1 pts/g while X is out" is being recommended partly for that reason. Boosts shrink for long-term absences, because the players' recent form already reflects them.</li>
-        <li><b>Scan "Long-term adds" once or twice a week.</b> Free agents worth holding for the rest of this season, ranked by the points each adds against streaming a free agent into the same slot. An injured player counts from when he is back and can sit in a free IR slot.</li>
-        <li><b>Look ahead on the Schedule tab (League &gt; Schedule).</b> Light weeks for your stars and playoff schedules are there. Do that check on Sunday night, before next week's plan is built. For a broader view of every player's value for the rest of the season, use Players &gt; Redraft.</li>
-        <li><b>Judge the reliability of what you see.</b> A gain under about 6 points is noise. "Other free agents worth a look" (collapsed) are alternatives judged one at a time; their gains overlap, so do not add them up.</li>
-      </ol></div>
+    ${scoreHtml}
+    ${doNowHtml}
+    ${tonightLineupHtml}
+    ${faTabsHtml}
+    <div class="cardPair" style="margin-top:1.2rem">${oddsHtml(T.id===meT.id)}${gamesHtml(T)}</div>
+    <h2 class="todayH" style="margin-top:1.4rem">Details</h2>
     ${lineupSec}
     ${T.abbrev===W.my_abbrev?sec('setlineup','Set lineup in ESPN','preview the rest of this matchup, then set it in one click','<div id="slBox" class="hint">Loading preview…</div>',false):''}
-    ${wrapHdr('ir',irHtml)}
-    ${wrapHdr('moves',seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: your full plan for this week, in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
+    ${wrapHdr('ir',irHtml,false)}
+    ${wrapHdr('moves',seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: every move in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
     ${laterHtml}<div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th><th style="text-align:left">Timing (net gain if made on each day)</th></tr></thead><tbody>${seqRows}</tbody></table></div>
-    ${tonightHtml}${budgetHtml}`:`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Suggested moves: none this week (${addsLeft} of ${M.adds_limit} adds left)</div><div class="note" style="margin-bottom:1.2rem">No add clears the bar right now, so standing still is the plan. The list is re-run every morning and will return when an injury, a hot free agent or a schedule change creates a gain.</div>${tonightHtml}${budgetHtml}`)}
+    ${budgetHtml}`:`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: no moves this week (${addsLeft} of ${M.adds_limit} adds left)</div><div class="note" style="margin-bottom:1.2rem">No add clears the bar right now, so standing still is the plan. The list is re-run every morning and will return when an injury, a hot free agent or a schedule change creates a gain.</div>${budgetHtml}`,false)}
     ${wrapHdr('inj',advHtml,false)}
     ${wrapHdr('opp',oppHtml,false)}
-    ${wrapHdr('lt',dynHtml)}
-    ${otherFaHtml?sec('fa','Other free agents worth a look',"the best move for each, judged one at a time against your roster today: alternatives to the plan above, they overlap",otherFaHtml,false):''}
-    ${sec('roster','Roster and schedule',`● = plays that day (${daysHdr.join(' ')})`,`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Level</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Asset rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`,true)}
+    ${sec('roster','Roster and schedule',`● = plays that day (${daysHdr.join(' ')})`,`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Level</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Asset rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`,false)}
     <div class="legend" style="margin-top:1rem"><b>How the numbers work.</b> <b>Free agent or waivers.</b> A player with no tag is a free agent: add him instantly, any hour. A <b>WAIVERS</b> tag means another team just dropped him, so he can only be claimed (ESPN processes claims at about 3am ET, at least 24 hours after the drop, in waiver order) and the plan counts him only from the day he clears. League rule: only 40 started games count per 7-day matchup (scaled for other lengths), checked at the <i>start</i> of each day. Start a day under the cap and you can start anyone and go over; start it at or over and nothing else counts. The plan picks lineups day by day to maximize <i>points</i>, not games, so it may cross the cap early when a day is strong and later days are thin, or sit weak starters to save games for better days. <b>Level</b> for a given day = the day-specific projection (DailyFantasyFuel, converted to league points) whenever that day's slate is posted; otherwise ESPN's season projection blended with the last 15 games. A free agent missing from a posted slate is treated as not expected to play. Chance of playing is measured, not guessed: for today's game the league's official injury designation sets it (rotation players: available 96%, probable 92%, questionable 57%, doubtful 4%, out 0%; bench players lower), a healthy player with no designation is 94% (89% on the second night of a back-to-back), and for later days it is 85% for rotation players, 81% at 15–20 points a game and 61% below that (they can get hurt or rest). For what a player is worth after this week, ESPN and our model (DELCO) are averaged; free agents are shrunk toward replacement, lightly for veterans whose two projections agree, more for short records. Position eligibility comes from ESPN. <b>Drops:</b> with only 5 keepers, a non-keeper's value is what he produces this season. So each team's top 6 dynasty assets (and anyone projecting 35+ a game) are never suggested as drops. Every suggestion's gain is <i>net</i>: this week's points minus the expected long-run cost. For a rental that cost is the chance (about 15%) the dropped player is taken before you re-add him; for a player you keep, it is the season-long gap between him and the player dropped. Add names to ingest/research/never_drop.json to protect anyone else. Opponent totals assume they also play their best lineups, and win chance uses a 253-point weekly spread measured last season. ${M.calendar_assumed?'<b>Matchup dates for ${(W.season||0)-1}-${String(W.season||0).slice(2)} are assumed</b> (6-day opener, then Monday–Sunday weeks) until ESPN publishes them in season. ':''}Games already tipped today can't be changed; late swaps are possible until each game starts.</div>`;
   { const secs=[...pane.querySelectorAll('details.sec')];
     if(secs.length>2){ const first=secs[0]; const jb=document.createElement('div'); jb.className='jumpBar';
-      jb.innerHTML='<span class="hint">Jump to</span>'+secs.map(d=>`<button type="button" data-jump="${d.dataset.sec}">${d.dataset.title.replace(/^Injured players$/,'Injuries').replace(/^Roster and IR moves$/,'Roster/IR').replace(/^Suggested moves$/,'Moves').replace(/^Injuries creating opportunity$/,'Opportunity').replace(/^Long-term adds$/,'Long-term').replace(/^Other free agents worth a look$/,'Other FAs').replace(/^Roster and schedule$/,'Roster').replace(/^Lineup plan by day$/,'Lineup')}</button>`).join('');
-      first.parentNode.insertBefore(jb,first);
+      jb.innerHTML='<span class="hint">Jump to</span>'+secs.map(d=>`<button type="button" data-jump="${d.dataset.sec}">${d.dataset.title.replace(/^Injured players$/,'Injuries').replace(/^Roster and IR moves$/,'Roster/IR').replace(/^Full week plan$/,'Week plan').replace(/^Injuries creating opportunity$/,'Opportunity').replace(/^Long-term adds$/,'Long-term').replace(/^Other free agents worth a look$/,'Other FAs').replace(/^Roster and schedule$/,'Roster').replace(/^Lineup plan by day$/,'Lineup')}</button>`).join('');
+      first.parentNode.insertBefore(jb,first);   // sits under the Details heading
       jb.addEventListener('click',e=>{ const b=e.target.closest('button[data-jump]'); if(!b) return; const d=document.getElementById('sec-'+b.dataset.jump); if(!d) return; d.open=true; secState[b.dataset.jump]=true; d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
     secs.forEach(d=>d.addEventListener('toggle',()=>{ secState[d.dataset.sec]=d.open; })); }
+  pane.querySelectorAll('.faTabs button').forEach(b=>b.addEventListener('click',()=>{ pane.querySelectorAll('.faTabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b))); pane.querySelectorAll('.faPanel').forEach(pn=>pn.hidden=pn.dataset.fap!==b.dataset.fat); }));
   fillSetLineup();
   document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});
   const wa=document.getElementById('weekAfterCb'); if(wa) wa.addEventListener('change',e=>{weekAfter=e.target.checked; renderWeek();});
@@ -2513,13 +2573,18 @@ function renderAbout(){
 
 /* Two-level navigation: four groups on the bottom bar (phones) or top bar, and a row of sub-tabs for the active group.
    The original seven view buttons stay in a hidden #segView that still owns the panes; the nav just presses them. */
-const NAV=[['week','Week',[['week','This week']]],['players','Players',[['board','Dynasty'],['redraft','Redraft'],['keepers','Keepers'],['draft','Draft']]],['league','League',[['teams','Teams'],['trades','Trades'],['sched','Schedule']]],['about','About',[['about','About']]]];
+/* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
+const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
+const navGroups=()=>offseason()
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','About'],['week','Last week']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','About'],['keepers','Keepers'],['draft','Draft']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
   const avail=v=>{const b=btn(v); return !!b&&b.style.display!=='none';};
   const pressed=document.querySelector('#segView button[aria-pressed="true"]');
   const act=pressed?pressed.dataset.v:'week';
+  const NAV=navGroups();
   const grp=NAV.find(g=>g[2].some(x=>x[0]===act))||NAV[0];
   lastInGroup[grp[0]]=act;
   const top=document.getElementById('navTop'), sub=document.getElementById('navSub'), wrap=document.getElementById('navSubWrap');
@@ -2531,7 +2596,7 @@ function renderNav(){
 }
 document.addEventListener('click',e=>{
   const g=e.target.closest('#navTop button'), v=e.target.closest('#navSub button');
-  if(g){ const grp=NAV.find(x=>x[0]===g.dataset.g); const b0=document.querySelector(`#segView button[data-v="${lastInGroup[grp[0]]||grp[2][0][0]}"]`);
+  if(g){ const grp=navGroups().find(x=>x[0]===g.dataset.g); const b0=document.querySelector(`#segView button[data-v="${lastInGroup[grp[0]]||grp[2][0][0]}"]`);
     const ok=b0&&b0.style.display!=='none'?b0:grp[2].map(x=>document.querySelector(`#segView button[data-v="${x[0]}"]`)).find(b=>b&&b.style.display!=='none'); if(ok) ok.click(); }
   if(v){ const b=document.querySelector(`#segView button[data-v="${v.dataset.v}"]`); if(b) b.click(); }
 });
@@ -2627,7 +2692,7 @@ async function loadLive(){
 }
 loadLive(); setInterval(loadLive,120000);
 fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week') setView('week'); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
-fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
+fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
