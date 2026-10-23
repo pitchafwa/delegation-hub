@@ -138,13 +138,17 @@ def main():
                 et = pd.to_datetime(first["espn_time"], utc=True, errors="coerce")
                 news_t = et if (pd.notna(et) and et >= tip - timedelta(hours=20)) else first["t"]
                 h = h.sort_values("t")
-                is_out = (h.dk_proj <= 0) & (h.inj.fillna("").str.upper().isin(["O", "OUT"]))
-                hit = h[is_out & (h.t >= news_t - timedelta(minutes=15))]
+                is_out = h.dk_proj <= 0                                   # a zero projection = he is out (the tag is often missing)
                 pre = h[h.t < tip]
-                if hit.empty or hit.iloc[0].t >= tip:
+                if pre.empty or not bool(is_out.loc[pre.index[-1]]):
                     stale.append((day, h["name"].iloc[0], float(pre.iloc[-1].dk_proj) if len(pre) else None))
                 else:
-                    lag.append((hit.iloc[0].t - news_t).total_seconds() / 60)
+                    # when did he become out for good before tip (the start of the final run of zero rows); negative lag = DFF had him out before ESPN's news
+                    flags = is_out.loc[pre.index].tolist()
+                    k = len(flags) - 1
+                    while k > 0 and flags[k - 1]:
+                        k -= 1
+                    lag.append((pre.iloc[k].t - news_t).total_seconds() / 60)
         P(f"  players ESPN marked Out/Doubtful before tip and listed by DFF: {n_out}")
         if lag:
             a = np.array(lag)

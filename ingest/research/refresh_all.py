@@ -144,6 +144,14 @@ try:
         finish(False, "model chain failed; nothing published")
         sys.exit(1)
 
+    # 4b. trade analyzer context (team posture / odds slopes and the market table): weekly; it needs the local Hashtag file, so it cannot run in the cloud
+    _tc = REPO / "dashboard" / "trade_context.json"
+    if not _tc.exists() or (time.time() - _tc.stat().st_mtime) > 6 * 86400:
+        run("trade_context", "build_trade_context.py")
+    # 4c. a heartbeat the cloud alerts can see: the morning brief warns when this local refresh has stopped running
+    (REPO / "dashboard" / "local_refresh_status.json").write_text(json.dumps({"finished": datetime.now(ET).isoformat(timespec="seconds"),
+        "failed": [k for k, v in status["steps"].items() if not v.get("ok")]}), encoding="utf-8")
+
     # 5. publish
     if NO_PUSH:
         say("--no-push: skipping git")
@@ -151,11 +159,12 @@ try:
         def git(*g):
             return subprocess.run(["git", *g], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
         git("add", "dashboard/redraft_data.json", "dashboard/season_calendar.json", "dashboard/player_news.json", "dashboard/form_split.json", "dashboard/team_matchup.json", "dashboard/hub_data.json", "dashboard/trade_ideas.json", "dashboard/breakout_history.json", "ingest/research/data/breakout_ledger", "ingest/research/data/breakout_validation.json",
-            "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json")
+            "ingest/research/data/rookie_breakout_validation.json", "ingest/research/espn_id_map.json",
+            "dashboard/local_refresh_status.json", "dashboard/trade_context.json", "dashboard/trade_market.json")
         if git("diff", "--cached", "--quiet").returncode == 0:
             say("nothing changed: no commit")
         else:
-            msg = f"Daily model refresh {now.date().isoformat()}\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+            msg = f"Daily model refresh {now.date().isoformat()}\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
             c = git("commit", "-m", msg)
             say(f"commit: {(c.stdout or c.stderr).strip()[:120]}")
             git("pull", "--rebase", "--quiet")

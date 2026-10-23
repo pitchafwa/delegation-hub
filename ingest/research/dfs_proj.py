@@ -59,10 +59,12 @@ def apply(players, plan_days, table=None, fa_ids=frozenset()):
             if x["team"] and pl.get("team") and x["team"].upper() != pl["team"].upper() and norm(pl["name"]) != norm(x["name"]):
                 continue
             if x["dk_proj"] <= 0:
-                if (x["inj"] or "").upper() in ("O", "OUT"):
+                # zero = not expected to play. Graded 2026-10-23: zeros WITHOUT an injury tag were mostly players ruled out (Porzingis, Monk, Stewart...), so only a team
+                # whose slate is not really posted yet (few rows) keeps the benefit of the doubt
+                if (x["inj"] or "").upper() in ("O", "OUT") or posted.get((dt, (x["team"] or "").upper()), 0) >= UNLISTED_MIN_ROWS:
                     pl.setdefault("dfs_out", set()).add(dt)
                     out_n += 1
-                continue                                             # a zero with no injury tag means 'no projection yet', not 'will not play'
+                continue
             lvl = x["league_proj"]
             base = pl["level"]
             pl.setdefault("lvl_by_date", {})[dt] = round(BLEND_BASE * lvl + (1 - BLEND_BASE) * base, 1)

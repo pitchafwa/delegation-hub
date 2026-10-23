@@ -179,6 +179,15 @@ def digest(kind):
     dy = [x for x in (T.get("dynasty_adds") or []) if x.get("new") and x["would_rank"] <= 5][:1]
     if dy:
         lines.append(f"Dynasty stash: {dy[0]['name']} ({dy[0]['age']:.0f}yo) would be your #{dy[0]['would_rank']} keeper asset.")
+    hb = load("local_refresh_status.json")                  # the daily model refresh runs on Tommy's PC: say so when it has stopped (it failed silently for 12 days in October 2026)
+    try:
+        hb_t = datetime.fromisoformat(hb["finished"]) if hb else None
+    except Exception:
+        hb_t = None
+    if hb_t is None or (NOW - hb_t).total_seconds() > 36 * 3600:
+        lines.append("Note: the model refresh on your PC has not run since " + (hb_t.strftime("%a %b %d") if hb_t else "an unknown date") + " (redraft list, player news, season model are stale). Check the PC or the FantasyHubDailyRefresh task.")
+    elif hb.get("failed"):
+        lines.append("Note: the PC model refresh had failed steps: " + ", ".join(hb["failed"][:4]) + ".")
     lines.append(f"(plan built {gen.strftime('%a %I:%M%p').lstrip('0')} ET)")
     title = ("Week ahead: " if kind == "weekly" else "Today: ") + ("moves to make" if mv else "no moves needed")
     return title, "\n".join(lines)
@@ -298,29 +307,7 @@ def run_check():
         plan_target_watch(lg, T, s, mine, can_send)
     except Exception as ex:
         print("plan target watch skipped:", repr(ex)[:90])
-    # ---- injury beneficiaries: only when the weekly plan itself recommends the add (it names the drop and the net gain)
-    if can_send and (FORCE or not in_quiet()):
-        sent_b = s.setdefault("benef_sent", {})
-        for m in (T.get("sequence") or []):
-            add = m["add"]
-            if m.get("on") and m["on"] > TODAY.isoformat():
-                continue                                           # a later-day step of the stream plan: not an injury-opportunity add for today
-            fresh = [n for n in (add.get("boost_why") or []) if next((o["absent"]["streak"] for o in (W.get("opportunities") or []) if o["absent"]["name"] == n), 99) < 8]
-            boost_pts = add.get("boost", 0) * len(add.get("games", []))
-            # only NEWS (someone recently ruled out) and only when the boost is a real part of why the plan wants him
-            if add.get("boost", 0) < 2.5 or not fresh or boost_pts < 0.25 * m["week_gain"] or m["gain"] < 15 or not m.get("drop"):
-                continue
-            key = f"{TODAY.isoformat()}:{add['id']}"
-            if key in sent_b:
-                continue
-            why = " and ".join(fresh[:2])
-            by = m.get("by_day") or []
-            g0 = by[0]["gain"] if by else m["gain"]
-            wait = f" Waiting a day costs {by[0]['gain'] - by[1]['gain']:.0f}." if len(by) > 1 and by[0]["gain"] - by[1]["gain"] >= 3 else ""
-            push("Injury opportunity: add " + add["name"], f"{why} out: {add['name']} ({add['team']}) gains about +{add['boost']:.0f} pts/g. Plan: add him, drop {m['drop']['name']}, net +{g0:.0f} this week.{wait}" + chr(10) + "The other injuries are in the This week tab.", priority=4, tags=["chart_with_upwards_trend"])
-            sent_b[key] = 1
-        for k in [k for k in sent_b if not k.startswith(TODAY.isoformat())]:
-            sent_b.pop(k)
+    # (injury-opportunity adds are announced by plan_move_alert, which names the injury news as the reason: one message per move)
     # ---- lineup checks: planned starter benched / OUT player in the lineup before the first tip, and the per-game late-scratch watch with a named swap
     first_tip_check(W, T, mine, off, s, can_send)
     late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id)
@@ -363,6 +350,16 @@ def plan_guidance(T, pid):
     return "", ""
 
 
+def _mark_announced(T, pid, s):
+    """the pickup alert already told you about this plan move (today's or tomorrow's): do not send the plan-move alert for it as well"""
+    ann = s.setdefault("plan_announced", {})
+    for m in (T.get("sequence") or []):
+        if str(m["add"]["id"]) == str(pid) and 0 <= (date.fromisoformat(m["on"]) - TODAY).days <= 1:
+            base = f"{m['add']['id']}:{m['on']}:{(m.get('drop') or {}).get('id')}"
+            ann[base + (":today" if m["on"] == TODAY.isoformat() else ":eve")] = TODAY.isoformat()
+            ann.setdefault(base, TODAY.isoformat())
+
+
 def plan_move_alert(lg, T, s, mine, can_send):
     """Tells you when the weekly plan wants a pickup, so you never have to open the page to find out:
       * TODAY'S move, the first time the plan has it (one message per player, day and drop; if the plan changes the drop you get the new version);
@@ -398,9 +395,11 @@ def plan_move_alert(lg, T, s, mine, can_send):
         tail = ((" Reclaim the dropped player once he clears waivers (about 40 hours)." if m.get("reclaim") else "")
                 + (f" If he is taken first: {_backup_text(bk)}." if bk else "") + " Details on the This week tab.")
         who = f"{m['add']['name']} ({m['add']['team']})"
+        if m["add"].get("boost", 0) >= 2.5 and m["add"].get("boost_why"):
+            tail = f" Why now: {' and '.join(m['add']['boost_why'][:2])} out, so he gains about +{m['add']['boost']:.0f} pts/g." + tail
         dr = drop.get("name") or "nobody (open spot)"
         wv = f" He is on WAIVERS ({WV.when(w)}): place the claim before that run." if w and pid not in pool else ""
-        if base + ":" + stage not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
+        if (FORCE or not in_quiet()) and base + ":" + stage not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
             lead = "Plan move for today" if days_to == 0 else "Plan move for tomorrow (" + on.strftime("%a") + ")"
             body = f"{lead}: add {who}, drop {dr} ({kind}), about {m['gain']:+.0f} net.{wv}{tail}"
             if push(("Plan move today: add " if days_to == 0 else "Plan move tomorrow: add ") + m["add"]["name"], body, priority=4, tags=["arrows_counterclockwise"]):
@@ -432,7 +431,7 @@ def plan_target_watch(lg, T, s, mine, can_send):
         if not (0 <= (on - TODAY).days <= 2) or pid in pool or pid in mine_ids:
             continue
         key = f"{pid}:{m['on']}"
-        if key in seen or not any(k.startswith(f"{pid}:{m['on']}:") for k in s.get("plan_announced", {})):
+        if key in seen or (in_quiet() and not FORCE) or not any(k.startswith(f"{pid}:{m['on']}:") for k in s.get("plan_announced", {})):
             continue                                              # only report a target as taken if he was announced to you first
         bk = m.get("backups") or []
         body = (f"{m['add']['name']} was in the plan for {on.strftime('%a')} (drop {(m.get('drop') or {}).get('name') or 'an open spot'}) but is no longer available: another team took him."
@@ -507,6 +506,7 @@ def pickup_alert(lg, W, T, s, mine, can_send):
         if v["status"] == "FREEAGENT":
             head = f"{v['name']} ({v['team']}) cleared waivers and nobody claimed him." if kind == "cleared" else f"{v['name']} ({v['team']}) just became a FREE AGENT."
             pg, ptag = plan_guidance(T, pid)
+            _mark_announced(T, pid, s)
             lines.append(f"{head} {val}{extra}. " + (pg if pg else "ADD HIM NOW: free agents are added instantly, any hour.") + ("" if pg else drop))
             tag = ("FREE AGENT, " + ptag) if ptag else "FREE AGENT, add now"
         else:
@@ -524,6 +524,7 @@ def pickup_alert(lg, W, T, s, mine, can_send):
             except Exception as ex:
                 print("claim-odds estimate failed:", repr(ex)[:80])
             pg, ptag = plan_guidance(T, pid)
+            _mark_announced(T, pid, s)
             lines.append(f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. He cannot be added directly: a claim is processed at {when}.{prio} If nobody claims him he becomes a free agent after that run. " + (pg if pg else f"CLAIM HIM BEFORE the run if you want him.{drop}"))
             tag = f"ON WAIVERS ({when})" + (f", {ptag}" if ptag else "")
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
@@ -536,7 +537,9 @@ def first_tip_check(W, T, mine, off, s, can_send):
     """lineup check in the 90 minutes before the first tip of the day: an OUT player in the lineup, or a planned starter left on the bench"""
     tip = first_tip(W, T)
     if tip and can_send and tip - timedelta(minutes=90) <= NOW < tip:
-        today_plan = next((d for d in T["days"] if d["date"] == TODAY.isoformat()), None)
+        made = {int(m["add"]["id"]) for m in (T.get("sequence") or [])} & {int(p.playerId) for p in mine.roster}
+        days_src = T.get("days_after") if (made and T.get("days_after")) else T["days"]      # you have made the plan's moves: check against the lineup that assumes them
+        today_plan = next((d for d in days_src if d["date"] == TODAY.isoformat()), None)
         probs = []
         for p in mine.roster:
             slot = p.lineupSlot

@@ -227,7 +227,10 @@ def main():
     elif rem_days > 0.5:
         advice.append(f"Expected final margin {mu:+.0f}. Every extra started game is worth about 36 points, so fill every open slot and use your remaining adds well.")
     if best_add and rem_days > 1 and (adds_used is None or adds_used < W["matchup"]["adds_limit"]):
-        advice.append(f"Best remaining add: {best_add['add']['name']} (+{best_add['gain']:.0f}).")
+        _on = best_add.get("on")
+        _when = "today" if (not _on or _on <= TODAY.isoformat()) else datetime.fromisoformat(_on).strftime("%a")
+        _dr = (best_add.get("drop") or {}).get("name")
+        advice.append(f"Next planned add: {best_add['add']['name']} ({_when}" + (f", drop {_dr}" if _dr else "") + f", about +{best_add['gain']:.0f}).")
     out = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "season": YEAR, "matchup": mp, "date": TODAY.isoformat(), "plan_used": bool(plan_match),
            "me": {"abbrev": teams[my_id], "name": names[my_id], "pts": round(pts[my_id], 1), "exp_rem": round(exp_rem[my_id], 1), "exp_final": round(pts[my_id] + exp_rem[my_id], 1), "starts": starts[my_id], "adds_used": adds_used, "left_today": sorted(left_today[my_id], key=lambda x: -x["ef"])[:8]},
            "opp": {"abbrev": teams[opp_id], "name": names[opp_id], "pts": round(pts[opp_id], 1), "exp_rem": round(exp_rem[opp_id], 1), "exp_final": round(pts[opp_id] + exp_rem[opp_id], 1), "starts": starts[opp_id], "left_today": sorted(left_today[opp_id], key=lambda x: -x["ef"])[:8]},
