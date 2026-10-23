@@ -5,7 +5,9 @@
   "4395626": "FREEAGENT",
   "4594327": "FREEAGENT"
  },
- "benef_sent": {},
+ "benef_sent": {
+  "2026-10-23:3032979": 1
+ },
  "fa_high": {},
  "last_status": {
   "3135045": {
@@ -100,5 +102,6 @@
   "daily": "2026-10-23",
   "lineup": "2026-10-21:553c90d0df",
   "weekly": "1"
- }
+ },
+ "target_gone": {}
 }
