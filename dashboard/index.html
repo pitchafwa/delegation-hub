@@ -135,7 +135,7 @@
     #standTbl td[data-label="Rk"]{grid-column:1;grid-row:1;border-bottom:1px solid var(--line) !important;font-size:1.05rem;font-weight:700;padding-bottom:.3rem !important;margin-bottom:.2rem}
     #standTbl td[data-label="Team"]{grid-column:2/-1;grid-row:1;border-bottom:1px solid var(--line) !important;padding-bottom:.3rem !important;margin-bottom:.2rem}
     #standTbl td[data-label="Team"]::before{display:none}
-    #standTbl td[data-label="Streak"],#standTbl td[data-label="Opp pts/wk"],#standTbl td[data-label="All-play"],#standTbl td[data-label="Proj pts/wk"],#standTbl td[data-label="Starts/matchup"],#standTbl td[data-label="Bye"]{display:none !important}
+    #standTbl td[data-label="Streak"],#standTbl td[data-label="Opp pts/wk"],#standTbl td[data-label="All-play"],#standTbl td[data-label="Proj pts/wk"],#standTbl td[data-label="Starts"],#standTbl td[data-label="Bye"]{display:none !important}
     #standTbl td[data-label="This week"],#standTbl td[data-label="Title trend"]{grid-column:span 2}
     #standTbl tbody tr{padding:.55rem .75rem;margin:.4rem 0}
     #standTbl tr.cutRow{margin-bottom:1.1rem;box-shadow:0 .55rem 0 -.45rem var(--line-strong)}
@@ -1536,7 +1536,7 @@ const GLOSS=[
   ['All-play','The record a team would have if it played every other team every week. It measures strength without schedule luck.'],
   ['Luck','Actual wins minus the wins its all-play record says it should have. Plus means a kind schedule; it tends to even out.'],
   ['Proj pts/wk','Projected points per matchup over the next four matchups, from the current rosters and NBA schedules.'],
-  ['Starts/matchup','Average started games per completed matchup this season, on the 40-game cap scale. Teams well under 40 leave points on the table.'],
+  ['Starts per matchup','Average started games per completed matchup this season, on the 40-game cap scale. Teams well under 40 leave points on the table.'],
   ['Proj','Projected final regular-season record, from the season simulation (19 matchups).'],
   ['PPS','Points per start: fantasy points divided by games started this season, including the matchup in progress. High means quality; a team can also win on volume.'],
   ['Inj pts/wk','Points per week the team is missing to injuries: its best 10 players with everyone healthy, minus its best 10 once each injured player is scaled by how much of the next week he is expected to miss. A star out counts in full; a bench player out barely counts, because he would not start anyway.'],
@@ -1551,7 +1551,7 @@ const GLOSS_ALIAS={'Projected pts':'Projected','Projected PPG':'Projected','Net'
 const infoFor=t=>{ const k=String(t||'').trim(); return GLOSS_MAP[k]||GLOSS_MAP[GLOSS_ALIAS[k]]||null; };
 const ib=term=>{ const t=infoFor(term)||term; return `<span class="ib" role="button" tabindex="0" data-info="${esc(t)}" aria-label="What is ${esc(term)}?">ⓘ</span>`; };
 function addHeaderInfo(root){
-  root.querySelectorAll('thead th').forEach(h=>{ if(h.querySelector('.ib')) return; const txt=h.textContent.trim(); const t=infoFor(txt)||h.getAttribute('title'); if(!t) return;
+  root.querySelectorAll('thead th').forEach(h=>{ if(h.querySelector('.ib')) return; const txt=h.textContent.trim(); const t=infoFor(h.dataset.gloss||txt)||h.getAttribute('title'); if(!t) return;
     h.insertAdjacentHTML('beforeend',' '+`<span class="ib" role="button" tabindex="0" data-info="${esc(t)}" aria-label="What is ${esc(txt)}?">ⓘ</span>`); h.removeAttribute('title'); });
 }
 (function(){
@@ -2786,7 +2786,7 @@ function renderStandings(){
   const mv=rows.filter(r=>r.dT!=null).sort((a,b)=>Math.abs(b.dT)-Math.abs(a.dT))[0]; if(mv&&Math.abs(mv.dT)>=0.01) tiles.push(['Biggest mover (7 days)',`${esc(mv.o.abbrev)} title ${sg(mv.dT*100,1)} pts`]);
   pane.innerHTML=`<div class="controls"><span class="hint">Week ${ODDS.current_week} of 19 · ${ODDS.weeks_left} regular-season matchups left · top ${nPO} make the playoffs</span></div>
     <div class="stTiles">${tiles.map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
-    <div class="tablewrap"><table id="standTbl"><thead><tr><th>Rk</th><th style="text-align:left">Team</th><th>Record</th><th>Proj</th><th style="text-align:left">Streak</th><th>Pts/wk</th><th>Opp pts/wk</th><th>All-play</th><th>Luck</th><th>Proj pts/wk</th><th>Starts/matchup</th><th>PPS</th><th>Inj pts/wk</th><th style="text-align:left">This week</th><th>Playoffs</th><th>Bye</th><th>Title</th><th style="text-align:left">Title trend</th></tr></thead><tbody>${body}</tbody></table></div>
+    <div class="tablewrap"><table id="standTbl"><thead><tr><th>Rk</th><th style="text-align:left">Team</th><th>Record</th><th>Proj</th><th style="text-align:left">Streak</th><th>Pts/wk</th><th>Opp pts/wk</th><th>All-play</th><th>Luck</th><th>Proj pts/wk</th><th data-gloss="Starts per matchup">Starts</th><th>PPS</th><th>Inj pts/wk</th><th style="text-align:left">This week</th><th>Playoffs</th><th>Bye</th><th>Title</th><th style="text-align:left">Title trend</th></tr></thead><tbody>${body}</tbody></table></div>
     <h2 class="todayH" style="margin-top:1.6rem">Seed odds</h2>
     <div class="tablewrap"><table class="heat seedTbl"><thead><tr><th style="text-align:left">Team</th>${Array.from({length:nPO},(_,k)=>`<th>${k+1}</th>`).join('')}<th>Out</th></tr></thead><tbody>${rows.map(r=>{ const sd=r.o.seed||[], out=1-(r.o.made||0);
       const cell=v=>`<td class="num" style="background:color-mix(in srgb,var(--accent) ${Math.round(Math.min(1,v/0.5)*70)}%,transparent)">${v>=0.005?(v*100).toFixed(0):''}</td>`;
@@ -2795,7 +2795,7 @@ function renderStandings(){
   mobileTables(pane);
 }
 function renderAbout(){
-  const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['League',['Proj','Pts/wk','Opp pts/wk','All-play','Luck','Proj pts/wk','Starts/matchup','PPS','Inj pts/wk','Playoffs','Bye','Title','Title trend']],['Trades',['Acceptance']]];
+  const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['League',['Proj','Pts/wk','Opp pts/wk','All-play','Luck','Proj pts/wk','Starts per matchup','PPS','Inj pts/wk','Playoffs','Bye','Title','Title trend']],['Trades',['Acceptance']]];
   document.getElementById('aboutPane').innerHTML=`<h2>Glossary</h2>${groups.map(([g,ks])=>`<h3 class="glH">${g}</h3><dl class="gloss">${ks.map(k=>`<div><dt>${esc(k)}</dt><dd>${esc(GLOSS_MAP[k])}</dd></div>`).join('')}</dl>`).join('')}
     <h3 class="glH">Where the numbers come from</h3><dl class="gloss"><div><dt>DELCO</dt><dd>Our projection model for every player: per-stat aging curves updated against each game log, plus a pre-NBA model for rookies. Its rest-of-season numbers are averaged with ESPN's.</dd></div><div><dt>DailyFantasyFuel</dt><dd>Day-of projections that react to injury news; used for tonight's and tomorrow's games once the slate is posted.</dd></div></dl>`;
 }
