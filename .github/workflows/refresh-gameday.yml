@@ -10,6 +10,7 @@ on:
   schedule:
     - cron: "7 19 * * *"
     - cron: "7 22 * * *"
+    - cron: "7 1 * * *"     # about 9pm ET (8pm in winter): late injury news before the 10pm games
   workflow_dispatch: {}
 
 permissions:

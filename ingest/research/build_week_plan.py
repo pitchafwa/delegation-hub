@@ -960,6 +960,27 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
 #   * charges a real contributor you drop only the gap to the free agent you could re-stream with (not six weeks of the add's own level);
 #   * only uses true free agents any day, and waiver players only from the day they clear (their `from`, set in _tag_waivers).
 # Greedy: each round picks the single best (player, add day, who to drop) by points gained this week minus that future cost, until nothing is worth MIN_NET_GAIN or the adds run out.
+def long_level(p):
+    # the LONG-RUN level used for 'what is he worth after this week': our model (DELCO) and ESPN averaged, since both see the whole season; a free agent is shrunk toward replacement, but only a little
+    # when he has a long record and the two agree (a veteran at 34 on both is not a lucky streak), more when the record is short. This week's points still use the day-specific numbers.
+    vals = [v for v in (p.get("espn_level"), p.get("model_level")) if v]
+    base = sum(vals) / len(vals) if vals else p["level"]
+    if not p.get("is_fa"):
+        return base
+    agree = len(vals) == 2 and abs(vals[0] - vals[1]) <= 6
+    sh = 0.9 if (p.get("hist_n", 0) >= 3 and agree) else (0.75 if p.get("hist_n", 0) >= 3 else 0.6)
+    return FA_ANCHOR + sh * (base - FA_ANCHOR)
+
+
+def p_taken(ll, days_ahead):
+    # chance another team takes an available player before you add him (2024-26: players dropped after 4+ recent games, taken within ~48 hours: 25% at 34+ ppg, 16% at 27-34, 12% below), compounding per 2 days.
+    # Used ONLY to rank and time moves; whether a move makes the plan is decided on its full value, and the plan is rebuilt several times a day, so the risk of a move shrinks to zero on its own day.
+    if days_ahead <= 0:
+        return 0.0
+    p48 = 0.25 if ll >= 33 else (0.16 if ll >= 27 else 0.12)
+    return 1 - (1 - p48) ** (days_ahead / 2.0)
+
+
 STREAM_HOLD_EVAL = {}      # candidate id -> best 'add now and KEEP him' option the stream search saw on its first round (read by the pickup alert so it agrees with the plan)
 
 
@@ -974,16 +995,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         return plan_team(ros, c0) + (plan_team(ros, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0)
     cand = [f for f in fa_players if any(p_play(f, d) > 0 for d in all_days)][:n_cand]
 
-    def LL(p):
-        # the LONG-RUN level used for 'what is he worth after this week': our model (DELCO) and ESPN averaged, since both see the whole season; a free agent is shrunk toward replacement, but only a little
-        # when he has a long record and the two agree (a veteran at 34 on both is not a lucky streak), more when the record is short. This week's points still use the day-specific numbers.
-        vals = [v for v in (p.get("espn_level"), p.get("model_level")) if v]
-        base = sum(vals) / len(vals) if vals else p["level"]
-        if not p.get("is_fa"):
-            return base
-        agree = len(vals) == 2 and abs(vals[0] - vals[1]) <= 6
-        sh = 0.9 if (p.get("hist_n", 0) >= 3 and agree) else (0.75 if p.get("hist_n", 0) >= 3 else 0.6)
-        return FA_ANCHOR + sh * (base - FA_ANCHOR)
+    LL = long_level
     fl = sorted(LL(f) for f in fa_players if not f.get("waiver"))
     restream = fl[-3] if len(fl) >= 3 else REPL_LEVEL
     wk_left = min(ROS_WEEKS, weeks_after())
@@ -1059,16 +1071,21 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                         wk = val(new) - cur_total
                         fc = (fut_hold(tgt, f) if e_ is None else fut(tgt)) if kind == "roster" else 0.0
                         net = wk if first_forced else wk - fc
+                        risk = p_taken(LL(f), (max(s_, f.get("from") or s_) - today).days)
+                        adj = net - risk * max(0.0, wk)                # if he is gone by then this week's gain is lost (the plan would rebuild and pick a backup, so this is the pessimistic case)
+                        if step == 0 and forced is None and e_ is not None:      # best RENTAL of each free agent against today's roster (the "other free agents" table)
+                            h = STREAM_HOLD_EVAL.setdefault(f["espn_id"], {"name": f["name"], "net": -1e9, "waiver": f.get("waiver"), "now": None, "ll": round(LL(f), 1)})
+                            if h.get("rent") is None or adj > h["rent"]["adj"]:
+                                h["rent"] = {"net": round(float(net), 1), "adj": round(float(adj), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"] if tgt else None,
+                                             "on": s_.isoformat(), "until": e_.isoformat(), "risk": round(risk, 2)}
                         if step == 0 and forced is None and e_ is None and kind == "roster":
-                            h = STREAM_HOLD_EVAL.get(f["espn_id"])
-                            if h is None:
-                                h = STREAM_HOLD_EVAL[f["espn_id"]] = {"name": f["name"], "net": -1e9, "waiver": f.get("waiver"), "now": None, "ll": round(LL(f), 1)}
+                            h = STREAM_HOLD_EVAL.setdefault(f["espn_id"], {"name": f["name"], "net": -1e9, "waiver": f.get("waiver"), "now": None, "ll": round(LL(f), 1)})
                             if net > h["net"]:
-                                h.update({"net": round(float(net), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"], "drop_level": tgt["level"], "on": s_.isoformat()})
+                                h.update({"net": round(float(net), 1), "adj": round(float(adj), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"], "drop_level": tgt["level"], "on": s_.isoformat(), "team": f["team"]})
                             if s_ == plan_days[0] and (h["now"] is None or net > h["now"]["net"]):      # the same, but only 'add him today' (what the pickup alert is asking)
                                 h["now"] = {"net": round(float(net), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"], "drop_level": tgt["level"]}
-                        if best is None or net > best["net"]:
-                            best = {"net": net, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fc}
+                        if best is None or adj > best["adj"]:
+                            best = {"net": net, "adj": adj, "risk": risk, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fc}
             if os.environ.get("STREAM_DEBUG"):
                 print("  [stream]", ("chain via " + forced["name"] + " ") if forced is not None else "", "round best:", None if best is None else (best["f"]["name"], "add day", best["s"].isoformat(), "hold to", best["e"].isoformat() if best["e"] else "KEEP", "drop", (best["tgt"] or {}).get("name"), best["kind"], "week", round(best["wk"], 1), "future", round(best["fut"], 1), "net", round(best["net"], 1)))
             if best is None or best["net"] < (1.0 if first_forced else (CHAIN_STEP_MIN if (forced is not None and best["kind"] != "roster") else MIN_NET_GAIN)):
@@ -1084,7 +1101,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                     v = -999.0
                 if v > -900:
                     by_day.append({"date": d.isoformat(), "gain": round(float(v), 1)})
-            infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day})
+            infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day, "risk": best["risk"]})
             infos[-1]["wk_next"] = (plan_team(best["new"], 0.0, days_=look, cap_=NEXT_CAP) - plan_team(cur, 0.0, days_=look, cap_=NEXT_CAP)) if look else 0.0
             cur, cur_total = best["new"], cur_total + best["wk"]
             used.add(f["espn_id"])
@@ -1139,7 +1156,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                               "streamer": bool(tgt.get("_stream"))} if tgt else None),
                     "gain": round(i["net"], 1), "week_gain": round(i["wk"] - i.get("wk_next", 0.0), 1), "next_gain": round(i.get("wk_next", 0.0), 1), "future_cost": round(i["fut"], 1),
                     "games_next": [d.isoformat() for d in look if i["s"] <= d and (i["e"] is None or d <= i["e"]) and p_play(f, d) > 0], "cum": round(plan_team(ros, c0) - total, 1), "by_day": i["by_day"],
-                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat() if i["e"] else None, "keep": i["e"] is None, "backups": backups, "release": None, "chain": i.get("chain"), "reclaim": bool(tgt and not tgt.get("_stream") and i["e"] is not None)})
+                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat() if i["e"] else None, "keep": i["e"] is None, "backups": backups, "p_taken": round(i.get("risk", 0.0), 2), "gain_adj": round(i["net"] - i.get("risk", 0.0) * max(0.0, i["wk"]), 1), "release": None, "chain": i.get("chain"), "reclaim": bool(tgt and not tgt.get("_stream") and i["e"] is not None)})
     for k, i in enumerate(infos):                                   # a streamer who is replaced later: say when he goes
         if i["tgt_id"]:
             for q in seq[:k]:
@@ -1405,12 +1422,13 @@ def build_stash():
         if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES:
             continue
         f = make_player(_p)
+        f["is_fa"] = True
         f["level_raw"] = f["level"]                                            # true level, before the weekly-decision shrink -- see build_week_plan.py's fa_players comment
         f["level"] = round(FA_ANCHOR + FA_SHRINK * (f["level"] - FA_ANCHOR), 1)
         if f["level"] < 18 or not f["team"]:
             continue
         hp = hub_player(_p.playerId, _p.name)
-        row = {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f["level_raw"], "status": f["status"], "out_now": bool(out_now),
+        row = {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f["level_raw"], "ll": round(long_level(f), 1), "status": f["status"], "out_now": bool(out_now),
                "age": hp.get("age") if hp else None, "asset": round(asset5(hp), 1), "asset_rank": f["asset_rank"], "market_rank": hp.get("market_rank") if hp else None, "kind": f.get("kind")}
         if out_now:
             group, tier = IA.classify(info) if info else ("other", "moderate")
@@ -1490,7 +1508,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "dfs": dfs_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "level_raw": f.get("level_raw", f["level"]), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
+       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "level_raw": f.get("level_raw", f["level"]), "ll": round(long_level(f), 1), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}

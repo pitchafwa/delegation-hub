@@ -245,11 +245,11 @@ IR_OK_S = ("OUT", "INJURY_RESERVE")
 # REPLACEMENT FILL. A roster this thin leaves slot-days empty, and an empty slot-day is not worth zero: you can stream a free agent into it (the best three free agents are about 27-29 points a game).
 # Valuing a stash against an EMPTY slot made every injured scrub who can sit on a free IR slot look like +300 or more (Nae'Qwan Tomlin, a 17-point player, 'gained' 342) while a real 33-point player
 # who costs a drop looked smaller. So every candidate is valued against the roster plus the best three free agents standing in as the streamers you would otherwise use.
-_fa_sorted = sorted([x for x in wp.get("fa_pool", []) if not x.get("waiver") and x.get("status") in ("ACTIVE", "DAY_TO_DAY") and x["level"] > 0], key=lambda x: -x["level"])
+_fa_sorted = sorted([x for x in wp.get("fa_pool", []) if not x.get("waiver") and x.get("status") in ("ACTIVE", "DAY_TO_DAY") and x["level"] > 0], key=lambda x: -(x.get("ll") or x["level"]))
 _FILL_N = 6
 _FILL_SRC = _fa_sorted[:_FILL_N + 1]
 def _fillers(exclude_id):
-    return [mk(dict(x, ir=False, protected=False, status="ACTIVE")) for x in _FILL_SRC if x["id"] != exclude_id][:_FILL_N]
+    return [mk(dict(x, ir=False, protected=False, status="ACTIVE", level=x.get("ll") or x["level"])) for x in _FILL_SRC if x["id"] != exclude_id][:_FILL_N]   # same long-run level as the candidates
 _FILL = _fillers(None)
 _REPL_FILL = sum(f["level"] for f in _FILL) / max(1, len(_FILL))
 base_w = {w: week_points(mine + _FILL, w) for w in REMAIN}
@@ -280,7 +280,7 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
         # the ROS-gain simulation and the displayed level should both use his TRUE level (level_raw), not the shrink meant for THIS WEEK's noisy,
         # small-sample streaming decisions (FA_SHRINK's backtest was about a single week's realized gain, not a 70-game season -- see FA_SHRINK's
         # comment in build_week_plan.py; found 2026-09-27 via Jalen Green showing "level" 31.1 here against his real ~37-42 projection elsewhere).
-        level = x.get("level_raw", x["level"])
+        level = x.get("ll") or x.get("level_raw", x["level"])       # the same long-run level the weekly plan uses (ESPN and DELCO averaged, light shrink for veterans)
         f = mk(dict(x, ir=False, protected=False, status="ACTIVE", level=level))
         if x.get("out_now"):
             f["back"] = x["back_date"]

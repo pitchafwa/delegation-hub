@@ -141,6 +141,57 @@ def best_moves(T, n=3):
     return out
 
 
+def last_week_review(W):
+    """Monday brief: how last matchup went against the plan. Expected total at its first plan run vs the final score (live ledger), and the moves you made (players that came onto / left
+    your roster across the plan runs), including whether players you dropped came back (the re-add rate the streaming math assumes is about 85%)."""
+    led = ROOT / "ledger"
+    prev = W["matchup"]["id"] - 1
+    if prev < 1 or not led.exists():
+        return []
+    plans, lives = [], []
+    for f in sorted(led.glob("plan-*.jsonl")):
+        for l in open(f, encoding="utf-8"):
+            try:
+                j = json.loads(l)
+            except Exception:
+                continue
+            if j.get("matchup") == prev and j.get("team") == W["my_abbrev"]:
+                plans.append(j)
+    for f in sorted(led.glob("live-*.jsonl")):
+        for l in open(f, encoding="utf-8"):
+            try:
+                j = json.loads(l)
+            except Exception:
+                continue
+            if j.get("matchup") == prev:
+                lives.append(j)
+    out = []
+    if plans and lives:
+        p0, lv = plans[0], lives[-1]
+        res = "won" if lv["me"] > lv["opp"] else ("lost" if lv["me"] < lv["opp"] else "tied")
+        out.append(f"Last week (matchup {prev} vs {lv.get('opp_abbrev', '?')}): the plan expected {p0['expected_total']:.0f} at the start; you scored {lv['me']:.0f} and {res} {lv['me']:.0f}-{lv['opp']:.0f}"
+                   + (f" (it gave you {p0['win_prob'] * 100:.0f}%)" if p0.get("win_prob") is not None else "") + ".")
+    if len(plans) >= 2:
+        names = {}
+        rosters = []
+        for j in plans:
+            ids = set()
+            for pl in j.get("players", []):
+                ids.add(pl["id"])
+                names[pl["id"]] = pl["name"]
+            rosters.append(ids)
+        added = set().union(*rosters[1:]) - rosters[0]
+        dropped = rosters[0] - rosters[-1]
+        gone_then_back = {i for i in rosters[0] if any(i not in r for r in rosters[1:]) and i in rosters[-1]}
+        if added or dropped or gone_then_back:
+            out.append(f"Moves: {len(added)} add(s)" + (f" ({', '.join(names[i] for i in list(added)[:5])})" if added else "")
+                       + (f"; dropped and not back: {', '.join(names[i] for i in list(dropped)[:5])}" if dropped else "")
+                       + (f"; dropped and re-added: {', '.join(names[i] for i in list(gone_then_back)[:5])}" if gone_then_back else "") + ".")
+        else:
+            out.append("Moves: none.")
+    return out
+
+
 def digest(kind):
     W = load("week_plan.json")
     if not W:
@@ -169,6 +220,10 @@ def digest(kind):
         else:
             lines.append(f"Today: start {len(d['start'])} ({', '.join(x['name'].split()[-1] for x in d['start'][:6])}{'...' if len(d['start']) > 6 else ''}).")
     if kind == "weekly":
+        try:
+            lines += last_week_review(W)
+        except Exception as ex:
+            print("last-week review skipped:", repr(ex)[:90])
         SP = load("schedule_plan.json")
         if SP:
             me = next((t for t in SP["teams"] if t["abbrev"] == W["my_abbrev"]), None)
@@ -343,7 +398,7 @@ def plan_guidance(T, pid):
                 return what + f" But adding him NOW (drop {now['drop']}) is worth more on average ({now['net']:+.0f} now vs {ev_wait:+.0f} waiting, counting a {P:.0%} chance he is taken first): add him now.{alt}", "plan: add now"
             return what + f" Adding him now (drop {now['drop']}) would be {now['net']:+.0f}; waiting averages {ev_wait:+.0f} even after a {P:.0%} chance he is taken first. Wait.{alt}", f"plan: wait for {day}"
         return what + alt, f"plan: {day}"
-    if pc:
+    if pc and pc.get("drop") and pc.get("net", -1e9) > -1e8:
         if pc["net"] >= 6:
             return f"PLAN CHECK: worth adding as a keeper: add {datetime.fromisoformat(pc['on']).strftime('%a')}, drop {pc['drop']} (about {pc['net']:+.0f} net).", "plan: worth adding"
         return f"PLAN CHECK: no help this week. Adding him and dropping {pc['drop']} changes this week by {pc['wk']:+.0f} and the rest of the season by {-pc['fut']:+.0f}. Skip unless you want him as a stash.", "plan: not needed"
