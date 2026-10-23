@@ -294,6 +294,7 @@ def run_check():
     except Exception as ex:
         print("pickup check failed:", ex)
     try:
+        plan_move_alert(lg, T, s, mine, can_send)
         plan_target_watch(lg, T, s, mine, can_send)
     except Exception as ex:
         print("plan target watch skipped:", repr(ex)[:90])
@@ -362,6 +363,36 @@ def plan_guidance(T, pid):
     return "", ""
 
 
+def plan_move_alert(lg, T, s, mine, can_send):
+    """the plan has a move for TODAY that you have not made yet: say so once (a plan step that appears after the morning brief used to reach you only as a page you had to open). One message per
+    player/day/drop; it names the add, the drop, why, and the plan's backups. plan_target_watch only reports a player as 'taken' after he was announced here."""
+    import waivers as WV
+    if not can_send:
+        return
+    pool = {int(p["id"]) for p in WV.available_pool(lg, 300)}
+    mine_ids = {int(p.playerId) for p in mine.roster}
+    ann = s.setdefault("plan_announced", {})
+    for k in [k for k, d in ann.items() if (TODAY - date.fromisoformat(d)).days > 3]:
+        ann.pop(k)
+    for m in (T.get("sequence") or []):
+        if m["on"] != TODAY.isoformat():
+            continue
+        pid = int(m["add"]["id"])
+        if pid in mine_ids or pid not in pool:
+            continue
+        drop = (m.get("drop") or {})
+        key = f"{pid}:{m['on']}:{drop.get('id')}"
+        if key in ann:
+            continue
+        kind = "KEEP him" if m.get("keep") else ("rental through " + datetime.fromisoformat(m["hold_through"]).strftime("%a") if m.get("hold_through") else "rental")
+        bk = m.get("backups") or []
+        body = (f"Plan move for today: add {m['add']['name']} ({m['add']['team']}), drop {drop.get('name') or 'nobody (open spot)'} ({kind}), about {m['gain']:+.0f} net."
+                + (" Reclaim the dropped player once he clears waivers (about 40 hours)." if m.get("reclaim") else "")
+                + (f" If he is taken first: {_backup_text(bk)}." if bk else "") + " Details on the This week tab.")
+        if push(f"Plan move today: add {m['add']['name']}", body, priority=4, tags=["arrows_counterclockwise"]):
+            ann[key] = TODAY.isoformat()
+
+
 def plan_target_watch(lg, T, s, mine, can_send):
     """a player the weekly plan is counting on (an add in the next two days) has been taken by another team: say so right away with the plan's backups. The plan itself re-optimizes at its next
     refresh (5:37am, 3:07pm, 6:07pm ET), or when you run it by hand."""
@@ -379,8 +410,8 @@ def plan_target_watch(lg, T, s, mine, can_send):
         if not (0 <= (on - TODAY).days <= 2) or pid in pool or pid in mine_ids:
             continue
         key = f"{pid}:{m['on']}"
-        if key in seen:
-            continue
+        if key in seen or not any(k.startswith(f"{pid}:{m['on']}:") for k in s.get("plan_announced", {})):
+            continue                                              # only report a target as taken if he was announced to you first
         bk = m.get("backups") or []
         body = (f"{m['add']['name']} was in the plan for {on.strftime('%a')} (drop {(m.get('drop') or {}).get('name') or 'an open spot'}) but is no longer available: another team took him."
                 + (f" Next best for that slot: {_backup_text(bk, 3)}." if bk else "") + " The plan updates at its next refresh.")
