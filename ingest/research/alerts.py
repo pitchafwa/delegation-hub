@@ -458,10 +458,26 @@ def plan_guidance(T, pid):
                 return what + f" But adding him NOW (drop {now['drop']}) is worth more on average ({now['net']:+.0f} now vs {ev_wait:+.0f} waiting, counting a {P:.0%} chance he is taken first): add him now.{alt}", "plan: add now"
             return what + f" Adding him now (drop {now['drop']}) would be {now['net']:+.0f}; waiting averages {ev_wait:+.0f} even after a {P:.0%} chance he is taken first. Wait.{alt}", f"plan: wait for {day}"
         return what + alt, f"plan: {day}"
-    if pc and pc.get("drop") and pc.get("net", -1e9) > -1e8:
-        if pc["net"] >= 6:
-            return f"PLAN CHECK: worth adding as a keeper: add {datetime.fromisoformat(pc['on']).strftime('%a')}, drop {pc['drop']} (about {pc['net']:+.0f} net).", "plan: worth adding"
-        return f"PLAN CHECK: no help this week. Adding him and dropping {pc['drop']} changes this week by {pc['wk']:+.0f} and the rest of the season by {-pc['fut']:+.0f}. Skip unless you want him as a stash.", "plan: not needed"
+    if pc:
+        # not in the plan. The plan's search already tried him (as a keep and as a rental, against every possible drop) alongside every other free agent, so his
+        # one-at-a-time value below is information, not an instruction: the planned moves beat him once they are combined (they share days, open slots and adds).
+        keep = {"kind": "keep", **{k: pc.get(k) for k in ("net", "adj", "wk", "fut", "drop", "on")}} if pc.get("drop") and pc.get("net", -1e9) > -1e8 else None
+        rent = dict(pc["rent"], kind="rent") if pc.get("rent") else None
+        best = rent if rent and (not keep or (rent.get("adj", rent["net"]) >= (keep.get("adj") if keep.get("adj") is not None else keep["net"]))) else keep
+        if not best:
+            return "", ""
+        d0 = datetime.fromisoformat(best["on"]).strftime("%a")
+        how = (f"keeping him from {d0}" if best["kind"] == "keep"
+               else (f"a one-day rental on {d0}" if best.get("until") in (None, best["on"]) else f"a rental {d0}-{datetime.fromisoformat(best['until']).strftime('%a')}"))
+        left = (T["_adds_limit"] - (T.get("adds_used") or 0)) if T.get("_adds_limit") is not None else None
+        sq_n = len(T.get("sequence") or [])
+        adds_note = f" The plan's {sq_n} move{'s' if sq_n != 1 else ''} use all of your remaining adds." if left is not None and left - sq_n <= 0 and sq_n else ""
+        if best["net"] >= 6:
+            return (f"PLAN CHECK: on his own he is worth about {best['net']:+.0f} as {how} (drop {best['drop']}{', no long-run cost' if best['kind'] == 'rent' else ', counting the rest of the season'}), "
+                    f"but he is not in the plan: the planned moves are worth more once they are combined (they compete for the same days, lineup slots and adds).{adds_note} "
+                    "Nothing to do; he is a fallback if a planned target is taken."), "plan: fallback only"
+        fut_txt = f" and the rest of the season by {-best['fut']:+.0f}" if best.get("fut") else ""
+        return f"PLAN CHECK: no help. His best use, {how} for {best['drop']}, changes this week by {best['wk']:+.0f}{fut_txt}. Skip.", "plan: not needed"
     return "", ""
 
 
@@ -564,6 +580,7 @@ def pickup_alert(lg, W, T, s, mine, can_send):
     from espn_api.basketball.constant import PRO_TEAM_MAP
     pool = WV.available_pool(lg, 300)
     wm = WV.waiver_map(lg)
+    T["_adds_limit"] = (W.get("matchup") or {}).get("adds_limit")
     hub = load("hub_data.json")
     by_hub = {p["id"]: p for p in hub["players"]}
     e2n = {int(k): int(v) for k, v in json.load(open(Path(__file__).resolve().parent / "espn_id_map.json")).items()}
@@ -653,14 +670,14 @@ def pickup_alert(lg, W, T, s, mine, can_send):
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
     if recheck:
         request_rebuild(s, "new free agent(s) to evaluate: " + ", ".join(recheck))
-    act = [x for x in lines if x[0] and x[0] != "plan: not needed"]
+    act = [x for x in lines if x[0] and x[0] not in ("plan: not needed", "plan: fallback only")]
     lines.sort(key=lambda x: (0 if x in act else (1 if not x[0] else 2)))
     if act:
         title, prio_n = f"Pickup: {act[0][1]} ({act[0][0].replace('plan: ', '')})", 4
     elif recheck:
         title, prio_n = "New free agents: plan is re-checking " + ", ".join(recheck[:2]), 3
     else:
-        title, prio_n = "New free agents: none worth adding", 2
+        title, prio_n = "New free agents: nothing to do (plan unchanged)", 2
     push(title, "\n".join(x[2] for x in lines) + "\nThe Today tab has the full plan; this alert follows it.", priority=prio_n, tags=["star"] if act else ["information_source"])
     _ledger("pickup", names=[e[1]["name"] for e in events[:3]], kinds=[e[2] for e in events[:3]])
 
