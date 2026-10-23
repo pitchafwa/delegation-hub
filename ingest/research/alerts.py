@@ -809,14 +809,22 @@ def run_lineup():
     tips = team_tips()
     mine_teams = {canon(p["team"]) for p in T["roster"] if not p["ir"]}
     soon = [t for tm, t in tips.items() if tm in mine_teams and NOW < t <= NOW + timedelta(hours=4)]
-    if not soon and not FORCE:
-        print("no game of yours tips within 4 hours")
-        return
     from espn_api.basketball import League
     import config
     s = state()
     lg = League(league_id=config.LEAGUE_ID, year=W["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
     mine = next(t for t in lg.teams if t.team_abbrev == W["my_abbrev"])
+    if active() or FORCE:                     # every 5 minutes: a roster move (or a skipped scheduled build) starts a plan rebuild
+        before_rb = json.dumps(s.get("plan_rebuild"), sort_keys=True)
+        try:
+            plan_rebuild_check(W, T, mine, s)
+        except Exception as ex:
+            print("plan rebuild check failed:", repr(ex)[:120])
+        if json.dumps(s.get("plan_rebuild"), sort_keys=True) != before_rb:
+            save_state(s)
+    if not soon and not FORCE:
+        print("no game of yours tips within 4 hours")
+        return
     plan_by_id = {p["id"]: p for p in T["roster"]}
     off = official_today({norm(p.name).replace(" ", "") for p in mine.roster})
     before = json.dumps(s, sort_keys=True)
