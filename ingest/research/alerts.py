@@ -364,8 +364,12 @@ def plan_guidance(T, pid):
 
 
 def plan_move_alert(lg, T, s, mine, can_send):
-    """the plan has a move for TODAY that you have not made yet: say so once (a plan step that appears after the morning brief used to reach you only as a page you had to open). One message per
-    player/day/drop; it names the add, the drop, why, and the plan's backups. plan_target_watch only reports a player as 'taken' after he was announced here."""
+    """Tells you when the weekly plan wants a pickup, so you never have to open the page to find out:
+      * TODAY'S move, the first time the plan has it (one message per player, day and drop; if the plan changes the drop you get the new version);
+      * TOMORROW'S move, as an evening heads-up (6pm ET on) so the add can be made first thing, or a waiver claim placed in time;
+      * a REMINDER about two hours before his game if today's add still has not been made;
+      * a player on waivers: the claim has to be in before the 3am run, and the message says so.
+    plan_target_watch only reports a player as 'taken' after he was announced here."""
     import waivers as WV
     if not can_send:
         return
@@ -374,23 +378,41 @@ def plan_move_alert(lg, T, s, mine, can_send):
     ann = s.setdefault("plan_announced", {})
     for k in [k for k, d in ann.items() if (TODAY - date.fromisoformat(d)).days > 3]:
         ann.pop(k)
+    tips = team_tips()
     for m in (T.get("sequence") or []):
-        if m["on"] != TODAY.isoformat():
-            continue
+        on = date.fromisoformat(m["on"])
+        days_to = (on - TODAY).days
         pid = int(m["add"]["id"])
-        if pid in mine_ids or pid not in pool:
+        if days_to not in (0, 1) or pid in mine_ids:
+            continue
+        if days_to == 1 and NOW.hour < 18:
+            continue
+        w = m["add"].get("waiver")
+        if pid not in pool and not w:
             continue
         drop = (m.get("drop") or {})
-        key = f"{pid}:{m['on']}:{drop.get('id')}"
-        if key in ann:
-            continue
+        base = f"{pid}:{m['on']}:{drop.get('id')}"
+        stage = "today" if days_to == 0 else "eve"
         kind = "KEEP him" if m.get("keep") else ("rental through " + datetime.fromisoformat(m["hold_through"]).strftime("%a") if m.get("hold_through") else "rental")
         bk = m.get("backups") or []
-        body = (f"Plan move for today: add {m['add']['name']} ({m['add']['team']}), drop {drop.get('name') or 'nobody (open spot)'} ({kind}), about {m['gain']:+.0f} net."
-                + (" Reclaim the dropped player once he clears waivers (about 40 hours)." if m.get("reclaim") else "")
+        tail = ((" Reclaim the dropped player once he clears waivers (about 40 hours)." if m.get("reclaim") else "")
                 + (f" If he is taken first: {_backup_text(bk)}." if bk else "") + " Details on the This week tab.")
-        if push(f"Plan move today: add {m['add']['name']}", body, priority=4, tags=["arrows_counterclockwise"]):
-            ann[key] = TODAY.isoformat()
+        who = f"{m['add']['name']} ({m['add']['team']})"
+        dr = drop.get("name") or "nobody (open spot)"
+        wv = f" He is on WAIVERS ({WV.when(w)}): place the claim before that run." if w and pid not in pool else ""
+        if base + ":" + stage not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
+            lead = "Plan move for today" if days_to == 0 else "Plan move for tomorrow (" + on.strftime("%a") + ")"
+            body = f"{lead}: add {who}, drop {dr} ({kind}), about {m['gain']:+.0f} net.{wv}{tail}"
+            if push(("Plan move today: add " if days_to == 0 else "Plan move tomorrow: add ") + m["add"]["name"], body, priority=4, tags=["arrows_counterclockwise"]):
+                ann[base + ":" + stage] = TODAY.isoformat()
+                ann.setdefault(base, TODAY.isoformat())
+        # reminder: today's add still not made and his game is about two hours away
+        tip = tips.get(canon(m["add"]["team"]))
+        if days_to == 0 and pid in pool and tip is not None and base + ":rem" not in ann:
+            mins = (tip - NOW).total_seconds() / 60
+            if 0 < mins <= 120:
+                if push(f"Reminder: add {m['add']['name']} before {tip.strftime('%I:%M%p').lstrip('0').lower()}", f"The plan's move for today is still open: add {who}, drop {dr} ({kind}). His game tips off in about {int(mins)} minutes.{tail}", priority=5, tags=["alarm_clock"]):
+                    ann[base + ":rem"] = TODAY.isoformat()
 
 
 def plan_target_watch(lg, T, s, mine, can_send):
