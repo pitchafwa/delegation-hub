@@ -342,8 +342,13 @@ def plan_rebuild_check(W, T, mine, s):
             why = f"scheduled build at {exp.strftime('%H:%MZ')} did not run (plan from {gen.strftime('%H:%MZ')})"
     if not why:
         return
+    request_rebuild(s, why, sig, now)
+
+
+def request_rebuild(s, why, sig=None, now=None):
+    now = now or datetime.now(ZoneInfo("UTC"))
     print("plan rebuild requested:", why)
-    s["plan_rebuild"] = {"at": now.isoformat(timespec="seconds"), "sig": sig, "why": why}
+    s["plan_rebuild"] = {"at": now.isoformat(timespec="seconds"), "sig": sig if sig is not None else (s.get("plan_rebuild") or {}).get("sig"), "why": why}
     if not DRY:
         (Path(__file__).resolve().parent.parent / "rebuild_request.txt").write_text(why, encoding="utf-8")
 
@@ -391,6 +396,12 @@ def run_check():
         msgs.append((abs(impact), f"{p.name}: {what}" + (f" (official: {o})" if o and changed_e else "") + (f". About {impact:+.0f} pts over {left} game(s) left this week." if left and abs(impact) >= 5 else ".")
                      + (" He is in your lineup." if p.lineupSlot not in ("BE", "IR") else "")))
     s["last_status"] = cur
+    drops = s.setdefault("my_drops", {})
+    for pk in prev:
+        if pk not in cur:
+            drops[pk] = TODAY.isoformat()
+    for k in [k for k, d in drops.items() if (TODAY - date.fromisoformat(d)).days > 4 or k in cur]:
+        drops.pop(k)
     if active() or FORCE:
         try:
             plan_rebuild_check(W, T, mine, s)
@@ -400,7 +411,7 @@ def run_check():
     if msgs and can_send and not first_run and (FORCE or not in_quiet()):
         msgs.sort(reverse=True)
         worst = msgs[0][0]
-        push("Injury update: " + msgs[0][1].split(":")[0], "\n".join(m for _, m in msgs) + "\nOpen This week for replacements.", priority=4 if worst >= 20 else 3, tags=["warning"])
+        push("Injury update: " + msgs[0][1].split(":")[0], "\n".join(m for _, m in msgs) + "\nOpen the Today tab for replacements.", priority=4 if worst >= 20 else 3, tags=["warning"])
     # ---- pickup alert: a player who should almost certainly be picked up just became available (free agent now, or dropped onto waivers)
     try:
         pickup_alert(lg, W, T, s, mine, can_send)
@@ -497,7 +508,7 @@ def plan_move_alert(lg, T, s, mine, can_send):
         kind = "KEEP him" if m.get("keep") else ("rental through " + datetime.fromisoformat(m["hold_through"]).strftime("%a") if m.get("hold_through") else "rental")
         bk = m.get("backups") or []
         tail = ((" Reclaim the dropped player once he clears waivers (about 40 hours)." if m.get("reclaim") else "")
-                + (f" If he is taken first: {_backup_text(bk)}." if bk else "") + " Details on the This week tab.")
+                + (f" If he is taken first: {_backup_text(bk)}." if bk else "") + " Details on the Today tab.")
         who = f"{m['add']['name']} ({m['add']['team']})"
         if m["add"].get("boost", 0) >= 2.5 and m["add"].get("boost_why"):
             tail = f" Why now: {' and '.join(m['add']['boost_why'][:2])} out, so he gains about +{m['add']['boost']:.0f} pts/g." + tail
@@ -588,8 +599,12 @@ def pickup_alert(lg, W, T, s, mine, can_send):
         return
     can = can_send and (FORCE or not in_quiet())
     events = []
+    my_drops = s.get("my_drops") or {}
+    in_plan = {str(m["add"]["id"]) for m in (T.get("sequence") or [])}
     for pid, v in cur.items():
         was = prev.get(pid)
+        if pid in my_drops and pid not in in_plan:
+            continue                                             # the player you just dropped: the plan decides if and when he comes back (plan move alert)
         if was is None:
             events.append((pid, v, "new"))
         elif was == "WAIVERS" and v["status"] == "FREEAGENT" and f"{pid}:WAIVERS" in sent:
@@ -602,7 +617,7 @@ def pickup_alert(lg, W, T, s, mine, can_send):
         return
     events.sort(key=lambda e: -((e[1]["ppg"] or 0) + e[1]["asset"]))
     pri, n = WV.my_priority(lg, T["id"])
-    lines, title = [], None
+    lines, recheck = [], []
     for pid, v, kind in events[:3]:
         val = f"about {v['ppg']:.0f} pts/g, redraft rank #{v['rank']}" if v["ppg"] else "no rest-of-season projection yet"
         extra = f"; keeper asset {v['asset']:.0f} vs your #5 at {bar:.0f}" if v["dyn"] else ""
@@ -611,8 +626,10 @@ def pickup_alert(lg, W, T, s, mine, can_send):
             head = f"{v['name']} ({v['team']}) cleared waivers and nobody claimed him." if kind == "cleared" else f"{v['name']} ({v['team']}) just became a FREE AGENT."
             pg, ptag = plan_guidance(T, pid)
             _mark_announced(T, pid, s)
-            lines.append(f"{head} {val}{extra}. " + (pg if pg else "ADD HIM NOW: free agents are added instantly, any hour.") + ("" if pg else drop))
-            tag = ("FREE AGENT, " + ptag) if ptag else "FREE AGENT, add now"
+            if not pg:
+                recheck.append(v["name"])
+                pg = "The plan has not seen him yet and is re-checking now: if the new plan wants him you get a Plan move alert (on the day of the move, or the evening before); otherwise skip him."
+            lines.append((ptag, v["name"], f"{head} {val}{extra}. {pg}"))
         else:
             w = wm.get(int(pid))
             when = WV.when(w) if w else "the next 3am ET run"
@@ -629,11 +646,22 @@ def pickup_alert(lg, W, T, s, mine, can_send):
                 print("claim-odds estimate failed:", repr(ex)[:80])
             pg, ptag = plan_guidance(T, pid)
             _mark_announced(T, pid, s)
-            lines.append(f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. He cannot be added directly: a claim is processed at {when}.{prio} If nobody claims him he becomes a free agent after that run. " + (pg if pg else f"CLAIM HIM BEFORE the run if you want him.{drop}"))
-            tag = f"ON WAIVERS ({when})" + (f", {ptag}" if ptag else "")
+            if not pg:
+                recheck.append(v["name"])
+                pg = "The plan has not seen him yet and is re-checking now: if the new plan wants him you get a Plan move alert (on the day of the move, or the evening before); otherwise skip him."
+            lines.append((ptag, v["name"], f"{v['name']} ({v['team']}) was just dropped and is ON WAIVERS. {val}{extra}. A claim is processed at {when}.{prio} {pg}"))
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
-        title = title or f"Pickup alert: {v['name']} ({tag})"
-    push(title, "\n".join(lines) + "\nThe This week tab has the full plan; this alert follows it.", priority=4, tags=["star"])
+    if recheck:
+        request_rebuild(s, "new free agent(s) to evaluate: " + ", ".join(recheck))
+    act = [x for x in lines if x[0] and x[0] != "plan: not needed"]
+    lines.sort(key=lambda x: (0 if x in act else (1 if not x[0] else 2)))
+    if act:
+        title, prio_n = f"Pickup: {act[0][1]} ({act[0][0].replace('plan: ', '')})", 4
+    elif recheck:
+        title, prio_n = "New free agents: plan is re-checking " + ", ".join(recheck[:2]), 3
+    else:
+        title, prio_n = "New free agents: none worth adding", 2
+    push(title, "\n".join(x[2] for x in lines) + "\nThe Today tab has the full plan; this alert follows it.", priority=prio_n, tags=["star"] if act else ["information_source"])
     _ledger("pickup", names=[e[1]["name"] for e in events[:3]], kinds=[e[2] for e in events[:3]])
 
 
