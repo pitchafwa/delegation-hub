@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Fantasy Hub</title>
-<meta name="theme-color" content="#0f1318" />
+<title>Delegation</title>
+<meta name="theme-color" content="#0b1624" />
 <meta name="build" content="__BUILD__" />
 <link rel="icon" href="favicon.ico" sizes="48x48 32x32 16x16" />
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png" />
@@ -13,38 +13,38 @@
 <meta name="apple-mobile-web-app-title" content="Fantasy Hub" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" />
 <style>
-  :root{--paper:#f3f5f7;--surface:#fff;--surface-2:#eef1f4;--ink:#171d24;--ink-soft:#55606c;
-    --ink-faint:#8a939d;--line:#dde2e8;--line-strong:#c6cdd5;--accent:#a9741f;
-    --good:#2f7d5d;--warn:#b1472f;--intl:#7a5cc8;--current:#3a86c8}
+  :root{--paper:#eef2f7;--surface:#fff;--surface-2:#e6ecf3;--ink:#0b1624;--ink-soft:#4a5d74;
+    --ink-faint:#7b8ca1;--line:#d5dee9;--line-strong:#b8c6d6;--accent:#c4530c;--on-accent:#fff;
+    --good:#1f8a5b;--warn:#c7362f;--intl:#6d4fd1;--current:#1f78c1}
   @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
-    --paper:#0f1318;--surface:#171d24;--surface-2:#1e252d;--ink:#e2e6ea;--ink-soft:#97a2ad;
-    --ink-faint:#6c7680;--line:#2a323b;--line-strong:#39434e;--accent:#d69a3f;
-    --good:#4ea883;--warn:#d3694c;--intl:#9c85e0;--current:#5aa0dd}}
-  :root[data-theme="dark"]{--paper:#0f1318;--surface:#171d24;--surface-2:#1e252d;--ink:#e2e6ea;--ink-soft:#97a2ad;
-    --ink-faint:#6c7680;--line:#2a323b;--line-strong:#39434e;--accent:#d69a3f;
-    --good:#4ea883;--warn:#d3694c;--intl:#9c85e0;--current:#5aa0dd}
+    --paper:#0b1624;--surface:#12233a;--surface-2:#172b45;--ink:#e8eef5;--ink-soft:#8fa3b8;
+    --ink-faint:#6b819a;--line:#1f3552;--line-strong:#2b4567;--accent:#ff7a29;--on-accent:#0b1624;
+    --good:#5fd39a;--warn:#f25f5c;--intl:#a98bff;--current:#4cc3ff}}
+  :root[data-theme="dark"]{--paper:#0b1624;--surface:#12233a;--surface-2:#172b45;--ink:#e8eef5;--ink-soft:#8fa3b8;
+    --ink-faint:#6b819a;--line:#1f3552;--line-strong:#2b4567;--accent:#ff7a29;--on-accent:#0b1624;
+    --good:#5fd39a;--warn:#f25f5c;--intl:#a98bff;--current:#4cc3ff}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "Barlow",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1280px;margin:0 auto;padding:2rem clamp(.7rem,3vw,2rem) 4rem}
-  h1{font-family:"Zilla Slab",Georgia,serif;font-weight:700;font-size:clamp(1.7rem,4vw,2.4rem);margin:0 0 .15rem}
+  h1{font-family:"Barlow Condensed",Georgia,serif;font-weight:700;font-size:clamp(1.7rem,4vw,2.4rem);margin:0 0 .15rem}
   .sub{color:var(--ink-soft);font-size:.92rem;margin-bottom:1.3rem;max-width:70ch}
   a{color:var(--accent)}
   .statbar{display:flex;flex-wrap:wrap;gap:1.1rem 1.9rem;padding:1rem 1.2rem;background:var(--surface);
-    border:1px solid var(--line);border-radius:10px;margin-bottom:1.1rem;font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-soft)}
-  .statbar b{display:block;font:600 1.1rem/1 "IBM Plex Sans",sans-serif;color:var(--ink);letter-spacing:-.01em}
+    border:1px solid var(--line);border-radius:10px;margin-bottom:1.1rem;font-family:"Barlow Condensed",monospace;font-size:.74rem;color:var(--ink-soft)}
+  .statbar b{display:block;font:600 1.1rem/1 "Barlow",sans-serif;color:var(--ink);letter-spacing:-.01em}
 
   .controls{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem;align-items:center}
   .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
   .seg button{border:0;background:var(--surface);color:var(--ink-soft);padding:.42rem .72rem;font:inherit;font-size:.8rem;cursor:pointer}
   .seg button+button{border-left:1px solid var(--line)}
-  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600}
-  .hint{font-size:.72rem;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
+  .hint{font-size:.72rem;color:var(--ink-faint);font-family:"Barlow Condensed",monospace}
   input[type=search]{flex:1;min-width:150px;padding:.42rem .7rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.84rem}
   .kbox{display:flex;align-items:center;gap:.5rem;padding:.3rem .7rem;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;font-size:.8rem}
   .kbox input[type=range]{width:110px}
-  .kbox input[type=number]{width:3.2rem;color:var(--accent);font-family:"IBM Plex Mono",monospace;font-weight:600;text-align:center;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:.15rem .2rem}
+  .kbox input[type=number]{width:3.2rem;color:var(--accent);font-family:"Barlow Condensed",monospace;font-weight:600;text-align:center;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:.15rem .2rem}
   .legend{font-size:.78rem;color:var(--ink-faint);margin:.2rem 0 1rem;line-height:1.65}
   .legend b{color:var(--ink-soft)} .legend .intl{color:var(--intl)} .legend .cur{color:var(--current)}
 
@@ -59,17 +59,17 @@
   th:nth-child(3),td:nth-child(3){padding-left:.25rem}
   th:nth-child(4),td:nth-child(4){padding-left:.25rem;padding-right:1.1rem;border-right:1px solid var(--line)}
   th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){text-align:left}
-  thead th{position:sticky;top:0;background:var(--surface-2);border-top:0;font-family:"IBM Plex Mono",monospace;
+  thead th{position:sticky;top:0;background:var(--surface-2);border-top:0;font-family:"Barlow Condensed",monospace;
     font-size:.64rem;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;cursor:pointer;user-select:none;white-space:normal;vertical-align:bottom;line-height:1.25}
   thead th.sorted::after{content:" ▾";color:var(--accent)}
   thead th.sorted.asc::after{content:" ▴"}
   tbody tr{cursor:pointer} tbody tr:hover{background:var(--surface-2)}
-  td.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
-  .kind{display:inline-block;min-width:1.4rem;text-align:center;font-family:"IBM Plex Mono",monospace;font-weight:600;padding:.05rem .28rem;border-radius:4px;font-size:.68rem}
+  td.num{font-family:"Barlow Condensed",monospace;font-variant-numeric:tabular-nums}
+  .kind{display:inline-block;min-width:1.4rem;text-align:center;font-family:"Barlow Condensed",monospace;font-weight:600;padding:.05rem .28rem;border-radius:4px;font-size:.68rem}
   .kind.rookie{background:color-mix(in srgb, var(--intl) 18%, transparent);color:var(--intl);letter-spacing:.03em}
   .spark{display:block;vertical-align:middle}
   .sparkCell{display:flex;align-items:center;gap:.4rem;justify-content:flex-end}
-  .sparkDelta{font-family:"IBM Plex Mono",monospace;font-size:.7rem;min-width:2.2rem;text-align:right}
+  .sparkDelta{font-family:"Barlow Condensed",monospace;font-size:.7rem;min-width:2.2rem;text-align:right}
   .sparkDelta.up{color:var(--good)} .sparkDelta.down{color:var(--warn)} .sparkDelta.flat{color:var(--ink-faint)}
   .teamCell{display:flex;align-items:center;gap:.35rem;justify-content:flex-start}
   .teamCell img{width:18px;height:18px;object-fit:contain}
@@ -77,9 +77,9 @@
   .injDot.watch{background:var(--accent)} .injDot.chronic{background:var(--warn)}
   .injDot.t2{background:var(--ink-faint);opacity:.55}
   .injDot.t0{background:var(--good)} .injDot.t1{background:color-mix(in srgb,var(--good) 55%,transparent)} .injDot.t3{background:var(--accent)} .injDot.t4{background:var(--warn)}
-  .injTier{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.62rem;font-weight:600;padding:.05rem .35rem;border-radius:4px;margin-right:.35rem;background:color-mix(in srgb,var(--ink-faint) 22%,transparent)}
+  .injTier{display:inline-block;font-family:"Barlow Condensed",monospace;font-size:.62rem;font-weight:600;padding:.05rem .35rem;border-radius:4px;margin-right:.35rem;background:color-mix(in srgb,var(--ink-faint) 22%,transparent)}
   .injTier.t0,.injTier.t1{background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--good)} .injTier.t3{background:color-mix(in srgb,var(--accent) 25%,transparent);color:var(--accent)} .injTier.t4{background:color-mix(in srgb,var(--warn) 25%,transparent);color:var(--warn)}
-  .liveStatus{font-family:"IBM Plex Mono",monospace;font-size:.62rem;font-weight:600;padding:.04rem .32rem;border-radius:4px;margin-left:.35rem;background:color-mix(in srgb, var(--warn) 20%, transparent);color:var(--warn)}
+  .liveStatus{font-family:"Barlow Condensed",monospace;font-size:.62rem;font-weight:600;padding:.04rem .32rem;border-radius:4px;margin-left:.35rem;background:color-mix(in srgb, var(--warn) 20%, transparent);color:var(--warn)}
   .ic{margin-left:.25rem;font-size:.82rem}
   .detail td{background:var(--surface-2);border-top:0;white-space:normal}
   .detailGrid{display:grid;grid-template-columns:var(--lc,340px) 1fr;gap:1.4rem;align-items:stretch;padding:.4rem 0}
@@ -107,19 +107,19 @@
   .pcHead .pcHead{margin-top:0}
   .pcHead img.pcHead{border-radius:12px;object-fit:cover;background:var(--surface-2);flex:0 0 auto}
   .pcHeadInfo{min-width:0}
-  .pcName{font-family:"Zilla Slab",serif;font-size:1.35rem;font-weight:600;line-height:1.15}
+  .pcName{font-family:"Barlow Condensed",serif;font-size:1.35rem;font-weight:600;line-height:1.15}
   .pcSub{display:flex;align-items:center;gap:.3rem;font-size:.84rem;color:var(--ink-soft);margin-top:.15rem;flex-wrap:wrap}
   .pcTeamLogo{width:16px;height:16px;object-fit:contain;vertical-align:-3px}
   .pcTags{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.25rem}
-.todayH{font-family:'Zilla Slab',Georgia,serif;font-weight:700;font-size:1.25rem;margin:1.3rem 0 .55rem;display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap}.todayH .hint{font-family:inherit}
+.todayH{font-family:'Barlow Condensed',Georgia,serif;font-weight:700;font-size:1.25rem;margin:1.3rem 0 .55rem;display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap}.todayH .hint{font-family:inherit}
   .scoreCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem;margin:.4rem 0 .2rem}.scoreLive{font-size:.82rem;font-weight:600;margin-bottom:.4rem;display:flex;align-items:center;gap:.35rem}
-  .scoreTop{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.6rem}.scoreBig{font-family:'IBM Plex Mono',monospace;font-size:2.4rem;font-weight:600;line-height:1.05}.scoreLbl{font-size:.8rem;color:var(--ink-soft)}.scoreMid{text-align:center}.scoreWp{font-family:'Zilla Slab',Georgia,serif;font-size:2rem;font-weight:700;line-height:1.1}
-  .scoreStrip{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;padding-top:.75rem;border-top:1px solid var(--line);font-size:.9rem;color:var(--ink-soft)}.scoreStrip b{font-family:'IBM Plex Mono',monospace;color:var(--ink)}
+  .scoreTop{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.6rem}.scoreBig{font-family:'Barlow Condensed',monospace;font-size:2.4rem;font-weight:600;line-height:1.05}.scoreLbl{font-size:.8rem;color:var(--ink-soft)}.scoreMid{text-align:center}.scoreWp{font-family:'Barlow Condensed',Georgia,serif;font-size:2rem;font-weight:700;line-height:1.1}
+  .scoreStrip{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;padding-top:.75rem;border-top:1px solid var(--line);font-size:.9rem;color:var(--ink-soft)}.scoreStrip b{font-family:'Barlow Condensed',monospace;color:var(--ink)}
   .scoreCard .liveAdv{margin-top:.5rem}
-  .doList{display:flex;flex-direction:column;gap:.5rem}.doItem{display:flex;gap:.8rem;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem}.doWhen{min-width:3.2rem;font-family:'IBM Plex Mono',monospace;font-size:.8rem;font-weight:600;color:var(--accent);padding-top:.15rem}.doBody{flex:1;display:flex;flex-direction:column;gap:.2rem;font-size:.97rem}.doBody span{font-size:.86rem;color:var(--ink-soft)}.doGain{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--good)}
-  .lineupBox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.15rem .9rem}.luRow{display:flex;gap:.7rem;align-items:center;min-height:2.6rem;border-bottom:1px solid var(--line)}.luRow:last-child{border-bottom:0}.luSlot{width:2rem;font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--ink-soft)}.luName{flex:1;font-size:.97rem}.luPts{font-family:'IBM Plex Mono',monospace;font-weight:600}
-  .faTabs{display:flex;gap:.4rem;margin:0 0 .6rem}.faTabs button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--line-strong);background:transparent;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}.faTabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
-  .faRow{display:flex;gap:.7rem;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .9rem;margin-bottom:.4rem}.faName{flex:1;font-size:.97rem;display:flex;flex-direction:column;gap:.15rem}.faSub{font-size:.84rem;color:var(--ink-soft)}.faGain{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--good);min-width:2.6rem;text-align:right}
+  .doList{display:flex;flex-direction:column;gap:.5rem}.doItem{display:flex;gap:.8rem;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem}.doWhen{min-width:3.2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;font-weight:600;color:var(--accent);padding-top:.15rem}.doBody{flex:1;display:flex;flex-direction:column;gap:.2rem;font-size:.97rem}.doBody span{font-size:.86rem;color:var(--ink-soft)}.doGain{font-family:'Barlow Condensed',monospace;font-weight:600;color:var(--good)}
+  .lineupBox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.15rem .9rem}.luRow{display:flex;gap:.7rem;align-items:center;min-height:2.6rem;border-bottom:1px solid var(--line)}.luRow:last-child{border-bottom:0}.luSlot{width:2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;color:var(--ink-soft)}.luName{flex:1;font-size:.97rem}.luPts{font-family:'Barlow Condensed',monospace;font-weight:600}
+  .faTabs{display:flex;gap:.4rem;margin:0 0 .6rem}.faTabs button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--line-strong);background:transparent;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}.faTabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .faRow{display:flex;gap:.7rem;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .9rem;margin-bottom:.4rem}.faName{flex:1;font-size:.97rem;display:flex;flex-direction:column;gap:.15rem}.faSub{font-size:.84rem;color:var(--ink-soft)}.faGain{font-family:'Barlow Condensed',monospace;font-weight:600;color:var(--good);min-width:2.6rem;text-align:right}
 .tSort{display:none;gap:.4rem;margin:0 0 .5rem}.tSort select{flex:1;min-width:0;min-height:44px;padding:.4rem .6rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}.tSort button{min-width:44px;min-height:44px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
   @media(max-width:720px){.tSort.mobileOnly{display:flex}}
 .ib{display:inline-flex;align-items:center;justify-content:center;min-width:1.4em;min-height:1.4em;font-size:.95em;font-weight:400;font-style:normal;color:var(--ink-faint);cursor:pointer;border-radius:50%;vertical-align:baseline;text-transform:none;letter-spacing:0}
@@ -132,17 +132,17 @@
   .taCols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.5rem 0}.taList{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:.3rem}@media(max-width:640px){.taCols{grid-template-columns:1fr}}
   .pcNews{list-style:none;margin:0;padding:0}
   .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
-  .pcNews .nh{font-weight:600;font-size:.86rem;line-height:1.35}.pcNews .nm{font-size:.7rem;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace}
+  .pcNews .nh{font-weight:600;font-size:.86rem;line-height:1.35}.pcNews .nm{font-size:.7rem;color:var(--ink-faint);font-family:"Barlow Condensed",monospace}
   .pcNews .ns{font-size:.8rem;color:var(--ink-soft);margin-top:.2rem;line-height:1.4}
   #rdTip{position:fixed;z-index:200;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:8px;padding:.4rem .55rem;box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:.72rem;display:none;max-width:260px}
-  #rdTip .th{font-weight:600;margin-bottom:.25rem}#rdTip .tg{display:grid;grid-template-columns:repeat(4,auto);gap:.1rem .7rem;font-family:"IBM Plex Mono",monospace}
+  #rdTip .th{font-weight:600;margin-bottom:.25rem}#rdTip .tg{display:grid;grid-template-columns:repeat(4,auto);gap:.1rem .7rem;font-family:"Barlow Condensed",monospace}
   #rdTip .tg b{display:block;font-size:.85rem}#rdTip .tg span{color:var(--ink-faint);font-size:.6rem;text-transform:uppercase}
   .rdBar{cursor:pointer}
   .pcSec{margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--line)}
-  .pcH{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+  .pcH{font-family:"Barlow Condensed",monospace;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
   .pName{cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:2px;transition:text-decoration-color .1s}
   .pName:hover{text-decoration-color:var(--ink-faint)}
-  .pName:focus-visible{text-decoration-color:var(--accent,#5b7cfa);outline:2px solid var(--accent,#5b7cfa);outline-offset:2px;border-radius:2px}
+  .pName:focus-visible{text-decoration-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
   @media(max-width:640px){
     #playerCard .pcPanel{width:100vw;border-left:0}
     .pcBody{padding:.8rem 1rem 2rem}
@@ -167,17 +167,17 @@
   .sec>summary::-webkit-details-marker{display:none}
   .sec>summary::before{content:'▸';color:var(--ink-faint);font-size:.8rem;transition:transform .12s}
   .sec[open]>summary::before{transform:rotate(90deg)}
-  .secT{font-family:"IBM Plex Mono",monospace;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600}
+  .secT{font-family:"Barlow Condensed",monospace;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600}
   .secM{font-size:.76rem;color:var(--ink-faint)}
   .secB{padding:0 .85rem .7rem}
   .secB>.tablewrap{border-radius:8px}
   .jumpBar{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin:0 0 .9rem;position:sticky;top:0;z-index:5;background:var(--paper);padding:.4rem 0}
   .jumpBar button{font:inherit;font-size:.74rem;padding:.22rem .6rem;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--ink-soft);cursor:pointer}
   .jumpBar button:hover{color:var(--ink);border-color:var(--ink-faint)}
-  .laterBox{border:1px solid var(--line);border-left:3px solid var(--accent,#5b7cfa);border-radius:8px;padding:.5rem .7rem;margin:0 0 .8rem;background:var(--surface-2,transparent)}
+  .laterBox{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:.5rem .7rem;margin:0 0 .8rem;background:var(--surface-2,transparent)}
   .laterHd{font-weight:600;font-size:.82rem;margin-bottom:.25rem}
   .lt{display:grid;grid-template-columns:3.6rem 1fr;gap:.5rem;padding:.15rem 0;font-size:.85rem}
-  .ltD{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent,#5b7cfa);padding-top:.12rem}
+  .ltD{font-family:"Barlow Condensed",monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-top:.12rem}
 
   #redraftPane .tablewrap tbody tr:not(.detail) td:first-child{white-space:normal;max-width:190px}
   #redraftPane .sparkCell{justify-content:flex-start}
@@ -189,8 +189,8 @@
     #redraftPane tbody tr:not(.detail){display:grid;grid-template-columns:repeat(4,1fr);gap:.1rem .5rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.6rem .7rem;margin:.55rem 0}
     #redraftPane tbody tr.detail{border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;margin:-.55rem 0 .55rem;padding:.6rem .5rem;background:var(--surface)}
     #redraftPane tbody tr:not(.detail) td{border:0 !important;text-align:left !important;padding:.1rem 0 !important;display:block;min-width:0}
-    #redraftPane td::before{content:attr(data-label);display:block;font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
-    #redraftPane td:first-child{grid-column:1/-1;font-family:"Zilla Slab",serif;font-size:1.12rem;font-weight:500}
+    #redraftPane td::before{content:attr(data-label);display:block;font-family:"Barlow Condensed",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+    #redraftPane td:first-child{grid-column:1/-1;font-family:"Barlow Condensed",serif;font-size:1.12rem;font-weight:500}
     #redraftPane td:first-child::before{content:none}
     #redraftPane td[data-label="Pos"],#redraftPane td[data-label="Team"],#redraftPane td[data-label="Age"],#redraftPane td[data-label="Rank"]{font-size:.8rem;color:var(--ink-soft)}
     #redraftPane td[data-label="Pos"]::before,#redraftPane td[data-label="Team"]::before,#redraftPane td[data-label="Age"]::before,#redraftPane td[data-label="Rank"]::before{display:none}
@@ -204,20 +204,20 @@
 
   .statline{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:.5rem;margin-top:.6rem}
   .statline .s{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.4rem .5rem;text-align:center}
-  .statline .s .v{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1rem}
+  .statline .s .v{font-family:"Barlow Condensed",monospace;font-weight:600;font-size:1rem}
   .statline .s .l{font-size:.62rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
   .inputs{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem}
-  .inputs .i{white-space:normal;font-family:"IBM Plex Mono",monospace;font-size:.73rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+  .inputs .i{white-space:normal;font-family:"Barlow Condensed",monospace;font-size:.73rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
   .inputs .i b{color:var(--accent)}
   .comps{display:flex;flex-wrap:wrap;gap:.4rem;padding:.3rem 0}
-  .comp{white-space:normal;font-family:"IBM Plex Mono",monospace;font-size:.73rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+  .comp{white-space:normal;font-family:"Barlow Condensed",monospace;font-size:.73rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
   .comp b{color:var(--accent)}
   .note{font-size:.77rem;color:var(--ink-faint);margin-top:.25rem}
   .simwrap{margin-top:.9rem}
-  .simwrap .lbl{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.35rem}
-  footer{margin-top:2.6rem;padding-top:1.1rem;border-top:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);line-height:1.7}
-  .err{padding:2rem;text-align:center;color:var(--warn);font-family:"IBM Plex Mono",monospace}
-  #aboutPane h2{font-family:"Zilla Slab",serif;font-size:1.25rem;margin:1.6rem 0 .5rem}
+  .simwrap .lbl{font-family:"Barlow Condensed",monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.35rem}
+  footer{margin-top:2.6rem;padding-top:1.1rem;border-top:1px solid var(--line);font-family:"Barlow Condensed",monospace;font-size:.74rem;color:var(--ink-faint);line-height:1.7}
+  .err{padding:2rem;text-align:center;color:var(--warn);font-family:"Barlow Condensed",monospace}
+  #aboutPane h2{font-family:"Barlow Condensed",serif;font-size:1.25rem;margin:1.6rem 0 .5rem}
   #aboutPane h2:first-child{margin-top:0}
   #aboutPane p,#aboutPane li{color:var(--ink-soft);font-size:.92rem}
   #aboutPane .warn-box{border:1px solid var(--warn);border-radius:8px;padding:.8rem 1rem;background:color-mix(in srgb, var(--warn) 8%, transparent);margin:.8rem 0}
@@ -233,17 +233,17 @@
 .gwMeK{color:var(--good);font-weight:600}.gwOpK{color:var(--warn);font-weight:600}
 @media(max-width:600px){.gwRow{grid-template-columns:1fr}}
 .liveCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem .95rem;margin-bottom:1rem}
-  .liveHd{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem}
+  .liveHd{font-family:"Barlow Condensed",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem}
   .liveDot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 25%,transparent)}
   .liveScore{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center}
-  .liveScore>div{display:flex;flex-direction:column}.liveScore b{font-size:1.55rem;font-family:"IBM Plex Mono",monospace}
+  .liveScore>div{display:flex;flex-direction:column}.liveScore b{font-size:1.55rem;font-family:"Barlow Condensed",monospace}
   .liveWp{align-items:center;text-align:center}.liveWp b{font-size:1.7rem}
   .liveRow{font-size:.8rem;margin-top:.35rem}.liveAdv{font-size:.88rem;margin-top:.35rem;padding:.35rem .5rem;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
   .liveMore{margin-top:.4rem}
   .kSel td{background:color-mix(in srgb,var(--accent) 13%,transparent)}
   .kSens,.kDraft>div{padding:.22rem 0;font-size:.86rem}
   .kTbl th.cbh,.kTbl td.cbc{width:1.8rem;text-align:center}
-  .dgs{display:flex;flex-wrap:wrap;gap:.15rem .6rem;font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-soft)}.dgs .best{color:var(--good);font-weight:700}
+  .dgs{display:flex;flex-wrap:wrap;gap:.15rem .6rem;font-family:"Barlow Condensed",monospace;font-size:.72rem;color:var(--ink-soft)}.dgs .best{color:var(--good);font-weight:700}
   /* NBA games-per-week grid: same table look as everywhere else (global th/td/thead styles), with the column quirks of the other tables switched off */
   table.heat th,table.heat td{padding:.32rem .3rem;text-align:center;border-right:0}
   table.heat th:nth-child(n),table.heat td:nth-child(n){padding-left:.3rem;padding-right:.3rem;border-right:0}
@@ -261,23 +261,23 @@
   .profHd{font-weight:600;margin-bottom:.2rem}
   .profTbl{border-collapse:collapse;width:100%;font-size:.82rem;margin-top:.3rem}.profTbl th,.profTbl td{padding:.22rem .3rem;border-top:1px solid var(--line);white-space:normal}
   .profYr{font-size:.8rem;padding:.35rem 0;border-top:1px solid var(--line)}
-  .dStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:.4rem 0 1rem;font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--ink-soft)}
-  .dStrip b{display:block;font:600 1.1rem/1.1 "IBM Plex Sans",sans-serif;color:var(--ink)}
+  .dStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:.4rem 0 1rem;font-family:"Barlow Condensed",monospace;font-size:.7rem;color:var(--ink-soft)}
+  .dStrip b{display:block;font:600 1.1rem/1.1 "Barlow",sans-serif;color:var(--ink)}
   .dTop{display:grid;grid-template-columns:1fr 300px;gap:1.2rem;align-items:start}
   .dSide{position:sticky;top:.6rem}
   .dTeam{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem}
   .dHd{font-weight:600;margin-bottom:.4rem;cursor:pointer}
   #dpos,#dTagSel,#dSortSel{padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem}
-  .dSlot{display:flex;gap:.5rem;padding:.22rem 0;border-top:1px solid var(--line);font-size:.84rem}.dSlot b{min-width:2rem;font-family:"IBM Plex Mono",monospace;color:var(--accent)}
+  .dSlot{display:flex;gap:.5rem;padding:.22rem 0;border-top:1px solid var(--line);font-size:.84rem}.dSlot b{min-width:2rem;font-family:"Barlow Condensed",monospace;color:var(--accent)}
   .dSub{font-size:.76rem;color:var(--ink-soft);margin-top:.5rem}
   .dbtn{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:8px;padding:.4rem .7rem;font:inherit;font-size:.8rem;cursor:pointer;min-height:38px}
   #draftTbl th{white-space:normal}#draftTbl td{padding:.4rem .4rem}
   @media(max-width:900px){.dTop{grid-template-columns:1fr}.dSide{position:static;order:-1}}
   .tradeCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin-bottom:.7rem}
   .tradeHd{display:flex;align-items:baseline;gap:.4rem;padding-bottom:.35rem;border-bottom:1px solid var(--line);margin-bottom:.35rem}
-  .tradeScore{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--good);font-size:1.05rem}
+  .tradeScore{margin-left:auto;font-family:"Barlow Condensed",monospace;font-weight:600;color:var(--good);font-size:1.05rem}
   .tradeRow{padding:.12rem 0;font-size:.92rem}.tradeRow.small{font-size:.8rem;color:var(--ink-soft)}
-  .tradeRow .lbl{display:inline-block;min-width:4.3rem;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+  .tradeRow .lbl{display:inline-block;min-width:4.3rem;font-family:"Barlow Condensed",monospace;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
   .tradeCtl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin:.2rem 0 .9rem}
   .tradeCtl label{font-size:.78rem;color:var(--ink-soft);display:block}.tradeCtl input{width:100%}
   @media(max-width:720px){.tradeCtl{grid-template-columns:1fr}}
@@ -297,7 +297,7 @@
       background:var(--surface);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -6px 18px rgba(0,0,0,.18)}
     #navTop button{flex:1;min-height:56px;padding:.35rem .2rem;font-size:.82rem;border:0;background:transparent;color:var(--ink-soft);border-left:1px solid var(--line)}
     #navTop button:first-child{border-left:0}
-    #navTop button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:600}
+    #navTop button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
     .controls:has(#navTop){margin-bottom:0 !important}
     #navSub{display:flex;width:100%}#navSub button{flex:1;padding:.55rem .4rem;font-size:.86rem}
     /* controls */
@@ -331,8 +331,8 @@
     table.mcards tbody tr{display:grid;grid-template-columns:repeat(4,1fr);gap:.15rem .5rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;
       margin-bottom:.55rem;padding:.6rem .75rem;text-align:left}
     table.mcards td{border:0 !important;padding:.1rem 0 !important;text-align:left !important;white-space:normal !important;font-size:.9rem;display:block;min-width:0}
-    table.mcards td::before{content:attr(data-label);display:block;font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
-    table.mcards td:first-child{grid-column:1/-1;font-family:"Zilla Slab",serif;font-size:1.05rem;font-weight:500;padding-bottom:.3rem !important;border-bottom:1px solid var(--line) !important;margin-bottom:.2rem}
+    table.mcards td::before{content:attr(data-label);display:block;font-family:"Barlow Condensed",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+    table.mcards td:first-child{grid-column:1/-1;font-family:"Barlow Condensed",serif;font-size:1.05rem;font-weight:500;padding-bottom:.3rem !important;border-bottom:1px solid var(--line) !important;margin-bottom:.2rem}
     table.mcards td:first-child::before{display:none}
     table.mcards td[data-label="Games"]{grid-column:1/-1}
     /* Week: day plan */
@@ -347,16 +347,16 @@
     table.draftTbl tbody tr.detail td{grid-column:1/-1;display:block}
     table.draftTbl tbody tr.detail{background:var(--surface-2)}
     table.dayTbl tbody tr{grid-template-columns:repeat(3,1fr)}
-    table.dayTbl td[data-label="Day"]{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:.98rem}
+    table.dayTbl td[data-label="Day"]{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;font-family:"Barlow",sans-serif;font-weight:600;font-size:.98rem}
     table.dayTbl td[data-label^="Starting"]{grid-column:1/-1;padding:.35rem 0 !important}
     table.dayTbl td[data-label^="Starting"]::before{display:none}
     table.dayTbl .comps{display:grid !important;grid-template-columns:1fr 1fr;gap:.3rem !important}
     table.dayTbl .comp{white-space:nowrap !important;overflow:hidden;text-overflow:ellipsis;font-size:.7rem;padding:.3rem .4rem;min-height:30px}
     /* Week: suggested moves (# / Add / Drop / Net gain / cumulative) */
     table.moveTbl tbody tr{grid-template-columns:1.7rem 1fr auto}
-    table.moveTbl td[data-label="#"]{grid-column:1;grid-row:1;border:0 !important;font-family:"IBM Plex Mono",monospace;font-size:.85rem;color:var(--accent);font-weight:600}
+    table.moveTbl td[data-label="#"]{grid-column:1;grid-row:1;border:0 !important;font-family:"Barlow Condensed",monospace;font-size:.85rem;color:var(--accent);font-weight:600}
     table.moveTbl td[data-label="#"]::before{display:none}
-    table.moveTbl td[data-label="Add"]{grid-column:2;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:.95rem;border:0 !important;margin:0;padding:0 !important}
+    table.moveTbl td[data-label="Add"]{grid-column:2;grid-row:1;font-family:"Barlow",sans-serif;font-size:.95rem;border:0 !important;margin:0;padding:0 !important}
     table.moveTbl td[data-label="Add"]::before,table.moveTbl td[data-label="Net gain"]::before{display:none}
     table.moveTbl td[data-label="Net gain"]{grid-column:3;grid-row:1;text-align:right !important;font-size:1.05rem}
     table.moveTbl td[data-label="Drop"]{grid-column:2/4;grid-row:2}
@@ -364,14 +364,14 @@
     table.moveTbl td[data-label^="Timing"]{grid-column:2/4;grid-row:4}
     /* Week: single adds */
     table.addTbl tbody tr{grid-template-columns:1fr 1fr auto}
-    table.addTbl td[data-label="Add"]{grid-column:1/3;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:.95rem;border:0 !important;margin:0;padding:0 !important}
+    table.addTbl td[data-label="Add"]{grid-column:1/3;grid-row:1;font-family:"Barlow",sans-serif;font-size:.95rem;border:0 !important;margin:0;padding:0 !important}
     table.addTbl td[data-label="Add"]::before,table.addTbl td[data-label="Gain"]::before{display:none}
     table.addTbl td[data-label="Gain"]{grid-column:3;grid-row:1;text-align:right !important;font-size:1.05rem}
     table.addTbl td[data-label="Projected"]{grid-column:1;grid-row:2}
     table.addTbl td[data-label="Games"]{grid-column:2/4;grid-row:2}
     table.addTbl td[data-label="Drop"]{grid-column:1/-1;grid-row:3}
     /* Week: roster */
-    table.rosterTbl td[data-label="Games"]{letter-spacing:.25em;font-family:"IBM Plex Mono",monospace}
+    table.rosterTbl td[data-label="Games"]{letter-spacing:.25em;font-family:"Barlow Condensed",monospace}
     /* Teams: league table */
     table.leagueTbl tbody tr{grid-template-columns:repeat(3,1fr)}
     table.leagueTbl td[data-label="#"]{display:none}
@@ -386,8 +386,8 @@
     #boardPane tbody tr:not(.detail):active{background:var(--surface-2)}
     #boardPane tbody tr.detail{border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;margin:-.55rem 0 .55rem;padding:.6rem .5rem;background:var(--surface-2)}
     #boardPane tbody tr:not(.detail) td{border:0 !important;text-align:left !important;padding:.1rem 0 !important;display:block;font-size:.95rem;min-width:0;white-space:normal}
-    #boardPane td::before{content:attr(data-label);display:block;font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);align-self:auto}
-    #boardPane td:first-child{grid-column:1/-1;font-family:"Zilla Slab",serif;font-size:1.12rem;font-weight:500;padding-bottom:.15rem !important}
+    #boardPane td::before{content:attr(data-label);display:block;font-family:"Barlow Condensed",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);align-self:auto}
+    #boardPane td:first-child{grid-column:1/-1;font-family:"Barlow Condensed",serif;font-size:1.12rem;font-weight:500;padding-bottom:.15rem !important}
     #boardPane td:first-child::before{content:none}
     #boardPane td[data-label="Pos"],#boardPane td[data-label="Team"],#boardPane td[data-label="Age"]{grid-column:span 1;font-size:.8rem;color:var(--ink-soft)}
     #boardPane td[data-label="Pos"]::before,#boardPane td[data-label="Team"]::before,#boardPane td[data-label="Age"]::before{display:none}
@@ -430,10 +430,10 @@
     #teamsPane>.rosterProfile{order:3}
     #teamsPane>.rosterHdr{order:3}
     #teamsPane>.rosterWrap{order:4}
-    #teamsPane>.leagueHdr{order:5;font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .5rem}
+    #teamsPane>.leagueHdr{order:5;font-family:"Barlow Condensed",monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .5rem}
     #teamsPane>.leagueWrap{order:6}
     #teamsPane>.legend{order:7}
-    table.leagueTbl td[data-label="Team"]{font-family:"Zilla Slab",serif;font-size:1.05rem;font-weight:500}
+    table.leagueTbl td[data-label="Team"]{font-family:"Barlow Condensed",serif;font-size:1.05rem;font-weight:500}
     table.leagueTbl td[data-label="Team"]::before{display:none}
     table.leagueTbl tbody tr{cursor:pointer}
     #boardPane .detail td{display:block !important}#boardPane .detail td::before{content:none}
@@ -462,10 +462,10 @@
     /* long-term adds: name + priority on top, then age/asset/keeper, then mkt/bkt/level, then the long Fit text across the full width */
     table.ltTbl tbody tr{grid-template-columns:1fr 1fr 1fr;gap:.2rem .6rem}
     table.ltTbl td{grid-column:auto}
-    table.ltTbl td[data-label="Priority"]{grid-column:3;grid-row:1;text-align:right !important;font-family:"IBM Plex Mono",monospace;font-size:1.25rem;font-weight:600;border:0 !important;margin:0;padding:0 !important}
+    table.ltTbl td[data-label="Priority"]{grid-column:3;grid-row:1;text-align:right !important;font-family:"Barlow Condensed",monospace;font-size:1.25rem;font-weight:600;border:0 !important;margin:0;padding:0 !important}
     table.ltTbl td[data-label="Priority"]::before{display:none}
     table.ltTbl td[data-label="Priority"] .hint{font-size:.62rem;font-weight:400;white-space:nowrap}
-    table.ltTbl td[data-label="Player"]{grid-column:1/3;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:1rem;border:0 !important;margin:0;padding:0 !important}
+    table.ltTbl td[data-label="Player"]{grid-column:1/3;grid-row:1;font-family:"Barlow",sans-serif;font-size:1rem;border:0 !important;margin:0;padding:0 !important}
     table.ltTbl td[data-label="Player"]::before{display:none}
     table.ltTbl td[data-label="Age"],table.ltTbl td[data-label="Keeper value"],table.ltTbl td[data-label="Keeper rk"]{grid-row:2;padding-top:.35rem !important;border-top:1px solid var(--line) !important}
     table.ltTbl td[data-label="Age"]{grid-column:1}table.ltTbl td[data-label="Keeper value"]{grid-column:2}table.ltTbl td[data-label="Keeper rk"]{grid-column:3}
@@ -496,7 +496,7 @@
     #draftPane .dStrip>div:nth-child(3) .hint{display:none}
     table.draftTbl tbody tr:not(.detail):not(.moreRow){grid-template-columns:repeat(4,1fr);gap:.05rem .5rem;padding:.55rem .7rem;margin:.45rem 0}
     table.draftTbl td[data-label="VOR"],table.draftTbl td[data-label="Keeper value"],table.draftTbl td[data-label="MKT"],table.draftTbl td[data-label="BKT"],table.draftTbl td[data-label="Our proj"],table.draftTbl td[data-label="ESPN proj"]{display:none !important}
-    table.draftTbl td[data-label="Player"]{grid-column:1/4;grid-row:1;font-family:"IBM Plex Sans",sans-serif;font-size:1.02rem;font-weight:600;line-height:1.25;padding:0 !important}
+    table.draftTbl td[data-label="Player"]{grid-column:1/4;grid-row:1;font-family:"Barlow",sans-serif;font-size:1.02rem;font-weight:600;line-height:1.25;padding:0 !important}
     table.draftTbl td[data-label="Player"]::before{display:none}
     table.draftTbl td[data-label="Score"]{grid-column:4;grid-row:1;text-align:right !important;font-size:1.15rem}
     table.draftTbl td[data-label="Score"]::before{text-align:right}
@@ -510,10 +510,10 @@
     table.draftTbl td[data-label="Dynasty fit"]{grid-column:3;grid-row:3}
     table.draftTbl td[data-label="Redraft rk"]{grid-column:4;grid-row:3}
     table.draftTbl td[data-label="ADP"],table.draftTbl td[data-label="Lineup fit"],table.draftTbl td[data-label="Dynasty fit"],table.draftTbl td[data-label="Redraft rk"]{padding-top:.3rem !important;margin-top:.25rem;border-top:1px solid var(--line) !important}
-    table.draftTbl td[data-label="Me"],table.draftTbl td[data-label="Oth"]{grid-row:4;display:flex !important;align-items:center;gap:.5rem;width:auto;margin-top:.4rem;padding:.45rem .6rem !important;border:1px solid var(--line-strong) !important;border-radius:8px;font-family:"IBM Plex Sans",sans-serif;font-weight:400;font-size:.78rem;margin-bottom:0}
+    table.draftTbl td[data-label="Me"],table.draftTbl td[data-label="Oth"]{grid-row:4;display:flex !important;align-items:center;gap:.5rem;width:auto;margin-top:.4rem;padding:.45rem .6rem !important;border:1px solid var(--line-strong) !important;border-radius:8px;font-family:"Barlow",sans-serif;font-weight:400;font-size:.78rem;margin-bottom:0}
     table.draftTbl td[data-label="Me"]{grid-column:1/3}
     table.draftTbl td[data-label="Oth"]{grid-column:3/5}
-    table.draftTbl td[data-label="Me"]::before,table.draftTbl td[data-label="Oth"]::before{display:inline;order:2;font-family:"IBM Plex Sans",sans-serif;font-size:.78rem;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+    table.draftTbl td[data-label="Me"]::before,table.draftTbl td[data-label="Oth"]::before{display:inline;order:2;font-family:"Barlow",sans-serif;font-size:.78rem;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
     table.draftTbl td[data-label="Me"]::before{content:"I drafted him"}
     table.draftTbl td[data-label="Oth"]::before{content:"Taken by others"}
     #draftTbl td.cbc{width:auto !important;min-width:0 !important;padding:.5rem .65rem !important;text-align:left !important;white-space:nowrap !important}
@@ -522,7 +522,7 @@
     .mOnly{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem .5rem;margin:.3rem 0 .5rem}
     .mOnly .s{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.3rem .45rem}
     .mOnly .v{font-weight:600;font-size:.95rem}
-    .mOnly .l{font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
+    .mOnly .l{font-family:"Barlow Condensed",monospace;font-size:.56rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint)}
     .tgOpts{gap:.3rem}
     .tgOpt{font-size:.74rem;padding:.3rem .55rem;position:relative}
     .tgOpt input{position:absolute;opacity:0;pointer-events:none}
@@ -546,7 +546,7 @@
   .liveStatus,.kind,.injTier{font-family:inherit;font-size:.7rem;letter-spacing:.02em}
   .irRow{font-size:.92rem}
   input[type=search],select,.kbox{font-size:.92rem}
-  [style*="IBM Plex Mono"][style*="uppercase"]{font-family:inherit !important;font-size:.84rem !important;letter-spacing:.02em !important;font-weight:600}
+  [style*="Barlow Condensed"][style*="uppercase"]{font-family:inherit !important;font-size:.84rem !important;letter-spacing:.02em !important;font-weight:600}
   td[data-label]::before{font-family:inherit !important;letter-spacing:.02em !important}
   @media (pointer:coarse),(max-width:720px){
     button,select,input[type=search],input[type=number],.seg button,.jumpBar button{min-height:44px}
@@ -557,11 +557,41 @@
     .jumpBar button{font-size:.84rem;padding:.3rem .7rem}
     table{font-size:.9rem}
   }
+
+  /* ===== Courtside brand */
+  #hSub{display:none !important}   /* the board's method note is explainer copy */
+  body{font-family:"Barlow",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+  h1.brand{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:clamp(1.7rem,4vw,2.2rem);letter-spacing:.06em;text-transform:uppercase;margin:0 0 .1rem}
+  h1.brand span{color:var(--accent)}
+  .todayH,.secT,#aboutPane h2,.glH{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .todayH{font-size:1.2rem}.secT{font-size:1.02rem}.glH{font-size:1.05rem}
+  td.num,.num{font-family:"Barlow Condensed",sans-serif;font-size:1.06em;font-weight:600}
+  .scoreCard{border-radius:14px;padding:1rem 1.15rem}
+  .scoreBig{font-family:"Barlow Condensed",sans-serif;font-size:3.2rem;font-weight:700;line-height:1}
+  .scoreWp{font-family:"Barlow Condensed",sans-serif;font-size:2.2rem;font-weight:700;line-height:1}
+  .scoreLbl{letter-spacing:.04em;white-space:nowrap}.scoreStrip i{font-style:normal}
+  .scoreStrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;border-top:0;padding-top:0;margin-top:.9rem}
+  .scoreStrip>span{display:flex;flex-direction:column;background:var(--paper);border-radius:10px;padding:.5rem .7rem;font-size:.8rem;line-height:1.25}
+  .scoreStrip b{font-family:"Barlow Condensed",sans-serif;font-size:1.35rem;font-weight:700}
+  .doItem,.faRow,.lineupBox{border-radius:12px}
+  .doWhen{background:var(--accent);color:var(--on-accent);border-radius:8px;text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:.95rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:.15rem .3rem;min-width:3.6rem}
+  .doGain,.faGain{font-family:"Barlow Condensed",sans-serif;font-size:1.25rem;font-weight:700}
+  .luSlot{font-family:"Barlow Condensed",sans-serif;font-size:.9rem;font-weight:600}
+  .luPts{font-family:"Barlow Condensed",sans-serif;font-size:1.1rem}
+  .seg button[aria-pressed="true"]{color:var(--on-accent)}
+  thead th{font-family:"Barlow Condensed",sans-serif;font-size:.84rem;letter-spacing:.05em;text-transform:uppercase}
+  .liveStatus,.kind,.injTier{font-family:"Barlow Condensed",sans-serif;font-size:.78rem;letter-spacing:.04em;text-transform:uppercase}
+  @media(max-width:720px){
+    #navTop{background:var(--surface)}
+    #navTop button{border-left:0;font-size:.88rem;font-weight:600;color:var(--ink-soft)}
+    #navTop button[aria-pressed="true"]{background:transparent;color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+    .scoreBig{font-size:2.8rem}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Fantasy Hub</h1>
+  <h1 class="brand">Delegation<span>.</span></h1>
   <div class="stamp" id="dataStamp" aria-live="polite"></div>
   <div class="sub" id="hSub"></div>
 
@@ -710,19 +740,19 @@ function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], ceil=null
     const base=histCount, m=Math.min(ceil.length, traj.length);
     const pts=[...Array(m).keys()].map(k=>`${x(base+k).toFixed(1)},${y(ceil[k]).toFixed(1)}`).join(' ');
     ceilLine=`<polyline points="${pts}" fill="none" stroke="var(--good)" stroke-width="1.6" stroke-dasharray="4,3"/>`+
-      `<text x="${x(base+m-1).toFixed(1)}" y="${(y(ceil[m-1])-5).toFixed(1)}" font-size="8.5" text-anchor="end" fill="var(--good)" font-family="IBM Plex Mono, monospace">90th pct career</text>`;
+      `<text x="${x(base+m-1).toFixed(1)}" y="${(y(ceil[m-1])-5).toFixed(1)}" font-size="8.5" text-anchor="end" fill="var(--good)" font-family="Barlow Condensed, monospace">90th pct career</text>`;
   }
   const dots = allValues.map((v,i)=>{
     const isHist = i < histCount;
     return `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.6" fill="${isHist?'var(--ink-faint)':'var(--accent)'}"/>` +
-      `<text x="${x(i).toFixed(1)}" y="${(y(v)-7).toFixed(1)}" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">${v.toFixed(0)}</text>`;
+      `<text x="${x(i).toFixed(1)}" y="${(y(v)-7).toFixed(1)}" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)" font-family="Barlow Condensed, monospace">${v.toFixed(0)}</text>`;
   }).join('');
-  const yrs = allYears.map((yr,i)=>`<text x="${x(i).toFixed(1)}" y="${h-4}" font-size="9" text-anchor="middle" fill="${i<histCount?'var(--ink-faint)':'var(--ink-soft)'}" font-family="IBM Plex Mono, monospace">'${String(yr).slice(-2)}</text>`).join('');
+  const yrs = allYears.map((yr,i)=>`<text x="${x(i).toFixed(1)}" y="${h-4}" font-size="9" text-anchor="middle" fill="${i<histCount?'var(--ink-faint)':'var(--ink-soft)'}" font-family="Barlow Condensed, monospace">'${String(yr).slice(-2)}</text>`).join('');
   const todayX = histCount>0 ? x(histCount-1).toFixed(1) : null;
-  const todayLine = todayX!=null ? `<line x1="${todayX}" y1="${pad*0.4}" x2="${todayX}" y2="${h-pad*0.9}" stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="2,2"/><text x="${todayX}" y="${pad*0.35}" font-size="8.5" text-anchor="middle" fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace">today</text>` : '';
+  const todayLine = todayX!=null ? `<line x1="${todayX}" y1="${pad*0.4}" x2="${todayX}" y2="${h-pad*0.9}" stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="2,2"/><text x="${todayX}" y="${pad*0.35}" font-size="8.5" text-anchor="middle" fill="var(--ink-faint)" font-family="Barlow Condensed, monospace">today</text>` : '';
   return `<svg class="trajChart" viewBox="0 0 ${w} ${h}">
     <line x1="${pad}" y1="${oppY}" x2="${w-pad}" y2="${oppY}" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4,3"/>
-    <text x="${w-pad}" y="${(+oppY-4)}" font-size="9" text-anchor="end" fill="var(--warn)" font-family="IBM Plex Mono, monospace">replacement (${opp.toFixed(1)})</text>
+    <text x="${w-pad}" y="${(+oppY-4)}" font-size="9" text-anchor="end" fill="var(--warn)" font-family="Barlow Condensed, monospace">replacement (${opp.toFixed(1)})</text>
     ${histPts?`<polyline points="${histPts}" fill="none" stroke="var(--ink-faint)" stroke-width="1.8"/>`:''}
     ${ceilLine}
     <polyline points="${futPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
@@ -1143,7 +1173,7 @@ function renderTeams(){
     <div class="tablewrap leagueWrap" style="margin-bottom:1rem"><table id="leagueTbl"><thead><tr><th>#</th><th style="text-align:left">Team</th>${th('rec','Record')}${th('made','Playoffs')}${th('title','Title')}${th('projW','Proj pts/wk')}${th('keep','Keeper value')}${th('avgAge','Avg age')}${th('wAge','Wtd age')}<th style="text-align:left">Top keeper</th></tr></thead><tbody>${leagueRows}${leagueAvgRow}</tbody></table></div>
     ${header}
     <div class="statline" style="grid-template-columns:repeat(auto-fill,minmax(118px,1fr));margin:.6rem 0 1rem">${tiles}</div>
-    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.2rem 0"><span style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)">${esc(cur.t.name)} · roster</span><span class="hint">sort</span>${sortSel}<span class="hint">${inSeason?'Points per game are this season\'s actual average (gray "proj" = no games yet).':'Preseason: points per game are projections.'}</span></div>
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.2rem 0"><span style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)">${esc(cur.t.name)} · roster</span><span class="hint">sort</span>${sortSel}<span class="hint">${inSeason?'Points per game are this season\'s actual average (gray "proj" = no games yet).':'Preseason: points per game are projections.'}</span></div>
     <div class="tablewrap rosterWrap"><table><thead><tr>${[['player','Player',1],['slot','Slot',1],['pos','Pos',1],['age','Age',0],['nba','NBA',1],['asset','Keeper value',0],['ppg',inSeason?'PPG':'Proj PPG',0],['l10','Last 10',0],['ros','Projected PPG',0],['peak','Peak PPG',0],['g4','Games, 4 wks',0],['mkt','Market',0],['acq','Acquired',1]].map(([k,l,left])=>`<th data-tm="${k}" class="${tmSort.k===k?'sorted'+(tmSort.asc?' asc':''):''}" style="${left?'text-align:left;':''}">${l}</th>`).join('')}</tr></thead><tbody>${roster}</tbody></table></div>
     <div style="margin-top:1rem">
     ${sec('Roster construction','positions, age mix and depth vs the league',constr)}
@@ -1180,7 +1210,7 @@ function sec(id,title,meta,inner,def=true){
 }
 function wrapHdr(id,html,def=true){
   if(!html) return '';
-  const m=html.match(/^\s*<div style="font-family:'IBM Plex Mono'[^>]*>([\s\S]*?)<\/div>/);
+  const m=html.match(/^\s*<div style="font-family:'Barlow Condensed'[^>]*>([\s\S]*?)<\/div>/);
   if(!m) return sec(id,id,'',html,def);
   const t=m[1], k=t.search(/[:·(]/);
   return sec(id,k>0?t.slice(0,k).trim():t,k>0?t.slice(t[k]==='('?k:k+1).trim():'',html.slice(m[0].length),def);
@@ -1219,7 +1249,7 @@ function renderWeek(){
     :'<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:1rem">no add improves this week by more than 1 point</td></tr>';
   const fmtDow=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'});
     const addsLeft=M.adds_limit-T.adds_used;
-  const tonightHtml=(T.tonight_picks&&T.tonight_picks.length)?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Single-day pickups for tonight, by the day-specific projection</div>
+  const tonightHtml=(T.tonight_picks&&T.tonight_picks.length)?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Single-day pickups for tonight, by the day-specific projection</div>
     <div class="tablewrap" style="margin-bottom:1rem"><table><thead><tr><th style="text-align:left">Add</th><th>Projected tonight</th><th>Adds to your lineup</th><th style="text-align:left">His games this matchup</th></tr></thead><tbody>${T.tonight_picks.map(x=>`<tr><td style="text-align:left"><b>${pc(x.name)}</b> <span class="hint">${esc(x.team)} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${x.status!=='ACTIVE'?' · '+esc(x.status):''}</span></td><td class="num">${x.tonight.toFixed(1)}${x.dfs?'':' <span class="hint">(season level)</span>'}</td><td class="num"><b>+${x.gain.toFixed(0)}</b></td><td style="text-align:left">${x.games.map(shortDay).join(' ')}</td></tr>`).join('')}</tbody></table></div><div class="note" style="margin:-.5rem 0 1rem">Points each adds to tonight alone; every add needs a drop.</div>`:'';
   const otherFaHtml=(()=>{   // same engine as Suggested moves: each free agent's best rental or keep, with the day, the drop, and the risk he is taken before then
     const PCK=T.pickup_checks; if(!PCK) return '';
@@ -1269,7 +1299,7 @@ function renderWeek(){
   const dynRows=dyn.map(e=>{ const x=e.d||e.s, S=e.s, D=e.d;
     const dynWorthy=false;   // same bar dyn_pool itself uses (DYN_MIN_ASSET) -- independent of whether he made the top-12
     // dynasty_adds slice (D), so a player with real dynasty value still gets tagged even when he surfaced here only via the ROS/stash side.
-    const tags=`${S?'<span class="kind" style="background:var(--good);color:#fff" title="Rest-of-season stash: worth holding for the points he adds over the remaining season, even if he does not help this week">ROS</span> ':''}${dynWorthy?'<span class="kind rookie" style="background:var(--accent,#5b7cfa);color:#fff" title="Dynasty stash: keeper-league value for next season and beyond">DYNASTY</span>':''}${wvTag(x.waiver)}`;
+    const tags=`${S?'<span class="kind" style="background:var(--good);color:#fff" title="Rest-of-season stash: worth holding for the points he adds over the remaining season, even if he does not help this week">ROS</span> ':''}${dynWorthy?'<span class="kind rookie" style="background:var(--accent);color:var(--on-accent)" title="Dynasty stash: keeper-league value for next season and beyond">DYNASTY</span>':''}${wvTag(x.waiver)}`;
     const age=x.age!=null?x.age.toFixed(1):'—', asset=x.asset!=null?x.asset.toFixed(0):'—';
     const fit=[];
     if(S){ fit.push(`<b>+${S.gain}</b> points over the rest of the season <span class="hint">(${S.reg} regular season, ${S.po} playoffs)</span>`);
@@ -1280,12 +1310,12 @@ function renderWeek(){
     return `<tr><td class="num" title="Points he adds to your team over the rest of this season, against streaming a free agent into the same slot"><b>${PR.ros}</b></td><td style="text-align:left"><b>${pc(x.name)}</b> ${tags}${D&&D.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${D&&D.new?' <span class="liveStatus" title="first available in the last 7 days (dropped or released)">NEW</span>':''}${x.status&&x.status!=='ACTIVE'?' <span class="liveStatus">'+esc(x.status)+'</span>':''} <span class="hint">${esc(x.team)} · ${(x.pos||x.slots||[]).filter(q=>q!=='UT').join('/')}</span>${formTag((S&&S.form)||(D&&D.form))}</td>
       <td class="num">${age}</td><td class="num">${x.level}</td>
       <td style="text-align:left;white-space:normal">${fit.join('<br>')}</td></tr>`; }).join('');
-  const dynHtml=dyn.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Long-term adds: free agents worth holding for the rest of this season. They may not help this week</div>
+  const dynHtml=dyn.length?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Long-term adds: free agents worth holding for the rest of this season. They may not help this week</div>
     <div class="tablewrap" style="margin-bottom:.4rem"><table class="dynTbl"><thead><tr><th>Priority</th><th style="text-align:left">Player</th><th>Age</th><th>Level</th><th style="text-align:left">Fit</th></tr></thead><tbody>${dynRows}</tbody></table></div>
     <div class="legend" style="margin:0 0 1.2rem"><b>How to use the long-term list.</b> The number is the points he adds to your team over the rest of this season (playoff weeks count 1.5x), measured against streaming a free agent into the same slot, so a player below streaming level never ranks. An injured player counts from when he is expected back, and sits in a free IR slot at no roster cost.</div>`:'';
   const seqNames=new Set((T.sequence||[]).map(a=>a.add.name));
   const opps=(W.opportunities||[]).filter(o=>o.beneficiaries.length);
-  const oppHtml=opps.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Injuries creating opportunity (teammates pick up the missing production)</div>
+  const oppHtml=opps.length?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Injuries creating opportunity (teammates pick up the missing production)</div>
     <div class="irBox">${opps.slice(0,6).map(o=>`<div class="irRow"><b>${pc(o.absent.name)}</b> <span class="hint">${esc(o.absent.team)}</span> <span class="liveStatus">${esc(o.absent.status.toUpperCase())}${o.absent.streak>=8?' · long-term':''}</span> → ${o.beneficiaries.map(b=>`<span class="comp" title="expected extra fantasy points per game on the best day"><b>${pc(b.name)}</b> <span class="hint">${b.owner==='FA'?'free agent':esc(b.owner)}${b.owner===W.my_abbrev?' (yours)':''}</span> <b style="color:var(--good)">+${b.delta.toFixed(1)}</b>${seqNames.has(b.name)?' <span class="liveStatus" title="the plan already recommends adding him">in your plan</span>':''}</span>`).join(' ')}</div>`).join('')}
       <div class="note" style="margin-top:.4rem">Boosts are already inside the lineup plan and the suggested moves above; a free agent only shows up as an add if he clears the bar after the drop. Estimates come from 14 seasons of box scores (tested on 2024-26) and are averages: an absence removes about 70% of the missing player's production from the team, and low-minute players on the same position gain the most.</div></div>`:'';
   const adv=T.injury_advice||[];
@@ -1299,7 +1329,7 @@ function renderWeek(){
       <td style="text-align:left;white-space:normal">${est}${a.p_back_playoffs!=null?`<div class="hint">${Math.round(a.p_back_playoffs*100)}% back by the playoffs</div>`:''}</td>
       <td style="text-align:left;white-space:normal" class="hint">${a.plan_games<=1.5&&false?'':`about ${Math.round((rp.first||0.7)*100)}% of usual in game 1, ${Math.round((rp.early||0.85)*100)}% in games 2-3, ${Math.round((rp.later||0.9)*100)}% later; plays about ${Math.round((rp.play_rate||0.75)*100)}% of his next games`}</td>
       <td style="text-align:left;white-space:normal"><b style="color:${vColor(a.verdict)}">${esc(a.verdict)}</b>${(a.why||[]).map(w=>`<div class="hint">${esc(w)}</div>`).join('')}${a.replacement?`<div class="hint">swap candidate: ${esc(a.replacement.name)}</div>`:''}</td></tr>`;}).join('');
-  const advHtml=adv.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Injured players: hold, stash or drop</div>
+  const advHtml=adv.length?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Injured players: hold, stash or drop</div>
     <div class="tablewrap" style="margin-bottom:.4rem"><table class="advTbl"><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">Injury</th><th style="text-align:left">Out for</th><th style="text-align:left">When he returns</th><th style="text-align:left">Verdict</th></tr></thead><tbody>${advRows}</tbody></table></div>
     <div class="legend" style="margin:0 0 1.2rem"><b>How this is worked out.</b> The injury type and ESPN's estimated return come from ESPN's injury feed. Our estimate of how much longer he is out comes from five seasons of official reports (comparable injuries, by body part and severity, given how long he has already been out; checked on seasons it had not seen, it was within about 3 points). In season we take the <b>later</b> of ours and ESPN's date, because team timelines run optimistic; in the offseason ESPN's date is used. The return ramp comes from about 1,000 returns in 14 seasons of box scores: players are at roughly 70% of their usual minutes and points in the first game back, 85% in the next two, about 90% after that, and miss about a quarter of their next games. <b>Verdict</b> compares what he is worth after he returns (his level above a replacement player over the games left, plus a small keeper-value term) with what the roster spot costs while he is out (nothing if an IR slot is free).</div>`:'';
   const irm=T.ir_moves||[];
@@ -1308,12 +1338,12 @@ function renderWeek(){
     :m.action==='activate_swap'?`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → activate him and drop <b>${pc(m.drop.name)}</b> <span class="hint">${m.drop.level} pts/g${m.drop.asset_rank?' · keeper rank #'+m.drop.asset_rank:''}</span>`
     :`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → he can't play until you free a roster spot for him`;
   const unlock=irm.find(m=>m.unlocks!=null);
-  const irHtml=irm.length?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and IR moves · ${T.roster_spots.non_ir}/${T.roster_spots.of} roster spots, ${T.roster_spots.ir_used}/${T.roster_spots.ir_of} IR</div>
+  const irHtml=irm.length?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and IR moves · ${T.roster_spots.non_ir}/${T.roster_spots.of} roster spots, ${T.roster_spots.ir_used}/${T.roster_spots.ir_of} IR</div>
     <div class="irBox">${irm.map(m=>`<div class="irRow">${irLine(m)}</div>`).join('')}${unlock&&unlock.unlocks>0.5?`<div class="note" style="margin-top:.4rem">Making these moves and then using the freed spots is worth about <b>+${unlock.unlocks.toFixed(0)} points</b> this week compared with leaving them as they are (the plan and adds below already assume the moves are made).</div>`:''}</div>`:'';
   const daysHdr=M.planned_days.map(shortDay);
   const rosterRows=T.roster.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${pc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.official?` <span class="liveStatus" title="official NBA injury report designation for today${p.avail_state?' · '+({first:'first day listed',played:'played his last game',missed:'missed his last game'})[p.avail_state]:''}">${esc(p.official)}</span>`:(p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status)}</span>`:'')}${formTag(p.form)}${rampTag(p.ramp)}${matchupTag(p.matchup)}</td>
       <td style="text-align:left">${esc(p.team)}</td><td style="text-align:left">${p.slots.filter(x=>x!=='UT').join('/')}</td><td class="num">${p.level}</td><td style="text-align:left;white-space:nowrap">${formCell(p.form)}</td><td class="num">${p.protected?'<span class="hint" title="never suggested as a drop">keep</span> ':''}${p.asset_rank?'#'+p.asset_rank:'<span class="hint">—</span>'}</td>
-      <td style="text-align:left;font-family:'IBM Plex Mono',monospace;letter-spacing:.2em">${M.planned_days.map(d=>p.games.includes(d)?'●':'·').join('')}</td></tr>`).join('');
+      <td style="text-align:left;font-family:'Barlow Condensed',monospace;letter-spacing:.2em">${M.planned_days.map(d=>p.games.includes(d)?'●':'·').join('')}</td></tr>`).join('');
   const wp=T.win_prob!=null?`${(T.win_prob*100).toFixed(0)}%`:'—';
   // live matchup card (data from the alerts job every ~20 minutes; only for the user's own team and the matchup the plan is for)
   const meT=W.teams.find(t=>t.abbrev===W.my_abbrev);
@@ -1355,7 +1385,7 @@ function renderWeek(){
     <div class="scoreTop"><div><div class="scoreLbl">${isMe?'You · ':''}${esc(T.abbrev)}</div><div class="scoreBig">${sb.me.toFixed(0)}</div><div class="scoreLbl">projected ${sb.meP.toFixed(0)}</div></div>
       <div class="scoreMid"><div class="scoreWp" style="color:${wpCol}">${wpN!=null?wpN+'%':'—'}</div><div class="scoreLbl">win chance ${ib('Win chance')}</div>${spark}</div>
       <div style="text-align:right"><div class="scoreLbl">${esc(sb.oa||'opponent')}</div><div class="scoreBig" style="color:var(--ink-soft)">${sb.op!=null?sb.op.toFixed(0):'—'}</div><div class="scoreLbl">${sb.opP!=null?'projected '+sb.opP.toFixed(0):''}</div></div></div>
-    <div class="scoreStrip"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b> starts ${ib('Cap')}</span><span><b>${Math.max(0,M.adds_limit-sb.au)}</b> adds left</span><span><b>${dlTxt}</b> ${sb.dl===1?'day':'days'} left</span></div>
+    <div class="scoreStrip"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b><i>starts ${ib('Cap')}</i></span><span><b>${Math.max(0,M.adds_limit-sb.au)}</b><i>adds left</i></span><span><b>${dlTxt}</b><i>${sb.dl===1?'day':'days'} left</i></span></div>
     ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')+`<details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${leftList(LIVE.me.left_today||[])}</div><div class="liveRow"><b>${esc(LIVE.opp.abbrev)}:</b> ${leftList(LIVE.opp.left_today||[])}</div></details>`:''}
   </div>`;
   // Do now: the same dated steps the phone alerts use
@@ -1418,9 +1448,9 @@ function renderWeek(){
     ${lineupSec}
     ${T.abbrev===W.my_abbrev?sec('setlineup','Set lineup in ESPN','preview the rest of this matchup, then set it in one click','<div id="slBox" class="hint">Loading preview…</div>',false):''}
     ${wrapHdr('ir',irHtml,false)}
-    ${wrapHdr('moves',seqRows?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: every move in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
+    ${wrapHdr('moves',seqRows?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: every move in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
     ${laterHtml}<div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th><th style="text-align:left">Timing (net gain if made on each day)</th></tr></thead><tbody>${seqRows}</tbody></table></div>
-    ${budgetHtml}`:`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: no moves this week (${addsLeft} of ${M.adds_limit} adds left)</div><div class="note" style="margin-bottom:1.2rem">No add clears the bar right now, so standing still is the plan. The list is re-run every morning and will return when an injury, a hot free agent or a schedule change creates a gain.</div>${budgetHtml}`,false)}
+    ${budgetHtml}`:`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: no moves this week (${addsLeft} of ${M.adds_limit} adds left)</div><div class="note" style="margin-bottom:1.2rem">No add clears the bar right now, so standing still is the plan. The list is re-run every morning and will return when an injury, a hot free agent or a schedule change creates a gain.</div>${budgetHtml}`,false)}
     ${wrapHdr('inj',advHtml,false)}
     ${wrapHdr('opp',oppHtml,false)}
     ${sec('roster','Roster and schedule',`● = plays that day (${daysHdr.join(' ')})`,`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Projected</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Keeper rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`,false)}
@@ -1577,7 +1607,7 @@ function matchupTag(v){
 }
 function wvTag(w){ return w?` <span class="liveStatus" title="On waivers: another team just dropped him, so he cannot be added directly. Place a claim. ESPN processes claims at about 3am ET (${esc(w.when)}) in waiver order, so a team ahead of you can win him; players nobody claims become free agents after that run. A player without this tag is a free agent you can add instantly, any hour.">WAIVERS &middot; clears ${esc(w.when)}${w.approx?'?':''}</span>`:''; }
 function rampTag(note){
-  return note?` <span class="liveStatus" style="background:var(--accent,#5b7cfa);color:#fff" title="${esc(note)}: recent 2025-27 returns from a 5+ game absence gave about 70% of normal in game 1, 85% by games 2-3, 90%+ by game 8-10">RAMP</span>`:'';
+  return note?` <span class="liveStatus" style="background:var(--accent);color:var(--on-accent)" title="${esc(note)}: recent 2025-27 returns from a 5+ game absence gave about 70% of normal in game 1, 85% by games 2-3, 90%+ by game 8-10">RAMP</span>`:'';
 }
 function formTag(f,always){
   if(typeof f==='string') f=W&&W.form?W.form[f]:null;
@@ -1633,12 +1663,12 @@ function rdChart(p,W2=620,H2=250){
   let s=`<svg viewBox="0 0 ${W2} ${H2}" class="trajChart" role="img" aria-label="last ten games and next three projected">`;
   for(const t of [0,20,40,60,80]) if(t<hi) s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)"/><text x="${padL-4}" y="${(Y(t)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--ink-faint)">${t}</text>`;
   if(fwd.length) s+=`<rect x="${(X(g.length)-plotW/n/2).toFixed(1)}" y="${Y(p.p90).toFixed(1)}" width="${(plotW/n*fwd.length).toFixed(1)}" height="${(Y(p.p10)-Y(p.p90)).toFixed(1)}" fill="var(--line)" opacity=".5"/>`;
-  s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(p.ppg).toFixed(1)}" y2="${Y(p.ppg).toFixed(1)}" stroke="var(--accent,#5b7cfa)" stroke-dasharray="4 3"/><text x="${padL+2}" y="${(Y(p.ppg)-3).toFixed(1)}" text-anchor="start" font-size="9" fill="var(--accent,#5b7cfa)">projection ${p.ppg}</text>`;
+  s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(p.ppg).toFixed(1)}" y2="${Y(p.ppg).toFixed(1)}" stroke="var(--accent)" stroke-dasharray="4 3"/><text x="${padL+2}" y="${(Y(p.ppg)-3).toFixed(1)}" text-anchor="start" font-size="9" fill="var(--accent)">projection ${p.ppg}</text>`;
   g.forEach((v,i)=>{ const c=v>=p.ppg*1.15?'var(--good)':(v<=p.ppg*0.7?'var(--warn)':'var(--ink-soft)');
     s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="${c}" opacity=".75" class="rdBar" data-tip="${rdTipData(p,i)}"><title>${p.gd[i]}: ${v} fantasy pts in ${p.gm[i]} min</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--ink)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">${p.gd[i]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">${p.gm[i]}m</text>`; });
   s+=`<polyline points="${roll.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
   fwd.forEach((f,k)=>{ const i=g.length+k, v=(p.next_proj&&p.next_proj[k]!=null)?p.next_proj[k]:p.ppg, adj=v-p.ppg;
-    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="none" stroke="var(--accent,#5b7cfa)" stroke-dasharray="3 2"><title>${f[0]} ${esc(f[1])}: ${v.toFixed(1)} pts projected${Math.abs(adj)>=0.15?` (${adj>0?'+':''}${adj.toFixed(1)} for the matchup)`:''}</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--accent,#5b7cfa)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--accent,#5b7cfa)">${f[0]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--accent,#5b7cfa)">${esc(f[1])}</text>`; });
+    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="none" stroke="var(--accent)" stroke-dasharray="3 2"><title>${f[0]} ${esc(f[1])}: ${v.toFixed(1)} pts projected${Math.abs(adj)>=0.15?` (${adj>0?'+':''}${adj.toFixed(1)} for the matchup)`:''}</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--accent)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--accent)">${f[0]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--accent)">${esc(f[1])}</text>`; });
   return s+'</svg>';
 }
 function rdOwner(p){ return RD._own?RD._own.get(p.id)||null:null; }
@@ -1814,7 +1844,7 @@ function pcHtml(P){
   let ltHtml='';
   if(dyn||st){
     const dfmt=ds=>ds?new Date(ds+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):'—';
-    const tags=`${st?'<span class="kind" style="background:var(--good);color:#fff">ROS</span> ':''}${dyn?'<span class="kind rookie" style="background:var(--accent,#5b7cfa);color:#fff">DYNASTY</span>':''}`;
+    const tags=`${st?'<span class="kind" style="background:var(--good);color:#fff">ROS</span> ':''}${dyn?'<span class="kind rookie" style="background:var(--accent);color:var(--on-accent)">DYNASTY</span>':''}`;
     const bits=[]; if(st) bits.push(`<b>+${st.gain}</b> points over the rest of the season`); if(dyn) bits.push(dyn.would_rank<=5?`would be your <b>#${dyn.would_rank}</b> keeper asset`:`would rank #${dyn.would_rank} on your roster`);
     ltHtml=`<div class="pcSec"><div class="pcH">Long-term add ${tags}</div><div class="note">${bits.join(' · ')}${st&&st.out_now?` · ${esc(st.injury||'out')}${st.back_date?', back about '+dfmt(st.back_date):''}`:''}</div></div>`;
   }
@@ -1903,10 +1933,10 @@ function slRender(pv,isExample){
     <div style="margin:.2rem 0 .5rem">${sum} <span class="hint">Preview built ${new Date(pv.generated).toLocaleString()} from the plan of ${new Date(pv.plan_generated).toLocaleString()}; matchup ${pv.matchup} (${pv.start} to ${pv.end}).</span></div>
     <div class="tablewrap"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starters the plan wants</th><th style="text-align:left">Moves ESPN needs</th><th>Moves</th></tr></thead><tbody>${days}</tbody></table></div>
     <div class="controls" style="margin-top:.6rem;gap:.6rem;flex-wrap:wrap">
-      <button type="button" id="slApply" ${canApply?'':'disabled'} style="${btn}${canApply?'border-color:var(--accent,#5b7cfa);cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Set my lineup for the rest of the matchup</button>
+      <button type="button" id="slApply" ${canApply?'':'disabled'} style="${btn}${canApply?'border-color:var(--accent);cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Set my lineup for the rest of the matchup</button>
       <button type="button" id="slRefresh" ${tok&&!isExample?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
       <button type="button" id="slUndo" ${tok&&!isExample?'':'disabled'} title="Puts every player moved by the last apply back where he was" style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Undo last apply</button>
-      <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent,#5b7cfa);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
+      <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
     <div id="slStatus" class="note" style="margin-top:.4rem">${SL_MSG||(why?`<span class="hint">${esc(why)}</span>`:'')}${SL_MSG&&why?` <span class="hint">(${esc(why)})</span>`:''}</div>
     <details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">${tok?'GitHub token saved on this device':'One-time setup: add a GitHub token (works on your phone too)'}</summary>
       <div class="note" style="margin-top:.4rem">${tok?`<button type="button" id="slTokClear" style="${btn}cursor:pointer">Remove token from this device</button>`:`<ol style="margin:.2rem 0 .5rem 1.1rem;padding:0"><li>On GitHub: Settings, Developer settings, Personal access tokens, <b>Fine-grained tokens</b>, Generate new token.</li><li>Repository access: <b>only</b> pitchafwa/delegation-hub. Permissions: <b>Actions: Read and write</b>. Expiration: your choice (90 days is fine).</li><li>Paste it here. It is saved only in this browser on this device. Do this once on each device you want to use (phone and computer).</li></ol>
@@ -1984,7 +2014,7 @@ function renderSchedule(){
   const faRows=PP.fa_adds.slice(0,8).map(a=>`<tr><td style="text-align:left"><b>${pc(a.name)}</b> <span class="hint">${esc(a.team)}</span></td><td class="num">${a.level}</td><td class="num">${gtxt(a.games)}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td><td style="text-align:left" class="hint">${a.drop?'for '+esc(a.drop):''}</td></tr>`).join('');
   const trRows=PP.trade_targets.slice(0,10).map(a=>`<tr><td style="text-align:left"><b>${pc(a.name)}</b> <span class="hint">${esc(a.team)} · ${esc(a.owner)}</span></td><td class="num">${a.level}</td><td class="num">${gtxt(a.games)}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td><td class="num hint">${a.asset_rank?'#'+a.asset_rank:'—'}</td></tr>`).join('');
   const stRows=PP.streamers_next_week.slice(0,8).map(a=>`<tr><td style="text-align:left"><b>${pc(a.name)}</b> <span class="hint">${esc(a.team)}</span></td><td class="num">${a.level}</td><td class="num">${a.games}</td><td class="num"><b>${a.pts.toFixed(0)}</b></td></tr>`).join('');
-  const H=t=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .4rem">${t}</div>`;
+  const H=t=>`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .4rem">${t}</div>`;
   pane.innerHTML=`
     <div class="controls"><select id="schedSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${SP.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
       <select id="schedSortSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${[['playoffs','Sort NBA teams: playoff games'],['next4','Sort NBA teams: next 4 weeks'],['team','Sort NBA teams: A–Z']].map(([k,t])=>`<option value="${k}" ${schedSort===k?'selected':''}>${t}</option>`).join('')}</select>
@@ -2029,7 +2059,7 @@ async function tiInit(){
   if(TI===null){ try{ TI=await (await fetch('trade_ideas_v2.json',{cache:'no-cache'})).json(); }catch(e){ TI=false; } }
   if(!TI||!TI.ideas){ box.innerHTML=''; return; }
   const pct=x=>(100*x).toFixed(0)+'%', sg=(x,d=1)=>(x>=0?'+':'')+x.toFixed(d);
-  const bandC=b=>b==='likely'?'var(--good)':(b==='possible'?'var(--accent,#5b7cfa)':'var(--warn)');
+  const bandC=b=>b==='likely'?'var(--good)':(b==='possible'?'var(--accent)':'var(--warn)');
   const cards=TI.ideas.slice(0,15).map((i,k)=>`<div class="tradeCard">
       <div class="tradeHd"><span class="hint">with</span> <b>${esc(i.partner)}</b><span class="tradeScore">${sg(i.me.value.total,1)}</span></div>
       <div class="tradeRow"><span class="lbl">You give</span> ${i.give.map(pc).join(' + ')}</div>
@@ -2079,7 +2109,7 @@ function taInstant(box){
   const side=vs=>vs.sort((a,b)=>b-a).reduce((a,v,i)=>a+v*([1,0.5,0.3,0.2][Math.min(i,3)]),0);   // star premium: this league does not trade stars for quantity
   const recv=side([...TA.give].map(id=>val(id,false))), sent=side([...TA.get].map(id=>val(id,true)));   // their likely keepers count 25% more when they give them up
   const ratio=sent>0?recv/sent:null, band=ratio==null?"likely":(ratio>=1.15?"likely":(ratio>=0.95?"possible":"unlikely"));
-  const cMe=band==="likely"?"var(--good)":(band==="possible"?"var(--accent,#5b7cfa)":"var(--warn)");
+  const cMe=band==="likely"?"var(--good)":(band==="possible"?"var(--accent)":"var(--warn)");
   const meIds=T.me.roster.map(p=>p.id), thIds=P.roster.map(p=>p.id);
   const m0=taTop5(meIds,new Set(),new Set()), m1=taTop5(meIds,TA.get,TA.give), t0=taTop5(thIds,new Set(),new Set()), t1=taTop5(thIds,TA.give,TA.get);
   el.innerHTML=`<b>Instant check</b> <span class=hint>(rough; the exact run below counts lineups, injuries and playoff odds)</span><br>
@@ -2610,13 +2640,13 @@ function renderKeepers(){
         <div><b>${active.total.toFixed(0)}</b>total (w = ${kW.toFixed(2)})</div><div><b style="color:${gap<-0.5?'var(--warn)':'var(--good)'}">${gap<-0.5?gap.toFixed(0):'best'}</b>${gap<-0.5?'vs the best set':'your set is the best found'}</div></div>
       ${sel.length&&sel.length<K?`<div class="legend" style="margin:0 0 1rem">You have ${sel.length} of ${K} ticked: tick ${K-sel.length} more to see your set compared with the best. Until then the numbers above are for the best set.</div>`:''}
       ${sel.length===K&&active!==best?`<div class="legend" style="margin:0 0 1rem"><b>Your set vs the best:</b> ${active.S.map(p=>esc(p.name)).join(', ')} is ${Math.abs(gap).toFixed(0)} points behind ${best.S.map(p=>esc(p.name)).join(', ')} on this weighting.</div>`:''}
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Your roster: tick ${K} to keep</div>
+      <div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Your roster: tick ${K} to keep</div>
       <div class="tablewrap" style="margin-bottom:1.2rem"><table class="kTbl"><thead><tr><th class="cbh">Keep</th><th style="text-align:left">Player</th><th>Age</th><th style="text-align:left">Pos</th><th>ESPN proj</th><th>Adj proj</th><th>Keeper value</th><th>MKT</th><th style="text-align:left">Injury risk</th><th style="text-align:left">If not kept: chance other teams leave him at your pick</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Best keeper sets (each with a simulated draft)</div>
+      <div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Best keeper sets (each with a simulated draft)</div>
       <div class="tablewrap" style="margin-bottom:1rem"><table><thead><tr><th>Rank</th><th style="text-align:left">Keepers</th><th>Season pts</th><th>Future assets</th><th>Total</th><th>Gap</th></tr></thead><tbody>${setRows}</tbody></table></div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Does the answer change with the weighting?</div>
+      <div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Does the answer change with the weighting?</div>
       <div class="irBox">${sens}</div>
-      ${draftHtml?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Who this set drafts (simulated)</div><div class="irBox">${draftHtml}</div>`:''}
+      ${draftHtml?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Who this set drafts (simulated)</div><div class="irBox">${draftHtml}</div>`:''}
       <div class="legend" style="margin-top:1rem"><b>How to use this page.</b> Tick the keepers you are considering (the page starts from the best set it found). <b>Adj proj</b> is ESPN's projected points per game times the games he is expected to be available (injury tier model). <b>Season pts</b> = your best lineup (10 slots, position-eligible) from the keepers plus the players a simulated draft gives you at your picks, times 73 games. <b>Future assets</b> = the top-5 next-year keeper asset values in that group. <b>Total</b> adds season points and the future weight (the slider: the same 1 asset point = 73 points of output used elsewhere). "Chance other teams leave him at your pick" is for a player you would NOT keep: whether you could draft him back (it counts only the other teams' picks). Pick labels are draft round and slot: Rd 1.1 is your first pick. If he is likely gone, keeping him is the only way to hold him. Other teams' keepers are projected until ESPN shows them, so re-check after the deadline; the simulation uses each owner's draft tendencies but cannot know surprises.</div>`;
     document.getElementById('kK').addEventListener('change',e=>{ kK=+e.target.value; kSel=null; try{localStorage.removeItem('keepSel');}catch(_){} renderKeepers(); });
     const kw=document.getElementById('kW'); kw.addEventListener('input',e=>{ document.getElementById('kWv').textContent=(+e.target.value).toFixed(2); });
@@ -2637,7 +2667,7 @@ function liveStatHtml(){
   if(DLS.ok===false&&!dLive) return `<span class="liveStatus" style="background:var(--warn);color:#fff">No live connection</span> <span class="hint">retrying every 5 s (${esc(DLS.err||'')}). Ticking Me / Oth by hand still works.</span>`;
   if(!dLive) return '';
   if(DLS.ok===false) return `<span class="liveStatus" style="background:var(--warn);color:#fff">Connection lost</span> <span class="hint">last update ${hh}; retrying (${esc(DLS.err||'')})</span>`;
-  const lab=DLS.sim?'<span class="liveStatus" style="background:var(--accent);color:#fff">TEST: simulated picks</span>':'<span class="liveStatus" style="background:var(--good);color:#fff">LIVE from ESPN</span>';
+  const lab=DLS.sim?'<span class="liveStatus" style="background:var(--accent);color:var(--on-accent)">TEST: simulated picks</span>':'<span class="liveStatus" style="background:var(--good);color:#fff">LIVE from ESPN</span>';
   const st=DLS.err?`<span class="liveStatus" style="background:var(--warn);color:#fff" title="${esc(DLS.err)}">ESPN not answering</span> `:'';
   const wait=(!DR.draft.in_progress&&!DLS.filled)?' · connected, waiting for the draft to start':'';
   return `${lab} ${st}<span class="hint">${DLS.filled} of ${tot} picks made${wait} · checked ${hh}</span>`;
