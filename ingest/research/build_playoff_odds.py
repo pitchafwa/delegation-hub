@@ -54,6 +54,49 @@ def standings(games, upto=None):
     return wins, pf
 
 
+def season_table(ids, games):
+    """per-team season record for the Standings tab: losses/ties, points against, results by week, streak, and the all-play record
+    (how the team would have done that week against every other team: separates a strong team from a lucky one)."""
+    out = {t: {"l": 0, "t": 0, "pa": 0.0, "res": [], "ap_w": 0.0, "ap_l": 0.0} for t in ids}
+    weeks = {}
+    for g in games:
+        if not g["done"]:
+            continue
+        for me, op, sm, so in ((g["a"], g["b"], g["sa"], g["sb"]), (g["b"], g["a"], g["sb"], g["sa"])):
+            o = out[me]
+            o["pa"] += so
+            r = "W" if sm > so else ("L" if sm < so else "T")
+            o["l"] += r == "L"
+            o["t"] += r == "T"
+            o["res"].append({"w": g["week"], "pf": round(sm, 1), "pa": round(so, 1), "opp": op, "r": r, "days": g["n"]})
+            weeks.setdefault(g["week"], {})[me] = sm
+    for wk, sc in weeks.items():
+        for t, v in sc.items():
+            others = [x for u, x in sc.items() if u != t]
+            out[t]["ap_w"] += sum(1 for x in others if v > x) + 0.5 * sum(1 for x in others if v == x)
+            out[t]["ap_l"] += sum(1 for x in others if v < x) + 0.5 * sum(1 for x in others if v == x)
+    for t, o in out.items():
+        o["res"].sort(key=lambda x: x["w"])
+        st = ""
+        for x in reversed(o["res"]):
+            if not st or x["r"] == st[0]:
+                st = x["r"] + str(int(st[1:] or 0) + 1)
+            else:
+                break
+        o["streak"] = st
+        o["pa"] = round(o["pa"])
+    return out
+
+
+def write_history(out):
+    """one snapshot per day (the latest run of the day wins) of every team's playoff and title odds, for the Standings tab's trend lines"""
+    hp = DASH / "odds_history.json"
+    h = json.load(open(hp, encoding="utf-8")) if hp.exists() else {"days": {}}
+    day = datetime.now(timezone.utc).astimezone(__import__("zoneinfo").ZoneInfo("America/New_York")).date().isoformat()
+    h["days"][day] = {t["abbrev"]: [t["made"], t["title"]] for t in out["teams"]}
+    hp.write_text(json.dumps(h, separators=(",", ":"), sort_keys=True), encoding="utf-8")
+
+
 def live():
     teams, games = pull(2027)
     sp = json.load(open(DASH / "schedule_plan.json", encoding="utf-8"))
@@ -84,7 +127,11 @@ def live():
            "me": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in res.items() if k.startswith("focus_") and k != "focus_wins_dist"},
            "me_wins_dist": {str(k): {"p": round(v["p"], 3), "made": round(v["made"], 3)} for k, v in (res["focus_wins_dist"] or {}).items()},
            "me_plus25": {"made": round(float(up["made"][mi]), 3), "title": round(float(up["title"][mi]), 3)}}
+    st = season_table(ids, games)
+    for t in out["teams"]:
+        t.update(st[t["id"]])
     out["teams"].sort(key=lambda x: -x["made"])
+    write_history(out)
     (DASH / "playoff_odds.json").write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
     print("wrote playoff_odds.json; me:", out["me"], "+25/wk:", out["me_plus25"])
     for t in out["teams"]:
