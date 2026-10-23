@@ -135,11 +135,13 @@
     #standTbl td[data-label="Rk"]{grid-column:1;grid-row:1;border-bottom:1px solid var(--line) !important;font-size:1.05rem;font-weight:700;padding-bottom:.3rem !important;margin-bottom:.2rem}
     #standTbl td[data-label="Team"]{grid-column:2/-1;grid-row:1;border-bottom:1px solid var(--line) !important;padding-bottom:.3rem !important;margin-bottom:.2rem}
     #standTbl td[data-label="Team"]::before{display:none}
-    #standTbl td[data-label="Streak"],#standTbl td[data-label="Opp pts/wk"],#standTbl td[data-label="All-play"],#standTbl td[data-label="Proj pts/wk"],#standTbl td[data-label="Starts/matchup"],#standTbl td[data-label="Bye"],#standTbl td[data-label="Luck"]{display:none !important}
+    #standTbl td[data-label="Streak"],#standTbl td[data-label="Opp pts/wk"],#standTbl td[data-label="All-play"],#standTbl td[data-label="Proj pts/wk"],#standTbl td[data-label="Starts/matchup"],#standTbl td[data-label="Bye"]{display:none !important}
     #standTbl td[data-label="This week"],#standTbl td[data-label="Title trend"]{grid-column:span 2}
     #standTbl tbody tr{padding:.55rem .75rem;margin:.4rem 0}
     #standTbl tr.cutRow{margin-bottom:1.1rem;box-shadow:0 .55rem 0 -.45rem var(--line-strong)}
   }
+.clTag{display:inline-block;margin-left:.35rem;padding:.02rem .4rem;border-radius:4px;font-family:"Barlow Condensed",sans-serif;font-size:.74rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--good)}.clTag.out{background:color-mix(in srgb,var(--ink-faint) 22%,transparent);color:var(--ink-soft)}
+  .seedTbl td,.seedTbl th{text-align:center !important}.seedTbl td:first-child,.seedTbl th:first-child{text-align:left !important}.seedTbl tr.meRow td:first-child{color:var(--accent)}
   .taCols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.5rem 0}.taList{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:.3rem}@media(max-width:640px){.taCols{grid-template-columns:1fr}}
   .pcNews{list-style:none;margin:0;padding:0}
   .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
@@ -1534,7 +1536,10 @@ const GLOSS=[
   ['All-play','The record a team would have if it played every other team every week. It measures strength without schedule luck.'],
   ['Luck','Actual wins minus the wins its all-play record says it should have. Plus means a kind schedule; it tends to even out.'],
   ['Proj pts/wk','Projected points per matchup over the next four matchups, from the current rosters and NBA schedules.'],
-  ['Starts/matchup','Average started games per matchup over the last 10 matchups, on the 40-game cap scale (carries over from last season early on). Teams well under 40 leave points on the table.'],
+  ['Starts/matchup','Average started games per completed matchup this season, on the 40-game cap scale. Teams well under 40 leave points on the table.'],
+  ['Proj','Projected final regular-season record, from the season simulation (19 matchups).'],
+  ['PPS','Points per start: fantasy points divided by games started this season, including the matchup in progress. High means quality; a team can also win on volume.'],
+  ['Inj pts/wk','Points per week the team is missing to injuries: its best 10 players with everyone healthy, minus its best 10 once each injured player is scaled by how much of the next week he is expected to miss. A star out counts in full; a bench player out barely counts, because he would not start anyway.'],
   ['Playoffs','Chance to make the playoffs, from simulating the rest of the season thousands of times.'],
   ['Bye','Chance of a top-two seed and a first-round bye.'],
   ['Title','Chance to win the league.'],
@@ -2714,6 +2719,19 @@ async function pollDraftLive(){
 
 /* ===== League > Standings: the landscape in one table (record, scoring, luck, strength, cap use, this week, playoff and title odds with a trend line) */
 let OH;   // odds_history.json: {days:{date:{ABBR:[playoffs,title]}}}
+/* points per week a team is missing to injuries: its best 10 (by rest-of-season points per game) with everyone healthy, minus its best 10 once each injured
+   player is scaled by the share of the next 7 days' games he is expected to miss, times about 4 games a week. A star counts in full; a bench player out barely counts. */
+function injBurden(teamId){
+  if(!L||!RD) return null;
+  const t=L.teams.find(x=>x.id===teamId); if(!t) return null;
+  if(!RD._byId) RD._byId=new Map(RD.players.map(p=>[p.id,p]));
+  const pl=t.roster.map(r=>{ const p=RD._byId.get(r.espn_id); const ppg=p?p.ppg||0:0;
+    const out=r.slot==='IR'||r.injury==='OUT'||(p&&p.games_out>0);
+    let share=0; if(out){ const g7=p&&p.g7?p.g7:3; share=p&&p.games_out!=null&&p.games_out>0?Math.min(1,p.games_out/g7):1; }
+    return {ppg,avail:ppg*(1-share)}; });
+  const top=a=>a.slice().sort((x,y)=>y-x).slice(0,10).reduce((u,v)=>u+v,0);
+  return Math.max(0,(top(pl.map(x=>x.ppg))-top(pl.map(x=>x.avail)))*4);
+}
 function renderStandings(){
   const pane=document.getElementById('standingsPane');
   if(!ODDS||!W){ pane.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>'; return; }
@@ -2726,14 +2744,16 @@ function renderStandings(){
     const wt=W.teams.find(x=>x.id===o.id)||{}, op=wt.opp!=null?W.teams.find(x=>x.id===wt.opp):null;
     const g=(o.res||[]).length, sp=SP&&SP.teams?SP.teams.find(x=>x.id===o.id):null, cw=SP?SP.current_week:1;
     const pw=sp&&sp.proj?[0,1,2,3].map(i=>sp.proj[String(cw+i)]).filter(v=>v!=null):[];
-    const use=TU&&TU.rows?TU.rows.filter(r=>r.team===o.id).sort((a,b)=>a.y-b.y||a.mp-b.mp).slice(-10):[];
+    const use=TU&&TU.rows?TU.rows.filter(r=>r.team===o.id&&r.y===W.season):[];            // this season's completed matchups only
+    const st0=use.reduce((t,r)=>t+r.total,0)+(wt.starts_so_far||0), pts0=(o.pf||0)+(wt.pts_so_far||0);
+    const pps=st0>0?pts0/st0:null;                                                                 // completed matchups plus the one in progress
     const apN=(o.ap_w||0)+(o.ap_l||0), apPct=apN?o.ap_w/apN:null;
     const trend=recent.map(d=>(OH.days[d][o.abbrev]||[])[1]).filter(v=>v!=null);
     const prev=wkAgo&&OH.days[wkAgo][o.abbrev]?OH.days[wkAgo][o.abbrev][1]:null;
     return {o,wt,op,g,name:wt.name||o.abbrev,me:o.id===ODDS.my_id,
       ppw:g?o.pf/g:null, papw:g?o.pa/g:null, apPct, luck:apPct!=null?o.wins+0.5*(o.t||0)-apPct*g:null,
       projW:pw.length?pw.reduce((a,b)=>a+b,0)/pw.length:null, useAvg:use.length?use.reduce((t,r)=>t+r.total/r.cap*40,0)/use.length:null,
-      trend, dT:prev!=null?o.title-prev:null};
+      trend, dT:prev!=null?o.title-prev:null, pps, inj:injBurden(o.id)};
   }).sort((a,b)=>(b.o.wins+0.5*(b.o.t||0))-(a.o.wins+0.5*(a.o.t||0))||(b.o.pf-a.o.pf)||(b.o.made-a.o.made));
   const nPO=(ODDS.teams[0].seed||[]).length||6;
   const spark=(v,col)=>{ if(v.length<2) return ''; const W2=84,H2=24,mx=Math.max(...v,0.01); return `<svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}" aria-hidden="true" style="vertical-align:middle"><polyline fill="none" stroke="${col}" stroke-width="1.8" points="${v.map((x,i)=>`${(i/(v.length-1)*(W2-4)+2).toFixed(1)},${(H2-2-x/mx*(H2-4)).toFixed(1)}`).join(' ')}"/></svg>`; };
@@ -2743,12 +2763,12 @@ function renderStandings(){
     const live=wt.pts_so_far!=null&&op?`<b>${wt.pts_so_far.toFixed(0)}</b>–${op.pts_so_far.toFixed(0)} <span class="hint">vs ${esc(op.abbrev)} · ${wt.win_prob!=null?Math.round(wt.win_prob*100)+'%':''}</span>`:'—';
     const col=r.dT==null?'var(--ink-soft)':(r.dT>=0.005?'var(--good)':(r.dT<=-0.005?'var(--warn)':'var(--ink-soft)'));
     return `<tr class="${r.me?'meRow':''}${i===nPO-1?' cutRow':''}" data-team="${esc(o.abbrev)}">
-      <td class="num">${i+1}</td><td style="text-align:left"><b>${esc(o.abbrev)}</b> <span class="hint">${esc(r.name)}</span></td>
-      <td class="num" data-sort="${o.wins+0.5*(o.t||0)+o.pf/1e7}"><b>${rec}</b></td><td style="text-align:left" data-sort="${o.streak?(o.streak[0]==='W'?1:-1)*+o.streak.slice(1):0}">${o.streak||'—'}</td>
+      <td class="num">${i+1}</td><td style="text-align:left"><b>${esc(o.abbrev)}</b> <span class="hint">${esc(r.name)}</span>${o.clinch==='bye'?' <span class="clTag">clinched bye</span>':(o.clinch==='playoffs'?' <span class="clTag">clinched playoffs</span>':'')}${o.elim?' <span class="clTag out">eliminated</span>':''}</td>
+      <td class="num" data-sort="${o.wins+0.5*(o.t||0)+o.pf/1e7}"><b>${rec}</b></td><td class="num" data-sort="${o.exp_wins}">${o.exp_wins!=null?`${Math.round(o.exp_wins)}-${Math.max(0,19-Math.round(o.exp_wins))}`:'—'}</td><td style="text-align:left" data-sort="${o.streak?(o.streak[0]==='W'?1:-1)*+o.streak.slice(1):0}">${o.streak||'—'}</td>
       <td class="num">${r.ppw!=null?r.ppw.toFixed(0):'—'}</td><td class="num">${r.papw!=null?r.papw.toFixed(0):'—'}</td>
       <td class="num" data-sort="${r.apPct??''}">${r.apPct!=null?`${(o.ap_w).toFixed(0)}-${(o.ap_l).toFixed(0)}`:'—'}</td>
       <td class="num" data-sort="${r.luck??''}">${r.luck!=null?`<span style="color:${r.luck>=0.5?'var(--good)':(r.luck<=-0.5?'var(--warn)':'inherit')}">${sg(r.luck,1)}</span>`:'—'}</td>
-      <td class="num">${r.projW!=null?r.projW.toFixed(0):'—'}</td><td class="num">${r.useAvg!=null?r.useAvg.toFixed(1):'—'}</td>
+      <td class="num">${r.projW!=null?r.projW.toFixed(0):'—'}</td><td class="num">${r.useAvg!=null?r.useAvg.toFixed(1):'—'}</td><td class="num">${r.pps!=null?r.pps.toFixed(1):'—'}</td><td class="num" data-sort="${r.inj??''}">${r.inj!=null?(r.inj<0.5?'0':r.inj.toFixed(0)):'—'}</td>
       <td style="text-align:left;white-space:nowrap" data-sort="${wt.win_prob??''}">${live}</td>
       <td class="num" data-sort="${o.made}"><b>${pctf(o.made)}</b></td><td class="num" data-sort="${o.bye}">${pctf(o.bye)}</td><td class="num" data-sort="${o.title}"><b>${pctf(o.title)}</b></td>
       <td style="text-align:left;white-space:nowrap" data-sort="${r.dT??''}">${spark(r.trend,col)} <span class="num" style="color:${col}">${r.dT!=null?sg(r.dT*100,1):''}</span></td></tr>`; }).join('');
@@ -2766,12 +2786,16 @@ function renderStandings(){
   const mv=rows.filter(r=>r.dT!=null).sort((a,b)=>Math.abs(b.dT)-Math.abs(a.dT))[0]; if(mv&&Math.abs(mv.dT)>=0.01) tiles.push(['Biggest mover (7 days)',`${esc(mv.o.abbrev)} title ${sg(mv.dT*100,1)} pts`]);
   pane.innerHTML=`<div class="controls"><span class="hint">Week ${ODDS.current_week} of 19 · ${ODDS.weeks_left} regular-season matchups left · top ${nPO} make the playoffs</span></div>
     <div class="stTiles">${tiles.map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
-    <div class="tablewrap"><table id="standTbl"><thead><tr><th>Rk</th><th style="text-align:left">Team</th><th>Record</th><th style="text-align:left">Streak</th><th>Pts/wk</th><th>Opp pts/wk</th><th>All-play</th><th>Luck</th><th>Proj pts/wk</th><th>Starts/matchup</th><th style="text-align:left">This week</th><th>Playoffs</th><th>Bye</th><th>Title</th><th style="text-align:left">Title trend</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    <div class="tablewrap"><table id="standTbl"><thead><tr><th>Rk</th><th style="text-align:left">Team</th><th>Record</th><th>Proj</th><th style="text-align:left">Streak</th><th>Pts/wk</th><th>Opp pts/wk</th><th>All-play</th><th>Luck</th><th>Proj pts/wk</th><th>Starts/matchup</th><th>PPS</th><th>Inj pts/wk</th><th style="text-align:left">This week</th><th>Playoffs</th><th>Bye</th><th>Title</th><th style="text-align:left">Title trend</th></tr></thead><tbody>${body}</tbody></table></div>
+    <h2 class="todayH" style="margin-top:1.6rem">Seed odds</h2>
+    <div class="tablewrap"><table class="heat seedTbl"><thead><tr><th style="text-align:left">Team</th>${Array.from({length:nPO},(_,k)=>`<th>${k+1}</th>`).join('')}<th>Out</th></tr></thead><tbody>${rows.map(r=>{ const sd=r.o.seed||[], out=1-(r.o.made||0);
+      const cell=v=>`<td class="num" style="background:color-mix(in srgb,var(--accent) ${Math.round(Math.min(1,v/0.5)*70)}%,transparent)">${v>=0.005?(v*100).toFixed(0):''}</td>`;
+      return `<tr class="${r.me?'meRow':''}"><td style="text-align:left"><b>${esc(r.o.abbrev)}</b></td>${Array.from({length:nPO},(_,k)=>cell(sd[k]||0)).join('')}<td class="num hint">${out>=0.005?(out*100).toFixed(0):''}</td></tr>`; }).join('')}</tbody></table></div>`;
   pane.querySelector('#standTbl tbody').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-team]'); if(!tr||e.target.closest('a,.pName')) return; pendingTeam=tr.dataset.team; setView('teams'); });
   mobileTables(pane);
 }
 function renderAbout(){
-  const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['League',['Pts/wk','Opp pts/wk','All-play','Luck','Proj pts/wk','Starts/matchup','Playoffs','Bye','Title','Title trend']],['Trades',['Acceptance']]];
+  const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['League',['Proj','Pts/wk','Opp pts/wk','All-play','Luck','Proj pts/wk','Starts/matchup','PPS','Inj pts/wk','Playoffs','Bye','Title','Title trend']],['Trades',['Acceptance']]];
   document.getElementById('aboutPane').innerHTML=`<h2>Glossary</h2>${groups.map(([g,ks])=>`<h3 class="glH">${g}</h3><dl class="gloss">${ks.map(k=>`<div><dt>${esc(k)}</dt><dd>${esc(GLOSS_MAP[k])}</dd></div>`).join('')}</dl>`).join('')}
     <h3 class="glH">Where the numbers come from</h3><dl class="gloss"><div><dt>DELCO</dt><dd>Our projection model for every player: per-stat aging curves updated against each game log, plus a pre-NBA model for rookies. Its rest-of-season numbers are averaged with ESPN's.</dd></div><div><dt>DailyFantasyFuel</dt><dd>Day-of projections that react to injury news; used for tonight's and tomorrow's games once the slate is posted.</dd></div></dl>`;
 }
@@ -2958,13 +2982,13 @@ async function loadLive(){
 }
 loadLive(); setInterval(loadLive,120000);
 fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week'||activeView()==='standings') setView(activeView()); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
-fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
+fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='standings') renderStandings(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
-  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; initLeague(); render(); if(RD) RD._own=null; if(activeView()==='teams') setView('teams'); if(activeView()==='redraft') renderRedraft();} }).catch(()=>{});
+  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; if(activeView()==='standings') renderStandings(); initLeague(); render(); if(RD) RD._own=null; if(activeView()==='teams') setView('teams'); if(activeView()==='redraft') renderRedraft();} }).catch(()=>{});
   fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; if(activeView()==='draft') setView('draft'); if(activeView()==='keepers') setView('keepers'); pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
   fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; if(activeView()==='trades') setView('trades');} }).catch(()=>{});

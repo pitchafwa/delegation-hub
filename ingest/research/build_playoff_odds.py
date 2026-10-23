@@ -130,6 +130,18 @@ def live():
     st = season_table(ids, games)
     for t in out["teams"]:
         t.update(st[t["id"]])
+    # clinched / eliminated: certain, not simulated. Ties in wins are treated as going against the team (the points-for tiebreak is not settled yet),
+    # and games between two rivals are ignored (both may still win them), so a tag can come a little late but is never wrong.
+    rem = {t: sum(1 for _, a, b in pairs if t in (a, b)) for t in ids}
+    tie = {t: st[t]["t"] for t in ids}
+    for t in out["teams"]:
+        me = t["id"]
+        floor, ceil = wins[me], wins[me] + tie[me] + rem[me]
+        can_reach = sum(1 for u in ids if u != me and wins[u] + tie[u] + rem[u] >= floor)
+        beyond = sum(1 for u in ids if u != me and wins[u] > ceil)
+        t["clinch"] = "bye" if can_reach <= 1 else ("playoffs" if can_reach <= 5 else None)
+        t["elim"] = beyond >= 6
+        t["games_left"] = rem[me]
     out["teams"].sort(key=lambda x: -x["made"])
     write_history(out)
     (DASH / "playoff_odds.json").write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
