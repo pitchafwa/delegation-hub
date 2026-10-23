@@ -293,6 +293,10 @@ def run_check():
         pickup_alert(lg, W, T, s, mine, can_send)
     except Exception as ex:
         print("pickup check failed:", ex)
+    try:
+        plan_target_watch(lg, T, s, mine, can_send)
+    except Exception as ex:
+        print("plan target watch skipped:", repr(ex)[:90])
     # ---- injury beneficiaries: only when the weekly plan itself recommends the add (it names the drop and the net gain)
     if can_send and (FORCE or not in_quiet()):
         sent_b = s.setdefault("benef_sent", {})
@@ -322,33 +326,66 @@ def run_check():
     save_state(s)
 
 
-P_TAKEN_48H = 0.16      # measured 2024-26: a dropped player at 27-34 points per game was picked up by another team within 48 hours about 16% of the time
+def p_taken(ll):
+    """chance another team takes a just-available player within about two days (2024-26, players dropped after 4+ recent games, by his points per game before the drop): 34+ = 25%, 27-34 = 16%, lower = 12%"""
+    return 0.25 if (ll or 0) >= 33 else (0.16 if (ll or 0) >= 27 else 0.12)
+
+
+def _backup_text(bk, n=2):
+    return ", then ".join(f"{b['name']} ({b['net']:+.0f})" for b in bk[:n])
 
 
 def plan_guidance(T, pid):
     """what the weekly plan says about this player, so the alert and the plan agree. Returns (text, short tag) or ('', '').
-    The plan values a free agent day by day against the lineup you will actually have, so a great player can still be worth NOTHING today (every slot is full, or the player you would drop still has games)."""
+    The plan values a free agent day by day against the lineup you will actually have, so a great player can still be worth little today (slots are full, or the player you would drop still has games).
+    Add now vs wait: waiting keeps the dropped player's games but risks losing him to another team; the expected value of waiting counts the plan's backup if he is gone."""
     sq = next((m for m in (T.get("sequence") or []) if str(m["add"]["id"]) == str(pid)), None)
     pc = (T.get("pickup_checks") or {}).get(str(pid))
     now = (pc or {}).get("now")
     if sq:
         day = datetime.fromisoformat(sq["on"]).strftime("%a")
         drop = (sq.get("drop") or {}).get("name") or "an open spot"
-        if sq.get("keep"):
-            t = f"PLAN: add him {day} and drop {drop}; keep him (about +{sq['gain']:.0f} net)."
-            return t, f"plan: add {day}"
-        t = f"PLAN: he is a one-day rental on {day}: add him that morning and drop {drop} then (about +{sq['gain']:.0f} net). Adding him earlier gains nothing this week and costs {drop}'s games in between."
+        P = p_taken(sq["add"].get("ll") or sq["add"].get("level"))
+        bk = sq.get("backups") or []
+        alt = f" If he is gone: {_backup_text(bk)}." if bk else ""
+        what = (f"PLAN: he is a KEEP, and the best timing is {day} (drop {drop} then, after his games)" if sq.get("keep") else f"PLAN: use him as a one-day rental on {day} (drop {drop} then)") + f", about {sq['gain']:+.0f} net."
         if now:
-            ev_wait = (1 - P_TAKEN_48H) * sq["gain"]
+            ev_wait = (1 - P) * sq["gain"] + P * max(0.0, bk[0]["net"] if bk else 0.0)
             if now["net"] > ev_wait:
-                return t + f" Locking him in now (drop {now['drop']}) is worth more on average ({now['net']:+.0f} vs {ev_wait:+.0f} for waiting, after a {P_TAKEN_48H:.0%} chance he is taken first): do that instead.", "plan: add now"
-            return t + f" If you add him now instead (drop {now['drop']}) this week changes by {now['wk']:+.0f}. The cost of waiting is the {P_TAKEN_48H:.0%} chance someone else takes him first.", f"plan: wait for {day}"
-        return t, f"plan: wait for {day}"
+                return what + f" But adding him NOW (drop {now['drop']}) is worth more on average ({now['net']:+.0f} now vs {ev_wait:+.0f} waiting, counting a {P:.0%} chance he is taken first): add him now.{alt}", "plan: add now"
+            return what + f" Adding him now (drop {now['drop']}) would be {now['net']:+.0f}; waiting averages {ev_wait:+.0f} even after a {P:.0%} chance he is taken first. Wait.{alt}", f"plan: wait for {day}"
+        return what + alt, f"plan: {day}"
     if pc:
         if pc["net"] >= 6:
             return f"PLAN CHECK: worth adding as a keeper: add {datetime.fromisoformat(pc['on']).strftime('%a')}, drop {pc['drop']} (about {pc['net']:+.0f} net).", "plan: worth adding"
         return f"PLAN CHECK: no help this week. Adding him and dropping {pc['drop']} changes this week by {pc['wk']:+.0f} and the rest of the season by {-pc['fut']:+.0f}. Skip unless you want him as a stash.", "plan: not needed"
     return "", ""
+
+
+def plan_target_watch(lg, T, s, mine, can_send):
+    """a player the weekly plan is counting on (an add in the next two days) has been taken by another team: say so right away with the plan's backups. The plan itself re-optimizes at its next
+    refresh (5:37am, 3:07pm, 6:07pm ET), or when you run it by hand."""
+    import waivers as WV
+    if not can_send:
+        return
+    pool = {int(p["id"]) for p in WV.available_pool(lg, 300)}
+    mine_ids = {int(p.playerId) for p in mine.roster}
+    seen = s.setdefault("target_gone", {})
+    for k in [k for k, d in seen.items() if (TODAY - date.fromisoformat(d)).days > 3]:
+        seen.pop(k)
+    for m in (T.get("sequence") or []):
+        on = date.fromisoformat(m["on"])
+        pid = int(m["add"]["id"])
+        if not (0 <= (on - TODAY).days <= 2) or pid in pool or pid in mine_ids:
+            continue
+        key = f"{pid}:{m['on']}"
+        if key in seen:
+            continue
+        bk = m.get("backups") or []
+        body = (f"{m['add']['name']} was in the plan for {on.strftime('%a')} (drop {(m.get('drop') or {}).get('name') or 'an open spot'}) but is no longer available: another team took him."
+                + (f" Next best for that slot: {_backup_text(bk, 3)}." if bk else "") + " The plan updates at its next refresh.")
+        if push(f"Plan target taken: {m['add']['name']}", body, priority=3, tags=["warning"]):
+            seen[key] = TODAY.isoformat()
 
 
 def pickup_alert(lg, W, T, s, mine, can_send):
