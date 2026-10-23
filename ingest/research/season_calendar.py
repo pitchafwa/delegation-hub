@@ -164,8 +164,17 @@ def first_tip(cal=None):
     from datetime import datetime
     o = opener(cal)
     sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))["games"].get(o.isoformat(), [])
-    tips = sorted(g[2] for g in sched if len(g) > 2 and g[2])
-    return o, (tips[0] if tips else None)
+    # tip strings are UTC 'HH:MM' (newer files add a trailing 'Z'); a tip before 10:00 UTC is the same ET evening but the NEXT UTC date, so sort on the real UTC time
+    from datetime import timedelta
+    tips = []
+    for g in sched:
+        if len(g) > 2 and g[2]:
+            hm = str(g[2]).rstrip("Z")[:5]
+            d = o + timedelta(days=1) if int(hm[:2]) < 10 else o
+            tips.append((d, hm))
+    if not tips:
+        return o, None
+    return min(tips)
 
 
 def lengths(cal=None):
