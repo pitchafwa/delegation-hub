@@ -1,93 +1,103 @@
 {
- "avail_prev": {},
+ "avail_prev": {
+  "3059319": "WAIVERS",
+  "4278594": "FREEAGENT",
+  "4395626": "FREEAGENT",
+  "4594327": "FREEAGENT"
+ },
  "benef_sent": {},
  "fa_high": {},
  "last_status": {
   "3135045": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "3978": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4397014": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4397136": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-22",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4432194": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
+   "espn": "ACTIVE",
+   "official": null
+  },
+  "4683747": {
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-22",
+   "date": "2026-10-23",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "lu": {},
- "pickup_sent": {},
+ "pickup_sent": {
+  "3059319:WAIVERS": "2026-10-22",
+  "4395626:FREEAGENT": "2026-10-22",
+  "4594327:FREEAGENT": "2026-10-23",
+  "4594327:WAIVERS": "2026-10-22"
+ },
  "sent": {
-  "daily": "2026-10-22",
+  "daily": "2026-10-23",
   "lineup": "2026-10-21:553c90d0df",
   "weekly": "1"
  }
