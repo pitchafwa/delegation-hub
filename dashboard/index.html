@@ -1173,7 +1173,7 @@ function renderWeek(){
   const fmtDow=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'});
     const addsLeft=M.adds_limit-T.adds_used;
   const tonightHtml=(T.tonight_picks&&T.tonight_picks.length)?`<div style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Single-day pickups for tonight, by the day-specific projection</div>
-    <div class="tablewrap" style="margin-bottom:1rem"><table><thead><tr><th style="text-align:left">Add</th><th>Projected tonight</th><th>Adds to your lineup</th><th style="text-align:left">His games this matchup</th></tr></thead><tbody>${T.tonight_picks.map(x=>`<tr><td style="text-align:left"><b>${pc(x.name)}</b> <span class="hint">${esc(x.team)} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${x.status!=='ACTIVE'?' · '+esc(x.status):''}</span></td><td class="num">${x.tonight.toFixed(1)}${x.dfs?'':' <span class="hint">(season level)</span>'}</td><td class="num"><b>+${x.gain.toFixed(0)}</b></td><td style="text-align:left">${x.games.map(shortDay).join(' ')}</td></tr>`).join('')}</tbody></table></div><div class="note" style="margin:-.5rem 0 1rem">What each free agent adds to tonight alone, before the cost of the player you would drop. Needs a drop; adds are free, but a dropped player takes about 40 hours to clear waivers.</div>`:'';
+    <div class="tablewrap" style="margin-bottom:1rem"><table><thead><tr><th style="text-align:left">Add</th><th>Projected tonight</th><th>Adds to your lineup</th><th style="text-align:left">His games this matchup</th></tr></thead><tbody>${T.tonight_picks.map(x=>`<tr><td style="text-align:left"><b>${pc(x.name)}</b> <span class="hint">${esc(x.team)} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${x.status!=='ACTIVE'?' · '+esc(x.status):''}</span></td><td class="num">${x.tonight.toFixed(1)}${x.dfs?'':' <span class="hint">(season level)</span>'}</td><td class="num"><b>+${x.gain.toFixed(0)}</b></td><td style="text-align:left">${x.games.map(shortDay).join(' ')}</td></tr>`).join('')}</tbody></table></div><div class="note" style="margin:-.5rem 0 1rem">Points each adds to tonight alone; every add needs a drop.</div>`:'';
   const otherFaHtml=(()=>{   // same engine as Suggested moves: each free agent's best rental or keep, with the day, the drop, and the risk he is taken before then
     const PCK=T.pickup_checks; if(!PCK) return '';
     const inPlan=new Set((T.sequence||[]).map(a=>a.add.id));
@@ -1285,7 +1285,7 @@ function renderWeek(){
       <div class="liveRow hint">Starts used: you ${L2.me.starts} / ${L2.cap} · ${esc(L2.opp.abbrev)} ${L2.opp.starts} / ${L2.cap} · ${L2.days_left.toFixed(1)} days left${L2.me.adds_used!=null?` · adds used ${L2.me.adds_used}`:''}</div>
       ${(L2.advice||[]).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')}
       <details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${list(L2.me.left_today||[])}</div><div class="liveRow"><b>${esc(L2.opp.abbrev)}:</b> ${list(L2.opp.left_today||[])}</div></details>
-      <div class="note" style="margin-top:.4rem">Win chance = the score now plus the expected rest of the week (72% of the projected gap, since projections overstate real differences), spread by how much can still happen; it was checked on last season's real matchups and was within about 2 points. Variance choices barely change it: a week is decided by expected points, so fill every slot.</div></div>`;
+</div>`;
   }
   const lineupSec=sec('lineup','Lineup plan by day',`${T.expected.toFixed(0)} expected points`,`
     <div class="hint" style="margin:0 0 1rem">${gainVsAll>=0.5?`Following the plan is worth <b>+${gainVsAll.toFixed(0)} points</b> over starting everyone who plays, by saving games for better days once the cap matters. `:`Your roster is expected to use about ${Math.min(M.cap,coverStarts(T.days)).toFixed(0)} of the ${M.cap} cap games this week (counting a bench player stepping in for anyone who is ruled out${coverStarts(T.days)>coverStarts(T.days,true)+1?`; the day-by-day table below counts only the players already in the lineup, so it shows about ${(T.days[T.days.length-1].starts_after).toFixed(0)}`:''}), so starting everyone who plays is best.${T.days_after&&(T.sequence||[]).length?` With the suggested moves it reaches about ${Math.min(M.cap,coverStarts(T.days_after)).toFixed(0)}. `:' '}`}${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule, so adds that play then are worth the most. `:''}Numbers are expected fantasy points (chance of playing x projected points per game).</div>
@@ -2565,6 +2565,7 @@ function wire(){
     if(b.dataset.v==='teams') renderTeams();
     if(b.dataset.v==='board' && D) render();
     try{localStorage.setItem('hubView',b.dataset.v);}catch(e){}
+    { const hs=document.getElementById('hSub'); if(hs) hs.style.display=b.dataset.v==='board'?'':'none'; }   // the board's method note is not about the other tabs
     setHash(b.dataset.v); renderNav(); window.scrollTo(0,0);
   });
   document.getElementById('segKind').addEventListener('click', e=>{
