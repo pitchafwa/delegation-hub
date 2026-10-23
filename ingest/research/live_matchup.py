@@ -2,7 +2,9 @@
 
 Runs every 20 minutes from the alerts workflow (needs ESPN_S2 / SWID) and publishes the file to the `live-data` branch, which the page reads from raw.githubusercontent.com.
   score          ESPN's live matchup totals for the user's team and this week's opponent
-  expected rest  players in each team's ACTUAL lineup today who have not played yet (level from the weekly plan x chance of playing), plus the plan's expected points for the days after today
+  score          ESPN's LIVE totals (totalPointsLive: includes games in progress)
+  expected rest  players in each team's ACTUAL lineup today: the unplayed share of their game (from ESPN's NBA scoreboard clock) x their level (tonight's projection when the plan has one)
+                 x chance of playing for players not in yet, plus the plan's expected points for the days after today
   win chance     Phi( (margin now + 0.72 x expected remaining margin) / sigma(days left) ), fit and checked on 2025-26 (win_prob_study.py: calibrated within ~2 points)
   the cap        starts so far vs the games-played cap (a locked lineup ends scoring for the week)
 Test on last season:  LIVE_YEAR=2026 LIVE_DATE=2026-01-15 LIVE_MP=13 uv run python research/live_matchup.py --dry
@@ -54,6 +56,36 @@ def sigma(rem):
     return SIG[7] * math.sqrt(rem / 7.0)
 
 
+ESPN_SB = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+
+
+def game_progress():
+    """canon NBA team -> share of its game still to play today (1.0 = not started, 0.0 = final), from ESPN's public NBA scoreboard (the NBA's own live feed blocks scripts).
+    {} if unavailable: then a player counts as 'to play' until ESPN marks him as having played, which is the old behaviour."""
+    from team_abbr import canon
+    try:
+        evs = requests.get(ESPN_SB, params={"dates": TODAY.strftime("%Y%m%d")}, timeout=20).json().get("events", [])
+    except Exception as ex:
+        print("NBA scoreboard unavailable:", repr(ex)[:80])
+        return {}
+    out = {}
+    for e in evs:
+        c = e["competitions"][0]
+        st = c["status"]
+        state = st["type"]["state"]
+        if state == "pre":
+            left = 1.0
+        elif state == "post":
+            left = 0.0
+        else:
+            per = int(st.get("period") or 1)
+            secs = float(st.get("clock") or 0.0)
+            left = max(0.0, ((4 - per) * 720 + secs) / 2880.0) if per <= 4 else max(0.0, secs / 2880.0)    # overtime: at most five more minutes
+        for t in c["competitors"]:
+            out[canon(t["team"]["abbreviation"])] = left
+    return out
+
+
 def load(name):
     p = DASH / name
     return json.load(open(p, encoding="utf-8")) if p.exists() else None
@@ -81,7 +113,7 @@ def main():
         return
     mine_side, opp_side = ("home", "away") if m["home"]["teamId"] == my_id else ("away", "home")
     opp_id = m[opp_side]["teamId"]
-    pts = {my_id: float(m[mine_side].get("totalPoints") or 0), opp_id: float(m[opp_side].get("totalPoints") or 0)}
+    pts = {my_id: float(m[mine_side].get("totalPointsLive") or m[mine_side].get("totalPoints") or 0), opp_id: float(m[opp_side].get("totalPointsLive") or m[opp_side].get("totalPoints") or 0)}
     by_sp = {my_id: m[mine_side].get("pointsByScoringPeriod") or {}, opp_id: m[opp_side].get("pointsByScoringPeriod") or {}}
     if os.environ.get("LIVE_DATE"):                              # testing on a finished season: only count periods up to the test date
         lim = (TODAY - SEASON_START).days + 1
@@ -137,20 +169,30 @@ def main():
     rem_today = {my_id: 0.0, opp_id: 0.0}
     left_today = {my_id: [], opp_id: []}
     full_day = {my_id: 0.0, opp_id: 0.0}
+    from espn_api.basketball.constant import PRO_TEAM_MAP
+    from team_abbr import canon
+    prog = game_progress() if not os.environ.get("LIVE_DATE") else {}
     for tid in (my_id, opp_id):
         for e in (today_box or {}).get(tid, []):
             if e["slot"] is None or e["slot"] > 11:
                 continue
             pr = plan_roster.get(tid, {}).get(e["id"], {})
-            lvl = pr.get("level", 22.0)
-            boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0)
-            plays_today = (not nba_today) or (pr.get("team") in nba_today) or True
-            p_play = 0.0 if e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") else (0.94 if plays_today else 0.0)
+            lvl = pr.get("tonight") or pr.get("level", 22.0)
+            boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
+            left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
+            if left is None:                                         # no live feed, or his team is not on today's NBA board
+                left = 0.0 if e["played"] else 1.0
+            p_play = 0.0 if e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") else 0.94
             full_day[tid] += (lvl + boost) * p_play
-            if not e["played"] and plays_today and p_play > 0:
-                ef = (lvl + boost) * p_play
-                rem_today[tid] += ef
+            if left <= 0.0 or p_play <= 0.0:
+                continue
+            if e["played"]:
+                ef = (lvl + boost) * left                            # on the floor tonight: the unplayed share of his game is still to come
+                left_today[tid].append({"name": e["name"], "ef": round(ef, 1), "live": round(e["pts"], 1)})
+            else:
+                ef = (lvl + boost) * p_play * left                   # not in yet: late in a game he is likely sitting, so scale by what is left
                 left_today[tid].append({"name": e["name"], "ef": round(ef, 1)})
+            rem_today[tid] += ef
     # GAMES CAP, for BOTH teams: a team that began today at or over the cap cannot start anyone today or later (nothing more counts), and a team projected to cross it by the end of
     # today loses the days after. The plan assumes every team uses the cap perfectly and is only refreshed a few times a day, so without this a locked opponent still "scores" in the forecast.
     lock_note = {}
@@ -160,7 +202,7 @@ def main():
             rem_today[tid], left_today[tid] = 0.0, []
             lock_note[tid] = "locked"
         started_today = sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
-        cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else len(left_today[tid]) * 0.94)
+        cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else sum(1 for x in left_today[tid] if "live" not in x) * 0.94)   # players already on the floor are counted in started_today
     fut = {my_id: 0.0, opp_id: 0.0}
     fut_days = 0
     for d in days:
@@ -201,7 +243,7 @@ def main():
     except Exception:
         pass
     hist.append({"t": datetime.now(timezone.utc).isoformat(timespec="minutes"), "wp": round(wp, 3), "margin": round(margin, 1), "me": round(pts[my_id], 1), "opp": round(pts[opp_id], 1)})
-    hist = hist[-160:]
+    hist = hist[-700:]                                            # runs every 5 minutes on game days: about two and a half days of points
     my_plan = plan_team.get(my_id, {})
     adds_used = my_plan.get("adds_used")
     best_add = next((a for a in (my_plan.get("sequence") or [])[:1]), None)

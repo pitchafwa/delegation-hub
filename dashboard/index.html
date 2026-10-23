@@ -1376,7 +1376,7 @@ function renderWeek(){
         <div style="text-align:right"><span class="hint">${esc(L2.opp.abbrev)}</span><b>${L2.opp.pts.toFixed(0)}</b><span class="hint">projected ${L2.opp.exp_final.toFixed(0)}</span></div></div>
       <div class="liveRow hint">Starts used: you ${L2.me.starts} / ${L2.cap} · ${esc(L2.opp.abbrev)} ${L2.opp.starts} / ${L2.cap} · ${L2.days_left.toFixed(1)} days left${L2.me.adds_used!=null?` · adds used ${L2.me.adds_used}`:''}</div>
       ${(L2.advice||[]).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')}
-      <details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${list(L2.me.left_today||[])}</div><div class="liveRow"><b>${esc(L2.opp.abbrev)}:</b> ${list(L2.opp.left_today||[])}</div></details>
+      <details class="liveMore"><summary class="hint">Still to play today</summary><div class="liveRow"><b>You:</b> ${list(L2.me.left_today||[])}</div><div class="liveRow"><b>${esc(L2.opp.abbrev)}:</b> ${list(L2.opp.left_today||[])}</div></details>
 </div>`;
   }
   // ===== TODAY: scoreboard, Do now, tonight's lineup, one free-agent list; everything else sits collapsed below
@@ -1394,14 +1394,14 @@ function renderWeek(){
   if(liveOk){ const h=(LIVE.history||[]).map(x=>x.wp), W2=120, H2=26;
     if(h.length>1) spark=`<svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}" aria-hidden="true"><line x1="0" x2="${W2}" y1="${H2/2}" y2="${H2/2}" stroke="var(--line-strong)" stroke-dasharray="2 3"/><polyline fill="none" stroke="${wpCol}" stroke-width="2" points="${h.map((v,i)=>`${(i/(h.length-1)*(W2-4)+2).toFixed(1)},${(H2-2-v*(H2-4)).toFixed(1)}`).join(' ')}"/></svg>`; }
   const liveAgo=liveOk?Math.max(0,Math.round((Date.now()-new Date(LIVE.generated).getTime())/60000)):0;
-  const leftList=a=>a.length?a.map(x=>`${pc(x.name)} <span class="hint">${x.ef}</span>`).join(', '):'<span class="hint">no one left</span>';
+  const leftList=a=>a.length?a.map(x=>`${pc(x.name)} <span class="hint">${x.live!=null?`${x.live} so far, about ${Math.round(x.ef)} to come`:`about ${Math.round(x.ef)}`}</span>`).join(', '):'<span class="hint">no one left</span>';
   const scoreHtml=`<div class="scoreCard">
     ${liveOk?`<div class="scoreLive"><span class="liveDot"></span> Live <span class="hint">· updated ${liveAgo<1?'just now':liveAgo+' min ago'}</span></div>`:''}
     <div class="scoreTop"><div><div class="scoreLbl">${isMe?'You · ':''}${esc(T.abbrev)}</div><div class="scoreBig">${sb.me.toFixed(0)}</div><div class="scoreLbl">projected ${sb.meP.toFixed(0)}</div></div>
       <div class="scoreMid"><div class="scoreWp" style="color:${wpCol}">${wpN!=null?wpN+'%':'—'}</div><div class="scoreLbl">win chance ${ib('Win chance')}</div>${spark}</div>
       <div style="text-align:right"><div class="scoreLbl">${esc(sb.oa||'opponent')}</div><div class="scoreBig" style="color:var(--ink-soft)">${sb.op!=null?sb.op.toFixed(0):'—'}</div><div class="scoreLbl">${sb.opP!=null?'projected '+sb.opP.toFixed(0):''}</div></div></div>
     <div class="scoreStrip"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b><i>starts ${ib('Cap')}</i></span><span><b>${Math.max(0,M.adds_limit-sb.au)}</b><i>adds left</i></span><span><b>${dlTxt}</b><i>${sb.dl===1?'day':'days'} left</i></span></div>
-    ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')+`<details class="liveMore"><summary class="hint">Who is still to play today</summary><div class="liveRow"><b>You:</b> ${leftList(LIVE.me.left_today||[])}</div><div class="liveRow"><b>${esc(LIVE.opp.abbrev)}:</b> ${leftList(LIVE.opp.left_today||[])}</div></details>`:''}
+    ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')+`<details class="liveMore"><summary class="hint">Still to play today</summary><div class="liveRow"><b>You:</b> ${leftList(LIVE.me.left_today||[])}</div><div class="liveRow"><b>${esc(LIVE.opp.abbrev)}:</b> ${leftList(LIVE.opp.left_today||[])}</div></details>`:''}
   </div>`;
   // Do now: the same dated steps the phone alerts use
   const doItems=[];

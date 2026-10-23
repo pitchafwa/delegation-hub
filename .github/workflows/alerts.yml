@@ -69,7 +69,7 @@ jobs:
 
       # Live matchup tracker: score, expected rest of the week, win probability. Published to a throwaway branch (one commit, force-pushed) so the site is not rebuilt.
       - name: Live matchup
-        if: github.event_name == 'schedule' || inputs.mode == 'check'
+        if: github.event_name == 'schedule' || inputs.mode == 'check' || inputs.mode == 'lineup'      # every 5 minutes on game days, so the score and win chance move with the games
         working-directory: ingest
         env:
           ESPN_S2: ${{ secrets.ESPN_S2 }}
