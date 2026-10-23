@@ -242,7 +242,17 @@ streamers = sorted([{"name": f["name"], "team": f["team"], "level": f["level"], 
 REMAIN = list(range(FIRST, len(CAL) + 1))
 PLAYOFF_WT = 1.5
 IR_OK_S = ("OUT", "INJURY_RESERVE")
-base_w = {w: week_points(mine, w) for w in REMAIN}
+# REPLACEMENT FILL. A roster this thin leaves slot-days empty, and an empty slot-day is not worth zero: you can stream a free agent into it (the best three free agents are about 27-29 points a game).
+# Valuing a stash against an EMPTY slot made every injured scrub who can sit on a free IR slot look like +300 or more (Nae'Qwan Tomlin, a 17-point player, 'gained' 342) while a real 33-point player
+# who costs a drop looked smaller. So every candidate is valued against the roster plus the best three free agents standing in as the streamers you would otherwise use.
+_fa_sorted = sorted([x for x in wp.get("fa_pool", []) if not x.get("waiver") and x.get("status") in ("ACTIVE", "DAY_TO_DAY") and x["level"] > 0], key=lambda x: -x["level"])
+_FILL_N = 6
+_FILL_SRC = _fa_sorted[:_FILL_N + 1]
+def _fillers(exclude_id):
+    return [mk(dict(x, ir=False, protected=False, status="ACTIVE")) for x in _FILL_SRC if x["id"] != exclude_id][:_FILL_N]
+_FILL = _fillers(None)
+_REPL_FILL = sum(f["level"] for f in _FILL) / max(1, len(_FILL))
+base_w = {w: week_points(mine + _FILL, w) for w in REMAIN}
 mine_ir = sum(1 for p in mine if p["ir"])
 stash = []
 _seen_ids = {x["id"] for x in wp.get("stash_pool", [])} | {x["id"] for x in wp.get("fa_pool", [])}
@@ -276,12 +286,16 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
             f["back"] = x["back_date"]
         to_ir = bool(x.get("out_now")) and x.get("status") in IR_OK_S and mine_ir < 4
         drop = None if to_ir or len(non_ir) < 15 else (droppable[0] if droppable else None)
-        new = [p for p in mine if p is not drop] + [f]
-        gw = {w: week_points(new, w) - base_w[w] for w in REMAIN}
+        _fl = _fillers(x["id"]) if any(y["id"] == x["id"] for y in _FILL_SRC[:_FILL_N]) else _FILL
+        new = [p for p in mine if p is not drop] + [f] + _fl
+        _bw = base_w if _fl is _FILL else {w: week_points(mine + _fl, w) for w in REMAIN}
+        gw = {w: week_points(new, w) - _bw[w] for w in REMAIN}
         reg = sum(g for w, g in gw.items() if w not in PLAY)
         po = sum(g for w, g in gw.items() if w in PLAY)
         n4 = sum(gw[w] for w in NEXT4)
         total_w = reg + PLAYOFF_WT * po
+        if level < _REPL_FILL:                                   # a player below what you would stream into the same slot adds nothing over the rest of the season, however many empty slot-days the roster has
+            reg = po = n4 = total_w = 0
         asset = x.get("asset") if x.get("asset") is not None else (dd.get("asset") if dd else None)
         stash.append({"form": x.get("form"), "id": x["id"], "name": x["name"], "team": f["team"], "level": level, "src": src, "out_now": bool(x.get("out_now")), "status": x.get("status"), "injury": x.get("injury"),
                       "games_out": x.get("games_out"), "back_date": x.get("back_date"), "espn_return": x.get("espn_return"), "p_back_playoffs": x.get("p_back_playoffs"),
