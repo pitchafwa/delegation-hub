@@ -181,8 +181,10 @@ def main():
             lvl = pr.get("tonight") or pr.get("level", 22.0)
             boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
-            if left is None:                                         # no live feed, or his team is not on today's NBA board
-                left = 0.0 if e["played"] else 1.0
+            if left is None:
+                if prog:                                             # the NBA board loaded and his team is not on it: no game today, he cannot score or use a start
+                    continue
+                left = 0.0 if e["played"] else 1.0                   # no board at all: fall back to "to play until ESPN marks him as played"
             p_play = 0.0 if e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") else 0.94
             full_day[tid] += (lvl + boost) * p_play
             if left <= 0.0 or p_play <= 0.0:
