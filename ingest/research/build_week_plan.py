@@ -113,7 +113,7 @@ NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / 
 def protected_ids(roster):
     valued = sorted([p for p in roster if p["asset_rank"]], key=lambda p: p["asset_rank"])
     keep = {p["espn_id"] for p in valued[:keeper_protect()]}
-    keep |= {p["espn_id"] for p in roster if p["level"] >= PROTECT_LEVEL or norm(p["name"]) in NEVER_DROP}
+    keep |= {p["espn_id"] for p in roster if (p["level"] >= PROTECT_LEVEL and weeks_after() > 0) or norm(p["name"]) in NEVER_DROP}     # championship week: a non-keeper has no value after it
     return keep
 
 
@@ -1011,8 +1011,14 @@ def _Phi(x):
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
 
+THIS_WEEK_COUNTS = True     # False in a playoff week with no matchup for my team (a bye, or eliminated): this week's points count for nothing
+NEXT_WEEK_P = 1.0           # chance my team plays NEXT matchup (playoff weeks: made-minus-bye before week 20, winning this round during the playoffs)
+
+
 def this_week_value(g, shift=0.0):
     """points-equivalent of g more expected points THIS matchup, given where the matchup stands (shift = this-week points the plan has already added)"""
+    if not THIS_WEEK_COUNTS:
+        return 0.0
     if LEV is None or os.environ.get("NO_LEVERAGE") or abs(g) < 1e-9:
         return g
     sg = LEV["sigma"]
@@ -1130,7 +1136,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                             continue
                         th, nx = val2(new)
                         d_this, d_next = th - cur_this, nx - cur_next
-                        wk = this_week_value(d_this, shift) + d_next          # this week in win terms, next week at face value
+                        wk = this_week_value(d_this, shift) + NEXT_WEEK_P * d_next          # this week in win terms, next week at face value x the chance I play it
                         wait = ((fs["until"] + timedelta(days=1)) - s_).days if fs.get("until") else 2
                         fc = (fut_hold(tgt, f) if e_ is None else fut(tgt, wait)) if kind == "roster" else 0.0
                         net = wk if first_forced else wk - fc
@@ -1161,7 +1167,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                     nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
                     if roster_ok(nn):
                         th2, nx2 = val2(nn)
-                        v = this_week_value(th2 - cur_this, shift) + (nx2 - cur_next) - best["fut"]
+                        v = this_week_value(th2 - cur_this, shift) + NEXT_WEEK_P * (nx2 - cur_next) - best["fut"]
                     else:
                         v = -999.0
                 except Exception:
@@ -1213,7 +1219,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                 if not roster_ok(new2):
                     continue
                 t2, n2 = val2(new2)
-                net2 = this_week_value(t2 - base_t, shift_b) + (n2 - base_n) - ((fut_hold(tgt, f2) if i["e"] is None else fut(tgt)) if (tgt is not None and not tgt.get("_stream")) else 0.0)
+                net2 = this_week_value(t2 - base_t, shift_b) + NEXT_WEEK_P * (n2 - base_n) - ((fut_hold(tgt, f2) if i["e"] is None else fut(tgt)) if (tgt is not None and not tgt.get("_stream")) else 0.0)
                 backups.append({"name": f2["name"], "team": f2["team"], "net": round(float(net2), 1)})
             backups = sorted(backups, key=lambda b: -b["net"])[:3]
         except Exception:
@@ -1438,6 +1444,25 @@ try:
 except Exception as _ex:
     LEV = None
     print("leverage unavailable:", repr(_ex)[:120])
+# PLAYOFFS (study #10, 2026-10-24): a playoff week with no matchup for me (bye / eliminated) counts for nothing; next week's points count only as much as the chance I play it
+try:
+    _po_weeks = set(_CAL.get("playoff_weeks") or [])
+    _me_t2 = next(t for t in lg.teams if t.team_abbrev == MY_ABBREV)
+    _odds = json.load(open(HUB / "playoff_odds.json", encoding="utf-8")) if (HUB / "playoff_odds.json").exists() else {}
+    _mo = next((x for x in _odds.get("teams", []) if x.get("abbrev") == MY_ABBREV), {})
+    if mp_id in _po_weeks and opp.get(_me_t2.team_id) is None:
+        THIS_WEEK_COUNTS = False
+    if LOOK_DAYS and (mp_id + 1) in _po_weeks:
+        if mp_id not in _po_weeks:                                  # last regular-season week -> playoff round 1: seeds 1-2 sit out
+            NEXT_WEEK_P = max(0.0, float(_mo.get("made", 1.0)) - float(_mo.get("bye", 0.0)))
+        elif not THIS_WEEK_COUNTS:                                  # no matchup now: a bye (play next round) or eliminated
+            NEXT_WEEK_P = 1.0 if float(_mo.get("bye", 0.0)) >= 0.5 else 0.0
+        else:
+            NEXT_WEEK_P = float((LEV or {}).get("wp", 0.5))         # must win this round to play the next
+    if not THIS_WEEK_COUNTS or NEXT_WEEK_P < 1.0:
+        print(f"playoffs: this week counts {THIS_WEEK_COUNTS}, chance of playing next week {NEXT_WEEK_P:.0%}")
+except Exception as _ex:
+    print("playoff context unavailable:", repr(_ex)[:100])
 
 out_teams = []
 plans = {}
@@ -1663,6 +1688,9 @@ try:
                   "players": [{"id": p["espn_id"], "name": p["name"], "status": p["status"], "official": p["official"].get(_iso), "state": p.get("avail_state"), "level": p["level"], "level_pre": p.get("level_pre"), "form_d": (p.get("form") or {}).get("d"), "form_keep": (p.get("form") or {}).get("keep"),
                                "boost": (p.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(p, today), 3), "tonight": round(level_on(p, today), 1), "dfs": _iso in p.get("dfs_dates", ())} for p in _mine],
                   "fa_top": [{"id": f["espn_id"], "name": f["name"], "level": f["level"], "level_pre": f.get("level_pre"), "form_d": (f.get("form") or {}).get("d"), "form_keep": (f.get("form") or {}).get("keep"), "boost": (f.get("boost") or {}).get(_iso, 0.0), "p_play": round(p_play(f, today), 3), "tonight": round(level_on(f, today), 1)} for f in fa_players[:15]]}]
+        _recs.append({"kind": "league", "ts": _recs[0]["ts"], "date": _iso, "matchup": mp_id, "run": _run,
+                      "teams": [{"abbrev": t["abbrev"], "id": t["id"], "opp": t.get("opp"), "pts_so_far": t["pts_so_far"], "expected": t["expected"], "expected_total": t["expected_total"],
+                                 "eff": t.get("eff"), "win_prob": t.get("win_prob"), "starts_so_far": t["starts_so_far"], "adds_used": t["adds_used"]} for t in out_teams]})
         if _me.get("injury_advice"):
             _recs.append({"kind": "injury", "ts": _recs[0]["ts"], "date": _iso, "items": [{"id": a["id"], "name": a["name"], "verdict": a["verdict"], "plan_games": a["plan_games"], "median": a["median_games"], "p80": a["p80_games"],
                                                                                           "espn_return": a["injury"].get("espn_return"), "p_back_playoffs": a["p_back_playoffs"], "streak": a["streak"]} for a in _me["injury_advice"]]})
