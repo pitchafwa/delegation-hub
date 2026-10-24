@@ -51,6 +51,16 @@ def realized(roster, dates, cap):
     return total
 
 
+REALISTIC = True     # 2026-10-24 (Tommy's challenge): only players actually available that day: not on any roster that day, and not dropped in the last two days (waivers)
+AVAIL = {}
+
+
+def available(n, d):
+    if not REALISTIC:
+        return True
+    return AVAIL.get((n, d), True)
+
+
 def streamers(pool, dates, slots, adds=ADDS):
     """greedy daily streaming: slot players held over consecutive days; swap when the held player has no game today and adds remain"""
     out, used, left = [], set(), adds
@@ -65,7 +75,7 @@ def streamers(pool, dates, slots, adds=ADDS):
                 if h is not None:
                     h["held"].add(d)
                 continue
-            best = next((f for f in pool if f["n"] not in used and d in B.team_days.get(f["team"], set())), None)
+            best = next((f for f in pool if f["n"] not in used and d in B.team_days.get(f["team"], set()) and available(f["n"], d)), None)
             if best is None:
                 continue
             nf = dict(best, held={d})
@@ -78,6 +88,11 @@ def streamers(pool, dates, slots, adds=ADDS):
 
 W = B.weeks()
 rostered_by_sp = {int(sp): {B.norm(e[1]) for r in recs for e in r["e"]} for sp, recs in B.league.items()}
+for sp in rostered_by_sp:
+    d = B.sp_date(sp)
+    recent = rostered_by_sp[sp] | rostered_by_sp.get(sp - 1, set()) | rostered_by_sp.get(sp - 2, set())     # rostered today, or dropped within two days (still on waivers)
+    for n in recent:
+        AVAIL[(n, d)] = False
 rows = []
 import time
 t0 = time.time()
@@ -137,7 +152,8 @@ for s in (1, 2, 3):
     print(f"  streaming spot #{s}: {df[f'slot{s}'].mean():+6.1f} per week")
 lv = np.concatenate([df[f"lvl{k}"].to_numpy() for k in range(6, 14) if f"lvl{k}" in df])
 dv = np.concatenate([df[f"d{k}"].to_numpy() for k in range(6, 14) if f"d{k}" in df])
-b_, a_ = np.polyfit(lv, dv, 1)
+_m = ~np.isnan(lv) & ~np.isnan(dv)
+b_, a_ = np.polyfit(lv[_m], dv[_m], 1)
 print(f"\nheld player's weekly value ~ {a_:.1f} + {b_:.2f} x his points per game (ranks 6-13, with the cap)")
 for s in (1, 2, 3):
     print(f"  streaming spot #{s} is worth about as much as holding a {(df[f'slot{s}'].mean() - a_) / b_:.0f}-point-per-game player")
