@@ -237,6 +237,24 @@ class World:
         return {w: self.week_points(roster, w) for w in range(self.first, self.last + 1)}
 
 
+# =============================================================== streaming spot (depth_value_study.py, 2026-10-24)
+# One roster spot used as a rotating streaming spot (the 7 weekly adds bringing in a free agent who plays that day) is worth about 90 points per 7 days vs leaving it
+# empty, while a held player is worth about 1.7 + 2.15 x his points per game. So a team gains max(0, 90 - held value of its weakest droppable player) per week by
+# streaming through that spot. Only the FIRST streaming spot is counted (a second or third shares the same adds and is worth about as much as holding a free agent,
+# which fix_roster already does). Droppable = outside the team's top 6 keeper assets and under 35 points a game (the weekly plan's protection rule).
+STREAM_SPOT_7 = 90.0
+
+
+def held_value(level):
+    return 1.7 + 2.15 * level
+
+
+def stream_bonus(roster):
+    keep = {p["id"] for p in sorted(roster, key=lambda p: -(p.get("asset_f") or 0))[:6]}
+    cands = [p["level"] for p in roster if not p.get("out") and p["id"] not in keep and p["level"] < 35]
+    return max(0.0, STREAM_SPOT_7 - held_value(min(cands))) if cands else 0.0
+
+
 # =============================================================== roster logic
 def spots_used(roster):
     """non-IR roster spots: players who are out can sit on IR (4 slots, the longest absences first); everyone else, and any extra injured player, takes a spot"""
@@ -579,9 +597,14 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
     # weekly strengths before and after (the same engine both times), scaled onto the playoff-odds forecasts
     mu0, mu1 = {}, {}
     wk = {}
+    sb = {}
     for tid, before, after in ((me_id, r_me, new_me), (th_id, r_th, new_th)):
         b, a = W.weekly(before), W.weekly(after)
+        s0, s1 = stream_bonus(before), stream_bonus(after)            # what each roster gains by streaming through its weakest droppable spot
+        b = {w: v + s0 * W.weeks[w].get("days", 7) / 7.0 for w, v in b.items()}
+        a = {w: v + s1 * W.weeks[w].get("days", 7) / 7.0 for w, v in a.items()}
         wk[tid] = (b, a)
+        sb[tid] = (s0, s1)
     for tid in W.teams:
         for w, v in W.base_proj[tid].items():
             mu0[(tid, w)] = v
@@ -620,7 +643,8 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
                     "keeper_strength": {"before": round(k0, 1), "after": round(k1, 1)},
                     "value": {"now": round(v_now, 2), "future": round(v_fut, 2), "total": round(v_now + v_fut, 2), "w_now": w_now, "w_future": w_fut},
                     "drops": [p["name"] for p in drops], "adds": [p["name"] for p in adds],
-                    "spots_after": spots_used(ra), "ir_used": sum(1 for p in ra if p["out"])}
+                    "spots_after": spots_used(ra), "ir_used": sum(1 for p in ra if p["out"]),
+                    "stream_spot": {"before": round(sb[tid][0], 1), "after": round(sb[tid][1], 1)}}
     LP = LeaguePerception(W)
     ppv = {k: pick_pv(pick_slot_probs(after["draft_pos"][ids.index(k[0])], k[1])) for k in set(give_picks) | set(get_picks)}
     acc = LP.accept([p["id"] for p in give], [p["id"] for p in get], th_id, [ppv[k] for k in give_picks], [ppv[k] for k in get_picks])

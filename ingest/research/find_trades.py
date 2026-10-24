@@ -41,16 +41,25 @@ def main():
     slope = ctx.get("slope", {}).get(str(me_id), TV.DEFAULT_SLOPE)
     s_next = ctx.get("slope_mean", TV.DEFAULT_SLOPE)
 
+    fa_level = sorted((f["level"] for f in W.fa_pool), reverse=True)[2] if len(W.fa_pool) >= 3 else 24.0
+    weeks_left = max(1, W.last - W.first + 1)
+
     def quick_me(give, get):
-        """rest-of-season points you gain (only above your 10th man counts fully; extra bodies push out your worst) plus next year's keeper strength, in title points (rough)"""
+        """rest-of-season points you gain plus next year's keeper strength, in title points (rough screen; the full analyzer decides).
+        depth_value_study.py (2026-10-24): under the 40-start cap a held player is worth about 2.15 x his points per game per week (the cap trims depth only ~15%), so every
+        player counts; a spot a trade frees is refilled by a free agent, and one spot streaming is worth TV.STREAM_SPOT_7 a week (TV.stream_bonus)."""
         def contrib(p, g):
-            return max(0.0, p["level"] - tenth) * g + 0.25 * min(p["level"], tenth) * g
+            return p["level"] * g * (1.0 if p["level"] >= tenth else 0.85)
         pts = sum(contrib(p, W.cum_games(p["team"], W.last + 1)) for p in get) - sum(contrib(p, games_left.get(p["id"], 0)) for p in give)
         extra = len(get) - len(give)
         if extra > 0:                                       # you must drop your worst non-IR players
             worst = sorted(mine, key=lambda p: p["level"])[:extra]
             pts -= sum(contrib(p, games_left.get(p["id"], 0)) for p in worst)
+        elif extra < 0:                                     # freed spots: refilled with the best free agents
+            pts += -extra * fa_level * 0.85 * 3.3 * weeks_left
         new = [p for p in W.roster(me_id) if p["id"] not in {g["id"] for g in give}] + list(get)
+        filled = new + [{"id": -k, "level": fa_level, "out": False, "asset_f": 0.0} for k in range(max(0, -extra))]
+        pts += (TV.stream_bonus(filled) - TV.stream_bonus(W.roster(me_id))) * weeks_left
         dk = TV.keeper_strength(new) - k_me
         weeks = max(1, W.last - W.first + 1)
         return slope * pts / weeks + TV.FUTURE_LAMBDA * TV.GAMES_PER_WEEK_PER_ASSET_PT * s_next * dk
