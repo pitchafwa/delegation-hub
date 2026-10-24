@@ -1310,7 +1310,7 @@ function renderWeek(){
   stashL.forEach(x=>{ const e=mergedM.get(x.id)||{}; e.s=x; mergedM.set(x.id,e); });
   const SA=(SP&&T.id===meId&&SP.stash_all)||{};
   const prio=e=>{ const x=e.d||e.s; const ros=Math.max(0,e.s?e.s.gain:((SA[x.id]||[0])[0])); const dp=e.d?(e.d.dyn_pts||0):(e.s?(e.s.dyn_pts||0):0); return {ros,dp,tot:ros+dp}; };
-  const dyn=[...mergedM.values()].map(e=>{ const pr=prio(e); pr.tot=pr.ros; pr.dp=0; return Object.assign(e,{pr}); }).filter(e=>e.pr.ros>=40).sort((a,b)=>b.pr.ros-a.pr.ros).slice(0,20);   // ranked by what he adds THIS season only (keeper value is judged elsewhere)
+  const dyn=[...mergedM.values()].map(e=>{ const pr=prio(e); pr.tot=pr.ros; pr.dp=0; pr.tv=e.s?titleValStash(e.s):(()=>{ const x=e.d; const rp=x&&RD&&RD.players?RD.players.find(q=>q.id===x.id):null; return rp?titleValRD(rp):null; })(); return Object.assign(e,{pr}); }).filter(e=>e.pr.ros>=40).sort((a,b)=>((b.pr.tv??b.pr.ros*1e-3)-(a.pr.tv??a.pr.ros*1e-3))).slice(0,20);   // ranked by what he adds THIS season only (keeper value is judged elsewhere)
   const dfmt=ds=>ds?new Date(ds+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):'—';
   const dynRows=dyn.map(e=>{ const x=e.d||e.s, S=e.s, D=e.d;
     const dynWorthy=false;   // same bar dyn_pool itself uses (DYN_MIN_ASSET) -- independent of whether he made the top-12
@@ -1451,8 +1451,8 @@ function renderWeek(){
     const pg=poG(x.team); if(pg!=null) bits.push(`${pg} playoff games`);
     if(S&&S.out_now) bits.push(`${esc(S.injury||'out')}${S.back_date?', back about '+dfmt(S.back_date):''}`);
     if(S) bits.push(S.to_ir?'goes into a free IR slot':(S.drop?'drop '+esc(S.drop):'open roster spot'));
-    return faRow(x.name,x.team,x.status&&x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',bits.join(' · '),'+'+e.pr.ros); }).join('');
-  const faPanels=[['tonight','Tonight',faTonight,'Points each adds to tonight alone','No pickup adds to tonight: your best lineup is already full.'],['week','This week',faWeek,'Best single move for each, judged one at a time (they overlap)','Nobody beyond the plan is worth an add this week.'],['season','Season',faSeason,'Points each adds over the rest of the season','No free agent beats streaming over the rest of the season.']];
+    return faRow(x.name,x.team,x.status&&x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',bits.join(' · '),fmtTitle(e.pr.tv)??('+'+e.pr.ros)); }).join('');
+  const faPanels=[['tonight','Tonight',faTonight,'Points each adds to tonight alone','No pickup adds to tonight: your best lineup is already full.'],['week','This week',faWeek,'Best single move for each, judged one at a time (they overlap)','Nobody beyond the plan is worth an add this week.'],['season','Season',faSeason,'What each adds to your title odds over the rest of the season (playoff weeks weighted by how much they decide titles)','No free agent beats streaming over the rest of the season.']];
   const faFirst=Math.max(0,faPanels.findIndex(x=>x[2]));   // open on the first horizon that has someone in it
   const faTabsHtml=isMe?`<h2 class="todayH">Free agents</h2><div class="faTabs" role="tablist">${faPanels.map((x,i)=>`<button type="button" role="tab" data-fat="${x[0]}" aria-selected="${i===faFirst}">${x[1]}</button>`).join('')}</div>${faPanels.map((x,i)=>`<div class="faPanel" data-fap="${x[0]}" ${i===faFirst?'':'hidden'}><div class="hint" style="margin:0 0 .4rem">${x[3]}</div>${x[2]||`<div class="hint" style="padding:.6rem 0">${x[4]}</div>`}</div>`).join('')}`:'';
   const lineupSec=sec('lineup','Lineup plan by day',`${T.expected.toFixed(0)} expected points`,`
@@ -1529,6 +1529,22 @@ function makeSortable(pane){
 /* Playoff-week games (study #6): games an NBA team plays in fantasy weeks 20-22, from schedule_plan.json */
 const TEAM_CANON={GS:'GSW',NO:'NOP',NY:'NYK',SA:'SAS',UTAH:'UTA',UTH:'UTA',WSH:'WAS',PHO:'PHX',PHL:'PHI',BRK:'BKN',CHO:'CHA'};
 function poG(team){ if(!SP||!SP.nba||!team) return null; const t=TEAM_CANON[team]||team; const w=SP.nba[t]; if(!w) return null; const pw=(SP.playoff_weeks||[20,21,22]); return pw.reduce((s,k)=>s+((w[k-1]||{}).g||0),0); }
+/* SEASON VALUE IN TITLE ODDS (study #6 part 2): what a player would add to MY title odds over the rest of the season. Points above replacement each week,
+   with fantasy-playoff weeks weighted by how much a point there moves the title (playoff_odds.json title_per_pt, from the season simulation). */
+const TPP=()=>(ODDS&&ODDS.title_per_pt)||null;
+const fmtTitle=v=>v==null?null:(v<0.05?'<0.1%':'+'+v.toFixed(1)+'%');
+function titleValRD(p){
+  const T=TPP(); if(!T||!SP||!SP.nba||!RD) return null;
+  const w=SP.nba[TEAM_CANON[p.team]||p.team]; if(!w) return null;
+  const av=p.g_rem>0?Math.min(1,p.exp_gp/p.g_rem):0, edge=Math.max(0,p.ppg-RD.repl_ppg);
+  let s=0; for(let k=(SP.current_week||1);k<=22;k++){ const g=(w[k-1]||{}).g||0; s+=g*av*edge*0.85*(k>=20?(T[String(k)]??T.reg):T.reg); }
+  return 100*s;
+}
+function titleValStash(st){      // Season free-agent list: rest-of-season points over a streamer, split into regular-season and playoff-week points
+  const T=TPP(); if(!T||!st||st.reg==null) return null;
+  const po=[T['20'],T['21'],T['22']].filter(x=>x!=null), tpo=po.length?po.reduce((a,b)=>a+b,0)/po.length:T.reg;
+  return 100*(Math.max(0,st.reg)*T.reg+Math.max(0,st.po||0)*tpo);
+}
 /* ===== Glossary and ⓘ taps. The same text feeds the About page. */
 const GLOSS=[
   ['Projected','Points we expect from him if he plays. For a game day with a posted slate this is DailyFantasyFuel\'s projection in league scoring; otherwise ESPN\'s projection blended with our model (DELCO) and his last 15 games.'],
@@ -1538,7 +1554,7 @@ const GLOSS=[
   ['Starts','Started games used so far against this matchup\'s cap.'],
   ['Win chance','Your chance to win this matchup, from both teams\' projected totals and a 253-point weekly spread measured last season.'],
   ['Net gain',"What a move is worth, in points: this week's points, weighted by how much they change your chance of winning this matchup (about face value early in a close week, about double on a close last day, close to nothing once the week is decided), plus next week's points on the last two days, minus what it can cost later (for a rental, the chance the player you drop is gone before you re-add him; for a keep, the season-long gap between the two players). Moves worth less than about 6 are left out."],
-  ['Season value','Points he adds over the rest of this season compared with a replacement-level player (playoff weeks count extra).'],
+  ['Season value','How much he would add to YOUR title odds over the rest of the season: his points above a replacement-level player each week, with fantasy-playoff weeks weighted by how much a point there decides the title (from the season simulation; a semifinal or final point is worth about 20x a regular-season point).'],
   ['Keeper value','What he is worth as a keeper: projected value above the keeper cutoff over the coming seasons, with later years discounted.'],
   ['Keeper rank','Where his keeper value ranks across the league (1 is the most valuable).'],
   ['Keeper value, best case','Keeper value if his development lands near the top of the likely range (90th percentile).'],
@@ -1719,7 +1735,7 @@ function rdRows(){
   if(rdPos!=='all') r=r.filter(p=>(p.pos||'').split('/').includes(rdPos));
   const me=(W&&W.my_abbrev)||'DRNK';
   if(rdFilter==='fa') r=r.filter(p=>!p._o); else if(rdFilter==='mine') r=r.filter(p=>p._o&&p._o.abbrev===me); else if(rdFilter==='rostered') r=r.filter(p=>p._o);
-  const key={player:p=>p.name,pos:p=>p.pos,age:p=>p.age,rank:p=>-p.rank,pts:p=>p.pts,ppg:p=>p.ppg,exp_gp:p=>p.exp_gp,po:p=>poG(p.team),vor:p=>p.vor,mkt:p=>p.mkt==null?null:-p.mkt,pts90:p=>p.pts90,l10:p=>p.l10,traj:p=>p.l10!=null?p.l10-p.ppg:null,owner:p=>p._o?p._o.abbrev:null}[rdSort.k]||(p=>p.vor);
+  const key={player:p=>p.name,pos:p=>p.pos,age:p=>p.age,rank:p=>-p.rank,pts:p=>p.pts,ppg:p=>p.ppg,exp_gp:p=>p.exp_gp,po:p=>poG(p.team),vor:p=>{ const v=titleValRD(p); return v!=null?v:p.vor*1e-5; },mkt:p=>p.mkt==null?null:-p.mkt,pts90:p=>p.pts90,l10:p=>p.l10,traj:p=>p.l10!=null?p.l10-p.ppg:null,owner:p=>p._o?p._o.abbrev:null}[rdSort.k]||(p=>p.vor);
   r.sort((a,b)=>{ let av=key(a),bv=key(b); if(av==null) av=-Infinity; if(bv==null) bv=-Infinity; if(typeof av==='string'&&typeof bv==='string') return rdSort.asc?av.localeCompare(bv):bv.localeCompare(av); return rdSort.asc?av-bv:bv-av; });
   return r;
 }
@@ -1740,7 +1756,7 @@ function renderRedraft(){
     const gap=p.mkt!=null?p.mkt-p.rank:null;
     let row=`<tr data-id="${p.id}"><td data-label="Player">${pc(p.name)}${inj}${st}</td><td data-label="Pos">${esc(p.pos)}</td><td data-label="Team"><div class="teamCell">${esc(p.team)}</div></td><td class="num" data-label="Age">${p.age!=null?p.age.toFixed(1):'—'}</td>
       <td class="num" data-label="Rank">#${p.rank}</td><td class="num" data-label="Proj PTS"><b>${p.pts.toLocaleString()}</b></td><td class="num" data-label="PPG"><b>${p.ppg.toFixed(1)}</b> <span class="hint" title="ESPN's projection">${p.espn_ppg?p.espn_ppg.toFixed(1):'n/a'}</span></td>
-      <td class="num" data-label="GP left">${p.exp_gp.toFixed(0)}<span class="hint">/${p.g_rem}</span></td><td class="num" data-label="PO games">${poG(p.team)??'—'}</td><td class="num" data-label="Season value"><b style="color:${p.vor<0?'var(--warn)':'inherit'}">${p.vor.toLocaleString()}</b></td>
+      <td class="num" data-label="GP left">${p.exp_gp.toFixed(0)}<span class="hint">/${p.g_rem}</span></td><td class="num" data-label="PO games">${poG(p.team)??'—'}</td><td class="num" data-label="Season value"><b style="color:${p.vor<0?'var(--warn)':'inherit'}">${fmtTitle(titleValRD(p))??p.vor.toLocaleString()}</b></td>
       <td class="num" data-label="MKT">${p.mkt!=null?`<b>#${p.mkt}</b>${p.mkt_src==='blend'?` <span title="FantasyPros ranks him #${p.mkt_diff[0]} and ESPN (rankings + ADP) #${p.mkt_diff[1]}: they disagree, so the market rank is their average" style="color:var(--warn)">⚠</span>`:''} <span class="hint" title="market rank minus our rank; + means we rank him higher than the market does">${gap>0?'+':''}${gap}</span>`:'<span class="hint">—</span>'}</td><td class="num" data-label="90PCT PTS">${p.pts90.toLocaleString()}</td>
       <td class="num" data-label="L10">${p.l10!=null?`<b style="color:${p.l10>=p.ppg*1.07?'var(--good)':(p.l10<=p.ppg*0.93?'var(--warn)':'inherit')}">${p.l10.toFixed(1)}</b> <span class="hint">${p.m10}m</span>`:'<span class="hint">—</span>'}</td>
       <td data-label="Trajectory"><div class="sparkCell">${rdSpark(p)}</div></td>
@@ -1750,7 +1766,7 @@ function renderRedraft(){
       const f=p.form, dm=p.s_min!=null&&p.m10!=null?p.m10-p.s_min:null;
       const chips=f?(f.chips||[]).filter(c=>Math.abs(c.v)>=1).map(c=>`${esc(c.k)} ${rdSg(c.v,1)} <i>(${esc(c.p)})</i>`).join(' · '):'';
       row+=`<tr class="detail"><td colspan="${cols.length}"><div class="detailGrid" style="--lc:330px"><div>
-        <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline g4">${tile(p.pts.toLocaleString(),'Projected pts')}${tile(p.vor.toLocaleString(),'Season value')}${tile(p.pts90.toLocaleString(),'90th pct')}${tile(p.exp_gp.toFixed(0)+'/'+p.g_rem,'Games (exp/left)')}</div>
+        <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline g4">${tile(p.pts.toLocaleString(),'Projected pts')}${tile(fmtTitle(titleValRD(p))??p.vor.toLocaleString(),'Season value')}${tile(p.pts90.toLocaleString(),'90th pct')}${tile(p.exp_gp.toFixed(0)+'/'+p.g_rem,'Games (exp/left)')}</div>
           <div class="hint" title="Projection source: ${p.our?'DELCO':'ESPN; not modelled by DELCO'}. Likely range is the 80% band around the projection.">Range ${p.p10.toFixed(0)}–${p.p90.toFixed(0)} a game</div></div>
         <div class="simwrap"><div class="lbl">Recent play</div><div class="statline g4">${tile(p.l10!=null?p.l10.toFixed(1):'—','Last 10 avg')}${tile(p.m10!=null?p.m10+' min':'—',dm!=null?'Minutes ('+rdSg(dm,1)+' vs season)':'Minutes')}${tile(p.ppm!=null?p.ppm.toFixed(2):'—','Points/min')}${tile(p.sd!=null?p.sd.toFixed(0):'—','Game-to-game spread')}</div>
           ${f&&Math.abs(f.d)>=3?`<div class="note"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his baseline, about <b>${rdSg(f.keep,1)}</b> should last${chips?': '+chips:''}</span></div>`:f?'<div class="note hint">No notable recent swing (under 3 pts/g vs his baseline).</div>':'<div class="note hint">The reason-for-form split appears once he has 10 games this season.</div>'}</div>
@@ -1894,7 +1910,7 @@ function pcHtml(P){
   let rdHtml='';
   if(rd){
     rdHtml=`<div class="pcSec"><div class="pcH">Redraft (rest of season)</div>
-      <div class="statline g4">${pcTile('<b>#'+rd.rank+'</b>',"Rank")}${pcTile(rd.ppg.toFixed(1)+`<span class="hint"> / ${rd.espn_ppg?rd.espn_ppg.toFixed(1):'n/a'}</span>`,'PPG (ours/ESPN)')}${pcTile(rd.vor.toLocaleString(),'Season value')}${pcTile(rd.exp_gp.toFixed(0)+'/'+rd.g_rem,'Games left')}</div>
+      <div class="statline g4">${pcTile('<b>#'+rd.rank+'</b>',"Rank")}${pcTile(rd.ppg.toFixed(1)+`<span class="hint"> / ${rd.espn_ppg?rd.espn_ppg.toFixed(1):'n/a'}</span>`,'PPG (ours/ESPN)')}${pcTile(fmtTitle(titleValRD(rd))??rd.vor.toLocaleString(),'Season value')}${pcTile(rd.exp_gp.toFixed(0)+'/'+rd.g_rem,'Games left')}</div>
       <div class="statline g4" style="margin-top:.35rem">${pcTile(rd.mkt!=null?'#'+rd.mkt:'—','Market rank')}${pcTile(rd.pts90.toLocaleString(),'90th pct pts')}${pcTile(rd.l10!=null?rd.l10.toFixed(1):'—','Last 10 avg')}${pcTile(rd.own!=null?rd.own.toFixed(0)+'%':'—','Owned (ESPN)')}</div>
       ${rd.g&&rd.g.length?`<div style="margin-top:.5rem" title="Bars: last 10 games (green above his projection, red well below). Line: 3-game rolling average. Dashed bars: next 3 games projected, adjusted for that game's opponent, 80% range shaded.">${rdChart(rd,440,220)}${rd.gs&&RD&&RD.season_now&&rd.gs!==RD.season_now?`<div class="note">These are ${esc(rd.gs)} games (last season).</div>`:''}</div>`:''}</div>`;
   }
@@ -2994,7 +3010,7 @@ async function loadLive(){
   }
 }
 loadLive(); setInterval(loadLive,120000);
-fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week'||activeView()==='standings') setView(activeView()); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
+fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week'||activeView()==='standings') setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
 fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='standings') renderStandings(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{

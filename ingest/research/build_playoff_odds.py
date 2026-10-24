@@ -146,14 +146,18 @@ def live():
     # TITLE WEIGHTS (study #6, playoff_schedule_study.py): how much a point in each playoff week is worth to MY title odds compared with a regular-season point,
     # measured the same way (+20 points in one week, common random numbers). The weekly plan uses them in playoff-prep mode (the last 6 weeks).
     try:
-        reg_ws = sorted({w for w, _, _ in pairs})[:4]
-        def _dt(w):
+        reg_all = sorted({w for w, _, _ in pairs})
+        reg_ws = reg_all[::max(1, len(reg_all) // 6)][:6]           # up to 6 regular-season weeks spread over what is left
+        def _dt(w, bump=20.0):
             m2 = dict(mu)
-            m2[(my, w)] = m2.get((my, w), 0.0) + 20.0
-            return float(simulate(ids, wins, pf, pairs, m2, lens, REG_LAST, n=20000, seed=5, **PR)["title"][mi]) - t_base
-        t_base = float(simulate(ids, wins, pf, pairs, mu, lens, REG_LAST, n=20000, seed=5, **PR)["title"][mi])
-        reg_d = float(np.mean([_dt(w) for w in reg_ws])) if reg_ws else 0.0
-        out["title_weights"] = {str(w): round(min(40.0, max(1.0, _dt(w) / reg_d)), 1) if reg_d > 1e-5 else 1.0 for w in (20, 21, 22)}
+            m2[(my, w)] = m2.get((my, w), 0.0) + bump
+            return (float(simulate(ids, wins, pf, pairs, m2, lens, REG_LAST, n=30000, seed=5, **PR)["title"][mi]) - t_base) * 20.0 / bump
+        t_base = float(simulate(ids, wins, pf, pairs, mu, lens, REG_LAST, n=30000, seed=5, **PR)["title"][mi])
+        reg_d = float(np.mean([_dt(w, 80.0) for w in reg_ws])) if reg_ws else 0.0     # a regular-season week moves the title only a little: measure with a bigger bump (less noise), per 20 points
+        po_d = {w: _dt(w) for w in (20, 21, 22)}
+        out["title_weights"] = {str(w): round(min(40.0, max(1.0, po_d[w] / reg_d)), 1) if reg_d > 1e-5 else 1.0 for w in (20, 21, 22)}
+        # title odds per point (absolute): the site shows Season value as "+x% title" (study #6 part 2)
+        out["title_per_pt"] = {"reg": round(max(reg_d, 0.0) / 20.0, 7), **{str(w): round(max(po_d[w], 0.0) / 20.0, 7) for w in (20, 21, 22)}}
         print("title weights (playoff week vs a regular-season week):", out["title_weights"])
     except Exception as ex:
         print("title weights skipped:", repr(ex)[:100])
