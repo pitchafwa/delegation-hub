@@ -1011,6 +1011,32 @@ def _Phi(x):
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
 
+# PLAYOFF PREP (study #6, 2026-10-24): in the last 6 weeks, long-run costs count each player's REAL remaining games, with fantasy-playoff weeks weighted by how much a point
+# there is worth to my title odds (playoff_odds.json title_weights, e.g. 6x / 18x / 21x a regular-season point), and only his edge over a streamer counts
+# (anyone below that level can be replaced by streaming when the playoffs come).
+try:
+    _SPJ = json.load(open(HUB / "schedule_plan.json", encoding="utf-8"))
+    SP_NBA = _SPJ.get("nba") or {}
+except Exception:
+    SP_NBA = {}
+try:
+    TITLE_W = (json.load(open(HUB / "playoff_odds.json", encoding="utf-8")).get("title_weights") or {})
+except Exception:
+    TITLE_W = {}
+PREP_MODE = 0 < weeks_after() <= 6 and bool(SP_NBA)
+STASH_MIN = 60              # study #7: suggest an IR stash only when the Season-tab value is clearly high (rest-of-season points over a streamer)
+
+
+def weighted_games(team):
+    """games his NBA team plays from next matchup through the final, playoff weeks weighted by TITLE_W (cap trims depth about 15%: x 0.85)"""
+    lst = SP_NBA.get(team) or []
+    tot = 0.0
+    for w in range(mp_id + 1, LAST_WEEK + 1):
+        g = (lst[w - 1].get("g", 0) if w - 1 < len(lst) else 3.3)
+        tot += g * float(TITLE_W.get(str(w), 1.0) if w in set(_CAL.get("playoff_weeks") or []) else 1.0)
+    return 0.85 * tot
+
+
 THIS_WEEK_COUNTS = True     # False in a playoff week with no matchup for my team (a bye, or eliminated): this week's points count for nothing
 NEXT_WEEK_P = 1.0           # chance my team plays NEXT matchup (playoff weeks: made-minus-bye before week 20, winning this round during the playoffs)
 
@@ -1065,7 +1091,11 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
 
     def fut(dr, wait_days=2):
         # the gap to the free agent you could re-stream with, for the rest of the season, but only the share we expect to actually lose: you can re-add the player you drop once the stream is over
-        return max(0.0, LL(dr) - restream) * GAMES_PER_WEEK * wk_left * lose_p(dr, wait_days) if dr is not None else 0.0
+        if dr is None:
+            return 0.0
+        if PREP_MODE:
+            return max(0.0, LL(dr) - restream) * weighted_games(dr["team"]) * lose_p(dr, wait_days)
+        return max(0.0, LL(dr) - restream) * GAMES_PER_WEEK * wk_left * lose_p(dr, wait_days)
 
     def roster_ok(ros):
         for d in all_days:
@@ -1076,6 +1106,9 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
 
     def fut_hold(tgt, f):
         # keeping the add for the rest of the season instead of the player dropped: the level gap for the weeks that remain (a negative cost = he is better than the player dropped; credited at 60% because free-agent levels are noisy)
+        if PREP_MODE:                                                # playoff prep: real schedules, playoff weeks weighted by title value, edge over a streamer only
+            c = max(0.0, LL(tgt) - restream) * weighted_games(tgt["team"]) - max(0.0, LL(f) - restream) * weighted_games(f["team"])
+            return c * (1.0 if c > 0 else 0.6)
         gap = LL(tgt) - LL(f)
         return gap * GAMES_PER_WEEK * wk_left * (1.0 if gap > 0 else 0.6)
 
@@ -1505,6 +1538,21 @@ for t in lg.teams:
             print("stream manager failed, keeping the greedy sequence:", repr(_ex)[:160])
             r_stream = None
     _ir_free = max(0, 4 - len([p for p in r if p["ir"]]))
+    # IR STASH (study #7): only when it is free -- an open IR slot AND an add that would otherwise go unused (the matchup's last day, a week already decided, or a
+    # playoff week without a matchup) -- and the player's Season-tab value is clearly high. Stash candidates come from the last schedule_plan.json build.
+    stash_suggest = None
+    if t.team_abbrev == MY_ABBREV and _ir_free > 0 and adds_left - len(seq or []) >= 1:
+        _wp = (LEV or {}).get("wp", 0.5)
+        if today == mp_end or not THIS_WEEK_COUNTS or _wp < 0.1 or _wp > 0.9:
+            try:
+                _rost = {x["espn_id"] for rr in rosters.values() for x in rr}
+                _c = [x for x in (_SPJ.get("stash") or []) if x.get("to_ir") and x.get("out_now") and (x.get("gain") or 0) >= STASH_MIN and x["id"] not in _rost]
+                if _c:
+                    _b = max(_c, key=lambda x: x["gain"])
+                    stash_suggest = {"id": _b["id"], "name": _b["name"], "team": _b["team"], "gain": _b["gain"], "injury": _b.get("injury"), "back_date": _b.get("back_date"),
+                                     "why": "last day of the matchup" if today == mp_end else ("no matchup this week" if not THIS_WEEK_COUNTS else "this matchup looks decided")}
+            except Exception as _ex:
+                print("stash check skipped:", repr(_ex)[:80])
     advice = advise_injuries(r, total, c0, lambda n: norm(n).replace(" ", ""), _ir_free)
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
@@ -1522,7 +1570,7 @@ for t in lg.teams:
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
-                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
+                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
                                   "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})

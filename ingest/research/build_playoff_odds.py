@@ -143,6 +143,20 @@ def live():
         t["elim"] = beyond >= 6
         t["games_left"] = rem[me]
     out["teams"].sort(key=lambda x: -x["made"])
+    # TITLE WEIGHTS (study #6, playoff_schedule_study.py): how much a point in each playoff week is worth to MY title odds compared with a regular-season point,
+    # measured the same way (+20 points in one week, common random numbers). The weekly plan uses them in playoff-prep mode (the last 6 weeks).
+    try:
+        reg_ws = sorted({w for w, _, _ in pairs})[:4]
+        def _dt(w):
+            m2 = dict(mu)
+            m2[(my, w)] = m2.get((my, w), 0.0) + 20.0
+            return float(simulate(ids, wins, pf, pairs, m2, lens, REG_LAST, n=20000, seed=5, **PR)["title"][mi]) - t_base
+        t_base = float(simulate(ids, wins, pf, pairs, mu, lens, REG_LAST, n=20000, seed=5, **PR)["title"][mi])
+        reg_d = float(np.mean([_dt(w) for w in reg_ws])) if reg_ws else 0.0
+        out["title_weights"] = {str(w): round(min(40.0, max(1.0, _dt(w) / reg_d)), 1) if reg_d > 1e-5 else 1.0 for w in (20, 21, 22)}
+        print("title weights (playoff week vs a regular-season week):", out["title_weights"])
+    except Exception as ex:
+        print("title weights skipped:", repr(ex)[:100])
     write_history(out)
     (DASH / "playoff_odds.json").write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
     print("wrote playoff_odds.json; me:", out["me"], "+25/wk:", out["me_plus25"])

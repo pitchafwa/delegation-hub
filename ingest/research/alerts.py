@@ -435,6 +435,7 @@ def run_check():
         print("roster fix check skipped:", repr(ex)[:90])
     try:
         plan_move_alert(lg, T, s, mine, can_send)
+        stash_alert(T, s, mine, can_send)
         plan_target_watch(lg, T, s, mine, can_send)
     except Exception as ex:
         print("plan target watch skipped:", repr(ex)[:90])
@@ -623,6 +624,22 @@ def plan_move_alert(lg, T, s, mine, can_send):
             if 0 < mins <= 120:
                 if push(f"Still to do: {action}", f"{a}'s game starts at {_fmt_t(tip)} ET, in about {int(mins)} minutes. Make the move before then.", priority=5, tags=["alarm_clock"]):
                     ann[base + ":rem"] = TODAY.isoformat()
+
+
+def stash_alert(T, s, mine, can_send):
+    """study #7: the plan suggests stashing an injured free agent on IR only when it costs nothing (open IR slot, an add that would go unused, clearly high value)"""
+    st = T.get("stash_suggest")
+    if not st or not can_send or (in_quiet() and not FORCE) or int(st["id"]) in {int(p.playerId) for p in mine.roster}:
+        return
+    sent = s.setdefault("stash_sent", {})
+    key = f"{st['id']}:{TODAY.isoformat()}"
+    if key in sent:
+        return
+    back = f" Expected back about {datetime.fromisoformat(st['back_date']).strftime('%b %d').replace(' 0', ' ')}." if st.get("back_date") else ""
+    if push(f"Today: add {st['name']} and move him to IR",
+            f"{st['name']} ({st['team']}) is injured{(' (' + st['injury'] + ')') if st.get('injury') else ''}.{back} You have a free IR slot and an add that would otherwise go unused ({st['why']}). Worth about +{st['gain']} over the rest of the season.",
+            priority=3, tags=["hospital"]):
+        sent[key] = TODAY.isoformat()
 
 
 def plan_target_watch(lg, T, s, mine, can_send):
