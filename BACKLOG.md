@@ -374,3 +374,6 @@ Research and the proposed model are in `RESEARCH_trade_value.md` (market calcula
 ## Standings tab follow-ups (low priority, agreed 2026-10-23)
 - **Road ahead:** my next 4 opponents with a projected win chance each, plus remaining strength of schedule for every team (average projected opponent points over the remaining regular-season matchups; pairs and per-week projections are already inside build_playoff_odds.py).
 - **Power rankings over time:** a chart of each team's weekly all-play rank. Tommy felt the title-odds sparkline covers most of this; revisit mid-season.
+
+## Leverage-weighted moves (built 2026-10-24)
+This week's gains are valued by their effect on this matchup's win chance (build_week_plan.py `this_week_value`, same win model as the live card); next week is scored in full on the last two days; a dropped player's chance of being lost grows with how long a rental keeps him off the roster. Check on 2025-26 final days (research/leverage_check.py): about a third fewer late-week moves than the flat +6 rule, about 40% more wins from them. Watch: real late-week decisions this season, and whether the 1-day sigma (model 134 vs 152 measured on final days) needs refitting.

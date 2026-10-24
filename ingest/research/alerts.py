@@ -474,6 +474,25 @@ def _move_kind(m):
     return f"One-game rental: drop {a} again after {_after(m['on'])}."
 
 
+def _gain_text(m):
+    """the gain in plain parts: this week's points (and how much they count, given how close the matchup is), next week's points, the rest of the season"""
+    tr, tv, nx, fc = m.get("this_raw"), m.get("this_val"), m.get("next_gain", 0.0) or 0.0, m.get("future_cost", 0.0) or 0.0
+    if tr is None:
+        return f"Gain: about {m['gain']:+.0f}."
+    parts = []
+    if abs(tr) >= 1:
+        lev = (tv / tr) if tr else 1.0
+        note = " (counts about double: the matchup is close)" if lev >= 1.6 else (" (counts extra: the matchup is close)" if lev >= 1.25 else (" (counts little: this matchup looks decided)" if lev <= 0.5 else ""))
+        parts.append(f"{tr:+.0f} this week{note}")
+    if abs(nx) >= 1:
+        parts.append(f"{nx:+.0f} next week")
+    if fc >= 1:
+        parts.append(f"{-fc:+.0f} expected later (the chance you lose {(m.get('drop') or {}).get('name', 'the dropped player')} for good)")
+    elif fc <= -1:
+        parts.append(f"{-fc:+.0f} over the rest of the season")
+    return "Points: " + "; ".join(parts) + "." if parts else f"Gain: about {m['gain']:+.0f}."
+
+
 def _after(d):
     w = _day(d)
     return "tonight's game" if w == "today" else ("tomorrow's game" if w == "tomorrow" else f"his {w} game")
@@ -582,13 +601,13 @@ def plan_move_alert(lg, T, s, mine, can_send):
         a = m["add"]["name"]
         dr = drop.get("name")
         action = f"add {a}, drop {dr}" if dr else f"add {a} (open roster spot)"
-        lines = [_move_kind(m), f"Gain: about {m['gain']:+.0f}."]
+        lines = [_move_kind(m), _gain_text(m)]
         if w and pid not in pool:
             lines.append(f"{a} is on waivers: put in a claim before {WV.when(w)}.")
         if m["add"].get("boost", 0) >= 2.5 and m["add"].get("boost_why"):
             lines.append(f"Why now: {' and '.join(m['add']['boost_why'][:2])} {'are' if len(m['add']['boost_why'][:2]) > 1 else 'is'} out, worth about +{m['add']['boost']:.0f} a game to him.")
         if m.get("reclaim") and dr:
-            lines.append(f"You can re-add {dr} about two days after dropping him, once he clears waivers.")
+            lines.append(f"Re-add {dr} when the rental ends, if nobody has claimed him.")
         bk = _backup_text(m.get("backups") or [])
         if bk:
             lines.append(f"If {a} is taken first: {bk}.")

@@ -1418,7 +1418,13 @@ function renderWeek(){
       const risk=(a.p_taken||0)>0.01?` · ${sgn0(a.gain_adj)} after a ${Math.round(a.p_taken*100)}% chance he is taken`:'';
       const bk=(a.backups||[]).length?` · backup ${a.backups[0].name}`:'';
       const wv=a.add.waiver?' · on waivers':'';
-      doItems.push({when:dShort(d),what:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`,sub:kind+wv+risk+bk,gain:sgn0(a.gain)}); });
+      let pts='';
+      if(a.this_raw!=null){ const lev=a.this_raw?a.this_val/a.this_raw:1; const bits=[];
+        if(Math.abs(a.this_raw)>=1) bits.push(`${sgn0(a.this_raw)} this week${lev>=1.6?' (counts double: close matchup)':(lev>=1.25?' (counts extra: close matchup)':(lev<=0.5?' (counts little: matchup decided)':''))}`);
+        if(Math.abs(a.next_gain||0)>=1) bits.push(`${sgn0(a.next_gain)} next week`);
+        if((a.future_cost||0)<=-1) bits.push(`${sgn0(-a.future_cost)} rest of season`); else if((a.future_cost||0)>=1) bits.push(`${sgn0(-a.future_cost)} risk of losing ${a.drop?a.drop.name.split(' ').slice(-1)[0]:'him'}`);
+        pts=bits.length?' · '+bits.join(', '):''; }
+      doItems.push({when:dShort(d),what:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`,sub:(a.purpose==='next'?'Sets up next week. ':'')+kind+wv+pts+risk+bk,gain:sgn0(a.gain)}); });
     if(!seq.length) doItems.push({when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
   const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
@@ -1525,7 +1531,7 @@ const GLOSS=[
   ['Cap','Only 40 started games count per 7-day matchup (scaled for longer or shorter matchups). It is checked at the start of each day: start a day under the cap and every start that day counts, even past 40; start it at or over and nothing counts.'],
   ['Starts','Started games used so far against this matchup\'s cap.'],
   ['Win chance','Your chance to win this matchup, from both teams\' projected totals and a 253-point weekly spread measured last season.'],
-  ['Net gain','Points a move adds this week, minus what it can cost later: for a rental, the chance the player you drop is taken before you re-add him; for a keep, the season-long gap between the two players.'],
+  ['Net gain',"What a move is worth, in points: this week's points, weighted by how much they change your chance of winning this matchup (about face value early in a close week, about double on a close last day, close to nothing once the week is decided), plus next week's points on the last two days, minus what it can cost later (for a rental, the chance the player you drop is gone before you re-add him; for a keep, the season-long gap between the two players). Moves worth less than about 6 are left out."],
   ['Season value','Points he adds over the rest of this season compared with a replacement-level player (playoff weeks count extra).'],
   ['Keeper value','What he is worth as a keeper: projected value above the keeper cutoff over the coming seasons, with later years discounted.'],
   ['Keeper rank','Where his keeper value ranks across the league (1 is the most valuable).'],

@@ -158,12 +158,14 @@ print(f"matchup {mp_id}: {mp_start}..{mp_end} ({n_days} days), cap {cap:.1f}, ad
 
 # SUNDAY LOOKAHEAD (2026-10-10). Adds are counted per matchup and unspent adds EXPIRE when it ends, so on the last two days of a matchup the stream manager may add players
 # whose value is next matchup's first days (Mon-Wed). Those days are scored with their own fresh start count and cap; nothing changes mid-week.
-LOOKAHEAD_DAYS = 3
+# 2026-10-24 (Tommy): the whole next matchup, not just its first three days, so "he plays 4 games next week" counts in full. Adds made now come out of THIS week's
+# allowance, which expires anyway, so setting up next week this way keeps next week's adds untouched.
+LOOKAHEAD_DAYS = int(os.environ.get("LOOKAHEAD_DAYS", "7"))
 LOOK_DAYS, NEXT_CAP = [], cap
 if len(plan_days) <= 2 and plan_days[-1] == mp_end and mp_id < _CAL["last_week"]:
     _nx = next(((a_, b_) for i_, a_, b_ in BOUNDS if i_ == mp_id + 1), None)
     if _nx:
-        LOOK_DAYS = [_nx[0] + timedelta(days=k) for k in range(LOOKAHEAD_DAYS) if _nx[0] + timedelta(days=k) <= _nx[1]]
+        LOOK_DAYS = [_nx[0] + timedelta(days=k) for k in range(min(LOOKAHEAD_DAYS, (_nx[1] - _nx[0]).days + 1))]
         NEXT_CAP = next(p_["cap"] for p_ in _CAL["periods"] if p_["id"] == mp_id + 1)
         print(f"lookahead on: also scoring next matchup's first days {[d.isoformat() for d in LOOK_DAYS]} (cap {NEXT_CAP})")
 
@@ -972,6 +974,41 @@ def long_level(p):
     return FA_ANCHOR + sh * (base - FA_ANCHOR)
 
 
+# ---------- LEVERAGE (2026-10-24, Tommy). What a move is for is WINS, not points. A point this week is worth what it does to this matchup's win chance; a point in a
+# later week is worth an average close week's rate. Both are put in the same currency by measuring this week's change in win chance against what the same points
+# would do at the start of a coin-flip week, using the live tracker's win model (win_prob_model.json, calibrated on 2025-26):
+#   win chance = Phi((margin so far + BETA x expected remaining margin) / sigma(days left))
+#   points-equivalent of a this-week gain g = [Phi(x + BETA g / sigma) - Phi(x)] / (BETA x phi(0) / sigma_7)
+# Early in a close week this is about g (1x); on a close last day about 2-3x; in a week that is out of reach either way, close to 0. Next week's points and the
+# long-run cost of a drop stay at face value. LEV is filled in before the team loop (it needs both teams' projections); NO_LEVERAGE=1 turns it off.
+WPM = json.load(open(Path(__file__).resolve().parent / "win_prob_model.json"))
+WP_BETA = WPM["beta"]
+WP_SIG = {int(k): v for k, v in WPM["sigma"].items()}
+LEV = None
+
+
+def wp_sigma(days_left):
+    if days_left < 1:
+        return WP_SIG[1] * math.sqrt(max(days_left, 0.25))
+    lo = min(7, int(days_left))
+    hi = min(7, lo + 1)
+    return WP_SIG[lo] + (WP_SIG[hi] - WP_SIG[lo]) * (days_left - lo)
+
+
+def _Phi(x):
+    return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+
+
+def this_week_value(g, shift=0.0):
+    """points-equivalent of g more expected points THIS matchup, given where the matchup stands (shift = this-week points the plan has already added)"""
+    if LEV is None or os.environ.get("NO_LEVERAGE") or abs(g) < 1e-9:
+        return g
+    sg = LEV["sigma"]
+    x0 = (LEV["margin"] + WP_BETA * (LEV["exp_diff"] + shift)) / sg
+    x1 = x0 + WP_BETA * g / sg
+    return (_Phi(x1) - _Phi(x0)) / (WP_BETA * 0.3989422804 / WP_SIG[7])
+
+
 def p_taken(ll, days_ahead):
     # chance another team takes an available player before you add him (2024-26: players dropped after 4+ recent games, taken within ~48 hours: 25% at 34+ ppg, 16% at 27-34, 12% below), compounding per 2 days.
     # Used ONLY to rank and time moves; whether a move makes the plan is decided on its full value, and the plan is rebuilt several times a day, so the risk of a move shrinks to zero on its own day.
@@ -991,8 +1028,12 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     look = LOOK_DAYS
     all_days = plan_days + look
 
-    def val(ros):                                                  # this matchup's points, plus (Sunday lookahead) next matchup's first days with a fresh start count
-        return plan_team(ros, c0) + (plan_team(ros, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0)
+    def val2(ros):                                                 # (this matchup's points, next matchup's points when the lookahead is on: own fresh start count and cap)
+        return plan_team(ros, c0), (plan_team(ros, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0)
+
+    def val(ros):
+        a_, b_ = val2(ros)
+        return a_ + b_
     cand = [f for f in fa_players if any(p_play(f, d) > 0 for d in all_days)][:n_cand]
 
     LL = long_level
@@ -1000,9 +1041,13 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     restream = fl[-3] if len(fl) >= 3 else REPL_LEVEL
     wk_left = min(ROS_WEEKS, weeks_after())
 
-    def fut(dr):
+    def lose_p(dr, wait_days=2):
+        """chance the player you drop is gone before you can re-add him: about 15% for the usual two days on waivers, more the longer he sits (same per-2-day rate as p_taken)"""
+        return max(RECLAIM_LOSE, p_taken(LL(dr), max(2, wait_days)))
+
+    def fut(dr, wait_days=2):
         # the gap to the free agent you could re-stream with, for the rest of the season, but only the share we expect to actually lose: you can re-add the player you drop once the stream is over
-        return max(0.0, LL(dr) - restream) * GAMES_PER_WEEK * wk_left * RECLAIM_LOSE if dr is not None else 0.0
+        return max(0.0, LL(dr) - restream) * GAMES_PER_WEEK * wk_left * lose_p(dr, wait_days) if dr is not None else 0.0
 
     def roster_ok(ros):
         for d in all_days:
@@ -1025,16 +1070,19 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         new = [dict(x, until=s_ - timedelta(days=1)) if (tgt is not None and x is tgt) else x for x in cur]
         new.append(fs)
         if tgt is not None and not tgt.get("_stream") and not tgt.get("_rejoin") and not fs.get("_hold"):
-            # a rostered player you drop can be claimed back: he clears waivers at the first 3am run at least 24 hours after the drop (drop in the morning of s_ -> back for s_ + 2),
-            # and the chance he is still there is 1 - RECLAIM_LOSE. He takes a roster spot again from that day, so any stream must be over by then (roster_ok checks it).
-            new.append(dict(tgt, **{"from": s_ + timedelta(days=2), "until": None, "p_scale": 1.0 - RECLAIM_LOSE, "_rejoin": True}))
+            # a rostered player you drop can be claimed back: he clears waivers at the first 3am run at least 24 hours after the drop (drop in the morning of s_ -> back for s_ + 2).
+            # You re-add him when the rental ends (that day at the earliest), and the chance he is still there falls the longer he sits (lose_p).
+            back = max(s_ + timedelta(days=2), (fs["until"] + timedelta(days=1)) if fs.get("until") else s_ + timedelta(days=2))
+            new.append(dict(tgt, **{"from": back, "until": None, "p_scale": 1.0 - lose_p(tgt, (back - s_).days), "_rejoin": True}))
         return new
 
     def run(forced):
         """one greedy pass. forced = a roster player whose slot is turned into a rotating stream slot: the FIRST add must drop him, his future cost (the gap to the free agent you could
         re-stream with, for the rest of the season) is charged ONCE for the whole chain, and later adds replace the earlier streamer for free. A single add that cannot beat his own future cost
         (+30 this week but -109 later) is correctly rejected by the one-at-a-time rule; a week of rotating streams through that slot can still be worth it, and this is how the plan sees it."""
-        cur, cur_total, used, infos = list(r), total + (plan_team(r, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0), set(), []
+        cur, used, infos = list(r), set(), []
+        cur_this, cur_next = total, (plan_team(r, 0.0, days_=look, cap_=NEXT_CAP) if look else 0.0)
+        shift = 0.0                                                 # this-week points already added by earlier steps (moves the matchup, so later steps see the new margin)
         for step in range(steps):
             first_forced = forced is not None and step == 0
             best = None
@@ -1068,8 +1116,11 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                         new = build(cur, fs, tgt, s_)
                         if not roster_ok(new):
                             continue
-                        wk = val(new) - cur_total
-                        fc = (fut_hold(tgt, f) if e_ is None else fut(tgt)) if kind == "roster" else 0.0
+                        th, nx = val2(new)
+                        d_this, d_next = th - cur_this, nx - cur_next
+                        wk = this_week_value(d_this, shift) + d_next          # this week in win terms, next week at face value
+                        wait = ((fs["until"] + timedelta(days=1)) - s_).days if fs.get("until") else 2
+                        fc = (fut_hold(tgt, f) if e_ is None else fut(tgt, wait)) if kind == "roster" else 0.0
                         net = wk if first_forced else wk - fc
                         risk = p_taken(LL(f), (max(s_, f.get("from") or s_) - today).days)
                         adj = net - risk * max(0.0, wk)                # if he is gone by then this week's gain is lost (the plan would rebuild and pick a backup, so this is the pessimistic case)
@@ -1085,7 +1136,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                             if s_ == plan_days[0] and (h["now"] is None or net > h["now"]["net"]):      # the same, but only 'add him today' (what the pickup alert is asking)
                                 h["now"] = {"net": round(float(net), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"], "drop_level": tgt["level"]}
                         if best is None or adj > best["adj"]:
-                            best = {"net": net, "adj": adj, "risk": risk, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fc}
+                            best = {"net": net, "adj": adj, "risk": risk, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fc, "d_this": d_this, "d_next": d_next}
             if os.environ.get("STREAM_DEBUG"):
                 print("  [stream]", ("chain via " + forced["name"] + " ") if forced is not None else "", "round best:", None if best is None else (best["f"]["name"], "add day", best["s"].isoformat(), "hold to", best["e"].isoformat() if best["e"] else "KEEP", "drop", (best["tgt"] or {}).get("name"), best["kind"], "week", round(best["wk"], 1), "future", round(best["fut"], 1), "net", round(best["net"], 1)))
             if best is None or best["net"] < (1.0 if first_forced else (CHAIN_STEP_MIN if (forced is not None and best["kind"] != "roster") else MIN_NET_GAIN)):
@@ -1096,14 +1147,19 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                 fd2 = option(f, d, best["e"])
                 try:
                     nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
-                    v = val(nn) - cur_total - best["fut"] if roster_ok(nn) else -999.0
+                    if roster_ok(nn):
+                        th2, nx2 = val2(nn)
+                        v = this_week_value(th2 - cur_this, shift) + (nx2 - cur_next) - best["fut"]
+                    else:
+                        v = -999.0
                 except Exception:
                     v = -999.0
                 if v > -900:
                     by_day.append({"date": d.isoformat(), "gain": round(float(v), 1)})
-            infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day, "risk": best["risk"]})
-            infos[-1]["wk_next"] = (plan_team(best["new"], 0.0, days_=look, cap_=NEXT_CAP) - plan_team(cur, 0.0, days_=look, cap_=NEXT_CAP)) if look else 0.0
-            cur, cur_total = best["new"], cur_total + best["wk"]
+            infos.append({"f": f, "s": best["s"], "e": best["e"], "tgt_id": tgt["espn_id"] if tgt else None, "kind": best["kind"], "net": best["net"], "wk": best["wk"], "fut": best["fut"], "by_day": by_day, "risk": best["risk"],
+                          "wk_next": best["d_next"], "this_raw": best["d_this"], "this_val": best["wk"] - best["d_next"]})
+            cur, cur_this, cur_next = best["new"], cur_this + best["d_this"], cur_next + best["d_next"]
+            shift += best["d_this"]
             used.add(f["espn_id"])
         return infos, cur
 
@@ -1135,7 +1191,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         # BACKUPS: if this player is taken before you add him, who is next best for the same day and the same drop (judged against the roster as it stands at that step)
         backups = []
         try:
-            base_v = val(ros)
+            base_t, base_n = val2(ros)
+            shift_b = base_t - total
             used_ids = {x["f"]["espn_id"] for x in infos}
             for f2 in cand:
                 if f2["espn_id"] in used_ids or not any(p_play(f2, d) > 0 for d in all_days):
@@ -1143,7 +1200,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                 new2 = build(ros, option(f2, i["s"], i["e"]), tgt, i["s"])
                 if not roster_ok(new2):
                     continue
-                net2 = (val(new2) - base_v) - ((fut_hold(tgt, f2) if i["e"] is None else fut(tgt)) if (tgt is not None and not tgt.get("_stream")) else 0.0)
+                t2, n2 = val2(new2)
+                net2 = this_week_value(t2 - base_t, shift_b) + (n2 - base_n) - ((fut_hold(tgt, f2) if i["e"] is None else fut(tgt)) if (tgt is not None and not tgt.get("_stream")) else 0.0)
                 backups.append({"name": f2["name"], "team": f2["team"], "net": round(float(net2), 1)})
             backups = sorted(backups, key=lambda b: -b["net"])[:3]
         except Exception:
@@ -1156,7 +1214,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                               "streamer": bool(tgt.get("_stream"))} if tgt else None),
                     "gain": round(i["net"], 1), "week_gain": round(i["wk"] - i.get("wk_next", 0.0), 1), "next_gain": round(i.get("wk_next", 0.0), 1), "future_cost": round(i["fut"], 1),
                     "games_next": [d.isoformat() for d in look if i["s"] <= d and (i["e"] is None or d <= i["e"]) and p_play(f, d) > 0], "cum": round(plan_team(ros, c0) - total, 1), "by_day": i["by_day"],
-                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat() if i["e"] else None, "keep": i["e"] is None, "backups": backups, "p_taken": round(i.get("risk", 0.0), 2), "gain_adj": round(i["net"] - i.get("risk", 0.0) * max(0.0, i["wk"]), 1), "release": None, "chain": i.get("chain"), "reclaim": bool(tgt and not tgt.get("_stream") and i["e"] is not None)})
+                    "on": i["s"].isoformat(), "hold_through": i["e"].isoformat() if i["e"] else None, "keep": i["e"] is None, "backups": backups, "p_taken": round(i.get("risk", 0.0), 2),
+                    "this_raw": round(i.get("this_raw", 0.0), 1), "this_val": round(i.get("this_val", 0.0), 1), "purpose": "next" if i.get("wk_next", 0.0) > max(0.0, i.get("this_val", 0.0)) else "this", "gain_adj": round(i["net"] - i.get("risk", 0.0) * max(0.0, i["wk"]), 1), "release": None, "chain": i.get("chain"), "reclaim": bool(tgt and not tgt.get("_stream") and i["e"] is not None)})
     for k, i in enumerate(infos):                                   # a streamer who is replaced later: say when he goes
         if i["tgt_id"]:
             for q in seq[:k]:
@@ -1335,6 +1394,26 @@ def plan_ir(r):
     return list(plan.values()), moves
 
 
+# leverage inputs for MY matchup: margin so far, both teams' expected rest of the week (as the plan sees them now), and how much time is left
+try:
+    _me_t = next(t for t in lg.teams if t.team_abbrev == MY_ABBREV)
+    _op_id = opp.get(_me_t.team_id)
+    if _op_id is not None and today in plan_days:
+        _rm, _ = plan_ir(rosters[_me_t.team_id])
+        _ro, _ = plan_ir(rosters[_op_id])
+        _em = plan_team(_rm, so_far[_me_t.team_id]["starts"])
+        _eo = plan_team(_ro, so_far[_op_id]["starts"])
+        _hr = datetime.now(ET).hour + datetime.now(ET).minute / 60.0
+        _dl = len(plan_days) - (min(1.0, max(0.0, (_hr - 18.5) / 4.0)) if not os.environ.get("PLAN_TODAY") else 0.0)    # tonight's games under way: part of today is gone
+        LEV = {"margin": so_far[_me_t.team_id]["pts"] - so_far[_op_id]["pts"], "exp_diff": _em - _eo, "sigma": wp_sigma(_dl), "days_left": round(_dl, 2)}
+        _wp0 = _Phi((LEV["margin"] + WP_BETA * LEV["exp_diff"]) / LEV["sigma"])
+        print(f"leverage: margin so far {LEV['margin']:+.0f}, expected rest {LEV['exp_diff']:+.0f}, {_dl:.2f} days left, win chance {_wp0:.0%}; "
+              f"+20 this week is worth {this_week_value(20.0):.1f} points-equivalent")
+        LEV["wp"] = round(_wp0, 3)
+except Exception as _ex:
+    LEV = None
+    print("leverage unavailable:", repr(_ex)[:120])
+
 out_teams = []
 plans = {}
 for t in lg.teams:
@@ -1507,6 +1586,7 @@ for tm in out_teams:
 out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID, "my_abbrev": MY_ABBREV,
        "matchup": {"id": mp_id, "start": mp_start.isoformat(), "end": mp_end.isoformat(), "days": [d.isoformat() for d in days], "planned_days": [d.isoformat() for d in plan_days],
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "dfs": dfs_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
+           "leverage": ({"x20": round(this_week_value(20.0) / 20.0, 2), "wp": LEV.get("wp"), "days_left": LEV.get("days_left")} if LEV else None),
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
        "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "level_raw": f.get("level_raw", f["level"]), "ll": round(long_level(f), 1), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
