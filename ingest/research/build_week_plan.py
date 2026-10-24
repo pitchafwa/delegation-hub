@@ -1394,6 +1394,19 @@ def plan_ir(r):
     return list(plan.values()), moves
 
 
+# OPPONENT HABITS (opponent_habits_study.py): an opponent's realistic rest-of-week points = the plan's perfect-lineup projection x his lineup efficiency (team_usage.json, from his cap use)
+try:
+    _TU_EFF = json.load(open(HUB / "team_usage.json", encoding="utf-8")).get("eff") or {}
+except Exception:
+    _TU_EFF = {}
+
+
+def owner_eff(team_id, abbrev=None):
+    if abbrev == MY_ABBREV:
+        return 1.0
+    return float((_TU_EFF.get(str(team_id)) or {}).get("e", 0.957))
+
+
 # leverage inputs for MY matchup: margin so far, both teams' expected rest of the week (as the plan sees them now), and how much time is left
 try:
     _me_t = next(t for t in lg.teams if t.team_abbrev == MY_ABBREV)
@@ -1405,7 +1418,7 @@ try:
         _eo = plan_team(_ro, so_far[_op_id]["starts"])
         _hr = datetime.now(ET).hour + datetime.now(ET).minute / 60.0
         _dl = len(plan_days) - (min(1.0, max(0.0, (_hr - 18.5) / 4.0)) if not os.environ.get("PLAN_TODAY") else 0.0)    # tonight's games under way: part of today is gone
-        LEV = {"margin": so_far[_me_t.team_id]["pts"] - so_far[_op_id]["pts"], "exp_diff": _em - _eo, "sigma": wp_sigma(_dl), "days_left": round(_dl, 2)}
+        LEV = {"margin": so_far[_me_t.team_id]["pts"] - so_far[_op_id]["pts"], "exp_diff": _em - _eo * owner_eff(_op_id), "sigma": wp_sigma(_dl), "days_left": round(_dl, 2)}
         _wp0 = _Phi((LEV["margin"] + WP_BETA * LEV["exp_diff"]) / LEV["sigma"])
         print(f"leverage: margin so far {LEV['margin']:+.0f}, expected rest {LEV['exp_diff']:+.0f}, {_dl:.2f} days left, win chance {_wp0:.0%}; "
               f"+20 this week is worth {this_week_value(20.0):.1f} points-equivalent")
@@ -1421,7 +1434,7 @@ for t in lg.teams:
     r, ir_moves = plan_ir(r_orig)
     c0 = so_far[t.team_id]["starts"]
     total, rows, naive = plan_team(r, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV))
-    plans[t.team_id] = total + so_far[t.team_id]["pts"]
+    plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + so_far[t.team_id]["pts"]      # realistic total: perfect-lineup projection x the owner's lineup habits
     tc = counters.get(t.team_id, {})
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
@@ -1484,6 +1497,7 @@ for tm in out_teams:
         diff = plans[tm["id"]] - plans[o]
         rem = len(plan_days) / n_days
         tm["opp_expected"] = round(plans[o], 1)
+        tm["eff"] = round(owner_eff(tm["id"], tm["abbrev"]), 3)
         tm["win_prob"] = round(erf_win(diff, WEEK_SD * math.sqrt(2) * math.sqrt(max(rem, 0.05))), 3)
 
 # ---- STASH POOL: free agents the this-week search cannot see -- out now (injured), or whose team has no game in the planning window.

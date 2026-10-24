@@ -46,6 +46,36 @@ def from_days(year, days):
     return out
 
 
+# OWNER LINEUP EFFICIENCY (opponent_habits_study.py, 2026-10-24): how close each owner's real lineups come to the plan's perfect lineups, predicted from his cap use.
+# 2025-26: efficiency = 0.606 + 0.0087 x starts per matchup (r = 0.91 across teams, residual SD 0.018); habits are stable (split-half r 0.85, season to season r 0.77 for the same owner).
+# Last 10 matchups under the SAME owner, pulled toward the league average with 4 matchups' weight; a new owner starts at the league average. Tommy's team is 1.0 (he follows the plan).
+EFF_A, EFF_B, EFF_K, U_LEAGUE = 0.606, 0.0087, 4.0, 40.1
+EFF_NOTE = "opponent lineup efficiency: realistic points = perfect-lineup projection x eff (opponent_habits_study.py)"
+
+
+def owner_efficiency(rows):
+    import config
+    from espn_api.basketball import League
+    owners = {}
+    years = sorted({r["y"] for r in rows} | {config.SEASON})
+    for y in years:
+        try:
+            for t in League(league_id=config.LEAGUE_ID, year=y, espn_s2=config.ESPN_S2, swid=config.SWID).espn_request.league_get(params={"view": ["mTeam"]})["teams"]:
+                owners[(y, t["id"])] = t.get("primaryOwner") or ""
+        except Exception as ex:
+            print("owners for", y, "unavailable:", repr(ex)[:80])
+    eff = {}
+    for (y, tid), o in owners.items():
+        if y != config.SEASON:
+            continue
+        hist = sorted([r for r in rows if r["team"] == tid and o and owners.get((r["y"], r["team"])) == o and r["cap"]], key=lambda r: (r["y"], r["mp"]))[-10:]
+        n = len(hist)
+        u = (sum(r["total"] / r["cap"] * 40 for r in hist) + EFF_K * U_LEAGUE) / (n + EFF_K)
+        e = 1.0 if tid == 12 else min(1.0, EFF_A + EFF_B * u)
+        eff[str(tid)] = {"e": round(e, 3), "n": n, "u": round(u, 1)}
+    return eff, owners
+
+
 def main():
     data = json.load(open(OUT, encoding="utf-8")) if OUT.exists() else {"rows": []}
     rows = {(r["y"], r["mp"], r["team"]): r for r in data["rows"]}
@@ -96,7 +126,9 @@ def main():
     except Exception as ex:
         print("live additions skipped:", repr(ex)[:120])
     out = sorted(rows.values(), key=lambda r: (r["y"], r["mp"], r["team"]))
-    OUT.write_text(json.dumps({"generated": date.today().isoformat(), "cap_note": "cap = 40 for a 7-day matchup, scaled for other lengths", "rows": out}, separators=(",", ":")), encoding="utf-8")
+    eff, owners = owner_efficiency(out)
+    OUT.write_text(json.dumps({"generated": date.today().isoformat(), "cap_note": "cap = 40 for a 7-day matchup, scaled for other lengths", "rows": out,
+                               "eff": eff, "eff_note": EFF_NOTE}, separators=(",", ":")), encoding="utf-8")
     print("wrote", OUT, len(out), "team-matchups")
 
 

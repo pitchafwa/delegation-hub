@@ -216,7 +216,7 @@ def main():
                 lock_note.setdefault(tid, "locks after today" if d == next((x for x in days if x > TODAY), None) else "locked from " + d.strftime("%a"))
                 continue
             if dd:
-                fut[tid] += dd["pts"]
+                fut[tid] += dd["pts"] * (float(t.get("eff") or 1.0) if tid != my_id else 1.0)      # the plan's days assume perfect lineups: scale by the owner's real habits
                 cum[tid] += max(0.0, dd.get("starts_after", 0) - dd.get("starts_before", 0))
                 got = got or dd["pts"] > 0
             elif not plan_match:                             # crude fallback: this team's average points per day so far
