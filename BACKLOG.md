@@ -377,3 +377,10 @@ Research and the proposed model are in `RESEARCH_trade_value.md` (market calcula
 
 ## Leverage-weighted moves (built 2026-10-24)
 This week's gains are valued by their effect on this matchup's win chance (build_week_plan.py `this_week_value`, same win model as the live card); next week is scored in full on the last two days; a dropped player's chance of being lost grows with how long a rental keeps him off the roster. Check on 2025-26 final days (research/leverage_check.py): about a third fewer late-week moves than the flat +6 rule, about 40% more wins from them. Watch: real late-week decisions this season, and whether the 1-day sigma (model 134 vs 152 measured on final days) needs refitting.
+
+## Strategy studies (agreed 2026-10-24; running a handful at a time)
+- DONE #DELCO season mode: built (see delco_inseason_study.py, data/delco_season_mode.json). Not built: a team-changer-specific reset (tested, no gain). Possible later: teammate-based role signals.
+- DONE #1 variance-aware lineups: not worth it (variance_lineup_study.py). Same-average players differ only ~10 vs 14 pts in game spread; a day's matchup spread is ~134, so the best case is +0.25 pts of win chance.
+- DONE #2 week-importance weighting: win value varies a lot by week (title odds per win 0 to 1.8 pts, 10th-90th pct) but weighting moves by it adds only ~+0.04 pts of title odds per team-season per candidate move (win_value_study.py). Not built; revisit for the late-season clinched/eliminated case.
+- NEXT: #3 opponent projections from each owner's real cap use and lineup habits; #5 stars-and-scrubs / depth value under the 40-start cap; #4 projection blend weights from projection_log (needs ~4 weeks of data).
+- LATER: #6 playoff-schedule value, #7 IR stash value, #8 draft-pick angle if eliminated, #9 calibration sweep (win chance, Questionable rate, reclaim rate, DFF), #10 last-week / championship-week streaming check.
