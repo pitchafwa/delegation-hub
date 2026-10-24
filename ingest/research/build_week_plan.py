@@ -277,7 +277,8 @@ def make_player(p, on_roster_slot=None):
         form = dict(form, adj=round(adj, 1))
     return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)], "form": form, "level_pre": round(level_pre, 1),
             "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "official": {},  "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None, "hist_n": len((hp or {}).get("history_years") or []),
-            "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None}
+            "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None,
+            "model_career": hp.get("year0_ppg") if hp else None, "l15": round(l15["applied_avg"], 1) if gp15 >= 3 and l15.get("applied_avg") else None, "gp15": gp15}
 
 
 def level_on(pl, d):
@@ -883,12 +884,23 @@ for pl in [x for rr in rosters.values() for x in rr] + fa_players:
     key = (today.isoformat(), str(pl["espn_id"]))
     if today in days and plays(pl["team"], today) and key not in seen_log and pl["level"] > 0:
         new_rows.append({"date": today.isoformat(), "espn_id": pl["espn_id"], "name": pl["name"], "team": pl["team"], "status": pl["status"],
-                         "espn": pl["espn_level"] or "", "model": pl["model_level"] or "", "props": pl.get("lvl_by_date", {}).get(today.isoformat(), "")})
+                         "espn": pl["espn_level"] or "", "model": pl["model_level"] or "", "props": pl.get("lvl_by_date", {}).get(today.isoformat(), ""),
+                         # added 2026-10-24 for the projection-blend study (blend_study.py): career-mode DELCO, ESPN's last-15 average, and the blended level the plan used
+                         "model_career": pl.get("model_career") or "", "l15": pl.get("l15") or "", "gp15": pl.get("gp15") or "", "level": pl.get("level") or "", "is_fa": int(bool(pl.get("is_fa")))})
     seen_log.add(key)
 if new_rows:
+    fields = list(new_rows[0].keys())
+    if LOG.exists():
+        with open(LOG, encoding="utf-8") as fh:
+            old = list(csv.DictReader(fh))
+        if old and set(fields) - set(old[0].keys()):          # the log gained columns: rewrite it once with the wider header (old rows get blanks)
+            with open(LOG, "w", encoding="utf-8", newline="") as fh:
+                w = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
+                w.writeheader()
+                w.writerows(old)
     fresh = not LOG.exists()
     with open(LOG, "a", encoding="utf-8", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(new_rows[0].keys()))
+        w = csv.DictWriter(fh, fieldnames=fields)
         if fresh:
             w.writeheader()
         w.writerows(new_rows)
