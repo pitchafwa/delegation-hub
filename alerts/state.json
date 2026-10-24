@@ -1,8 +1,6 @@
 {
  "avail_prev": {
-  "3059319": "FREEAGENT",
   "4278129": "FREEAGENT",
-  "4395626": "FREEAGENT",
   "4397014": "WAIVERS",
   "4594327": "FREEAGENT",
   "5105839": "FREEAGENT"
@@ -15,6 +13,11 @@
   "2530530": {
    "date": "2026-10-24",
    "espn": "DAY_TO_DAY",
+   "official": null
+  },
+  "3059319": {
+   "date": "2026-10-24",
+   "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
@@ -47,6 +50,11 @@
    "espn": "ACTIVE",
    "official": null
   },
+  "4395626": {
+   "date": "2026-10-24",
+   "espn": "ACTIVE",
+   "official": null
+  },
   "4395724": {
    "date": "2026-10-24",
    "espn": "ACTIVE",
@@ -63,11 +71,6 @@
    "official": null
   },
   "4433134": {
-   "date": "2026-10-24",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "4683747": {
    "date": "2026-10-24",
    "espn": "ACTIVE",
    "official": null
@@ -101,7 +104,9 @@
  "lu": {
   "2026-10-24:5041939": 1
  },
- "my_drops": {},
+ "my_drops": {
+  "4683747": "2026-10-24"
+ },
  "pickup_sent": {
   "3059319:WAIVERS": "2026-10-22",
   "4278129:FREEAGENT": "2026-10-23",
