@@ -168,6 +168,7 @@ def main():
     nba_today = set((W.get("matchup", {}).get("nba_games", {}) or {}).get(TODAY.isoformat(), [])) if plan_match else set()
     rem_today = {my_id: 0.0, opp_id: 0.0}
     left_today = {my_id: [], opp_id: []}
+    p_start = {my_id: [], opp_id: []}                       # chance each not-yet-played starter adds a start today (for the cap lockout odds)
     full_day = {my_id: 0.0, opp_id: 0.0}
     from espn_api.basketball.constant import PRO_TEAM_MAP
     from team_abbr import canon
@@ -192,6 +193,7 @@ def main():
             else:
                 ef = (lvl + boost) * p_play * left                   # not in yet: late in a game he is likely sitting, so scale by what is left
                 left_today[tid].append({"name": e["name"], "ef": round(ef, 1)})
+                p_start[tid].append(p_play * (1.0 if left >= 1.0 else left))
             rem_today[tid] += ef
     # GAMES CAP, for BOTH teams: a team that began today at or over the cap cannot start anyone today or later (nothing more counts), and a team projected to cross it by the end of
     # today loses the days after. The plan assumes every team uses the cap perfectly and is only refreshed a few times a day, so without this a locked opponent still "scores" in the forecast.
@@ -203,6 +205,22 @@ def main():
             lock_note[tid] = "locked"
         started_today = sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
         cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else sum(1 for x in left_today[tid] if "live" not in x) * 0.94)   # players already on the floor are counted in started_today
+    # LOCKOUT ODDS (2026-10-24): whether tomorrow is still open depends on how many of today's starters actually play. A team at 25 starts with 10 starters today and a
+    # 34.3 cap locks itself out of tomorrow only if all 10 play (about 54%). The day after today is weighted by that chance instead of being treated as all or nothing.
+    def p_open_tomorrow(tid):
+        base = sb[tid] + sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
+        if sb[tid] >= cap:
+            return 0.0
+        dist = [1.0]                                            # distribution of today's remaining starts (each starter plays or not)
+        for q in p_start[tid]:
+            nd = [0.0] * (len(dist) + 1)
+            for k, v in enumerate(dist):
+                nd[k] += v * (1 - q)
+                nd[k + 1] += v * q
+            dist = nd
+        return sum(v for k, v in enumerate(dist) if base + k < cap)
+    p_open = {tid: p_open_tomorrow(tid) for tid in (my_id, opp_id)}
+    next_day = next((x for x in days if x > TODAY), None)
     fut = {my_id: 0.0, opp_id: 0.0}
     fut_days = 0
     for d in days:
@@ -212,12 +230,15 @@ def main():
         for tid in (my_id, opp_id):
             t = plan_team.get(tid)
             dd = next((x for x in (t or {}).get("days", []) if x["date"] == d.isoformat()), None)
-            if cum[tid] >= cap:                                   # already at the cap when this day begins: the day is locked
-                lock_note.setdefault(tid, "locks after today" if d == next((x for x in days if x > TODAY), None) else "locked from " + d.strftime("%a"))
+            w_open = p_open[tid] if d == next_day else (1.0 if cum[tid] < cap else 0.0)
+            if w_open <= 0.0:                                     # certainly at the cap when this day begins: the day is locked
+                lock_note.setdefault(tid, "locks after today" if d == next_day else "locked from " + d.strftime("%a"))
                 continue
+            if d == next_day and w_open < 0.95:
+                lock_note.setdefault(tid, f"may lock after today ({1 - w_open:.0%} chance)")
             if dd:
-                fut[tid] += dd["pts"] * (float(t.get("eff") or 1.0) if tid != my_id else 1.0)      # the plan's days assume perfect lineups: scale by the owner's real habits
-                cum[tid] += max(0.0, dd.get("starts_after", 0) - dd.get("starts_before", 0))
+                fut[tid] += w_open * dd["pts"] * (float(t.get("eff") or 1.0) if tid != my_id else 1.0)      # the plan's days assume perfect lineups: scale by the owner's real habits
+                cum[tid] += w_open * max(0.0, dd.get("starts_after", 0) - dd.get("starts_before", 0))
                 got = got or dd["pts"] > 0
             elif not plan_match:                             # crude fallback: this team's average points per day so far
                 played_days = max(1, len(by_sp[tid]))
@@ -254,6 +275,9 @@ def main():
             advice.append("Your opponent has reached the games cap: nothing more counts for them, and your win probability reflects that.")
         elif _ln == "locks after today":
             advice.append("Your opponent will reach the games cap after today: nothing counts for them after that, and your win probability reflects that.")
+        elif _ln.startswith("may lock"):
+            pct = _ln[_ln.index("(") + 1:_ln.index("%")]
+            advice.append(f"Your opponent has enough starters today to hit the games cap: if all of them play ({pct}% likely) nothing counts for them tomorrow. Your win chance counts that risk.")
         else:
             advice.append(f"Your opponent is projected to reach the games cap before {_ln.replace('locked from ', '')}: days after that should not count for them, and your win probability reflects that (it is a projection, not yet true).")
     locked = starts[my_id] >= cap
