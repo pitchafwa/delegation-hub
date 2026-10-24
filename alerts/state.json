@@ -5,6 +5,7 @@
   "4395626": "FREEAGENT",
   "4397014": "WAIVERS",
   "4594327": "FREEAGENT",
+  "5104155": "FREEAGENT",
   "5105839": "FREEAGENT"
  },
  "benef_sent": {
@@ -116,9 +117,9 @@
   "4432194:2026-10-24:4278594:eve": "2026-10-23"
  },
  "plan_rebuild": {
-  "at": "2026-10-23T19:15:20+00:00",
+  "at": "2026-10-24T00:20:49+00:00",
   "sig": "3978,6430,2530530,3135045,3907497,4065648,4065733,4278594,4395724,4397136,4431680,4433134,4683747,4684740,5041939,5041955,5105565",
-  "why": "roster changed: +T.J. McConnell, +Naji Marshall, -Quentin Grimes"
+  "why": "new free agent(s) to evaluate: Bilal Coulibaly"
  },
  "rosterfix_sent": {},
  "sent": {
