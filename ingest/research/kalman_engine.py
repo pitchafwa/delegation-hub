@@ -19,6 +19,7 @@ def run_filter_all_players(
     gain: np.ndarray, observation: np.ndarray,
     Q: float, R: float, peak_age: float, slope_up: float, slope_down: float,
     x0, P0: float = 50.0, return_pre: bool = False,
+    q_mult: float = 1.0, season_start=None, jump: float = 0.0,
 ):
     """Vectorized-by-segment sequential filter. Arrays must already be sorted
     by (player_id, date). Returns posterior mean x AFTER each game (so you
@@ -53,7 +54,9 @@ def run_filter_all_players(
         diff = age_at_game[i] - peak_age
         daily_slope = (slope_up if diff <= 0 else slope_down) / 365.0
         x_pred = x + daily_slope * days_since_last[i]
-        P_pred = P + Q * days_since_last[i]
+        dd_ = days_since_last[i]
+        # season mode (data/delco_season_mode.json): in-season drift scaled by q_mult (gaps under 60 days), plus `jump` at a player's first game of a new season
+        P_pred = P + Q * dd_ * (q_mult if dd_ < 60 else 1.0) + (jump if (season_start is not None and season_start[i]) else 0.0)
 
         if return_pre:
             x_pre[i] = x_pred

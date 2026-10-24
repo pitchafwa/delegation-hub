@@ -128,7 +128,7 @@ TRAITS = _z_axes()
 
 def mk_player(r):
     hp = hubp.get(r["id"]) if r.get("id") else None
-    level, status, ir_planned = lvl.get(r["espn_id"], (hp["year0_ppg"] if hp else REPLACEMENT_LEVEL, "ACTIVE", r.get("slot") == "IR"))
+    level, status, ir_planned = lvl.get(r["espn_id"], ((hp.get("season_ppg") or hp["year0_ppg"]) if hp else REPLACEMENT_LEVEL, "ACTIVE", r.get("slot") == "IR"))
     asset = hp["asset_k"][K] if hp and hp.get("asset_k") else 0.0
     avail = 0.0 if status in ("OUT", "INJURY_RESERVE", "SUSPENSION") else AVAIL
     hid = r.get("id")

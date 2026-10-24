@@ -248,6 +248,8 @@ for _, r in current.iterrows():
         "history_years": hist["years"],
         "history_values": hist["values"],
         "year0_ppg": _traj_c[0],
+        # season mode: the same projection, re-weighted by how much faster season-mode DELCO reacts to this season's games (ratio of the two raw filter outputs)
+        "season_ppg": round(_traj_c[0] * float(np.clip((r["season_ppg"] / r["trajectory"][0]) if ("season_ppg" in r and pd.notna(r["season_ppg"]) and r["trajectory"][0] > 0) else 1.0, 0.6, 1.6)), 1),
         "peak_ppg": max(_traj_c),
         "peak_year_index": int(np.argmax(_traj_c)),
         "trajectory": _traj_c,
@@ -383,6 +385,7 @@ for _, r in prospects.iterrows():
         "pick": int(r["pick_filled"]) if r["pick_filled"] < 61 else None,
         "data_source": r["data_source"],
         "year0_ppg": _traj[0],
+        "season_ppg": _traj[0],
         "peak_ppg": max(_traj),
         "peak_year_index": int(np.argmax(_traj)),
         "trajectory": _traj,

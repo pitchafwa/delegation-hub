@@ -259,7 +259,7 @@ print("form split loaded for", len(FORM), "players")
 def make_player(p, on_roster_slot=None):
     hp = hub_player(p.playerId, p.name)
     espn_proj = (p.stats.get(f"{SEASON_ID}_projected") or {}).get("applied_avg")
-    ours = hp.get("year0_ppg") if hp else None
+    ours = (hp.get("season_ppg") or hp.get("year0_ppg")) if hp else None      # DELCO season mode (rest-of-season settings); career mode stays in the keeper/dynasty numbers
     base = espn_proj if espn_proj else (ours or 0.0)          # ESPN's projection first; our model only when ESPN has none
     src = "ESPN" if espn_proj else ("model" if ours else "none")
     l15 = p.stats.get(f"{SEASON_ID}_last_15") or {}
@@ -571,7 +571,7 @@ for _p in lg.free_agents(size=400):
     if _hp and _a >= DYN_MIN_ASSET:
         dyn_pool.append({"id": _p.playerId, "name": _p.name, "team": canon(_p.proTeam or ""), "pos": [x for x in _p.eligibleSlots if x in ("PG", "SG", "SF", "PF", "C")],
                          "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
-                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("year0_ppg") or 0, 1), "level_raw": round(_hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
+                         "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("season_ppg") or _hp.get("year0_ppg") or 0, 1), "level_raw": round(_hp.get("season_ppg") or _hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
 dyn_pool.sort(key=lambda x: -x["asset"])
 for _x in dyn_pool:
     _x["waiver"] = WV.export(WM.get(_x["id"]))
@@ -714,7 +714,7 @@ try:
         if not team or (nba_roster and key not in nba_roster and key not in espn_by_key):
             continue
         pos = UF.pos_probs(nsp["REB"] * 36, nsp["AST"] * 36, nsp["BLK"] * 36, nsp["STL"] * 36, nsp.get("FG3M", 0) * 36)
-        team_players.setdefault(team, []).append({"id": key, "name": hp["player"], "fp": float(hp["year0_ppg"]), "mpg": float(nsp["MIN"]), "pos": pos})
+        team_players.setdefault(team, []).append({"id": key, "name": hp["player"], "fp": float(hp.get("season_ppg") or hp["year0_ppg"]), "mpg": float(nsp["MIN"]), "pos": pos})
     tp_by_key = {p["id"]: (tm, p) for tm, lst in team_players.items() for p in lst}
     listed_by_key = {}
     for (gd_, k_), st_ in OFFICIAL.items():

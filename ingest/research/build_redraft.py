@@ -179,7 +179,7 @@ for e in raw:
     espn_ppg = proj.get("appliedAverage") or 0.0
     own = p.get("ownership") or {}
     hp = hub_by.get(key(name))
-    ours = hp.get("year0_ppg") if hp else None
+    ours = (hp.get("season_ppg") or hp.get("year0_ppg")) if hp else None     # DELCO season mode for this-season numbers
     # ESPN publishes no preseason projection for most rookies and some young players (Aday Mara shows 0): keep them when our own model has them at 8+ points a game
     if espn_ppg < 8 and not (ours and ours >= 8):
         continue

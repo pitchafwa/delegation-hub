@@ -131,6 +131,13 @@ print(f"  Output B priors available for {n_matched} of {df['PLAYER_ID'].nunique(
 
 # year0[stat] = posterior projected to next season's start; params[stat] = fitted curve.
 year0 = pd.DataFrame(index=last_game_date.index)
+# SEASON MODE (2026-10-24): the same filter with settings tuned for rest-of-season accuracy (faster in-season updating, mostly minutes). Career mode above feeds the
+# multi-year trajectory and keeper value; season mode feeds every "this season" number (see delco_inseason_study.py and data/delco_season_mode.json).
+SEASON_MODE = json.load(open(ROOT / "data" / "delco_season_mode.json"))["params"]
+year0_season = pd.DataFrame(index=last_game_date.index)
+_seas = df["SEASON"].to_numpy()
+_newp = np.r_[True, player_ids[1:] != player_ids[:-1]]
+season_start_arr = np.r_[False, (_seas[1:] != _seas[:-1]) & ~_newp[1:]]
 params_by_stat = {}
 for stat in KALMAN_STATS:
     with open(ROOT / "data" / f"kalman_fit_{stat}.json") as f:
@@ -153,13 +160,20 @@ for stat in KALMAN_STATS:
     diff = last_game_age - peak_age
     daily_slope = annual_slope(stat, last_game_age, fit["params"]) / 365.0
     year0[stat] = (end_state + daily_slope * days_to_next_season).clip(lower=0)
-    print(f"  {stat} year-0 projected.")
+    sm = SEASON_MODE.get(stat, {"QM": 1, "J": 0})
+    post_s = run_filter_all_players(player_ids, days, age, gain, obs, Q, R, peak_age, slope_up, slope_down, x0_arr,
+                                    q_mult=float(sm["QM"]), season_start=season_start_arr, jump=float(sm["J"]) * R / (1.0 if is_min else 30.0))
+    df["_post_s"] = post_s
+    end_s = df.loc[last_game_idx].set_index("PLAYER_ID")["_post_s"]
+    year0_season[stat] = (end_s + daily_slope * days_to_next_season).clip(lower=0)
+    print(f"  {stat} year-0 projected (career and season mode).")
 
 # STL: flat career per-minute rate, no age evolution (tested, no real signal found).
 stl_rate = df.groupby("PLAYER_ID").apply(
     lambda d: d["STL"].sum() / max(d["MIN"].sum(), 1.0), include_groups=False
 )
 year0["STL"] = stl_rate.reindex(year0.index).fillna(0.0)
+year0_season["STL"] = year0["STL"]
 print("  STL year-0 set to flat career rate (no Kalman filter -- tested, didn't help).")
 
 season_base = pd.read_csv(ROOT / "data" / "player_season_base.csv")
@@ -243,9 +257,10 @@ if __name__ == "__main__":
         if traj is None:
             continue
         next_season_proj = {s: round(float(year0.loc[pid, s]), 4) for s in STATS}
+        season_ppg = max(0.0, fantasy_ppg({s: float(year0_season.loc[pid, s]) for s in STATS}) + 3 * float(td3_pg.get(pid, 0.0)))
         rows.append({
             "PLAYER_ID": pid, "player": names.get(pid, ""), "age": round(float(last_game_age.get(pid, np.nan)), 1),
-            "current_year_ppg": round(traj[0], 1), "peak_ppg": round(max(traj), 1),
+            "current_year_ppg": round(traj[0], 1), "season_ppg": round(season_ppg, 1), "peak_ppg": round(max(traj), 1),
             "peak_year_index": int(np.argmax(traj)), "trajectory": [round(v, 1) for v in traj],
             "vor": total, "years_above_replacement": yrs,
             "had_output_b_prior": bool(pid in output_b_priors),
