@@ -398,3 +398,4 @@ This week's gains are valued by their effect on this matchup's win chance (build
 ## QoL backlog (2026-10-24)
 - Season review page: each week's result vs the plan's projection, adds used, streamer points, moves suggested vs made, projection accuracy, calibration results.
 - Trade analyzer polish: player search instead of checkbox lists, side-by-side lineup before/after, shareable link to a trade.
+- One-tap moves (QoL #4, planned 2026-10-24, not built): extend the Set lineup workflow to adds, drops and waiver claims; the site's Do now items get a button that checks the move is still in the plan and the roster unchanged, then makes it in ESPN and logs it.
