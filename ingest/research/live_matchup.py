@@ -300,8 +300,10 @@ def main():
     locked = starts[my_id] >= cap
     if locked:
         advice.append("You have reached the games cap: nothing else counts this week.")
+    elif TODAY == days[-1] and sb[my_id] < cap:
+        advice.append("Last day and you started it under the cap: every start today counts, so start everyone who plays.")
     elif starts[my_id] >= cap - 4:
-        advice.append(f"You are {cap - starts[my_id]:.0f} starts from the cap; only your best remaining games are worth starting.")
+        advice.append(f"You are {cap - starts[my_id]:.0f} starts from the cap: a day you start at or over it counts nothing, so save starts for your best remaining games.")
     if wp >= 0.9:
         advice.append("The week is nearly won: avoid needless risk, and do not spend adds you do not need.")
     elif wp <= 0.1 and rem_days > 0.5:
