@@ -405,3 +405,4 @@
 {"kind":"live","ts":"2026-10-24T23:45:27+00:00","season":2027,"matchup":1,"wp":0.539,"margin":10.0,"me":1023.0,"opp":1013.0,"exp_me":1473.8,"exp_opp":1459.0,"days_left":1.9,"opp_abbrev":"ROB"}
 {"kind":"live","ts":"2026-10-24T23:50:25+00:00","season":2027,"matchup":1,"wp":0.525,"margin":4.5,"me":1023.0,"opp":1018.5,"exp_me":1470.7,"exp_opp":1460.5,"days_left":1.88,"opp_abbrev":"ROB"}
 {"kind":"live","ts":"2026-10-24T23:55:24+00:00","season":2027,"matchup":1,"wp":0.524,"margin":4.5,"me":1023.0,"opp":1018.5,"exp_me":1468.0,"exp_opp":1458.0,"days_left":1.88,"opp_abbrev":"ROB"}
+{"kind":"live","ts":"2026-10-25T00:00:34+00:00","season":2027,"matchup":1,"wp":0.527,"margin":4.5,"me":1023.0,"opp":1018.5,"exp_me":1466.6,"exp_opp":1455.4,"days_left":1.87,"opp_abbrev":"ROB"}
