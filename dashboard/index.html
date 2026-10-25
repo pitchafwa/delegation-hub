@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Delegation</title>
 <meta name="theme-color" content="#0b1624" />
 <meta name="build" content="__BUILD__" />
@@ -10,7 +10,11 @@
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
-<meta name="apple-mobile-web-app-title" content="Fantasy Hub" />
+<meta name="apple-mobile-web-app-title" content="Delegation" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.webmanifest" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" />
@@ -596,6 +600,8 @@
   }
 
   /* ===== Courtside brand */
+  .wrap{padding-top:max(2rem,calc(env(safe-area-inset-top) + .6rem))}
+  @media(max-width:720px){.wrap{padding-top:max(.8rem,calc(env(safe-area-inset-top) + .4rem))} #navTop{padding-bottom:env(safe-area-inset-bottom)}}
   #hSub{display:none !important}   /* the board's method note is explainer copy */
   body{font-family:"Barlow",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
   h1.brand{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:clamp(1.7rem,4vw,2.2rem);letter-spacing:.06em;text-transform:uppercase;margin:0 0 .1rem}
@@ -3127,6 +3133,7 @@ setInterval(pollPlan,240000);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ pollPlan(); loadLive(); } });
 fetch('local_refresh_status.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x){ RS=x; renderStamp(); } }).catch(()=>{});
 setInterval(renderStamp,300000);
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }   // home-screen app: last good copy when offline (sw.js)
 const LIVE_URL='https://raw.githubusercontent.com/pitchafwa/delegation-hub/live-data/live_matchup.json';
 async function loadLive(){
   for(const u of [LIVE_URL+'?t='+Date.now(),'live_matchup.json?t='+Date.now()]){
