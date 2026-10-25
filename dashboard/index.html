@@ -1013,7 +1013,7 @@ function render(){
     const id=p.id;
     const isOpen=open.has(id);
     const badge = p.kind==='prospect' ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
-    const INJL=['Low','Below typical','Typical','Elevated','High'], IM=D.injury_meta||{};
+    const IM=D.injury_meta||{};
     const injTyp=IM.typical_missed!=null?` (a typical regular in ${IM.season}: listed out with an injury or illness for about ${IM.typical_missed} games, ${(IM.typical_share_25plus*100).toFixed(0)}% for 20%+ of games)`:'';
     const injTip=p.injury_tier!=null?`Injury risk: ${INJL[p.injury_tier]} compared with other regulars (24+ minutes a game) · about ${(p.injury_p*100).toFixed(0)}% chance of being listed out with an injury or illness in 20%+ of next season's games, roughly ${p.injury_health_missed!=null?p.injury_health_missed:p.injury_missed} games${injTyp}${(p.injury_tags||[]).length?' · '+p.injury_tags.join('; '):''}`:'';
     const injDot = p.injury_tier!=null ? `<span class="injDot t${p.injury_tier}" role="img" aria-label="${esc(injTip)}" title="${esc(injTip)}"></span>` : '';
@@ -1234,7 +1234,7 @@ function renderTeams(){
   const roster=rows.map(x=>{
     const p=x.p, v=val(x), ai=cur.rows.indexOf(x), keepRow=ai<K;
     const inj=x.r.injury&&x.r.injury!=='ACTIVE'?`<span class="liveStatus">${esc(x.r.injury.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','DTD'))}</span>`:'';
-    const risk=p&&p.injury_tier!=null&&p.injury_tier>=3&&typeof INJL!=='undefined'?` <span class="injTier t${p.injury_tier}" title="injury-risk tier for next season">${esc(INJL[p.injury_tier])}</span>`:'';
+    const risk=p&&p.injury_tier!=null&&p.injury_tier>=3?` <span class="injTier t${p.injury_tier}" title="injury-risk tier for next season">${esc(INJL[p.injury_tier])}</span>`:'';
     return `<tr style="${x.ir?'opacity:.7':''}">
       <td style="text-align:left">${keepRow?'<span class="kind rookie" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">KEEP</span> ':''}${pc(p?p.player:x.r.name)}${p&&p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}${risk}</td>
       <td style="text-align:left">${esc(x.r.slot||'')}</td><td style="text-align:left">${p?esc(p.pos||'—'):'—'}</td><td class="num">${p&&p.age!=null?p.age.toFixed(1):'—'}</td>
@@ -1249,7 +1249,7 @@ function renderTeams(){
     const KEY={ppg:[v.ppg!=null?v.ppg.toFixed(1):'—',inSeason?'PPG':'Proj PPG'],l10:[v.l10!=null?v.l10.toFixed(1):'—','Last 10'],ros:[v.ros!=null?v.ros.toFixed(1):'—','Proj PPG'],age:[p&&p.age!=null?p.age.toFixed(1):'—','Age'],
       g4:[v.g4??'—','Games, 4 wks'],mkt:[p&&p.market_rank!=null?'#'+p.market_rank:'—','Market'],slot:[esc(x.r.slot||''),'Slot']}[tmSort.k]||[p&&p.asset_k?p.asset_k[K].toFixed(1):'—','Keeper value',p&&p.asset_k?'#'+ranks.get(p.id):''];
     return plRow({name:p?p.player:x.r.name,nba:p?String(p.id).slice(1):null,espn:x.r.espn_id,team:p&&p.team,pos:x.r.slot,age:p&&p.age,
-      chips:[keepRow?chip('Keep','good'):'',p&&p.kind==='prospect'?chip('Rookie','acc'):'',stCls(x.r.injury)],
+      chips:[keepRow?chip('Keep','good'):'',p&&p.kind==='prospect'?chip('Rookie','acc'):'',stCls(x.r.injury),p&&p.injury_tier>=3&&!(x.r.injury&&x.r.injury!=='ACTIVE')?chip(INJL[p.injury_tier]+' risk'):''],
       stats:[[v.ppg!=null?v.ppg.toFixed(1):null,v.played?'PPG':'proj'],[v.l10!=null?v.l10.toFixed(1):null,'L10'],[v.g4,'games, 4 wks']],key:{v:KEY[0],l:KEY[1],sub:KEY[2]}}); }).join('');
   const sortSel=`<select id="tmSortSel" class="mobileOnly" style="padding:.3rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${[['asset','Keeper value'],['ppg',inSeason?'Points per game':'Projected points per game'],['l10','Last 10'],['ros','Projected PPG'],['age','Age (youngest first)'],['g4','Games, 4 wks'],['mkt','Market rank'],['slot','Lineup slot']].map(([k,l])=>`<option value="${k}" ${tmSort.k===k?'selected':''}>${l}</option>`).join('')}</select>`;
   // ---- sections
@@ -1890,14 +1890,14 @@ function rdTipData(p,i){ const x=p.gx&&p.gx[i]; if(!x) return ''; return esc(JSO
 function rdChart(p,W2=620,H2=250){
   const g=p.g||[]; if(!g.length) return '<div class="hint">No game log yet.</div>';
   const fwd=(p.next||[]).slice(0,3), n=g.length+fwd.length, padL=34, padB=34, padT=14, plotW=W2-padL-8, plotH=H2-padB-padT;
-  const hi=Math.max(...g,p.p90||0,p.ppg)+6, lo=0, X=i=>padL+(i+0.5)*plotW/n, Y=v=>padT+plotH-(v-lo)/(hi-lo)*plotH, bw=plotW/n*0.62;
+  const hi=Math.max(...g,p.p90||0,p.ppg)+6, lo=Math.min(0,...g), X=i=>padL+(i+0.5)*plotW/n, Y=v=>padT+plotH-(v-lo)/(hi-lo)*plotH, bw=plotW/n*0.62;
   const roll=g.map((_,i)=>{const a=g.slice(Math.max(0,i-2),i+1); return a.reduce((s,v)=>s+v,0)/a.length;});
   let s=`<svg viewBox="0 0 ${W2} ${H2}" class="trajChart" role="img" aria-label="last ten games and next three projected">`;
   for(const t of [0,20,40,60,80]) if(t<hi) s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)"/><text x="${padL-4}" y="${(Y(t)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--ink-faint)">${t}</text>`;
   if(fwd.length) s+=`<rect x="${(X(g.length)-plotW/n/2).toFixed(1)}" y="${Y(p.p90).toFixed(1)}" width="${(plotW/n*fwd.length).toFixed(1)}" height="${(Y(p.p10)-Y(p.p90)).toFixed(1)}" fill="var(--line)" opacity=".5"/>`;
   s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(p.ppg).toFixed(1)}" y2="${Y(p.ppg).toFixed(1)}" stroke="var(--accent)" stroke-dasharray="4 3"/><text x="${padL+2}" y="${(Y(p.ppg)-3).toFixed(1)}" text-anchor="start" font-size="9" fill="var(--accent)">projection ${p.ppg}</text>`;
   g.forEach((v,i)=>{ const c=v>=p.ppg*1.15?'var(--good)':(v<=p.ppg*0.7?'var(--warn)':'var(--ink-soft)');
-    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="${c}" opacity=".75" class="rdBar" data-tip="${rdTipData(p,i)}"><title>${p.gd[i]}: ${v} fantasy pts in ${p.gm[i]} min</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--ink)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">${p.gd[i]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">${p.gm[i]}m</text>`; });
+    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Math.min(Y(v),Y(0)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0.5,Math.abs(Y(0)-Y(v))).toFixed(1)}" fill="${c}" opacity=".75" class="rdBar" data-tip="${rdTipData(p,i)}"><title>${p.gd[i]}: ${v} fantasy pts in ${p.gm[i]} min</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--ink)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">${p.gd[i]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">${p.gm[i]}m</text>`; });
   s+=`<polyline points="${roll.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
   fwd.forEach((f,k)=>{ const i=g.length+k, v=(p.next_proj&&p.next_proj[k]!=null)?p.next_proj[k]:p.ppg, adj=v-p.ppg;
     s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="none" stroke="var(--accent)" stroke-dasharray="3 2"><title>${f[0]} ${esc(f[1])}: ${v.toFixed(1)} pts projected${Math.abs(adj)>=0.15?` (${adj>0?'+':''}${adj.toFixed(1)} for the matchup)`:''}</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--accent)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--accent)">${f[0]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--accent)">${esc(f[1])}</text>`; });
@@ -2017,6 +2017,7 @@ function renderRedraft(){
    everything we know about him (today/this week, redraft, dynasty, tags/notes),
    joined client-side from whatever data is already loaded. No new backend files.
    ============================================================ */
+const INJL=['Low','Below typical','Typical','Elevated','High'];   // injury-risk tier names (shared)
 const TEAM_SLUG={GSW:'gs',NOP:'no',SAS:'sa',NYK:'ny',UTA:'utah',WAS:'wsh'};
 function teamLogoUrl(team){ if(!team) return ''; return `https://a.espncdn.com/i/teamlogos/nba/500/${TEAM_SLUG[team]||team.toLowerCase()}.png`; }
 const SILHOUETTE='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2a323c"/><circle cx="50" cy="38" r="18" fill="#4b5563"/><path d="M18 92c2-24 16-36 32-36s30 12 32 36" fill="#4b5563"/></svg>');
@@ -3224,7 +3225,9 @@ function renderStamp(){
   const el=document.getElementById('dataStamp'); if(!el) return;
   const fmtT=d=>{ const sameDay=d.toDateString()===new Date().toDateString(); return (sameDay?'':d.toLocaleDateString(undefined,{weekday:'short'})+' ')+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}); };
   const warn=[]; let main='';
-  if(W&&W.generated){ const g=new Date(W.generated); main='Data as of '+fmtT(g); if(!offseason()&&Date.now()-g>12*3600e3) warn.push('the plan has not updated since '+fmtT(g)); }
+  if(W&&W.generated){ const g=new Date(W.generated); main='Data as of '+fmtT(g); if(!offseason()&&Date.now()-g>12*3600e3) warn.push('the plan has not updated since '+fmtT(g));
+    const etToday=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}), pd=W.matchup&&W.matchup.planned_days&&W.matchup.planned_days[0];
+    if(!offseason()&&pd&&pd<etToday&&Date.now()-g<=12*3600e3) warn.push("the plan is still yesterday's; it rebuilds just after midnight (or tap Refresh plan)"); }
   const pcT=RS&&RS.finished?new Date(RS.finished):(RD&&RD.generated?new Date(RD.generated):null);
   if(pcT&&!offseason()&&Date.now()-pcT>30*3600e3) warn.push('the daily model refresh on your PC last finished '+fmtT(pcT));
   if(RS&&(RS.failed||[]).length) warn.push('the last PC refresh had failed steps ('+RS.failed.map(esc).join(', ')+')');

@@ -321,7 +321,9 @@ def main():
         need = -mu
         advice.append(f"A long shot: you need about {need:.0f} points more than expected. Only moves that add expected points matter; variance choices barely change the odds.")
     elif rem_days > 0.5:
-        advice.append(f"Expected final margin {mu:+.0f}. Every extra started game is worth about 36 points, so fill every open slot and use your remaining adds well.")
+        _adds_left = (W["matchup"]["adds_limit"] - adds_used) if (plan_match and adds_used is not None) else None
+        advice.append(f"Expected final margin {mu:+.0f}. Every extra started game is worth about 36 points, so fill every open slot"
+                      + (" and use your remaining adds well." if _adds_left is None or _adds_left > 0 else "."))
     if best_add and rem_days > 1 and (adds_used is None or adds_used < W["matchup"]["adds_limit"]):
         _on = best_add.get("on")
         _when = "today" if (not _on or _on <= TODAY.isoformat()) else datetime.fromisoformat(_on).strftime("%a")

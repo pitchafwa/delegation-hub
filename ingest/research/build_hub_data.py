@@ -220,9 +220,9 @@ for _, r in current.iterrows():
     pos = r["espn_position"] if pd.notna(r.get("espn_position")) else r.get("POSITION")
     hist = history_by_player.get(r["PLAYER_ID"], {"years": [], "values": []})
     _uni = UNIFIED.get(int(r["PLAYER_ID"]))
-    _traj_c = _uni if _uni else [round(float(v), 1) for v in r["trajectory"]]
+    _traj_c = [max(0.0, v) for v in (_uni if _uni else [round(float(v), 1) for v in r["trajectory"]])]      # the far years of a 40-year-old can go below zero: no player scores less than nothing
     _fc = float(np.clip(_traj_c[0] / r["trajectory"][0], 0.6, 1.6)) if (_uni and r["trajectory"][0] > 0) else 1.0
-    _kal = [round(float(v), 1) for v in r["trajectory"]]
+    _kal = [max(0.0, round(float(v), 1)) for v in r["trajectory"]]
     _thin = None
     _g = CAREER_GP.get(int(r["PLAYER_ID"]), 0)
     if not _uni and not bool(r["had_output_b_prior"]) and 0 < _g <= THIN_MAX_GP and _traj_c[0] > THIN_MU:

@@ -11,6 +11,7 @@ on:
     - cron: "7 19 * * *"
     - cron: "7 22 * * *"
     - cron: "7 1 * * *"     # about 9pm ET (8pm in winter): late injury news before the 10pm games
+    - cron: "7 5 * * *"     # just after midnight ET all year (1:07am summer / 12:07am winter): the plan's "today" moves to the new day (and a new matchup on Monday)
   workflow_dispatch: {}
 
 permissions:

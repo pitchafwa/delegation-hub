@@ -586,7 +586,8 @@ for x in dyn_pool:
         _seen_new[k] = today.isoformat()
     x["first_seen"] = _seen_new[k]
     x["new"] = bool(_seen_old is not None and (today - date.fromisoformat(_seen_new[k])).days <= 7)
-SEEN_PATH.write_text(json.dumps(_seen_new), encoding="utf-8")
+if not os.environ.get("PLAN_TODAY"):
+    SEEN_PATH.write_text(json.dumps(_seen_new), encoding="utf-8")
 print(f"dynasty free agents: {len(dyn_pool)} with asset >= {DYN_MIN_ASSET}; top:", [(x['name'], x['asset']) for x in dyn_pool[:5]])
 
 
@@ -888,7 +889,7 @@ for pl in [x for rr in rosters.values() for x in rr] + fa_players:
                          # added 2026-10-24 for the projection-blend study (blend_study.py): career-mode DELCO, ESPN's last-15 average, and the blended level the plan used
                          "model_career": pl.get("model_career") or "", "l15": pl.get("l15") or "", "gp15": pl.get("gp15") or "", "level": pl.get("level") or "", "is_fa": int(bool(pl.get("is_fa")))})
     seen_log.add(key)
-if new_rows:
+if new_rows and not os.environ.get("PLAN_TODAY") and not _c0:          # a simulated day must never write the projection log the blend study grades
     fields = list(new_rows[0].keys())
     if LOG.exists():
         with open(LOG, encoding="utf-8") as fh:
@@ -1736,7 +1737,7 @@ def _slim(o):
 
 _slim(out)
 out["form"] = _FORM_OUT
-OUTP = HUB / ("week_plan.json" if not _c0 else "week_plan_test.json")
+OUTP = HUB / ("week_plan.json" if not (_c0 or os.environ.get("PLAN_TODAY")) else "week_plan_test.json")      # test hooks never overwrite the real plan
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote", OUTP.name, round(OUTP.stat().st_size / 1024), "KB")
 
