@@ -57,6 +57,7 @@ def sigma(rem):
 
 
 ESPN_SB = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+GAME_INFO = {}             # canon team -> {state pre/in/post, clock text, tip} for today's games (filled by game_progress)
 
 
 def game_progress():
@@ -69,10 +70,14 @@ def game_progress():
         print("NBA scoreboard unavailable:", repr(ex)[:80])
         return {}
     out = {}
+    GAME_INFO.clear()
     for e in evs:
         c = e["competitions"][0]
         st = c["status"]
         state = st["type"]["state"]
+        info = {"state": state, "clock": (st.get("type") or {}).get("shortDetail") or "", "tip": e.get("date")}
+        for t in c["competitors"]:
+            GAME_INFO[canon(t["team"]["abbreviation"])] = info
         if state == "pre":
             left = 1.0
         elif state == "post":
@@ -173,11 +178,20 @@ def main():
     from espn_api.basketball.constant import PRO_TEAM_MAP
     from team_abbr import canon
     prog = game_progress() if not os.environ.get("LIVE_DATE") else {}
+    from espn_api.basketball.constant import POSITION_MAP as _PM
+    lineup = {my_id: [], opp_id: []}
     for tid in (my_id, opp_id):
         for e in (today_box or {}).get(tid, []):
             if e["slot"] is None or e["slot"] > 11:
                 continue
             pr = plan_roster.get(tid, {}).get(e["id"], {})
+            tcanon = canon(PRO_TEAM_MAP.get(e["team"]) or "")
+            gi = GAME_INFO.get(tcanon)
+            if gi is not None or not prog:
+                outp = e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION")
+                stt = ("out" if outp and not e["played"] else ("final" if gi and gi["state"] == "post" else ("live" if gi and gi["state"] == "in" else "pre"))) if gi else ("final" if e["played"] else "pre")
+                lineup[tid].append({"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else None, "st": stt,
+                                    "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"])})
             lvl = pr.get("tonight") or pr.get("level", 22.0)
             boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
@@ -223,6 +237,7 @@ def main():
         return sum(v for k, v in enumerate(dist) if base + k < cap)
     p_open = {tid: p_open_tomorrow(tid) for tid in (my_id, opp_id)}
     next_day = next((x for x in days if x > TODAY), None)
+    cum_end = dict(cum)                                         # expected starts at the end of today (before tomorrow's games)
     fut = {my_id: 0.0, opp_id: 0.0}
     fut_days = 0
     for d in days:
@@ -300,10 +315,10 @@ def main():
         _dr = (best_add.get("drop") or {}).get("name")
         advice.append(f"Next planned add: {best_add['add']['name']} ({_when}" + (f", drop {_dr}" if _dr else "") + f", about +{best_add['gain']:.0f}).")
     out = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "season": YEAR, "matchup": mp, "date": TODAY.isoformat(), "plan_used": bool(plan_match),
-           "me": {"abbrev": teams[my_id], "name": names[my_id], "pts": round(pts[my_id], 1), "exp_rem": round(exp_rem[my_id], 1), "exp_final": round(pts[my_id] + exp_rem[my_id], 1), "starts": starts[my_id], "adds_used": adds_used, "left_today": sorted(left_today[my_id], key=lambda x: -x["ef"])[:8]},
-           "opp": {"abbrev": teams[opp_id], "name": names[opp_id], "pts": round(pts[opp_id], 1), "exp_rem": round(exp_rem[opp_id], 1), "exp_final": round(pts[opp_id] + exp_rem[opp_id], 1), "starts": starts[opp_id], "left_today": sorted(left_today[opp_id], key=lambda x: -x["ef"])[:8]},
+           "me": {"abbrev": teams[my_id], "name": names[my_id], "pts": round(pts[my_id], 1), "exp_rem": round(exp_rem[my_id], 1), "exp_final": round(pts[my_id] + exp_rem[my_id], 1), "starts": starts[my_id], "adds_used": adds_used, "left_today": sorted(left_today[my_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[my_id], "starts_before_today": sb[my_id], "starts_end_today": round(cum_end[my_id], 1)},
+           "opp": {"abbrev": teams[opp_id], "name": names[opp_id], "pts": round(pts[opp_id], 1), "exp_rem": round(exp_rem[opp_id], 1), "exp_final": round(pts[opp_id] + exp_rem[opp_id], 1), "starts": starts[opp_id], "left_today": sorted(left_today[opp_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[opp_id], "starts_before_today": sb[opp_id], "starts_end_today": round(cum_end[opp_id], 1)},
            "cap": cap, "days_left": round(rem_days, 2), "win_prob": round(wp, 3), "expected_margin": round(mu, 1), "advice": advice, "history": hist}
-    print(json.dumps({k: v for k, v in out.items() if k != "history"}, indent=1)[:2500])
+    print(json.dumps({k: v for k, v in out.items() if k != "history"}, indent=1)[:40000])
     if DRY:
         return
     OUT.parent.mkdir(parents=True, exist_ok=True)

@@ -143,6 +143,16 @@
   }
 .clTag{display:inline-block;margin-left:.35rem;padding:.02rem .4rem;border-radius:4px;font-family:"Barlow Condensed",sans-serif;font-size:.74rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--good)}.clTag.out{background:color-mix(in srgb,var(--ink-faint) 22%,transparent);color:var(--ink-soft)}
   .seedTbl td,.seedTbl th{text-align:center !important}.seedTbl td:first-child,.seedTbl th:first-child{text-align:left !important}.seedTbl tr.meRow td:first-child{color:var(--accent)}
+.muChips{display:flex;gap:6px;margin:0 0 10px}.muChip{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line-strong);background:transparent;color:var(--ink);font:inherit;font-weight:600;font-size:.9rem;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}.muChip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}.muDot{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block}.muChip.on .muDot{background:var(--on-accent)}
+  .muBox{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}.muHead{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}.muHead>div{padding:9px 10px;min-width:0}.muHead>div+div{border-left:1px solid var(--line);text-align:right}
+  .muTm{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.05rem;letter-spacing:.04em}.muTm .you{color:var(--accent)}.muBig{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.5rem;line-height:1.05}.muLbl{font-family:inherit;font-size:.74rem;font-weight:500;color:var(--ink-soft)}
+  .muCap{font-size:.74rem;color:var(--ink-soft);margin-top:3px}.muCap b{font-family:"Barlow Condensed",sans-serif;font-size:.92rem;color:var(--ink)}.muBar{height:5px;border-radius:3px;background:var(--line);margin-top:4px;overflow:hidden;display:flex}.muBar.r{flex-direction:row-reverse}.muBar i{display:block;height:100%;background:var(--ink-soft)}.muBar i.add{background:var(--accent)}
+  .muRows{display:grid;grid-template-columns:1fr 1fr}.muCol{min-width:0}.muCol.r{border-left:1px solid var(--line)}
+  .muPl{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:4px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line);min-height:46px}.muCol.r .muPl{grid-template-columns:auto minmax(0,1fr) 24px;text-align:right}.muCol.r .muSlot{order:3}.muCol.r .muPts{order:1;text-align:left}.muCol.r .muWho{order:2}
+  .muSlot{font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:.72rem;color:var(--ink-faint)}.muWho{font-size:.86rem;font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.muWho small{display:block;font-weight:500;font-size:.7rem;color:var(--ink-soft)}
+  .muPts{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.05rem;text-align:right;min-width:30px}.muPl.live small,.muPl.live .muPts{color:var(--good)}.muPl.pre .muWho .pName,.muPl.pre .muPts{color:var(--ink-faint)}.muPl.pre .muPts{font-weight:600}.muPl.out .pName{text-decoration:line-through;color:var(--ink-faint)}.muPl.planned .muWho small{color:var(--accent);font-weight:700}.muPl.empty{opacity:.55}.muPl.empty .muWho{font-weight:500;color:var(--ink-faint)}
+  .muFoot{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);font-size:.78rem;color:var(--ink-soft)}.muFoot>div{padding:8px 10px}.muFoot>div+div{border-left:1px solid var(--line);text-align:right}.muFoot b{font-family:"Barlow Condensed",sans-serif;font-size:1rem;color:var(--ink)}
+  .muLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:.72rem;color:var(--ink-faint);margin-top:8px}.muLegend span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}.muLegend .l1::before{background:var(--ink)}.muLegend .l2::before{background:var(--good)}.muLegend .l3::before{background:var(--ink-faint)}.muLegend .l4::before{background:var(--accent)}
   .taCols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:.5rem 0}.taList{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:.3rem}@media(max-width:640px){.taCols{grid-template-columns:1fr}}
   .pcNews{list-style:none;margin:0;padding:0}
   .pcNews li{padding:.5rem 0;border-top:1px solid var(--line)}.pcNews li:first-child{border-top:0;padding-top:0}
@@ -1233,6 +1243,61 @@ function wrapHdr(id,html,def=true){
   return sec(id,k>0?t.slice(0,k).trim():t,k>0?t.slice(t[k]==='('?k:k+1).trim():'',html.slice(m[0].length),def);
 }
 
+
+/* ===== MATCHUP VIEW (Today): both lineups for a chosen day. Today uses the live tracker when it has this matchup (live points, game clock); other days use the
+   plan (your column includes the planned moves; the opponent's is his projected best lineup). */
+let MU_DAY=null;
+const shortName=n=>{ const p=String(n).split(' '); return p.length>1?p[0][0]+'. '+p.slice(1).join(' '):n; };
+const SLOT_ORD={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,'SG/SF':7,'G/F':8,'PF/C':9,'F/C':10,UT:11};
+function matchupHtml(T,O,M,liveOk){
+  if(!O) return '';
+  const days=M.planned_days||[], today=days[0];
+  if(!days.length) return '';
+  if(!MU_DAY||!days.includes(MU_DAY)) MU_DAY=today;
+  const live=liveOk&&LIVE.me&&LIVE.me.lineup&&MU_DAY===today;
+  const adds=new Map((T.sequence||[]).map(a=>[a.add.name,a]));
+  const tipT=iso=>iso?new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(':00','').replace(' ',''):'';
+  let mine=[], theirs=[], hm={}, ho={};
+  if(live){
+    const conv=x=>({name:x.name,slot:x.slot,st:x.st,pts:x.pts,proj:x.proj,sub:x.st==='final'?'Final':(x.st==='live'?x.clock.replace(' - ',' '):(x.st==='out'?'Out':tipT(x.tip)))});
+    mine=LIVE.me.lineup.map(conv); theirs=LIVE.opp.lineup.map(conv);
+    const tot=a=>a.reduce((s,x)=>s+(x.pts||0),0);
+    hm={big:'+'+tot(mine).toFixed(1),lbl:'today',s0:LIVE.me.starts_before_today,s1:LIVE.me.starts_end_today};
+    ho={big:'+'+tot(theirs).toFixed(1),lbl:'today',s0:LIVE.opp.starts_before_today,s1:LIVE.opp.starts_end_today};
+  } else {
+    const myDays=(T.days_after&&(T.sequence||[]).length)?T.days_after:T.days;
+    const dm=myDays.find(d=>d.date===MU_DAY), dop=(O.days||[]).find(d=>d.date===MU_DAY);
+    const conv=(x,mineSide)=>{ const a=mineSide?adds.get(x.name):null; const ifp=x.p>0?x.ef/x.p:x.ef;
+      return {name:x.name,slot:x.slot,st:'pre',pts:null,proj:Math.round(ifp),sub:a?(a.add.waiver?'+ claim':'+ add'):tipT(x.tip),planned:!!a}; };
+    mine=dm&&!dm.locked?dm.start.map(x=>conv(x,true)):[]; theirs=dop&&!dop.locked?dop.start.map(x=>conv(x,false)):[];
+    const pj=a=>a.reduce((s,x)=>s+x.proj,0);
+    hm={big:pj(mine).toFixed(0),lbl:'projected',s0:dm?dm.starts_before:null,s1:dm?dm.starts_after:null,locked:dm&&dm.locked};
+    ho={big:pj(theirs).toFixed(0),lbl:'projected',s0:dop?dop.starts_before:null,s1:dop?dop.starts_after:null,locked:dop&&dop.locked};
+  }
+  const bySlot=(a,b)=>(SLOT_ORD[a.slot]??20)-(SLOT_ORD[b.slot]??20);
+  mine.sort(bySlot); theirs.sort(bySlot);
+  const n=Math.max(mine.length,theirs.length);
+  const cap=M.cap;
+  const capBar=(h,right)=>{ if(h.s0==null) return ''; const a=Math.min(100,h.s0/cap*100), b=Math.max(0,Math.min(100,h.s1/cap*100)-a);
+    return `<div class="muCap"><b>${Math.round(h.s0)}</b> &rarr; ${Math.round(h.s1)} of ${Math.round(cap)} starts${h.locked?' <span class="liveStatus">capped</span>':''}</div><div class="muBar${right?' r':''}"><i style="width:${a}%"></i><i class="add" style="width:${b}%"></i></div>`; };
+  const row=x=>x?`<div class="muPl ${x.st}${x.planned?' planned':''}"><span class="muSlot">${esc(x.slot)}</span><span class="muWho"><span class="pName" data-pc="${esc(x.name)}" role="button" tabindex="0">${esc(shortName(x.name))}</span><small>${esc(x.sub||'')}</small></span><span class="muPts">${x.pts!=null?x.pts.toFixed(1):(x.st==='out'?'—':x.proj)}</span></div>`
+    :`<div class="muPl empty"><span class="muSlot">—</span><span class="muWho">open slot</span><span class="muPts"></span></div>`;
+  const colHtml=a=>Array.from({length:n},(_,i)=>row(a[i])).join('');
+  const chips=days.map(d=>{ const lbl=d===today?'Today':shortDay(d); const isLive=d===today&&liveOk&&LIVE.me&&(LIVE.me.lineup||[]).some(x=>x.st==='live');
+    return `<button type="button" class="muChip${d===MU_DAY?' on':''}" data-mud="${d}">${isLive?'<span class="muDot"></span>':''}${lbl}${isLive?' · live':''}</button>`; }).join('');
+  const rem=a=>Math.round(a.filter(x=>x.st==='pre').reduce((s,x)=>s+x.proj*0.94,0)+a.filter(x=>x.st==='live').reduce((s,x)=>s+Math.max(0,x.proj-(x.pts||0))*0.5,0));
+  const foot=live?`<div class="muFoot"><div>Still to come <b>~${rem(mine)}</b></div><div>Still to come <b>~${rem(theirs)}</b></div></div>`:'';
+  return `<h2 class="todayH">Matchup ${ib('Starts')}</h2>
+    <div class="muChips">${chips}</div>
+    <div class="muBox">
+      <div class="muHead"><div><div class="muTm"><span class="you">YOU</span> · ${esc(T.abbrev)}</div><div class="muBig">${hm.big} <span class="muLbl">${hm.lbl}</span></div>${capBar(hm,false)}</div>
+        <div><div class="muTm">${esc(O.abbrev)}</div><div class="muBig"><span class="muLbl">${ho.lbl}</span> ${ho.big}</div>${capBar(ho,true)}</div></div>
+      <div class="muRows"><div class="muCol">${colHtml(mine)}</div><div class="muCol r">${colHtml(theirs)}</div></div>
+      ${foot}
+    </div>
+    ${live?'<div class="muLegend"><span class="l1">final</span><span class="l2">live</span><span class="l3">not started (projection)</span></div>':(MU_DAY===today?'':'<div class="muLegend"><span class="l4">+ planned move</span><span class="l3">projected points if he plays</span></div>')}`;
+}
+
 /* WHAT CHANGED SINCE YOU LAST LOOKED: the plan rebuilds on its own, so compare it with what you saw last time (kept on this device only) */
 const SEEN_KEY='seen_plan_v1';
 let SEEN_PREV=null, SEEN_NOW=null;
@@ -1423,7 +1488,7 @@ function renderWeek(){
       <div class="scoreMid"><div class="scoreWp" style="color:${wpCol}">${wpN!=null?wpN+'%':'—'}</div><div class="scoreLbl">win chance ${ib('Win chance')}</div>${spark}</div>
       <div style="text-align:right"><div class="scoreLbl">${esc(sb.oa||'opponent')}</div><div class="scoreBig" style="color:var(--ink-soft)">${sb.op!=null?sb.op.toFixed(0):'—'}</div><div class="scoreLbl">${sb.opP!=null?'projected '+sb.opP.toFixed(0):''}</div></div></div>
     <div class="scoreStrip"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b><i>starts ${ib('Cap')}</i></span><span><b>${Math.max(0,M.adds_limit-sb.au)}</b><i>adds left</i></span><span><b>${dlTxt}</b><i>${sb.dl===1?'day':'days'} left</i></span></div>
-    ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join('')+`<details class="liveMore"><summary class="hint">Still to play today</summary><div class="liveRow"><b>You:</b> ${leftList(LIVE.me.left_today||[])}</div><div class="liveRow"><b>${esc(LIVE.opp.abbrev)}:</b> ${leftList(LIVE.opp.left_today||[])}</div></details>`:''}
+    ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join(''):''}
   </div>`;
   // Do now: the same dated steps the phone alerts use
   const doItems=[];
@@ -1495,7 +1560,7 @@ function renderWeek(){
       <span class="hint">Matchup ${M.id}: ${fmtDay(M.start)} – ${fmtDay(M.end)} (${M.days.length} days)</span></div>
     ${scoreHtml}
     ${doNowHtml}
-    ${tonightLineupHtml}
+    ${matchupHtml(T,O,M,liveOk)}
     <div class="cardPair" style="margin-top:1.2rem">${oddsHtml(T.id===meT.id)}${gamesHtml(T)}</div>
     <h2 class="todayH" style="margin-top:1.4rem">Details</h2>
     ${lineupSec}
@@ -1515,6 +1580,7 @@ function renderWeek(){
       first.parentNode.insertBefore(jb,first);   // sits under the Details heading
       jb.addEventListener('click',e=>{ const b=e.target.closest('button[data-jump]'); if(!b) return; const d=document.getElementById('sec-'+b.dataset.jump); if(!d) return; d.open=true; secState[b.dataset.jump]=true; d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
     secs.forEach(d=>d.addEventListener('toggle',()=>{ secState[d.dataset.sec]=d.open; })); }
+  pane.querySelectorAll('.muChip').forEach(b=>b.addEventListener('click',()=>{ MU_DAY=b.dataset.mud; const y=window.scrollY; renderWeek(); window.scrollTo(0,y); }));
   pane.querySelectorAll('.faTabs button').forEach(b=>b.addEventListener('click',()=>{ pane.querySelectorAll('.faTabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b))); pane.querySelectorAll('.faPanel').forEach(pn=>pn.hidden=pn.dataset.fap!==b.dataset.fat); }));
   fillSetLineup();
   document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});
