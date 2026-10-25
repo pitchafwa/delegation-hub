@@ -123,6 +123,7 @@
 .tSort{display:none;gap:.4rem;margin:0 0 .5rem}.tSort select{flex:1;min-width:0;min-height:44px;padding:.4rem .6rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}.tSort button{min-width:44px;min-height:44px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit}
   @media(max-width:720px){.tSort.mobileOnly{display:flex}}
 .ib{display:inline-flex;align-items:center;justify-content:center;min-width:1.4em;min-height:1.4em;font-size:.95em;font-weight:400;font-style:normal;color:var(--ink-faint);cursor:pointer;border-radius:50%;vertical-align:baseline;text-transform:none;letter-spacing:0}
+  .chgIb{color:var(--accent) !important;font-weight:700;margin-left:.15rem}
   .legend:not(.keep){display:none}   /* reading guides are retired; late-rendered ones stay hidden too */
   .ib:hover,.ib:focus{color:var(--accent);outline:none}
   @media (pointer:coarse){.ib{min-width:28px;min-height:28px}}
@@ -1232,6 +1233,26 @@ function wrapHdr(id,html,def=true){
   return sec(id,k>0?t.slice(0,k).trim():t,k>0?t.slice(t[k]==='('?k:k+1).trim():'',html.slice(m[0].length),def);
 }
 
+/* WHAT CHANGED SINCE YOU LAST LOOKED: the plan rebuilds on its own, so compare it with what you saw last time (kept on this device only) */
+const SEEN_KEY='seen_plan_v1';
+let SEEN_PREV=null, SEEN_NOW=null;
+try{ SEEN_PREV=JSON.parse(localStorage.getItem(SEEN_KEY)||'null'); }catch(e){}
+function planSnap(T,sb){ return {gen:W.generated, mp:W.matchup.id, wp:sb&&sb.wp!=null?Math.round(sb.wp*100):null,
+  seq:(T.sequence||[]).map(a=>({add:a.add.name,drop:a.drop?a.drop.name:null,on:a.on,gain:Math.round(a.gain)}))}; }
+function planChanges(T,sb){
+  SEEN_NOW=planSnap(T,sb);
+  const P=SEEN_PREV; if(!P||P.mp!==SEEN_NOW.mp||P.gen===SEEN_NOW.gen) return null;
+  const key=x=>x.add, before=new Map(P.seq.map(x=>[key(x),x])), after=new Map(SEEN_NOW.seq.map(x=>[key(x),x]));
+  const out=[];
+  SEEN_NOW.seq.forEach(x=>{ const b=before.get(key(x)); if(!b) out.push(`New: add ${x.add}${x.drop?', drop '+x.drop:''} (${shortDay(x.on)}).`); else if(b.drop!==x.drop) out.push(`${x.add}: now drop ${x.drop||'nobody'} (was ${b.drop||'nobody'}).`); else if(b.on!==x.on) out.push(`${x.add}: moved to ${shortDay(x.on)} (was ${shortDay(b.on)}).`); });
+  P.seq.forEach(x=>{ if(!after.has(key(x))) out.push(`Dropped from the plan: ${x.add}.`); });
+  if(P.wp!=null&&SEEN_NOW.wp!=null&&Math.abs(SEEN_NOW.wp-P.wp)>=5) out.push(`Win chance ${P.wp}% -> ${SEEN_NOW.wp}%.`);
+  return out.length?'Since you last looked: '+out.join(' '):null;
+}
+function saveSeen(){ if(SEEN_NOW){ try{ localStorage.setItem(SEEN_KEY,JSON.stringify(SEEN_NOW)); }catch(e){} } }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') saveSeen(); });
+window.addEventListener('pagehide',saveSeen);
+
 function renderWeek(){
   const pane=document.getElementById('weekPane');
   const M=W.matchup;
@@ -1414,9 +1435,12 @@ function renderWeek(){
       doItems.push({when:'Today',what:`Start ${dayRow.start.length} tonight`,sub:(dayRow.sat>0?`Bench ${dayRow.sat} who play, to save starts for later. `:'')+(doubt.length?`At risk: ${doubt.join(', ')}. `:'')+'Lineup below; set it in one click under Set lineup in ESPN.',gain:''});
     }
     if(T.stash_suggest){ const s=T.stash_suggest; doItems.push({when:'Today',what:`Add ${s.name} and move him to IR`,sub:`A free IR slot and an add that would go unused (${s.why}). ${s.injury?esc(s.injury)+', ':''}${s.back_date?'back about '+new Date(s.back_date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})+'. ':''}About +${s.gain} over the rest of the season.`,gain:''}); }
-    const seq=(T.sequence||[]).map(a=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); return {a,d:a.on||(g.length?a.by_day[bi].date:todayIso)}; }).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
+    const seq=(T.sequence||[]).map(a=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); let d=a.on||(g.length?a.by_day[bi].date:todayIso);
+      if(a.add.waiver&&a.add.waiver.date){ const c=new Date(a.add.waiver.date+'T12:00:00'); c.setDate(c.getDate()-1); const cd=c.toISOString().slice(0,10); if(cd<d) d=cd<todayIso?todayIso:cd; }   // the claim must be in before the 3am run: the night before
+      return {a,d}; }).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
     seq.forEach(({a,d})=>{
-      const kind=a.keep?'Keep him':(a.release?`Keep him until ${fmtDow(a.release)}`:(a.hold_through&&a.hold_through>(a.on||d)?`Rental through ${fmtDow(a.hold_through)}`:'One-day rental'));
+      const nx=iso=>(iso>M.end?'next ':'')+fmtDow(iso);
+      const kind=a.keep?'Keep him':(a.release?`Keep him until ${nx(a.release)}`:(a.hold_through&&a.hold_through>(a.on||d)?`Rental through ${nx(a.hold_through)}`:'One-day rental'));
       const risk=(a.p_taken||0)>0.01?` · ${sgn0(a.gain_adj)} after a ${Math.round(a.p_taken*100)}% chance he is taken`:'';
       const bk=(a.backups||[]).length?` · backup ${a.backups[0].name}`:'';
       const wv=a.add.waiver?' · on waivers':'';
@@ -1426,10 +1450,16 @@ function renderWeek(){
         if(Math.abs(a.next_gain||0)>=1) bits.push(`${sgn0(a.next_gain)} next week`);
         if((a.future_cost||0)<=-1) bits.push(`${sgn0(-a.future_cost)} rest of season`); else if((a.future_cost||0)>=1) bits.push(`${sgn0(-a.future_cost)} risk of losing ${a.drop?a.drop.name.split(' ').slice(-1)[0]:'him'}`);
         pts=bits.length?' · '+bits.join(', '):''; }
-      doItems.push({when:dShort(d),what:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`,sub:(a.purpose==='next'?'Sets up next week. ':'')+kind+wv+pts+risk+bk,gain:sgn0(a.gain)}); });
+      const claim=!!a.add.waiver;
+      const whenLbl=claim&&d===todayIso?'Tonight':dShort(d);
+      const what=claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`;
+      const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when} (the drop happens then). `:'';
+      doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain)}); });
     if(!seq.length) doItems.push({when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
-  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
+  const chg=isMe?planChanges(T,sb):null;
+  const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
+  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
   // tonight's lineup in ESPN slot order, points if he plays
   const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
   const luNow=dayRow&&!dayRow.locked?dayRow.start.slice().sort((a,b)=>(SLOT_O[a.slot]??9)-(SLOT_O[b.slot]??9)||b.ef-a.ef):[];
@@ -1454,7 +1484,7 @@ function renderWeek(){
     return faRow(x.name,x.team,x.status&&x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',bits.join(' · '),fmtTitle(e.pr.tv)??('+'+e.pr.ros)); }).join('');
   const faPanels=[['tonight','Tonight',faTonight,'Points each adds to tonight alone','No pickup adds to tonight: your best lineup is already full.'],['week','This week',faWeek,'Best single move for each, judged one at a time (they overlap)','Nobody beyond the plan is worth an add this week.'],['season','Season',faSeason,'What each adds to your title odds over the rest of the season (playoff weeks weighted by how much they decide titles)','No free agent beats streaming over the rest of the season.']];
   const faFirst=Math.max(0,faPanels.findIndex(x=>x[2]));   // open on the first horizon that has someone in it
-  const faTabsHtml=isMe?`<h2 class="todayH">Free agents</h2><div class="faTabs" role="tablist">${faPanels.map((x,i)=>`<button type="button" role="tab" data-fat="${x[0]}" aria-selected="${i===faFirst}">${x[1]}</button>`).join('')}</div>${faPanels.map((x,i)=>`<div class="faPanel" data-fap="${x[0]}" ${i===faFirst?'':'hidden'}><div class="hint" style="margin:0 0 .4rem">${x[3]}</div>${x[2]||`<div class="hint" style="padding:.6rem 0">${x[4]}</div>`}</div>`).join('')}`:'';
+  const faTabsHtml=isMe?`<div class="faTabs" role="tablist">${faPanels.map((x,i)=>`<button type="button" role="tab" data-fat="${x[0]}" aria-selected="${i===faFirst}">${x[1]}</button>`).join('')}</div>${faPanels.map((x,i)=>`<div class="faPanel" data-fap="${x[0]}" ${i===faFirst?'':'hidden'}><div class="hint" style="margin:0 0 .4rem">${x[3]}</div>${x[2]||`<div class="hint" style="padding:.6rem 0">${x[4]}</div>`}</div>`).join('')}`:'';
   const lineupSec=sec('lineup','Lineup plan by day',`${T.expected.toFixed(0)} expected points`,`
     <div class="hint" style="margin:0 0 1rem">${gainVsAll>=0.5?`Following the plan is worth <b>+${gainVsAll.toFixed(0)} points</b> over starting everyone who plays, by saving games for better days once the cap matters. `:`Your roster is expected to use about ${Math.min(M.cap,coverStarts(T.days)).toFixed(0)} of the ${M.cap} cap games this week (counting a bench player stepping in for anyone who is ruled out${coverStarts(T.days)>coverStarts(T.days,true)+1?`; the day-by-day table below counts only the players already in the lineup, so it shows about ${(T.days[T.days.length-1].starts_after).toFixed(0)}`:''}), so starting everyone who plays is best.${T.days_after&&(T.sequence||[]).length?` With the suggested moves it reaches about ${Math.min(M.cap,coverStarts(T.days_after)).toFixed(0)}. `:' '}`}${emptySlotDays>0?`${emptySlotDays} starting slot-days are empty on this schedule, so adds that play then are worth the most. `:''}Numbers are expected fantasy points (chance of playing x projected points per game).</div>
     ${T.days_after&&(T.sequence||[]).length?`<label class="kbox" style="margin:0 0 .5rem;gap:.5rem"><input type="checkbox" id="weekAfterCb" ${weekAfter?'checked':''} /> <span>Show plan after suggested moves <span class="hint">(${T.expected.toFixed(0)} now, ${T.expected_after.toFixed(0)} with all ${(T.sequence||[]).length} moves)</span></span></label>`:''}
@@ -1466,7 +1496,6 @@ function renderWeek(){
     ${scoreHtml}
     ${doNowHtml}
     ${tonightLineupHtml}
-    ${faTabsHtml}
     <div class="cardPair" style="margin-top:1.2rem">${oddsHtml(T.id===meT.id)}${gamesHtml(T)}</div>
     <h2 class="todayH" style="margin-top:1.4rem">Details</h2>
     ${lineupSec}
@@ -1477,6 +1506,7 @@ function renderWeek(){
     ${budgetHtml}`:`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: no moves this week (${addsLeft} of ${M.adds_limit} adds left)</div><div class="note" style="margin-bottom:1.2rem">No add clears the bar right now, so standing still is the plan. The list is re-run every morning and will return when an injury, a hot free agent or a schedule change creates a gain.</div>${budgetHtml}`,false)}
     ${wrapHdr('inj',advHtml,false)}
     ${wrapHdr('opp',oppHtml,false)}
+    ${faTabsHtml?sec('fa','Free agents','outside the plan',faTabsHtml,false):''}
     ${sec('roster','Roster and schedule',`● = plays that day (${daysHdr.join(' ')})`,`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Projected</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Keeper rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`,false)}
     <div class="legend" style="margin-top:1rem"><b>How the numbers work.</b> <b>Free agent or waivers.</b> A player with no tag is a free agent: add him instantly, any hour. A <b>WAIVERS</b> tag means another team just dropped him, so he can only be claimed (ESPN processes claims at about 3am ET, at least 24 hours after the drop, in waiver order) and the plan counts him only from the day he clears. League rule: only 40 started games count per 7-day matchup (scaled for other lengths), checked at the <i>start</i> of each day. Start a day under the cap and you can start anyone and go over; start it at or over and nothing else counts. The plan picks lineups day by day to maximize <i>points</i>, not games, so it may cross the cap early when a day is strong and later days are thin, or sit weak starters to save games for better days. <b>Level</b> for a given day = the day-specific projection (DailyFantasyFuel, converted to league points) whenever that day's slate is posted; otherwise ESPN's season projection blended with the last 15 games. A free agent missing from a posted slate is treated as not expected to play. Chance of playing is measured, not guessed: for today's game the league's official injury designation sets it (rotation players: available 96%, probable 92%, questionable 57%, doubtful 4%, out 0%; bench players lower), a healthy player with no designation is 94% (89% on the second night of a back-to-back), and for later days it is 85% for rotation players, 81% at 15–20 points a game and 61% below that (they can get hurt or rest). For what a player is worth after this week, ESPN and our model (DELCO) are averaged; free agents are shrunk toward replacement, lightly for veterans whose two projections agree, more for short records. Position eligibility comes from ESPN. <b>Drops:</b> with only 5 keepers, a non-keeper's value is what he produces this season. So each team's top 6 dynasty assets (and anyone projecting 35+ a game) are never suggested as drops. Every suggestion's gain is <i>net</i>: this week's points minus the expected long-run cost. For a rental that cost is the chance (about 15%) the dropped player is taken before you re-add him; for a player you keep, it is the season-long gap between him and the player dropped. Add names to ingest/research/never_drop.json to protect anyone else. Opponent totals assume they also play their best lineups, and win chance uses a 253-point weekly spread measured last season. ${M.calendar_assumed?'<b>Matchup dates for ${(W.season||0)-1}-${String(W.season||0).slice(2)} are assumed</b> (6-day opener, then Monday–Sunday weeks) until ESPN publishes them in season. ':''}Games already tipped today can't be changed; late swaps are possible until each game starts.</div>`;
   { const secs=[...pane.querySelectorAll('details.sec')];

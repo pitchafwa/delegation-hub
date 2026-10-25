@@ -90,8 +90,25 @@ def _ledger(kind, **kw):
         pass
 
 
-def push(title, body, priority=3, tags=None):
-    print(f"--- {title} (priority {priority})\n{body}\n")
+LEAGUE_ID = 600271905
+MY_TEAM_ID = 12
+PLAN_URL = SITE + "#week"
+ESPN_TEAM = f"https://fantasy.espn.com/basketball/team?leagueId={LEAGUE_ID}&teamId={MY_TEAM_ID}"
+
+
+def espn_add(pid):
+    """ESPN's Add Players page for this player (where the add / claim button is)"""
+    return f"https://fantasy.espn.com/basketball/players/add?leagueId={LEAGUE_ID}&playerId={pid}"
+
+
+def btn(label, url):
+    return {"action": "view", "label": label, "url": url, "clear": True}
+
+
+def push(title, body, priority=3, tags=None, actions=None):
+    """phone alert. Keep the title under ~35 characters and the body to 2-3 short lines: iPhone shows about that much without expanding.
+    actions: ntfy buttons. Only point at ESPN when there is something to do there NOW; a heads-up for later gets 'Open plan' only."""
+    print(f"--- {title} (priority {priority})\n{body}" + (f"\n[buttons: {', '.join(a['label'] for a in actions)}]" if actions else "") + "\n")
     if title != "Fantasy Hub test":
         _ledger("alert", title=title, body=body[:600], priority=priority)
     if DRY:
@@ -99,7 +116,10 @@ def push(title, body, priority=3, tags=None):
     if not TOPIC:
         print("NTFY_TOPIC is not set: cannot send")
         return False
-    r = requests.post("https://ntfy.sh/", json={"topic": TOPIC, "title": title, "message": body[:3800], "priority": priority, "tags": tags or [], "click": SITE}, timeout=30)
+    payload = {"topic": TOPIC, "title": title, "message": body[:3800], "priority": priority, "tags": tags or [], "click": PLAN_URL}
+    if actions:
+        payload["actions"] = actions[:3]
+    r = requests.post("https://ntfy.sh/", json=payload, timeout=30)
     return r.status_code == 200
 
 
@@ -509,13 +529,13 @@ def plan_guidance(T, pid):
         drop = (sq.get("drop") or {}).get("name") or "an open roster spot"
         P = p_taken(sq["add"].get("ll") or sq["add"].get("level"))
         bk = sq.get("backups") or []
-        alt = f" If he is taken first: {_backup_text(bk)}." if _backup_text(bk) else ""
-        what = f"This season: the plan adds him {day}, dropping {drop} (about {sq['gain']:+.0f})."
+        alt = ""
+        what = f"Plan: add {day}, drop {drop} ({sq['gain']:+.0f})."
         if now and sq["on"] > TODAY.isoformat():
             ev_wait = (1 - P) * sq["gain"] + P * max(0.0, bk[0]["net"] if bk else 0.0)
             if now["net"] > ev_wait:
-                return what + f" Adding him today instead (drop {now['drop']}) is worth more on average ({now['net']:+.0f} vs {ev_wait:+.0f}), so add him now.{alt}", "add now"
-            return what + f" Waiting is still worth more ({ev_wait:+.0f} vs {now['net']:+.0f} today), even with a {P:.0%} chance he is taken first.{alt}", f"add {day}"
+                return what + " Better to add him now.", "add now"
+            return what + " Waiting is still better.", f"add {day}"
         return what + alt, f"add {day}"
     if pc:
         keep = {"kind": "keep", **{k: pc.get(k) for k in ("net", "adj", "wk", "fut", "drop", "on")}} if pc.get("drop") and pc.get("net", -1e9) > -1e8 else None
@@ -523,8 +543,8 @@ def plan_guidance(T, pid):
         best = rent if rent and (not keep or (rent.get("adj", rent["net"]) >= (keep.get("adj") if keep.get("adj") is not None else keep["net"]))) else keep
         if best and best["net"] >= 6:
             how = "a long-term pickup" if best["kind"] == "keep" else "a short rental"
-            return f"This season: about {best['net']:+.0f} on his own as {how} (drop {best['drop']}), but the plan's moves are worth more, so he is not in this week's plan.", "not in plan"
-        return "This season: he does not beat anyone on your roster.", "no help this season"
+            return f"Plan: not this week (the planned moves beat him).", "not in plan"
+        return "Plan: no help this season.", "no help this season"
     return "", ""
 
 
@@ -558,14 +578,14 @@ def roster_fix_alert(T, s, mine, can_send):
             continue
         st = {"OUT": "out", "INJURY_RESERVE": "on injured reserve", "SUSPENSION": "suspended"}.get(m.get("status"), "injured")
         if m["action"] == "to_ir":
-            title, body = f"Move {m['name']} to IR", f"{m['name']} is {st}. Moving him to an open IR slot costs nothing and frees a roster spot for the plan's adds."
+            title, body = f"Move {m['name']} to IR", f"He's {st}. Free move; it opens a roster spot."
         elif m["action"] == "activate_swap":
-            title, body = f"Activate {m['name']} from IR", f"{m['name']} is healthy but in an IR slot, so he cannot play. Activate him and drop {(m.get('drop') or {}).get('name', 'your lowest-value player')}."
+            title, body = f"Activate {m['name']} from IR", f"He's healthy but stuck on IR. Activate him, drop {(m.get('drop') or {}).get('name', 'your lowest-value player')}."
         else:
-            title, body = f"Activate {m['name']} from IR", f"{m['name']} is healthy but in an IR slot, so he cannot play. Move him to your bench or lineup."
+            title, body = f"Activate {m['name']} from IR", "He's healthy but stuck on IR. Move him to your bench or lineup."
         if m.get("unlocks") and m["unlocks"] > 0.5:
-            body += f" Worth about +{m['unlocks']:.0f} this week."
-        if push(title, body, priority=4, tags=["hospital"]):
+            body += f" +{m['unlocks']:.0f} this week."
+        if push(title, body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
             sent[key] = TODAY.isoformat()
 
 
@@ -579,7 +599,9 @@ def plan_move_alert(lg, T, s, mine, can_send):
     import waivers as WV
     if not can_send:
         return
-    pool = {int(p["id"]) for p in WV.available_pool(lg, 300)}
+    _pool = WV.available_pool(lg, 300)
+    pool = {int(p["id"]) for p in _pool}
+    on_waivers = {int(p["id"]) for p in _pool if p.get("status") == "WAIVERS"}
     mine_ids = {int(p.playerId) for p in mine.roster}
     ann = s.setdefault("plan_announced", {})
     for k in [k for k, d in ann.items() if (TODAY - date.fromisoformat(d)).days > 3]:
@@ -601,20 +623,25 @@ def plan_move_alert(lg, T, s, mine, can_send):
         stage = "today" if days_to == 0 else "eve"
         a = m["add"]["name"]
         dr = drop.get("name")
-        action = f"add {a}, drop {dr}" if dr else f"add {a} (open roster spot)"
-        lines = [_move_kind(m), _gain_text(m)]
-        if w and pid not in pool:
-            lines.append(f"{a} is on waivers: put in a claim before {WV.when(w)}.")
-        if m["add"].get("boost", 0) >= 2.5 and m["add"].get("boost_why"):
-            lines.append(f"Why now: {' and '.join(m['add']['boost_why'][:2])} {'are' if len(m['add']['boost_why'][:2]) > 1 else 'is'} out, worth about +{m['add']['boost']:.0f} a game to him.")
-        if m.get("reclaim") and dr:
-            lines.append(f"Re-add {dr} when the rental ends, if nobody has claimed him.")
-        bk = _backup_text(m.get("backups") or [])
-        if bk:
-            lines.append(f"If {a} is taken first: {bk}.")
+        claim = bool(w) and (pid in on_waivers or pid not in pool)   # on waivers: the claim has to be in BEFORE the 3am run, i.e. tonight
+        kind = "long-term pickup" if m.get("keep") else ("rental" if (m.get("hold_through") or m["on"]) > m["on"] else "one-game rental")
+        bkl = [b for b in (m.get("backups") or []) if b.get("net", 0) > 0]
+        tail = f" If he's gone: {bkl[0]['name']}." if bkl else ""
+        drop_txt = f"Drop {dr}" if dr else "Open roster spot"
+        if claim:
+            title = f"Tonight: claim {a}"
+            body = f"{drop_txt} in the claim. Waivers run {WV.when(w)}. {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
+            acts = [btn("Claim in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
+        elif days_to == 0:
+            title = f"Now: add {a}"
+            body = f"{drop_txt}. {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
+            acts = [btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
+        else:
+            title = f"Tomorrow: add {a}"
+            body = f"{drop_txt}. {kind.capitalize()}, +{m['gain']:.0f}. Nothing to do tonight."
+            acts = [btn("Open plan", PLAN_URL)]
         if (FORCE or not in_quiet()) and base + ":" + stage not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
-            lead = "Today" if days_to == 0 else f"Tomorrow ({on.strftime('%a')})"
-            if push(f"{lead}: {action}", "\n".join(lines), priority=4, tags=["arrows_counterclockwise"]):
+            if push(title, body, priority=4, tags=["arrows_counterclockwise"], actions=acts):
                 ann[base + ":" + stage] = TODAY.isoformat()
                 ann.setdefault(base, TODAY.isoformat())
         # reminder: today's add still not made and his game is about two hours away
@@ -622,7 +649,7 @@ def plan_move_alert(lg, T, s, mine, can_send):
         if days_to == 0 and pid in pool and tip is not None and base + ":rem" not in ann:
             mins = (tip - NOW).total_seconds() / 60
             if 0 < mins <= 120:
-                if push(f"Still to do: {action}", f"{a}'s game starts at {_fmt_t(tip)} ET, in about {int(mins)} minutes. Make the move before then.", priority=5, tags=["alarm_clock"]):
+                if push(f"Still to do: add {a}", f"{drop_txt} before his {_fmt_t(tip)} tip ({int(mins)} min).", priority=5, tags=["alarm_clock"], actions=[btn("Add in ESPN", espn_add(pid))]):
                     ann[base + ":rem"] = TODAY.isoformat()
 
 
@@ -636,9 +663,9 @@ def stash_alert(T, s, mine, can_send):
     if key in sent:
         return
     back = f" Expected back about {datetime.fromisoformat(st['back_date']).strftime('%b %d').replace(' 0', ' ')}." if st.get("back_date") else ""
-    if push(f"Today: add {st['name']} and move him to IR",
-            f"{st['name']} ({st['team']}) is injured{(' (' + st['injury'] + ')') if st.get('injury') else ''}.{back} You have a free IR slot and an add that would otherwise go unused ({st['why']}). Worth about +{st['gain']} over the rest of the season.",
-            priority=3, tags=["hospital"]):
+    if push(f"Stash {st['name']} on IR",
+            f"Injured{(', ' + st['injury']) if st.get('injury') else ''}.{back} Free IR slot and an add that would go unused. +{st['gain']} rest of season.",
+            priority=3, tags=["hospital"], actions=[btn("Add in ESPN", espn_add(st["id"]))]):
         sent[key] = TODAY.isoformat()
 
 
@@ -736,20 +763,20 @@ def pickup_alert(lg, W, T, s, mine, can_send):
     pri, n = WV.my_priority(lg, T["id"])
     lines, recheck = [], []
     for pid, v, kind in events[:3]:
-        val = f"Keeper value {v['asset']:.0f}, above your #5 keeper ({bar:.0f})." + (f" About {v['ppg']:.0f} points a game this season." if v["ppg"] else "")
+        val = f"Keeper value {v['asset']:.0f} (your #5: {bar:.0f})."
         extra = ""
         if v["status"] == "FREEAGENT":
-            head = f"{v['name']} ({v['team']}) cleared waivers unclaimed: add him any time." if kind == "cleared" else f"{v['name']} ({v['team']}) is a free agent: add him any time."
+            head = f"{v['team']}, free agent now."
             pg, ptag = plan_guidance(T, pid)
             _mark_announced(T, pid, s)
             if not pg:
                 recheck.append(v["name"])
-                pg = "This season: the plan is re-checking with him now."
-            lines.append((ptag, v["name"], f"{head}\n{val}\n{pg}"))
+                pg = "Plan: re-checking with him now."
+            lines.append((ptag, v["name"], f"{head} {val}\n{pg}", pid))
         else:
             w = wm.get(int(pid))
             when = WV.when(w) if w else "the next 3am ET run"
-            prio = f" You are {pri} of {n} in waiver order." if pri else ""
+            prio = ""
             try:
                 intel = load("waiver_intel.json")
                 ranks = WV.all_priorities(lg)
@@ -757,21 +784,21 @@ def pickup_alert(lg, W, T, s, mine, can_send):
                 if pw is not None:
                     names = {t.team_id: t.team_abbrev for t in lg.teams}
                     top = ", ".join(f"{names.get(t, t)} {q:.0%}" for t, q in ahead[:2] if q >= 0.03)
-                    prio = f" Your chance to win the claim: about {pw:.0%}" + (f" (likeliest rival: {top})." if top else ".")
+                    prio = f" Claim odds ~{pw:.0%}."
             except Exception as ex:
                 print("claim-odds estimate failed:", repr(ex)[:80])
             pg, ptag = plan_guidance(T, pid)
             _mark_announced(T, pid, s)
             if not pg:
                 recheck.append(v["name"])
-                pg = "This season: the plan is re-checking with him now."
-            lines.append((ptag, v["name"], f"{v['name']} ({v['team']}) was dropped. Claim him before {when}.{prio}\n{val}\n{pg}"))
+                pg = "Plan: re-checking with him now."
+            lines.append((ptag, v["name"], f"{v['team']}, on waivers until {when}.{prio} {val}\n{pg}", pid))
         sent[f"{pid}:{v['status']}"] = TODAY.isoformat()
     if recheck and not (s.get("plan_rebuild") or {}).get("why", "").startswith("new free agent"):
         request_rebuild(s, "new free agent(s) to evaluate: " + ", ".join(recheck))
     first = lines[0]
-    title = f"Keeper-level free agent: {first[1]}" + (f" and {len(lines) - 1} more" if len(lines) > 1 else "")
-    push(title, "\n\n".join(x[2] for x in lines), priority=4, tags=["star"])
+    title = f"Keeper-level FA: {first[1]}" + (f" +{len(lines) - 1}" if len(lines) > 1 else "")
+    push(title, "\n".join(x[2] for x in lines[:2]), priority=4, tags=["star"], actions=[btn("Open in ESPN", espn_add(first[3])), btn("Open plan", PLAN_URL)])
     _ledger("pickup", names=[e[1]["name"] for e in events[:3]], kinds=[e[2] for e in events[:3]])
 
 
@@ -790,18 +817,18 @@ def first_tip_check(W, T, mine, off, s, can_send):
             is_out = (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or off.get(norm(p.name).replace(" ", "")) == "Out"
             t_ = tips.get(canon(p.proTeam or ""))
             if starting and is_out and t_ is not None and t_ > NOW:     # only matters if his team plays today and the game has not started (a starter with no game uses no start)
-                probs.append(f"Bench {p.name} ({slot}): he is out.")
+                probs.append(f"Bench {p.name} ({slot}): out.")
         if today_plan and not today_plan.get("locked"):
             benched = {p.playerId: p for p in mine.roster if p.lineupSlot in ("BE", "IR")}
             for x in today_plan["start"]:
                 q = benched.get(x["id"])
                 if q is not None and q.injuryStatus not in ("OUT", "INJURY_RESERVE") and off.get(norm(q.name).replace(" ", "")) != "Out":
-                    probs.append(f"Start {x['name']}: the plan starts him today but he is on your {'IR' if q.lineupSlot == 'IR' else 'bench'}.")
+                    probs.append(f"Start {x['name']}: he's on your {'IR' if q.lineupSlot == 'IR' else 'bench'}.")
         if probs:
             h = hashlib.md5("|".join(sorted(probs)).encode()).hexdigest()[:10]
             key = f"{TODAY.isoformat()}:{h}"
             if s.get("sent", {}).get("lineup") != key:
-                push(f"Fix your lineup before {_fmt_t(tip)} ET", "\n".join(probs[:6]), priority=4, tags=["rotating_light"])
+                push(f"Fix lineup by {_fmt_t(tip)}", "\n".join(probs[:4]), priority=4, tags=["rotating_light"], actions=[btn("Open my team", ESPN_TEAM)])
                 s.setdefault("sent", {})["lineup"] = key
 
 
@@ -877,24 +904,22 @@ def _fmt_t(dt):
 def scratch_message(out_p, tip, now, opts, fas, reason, tips):
     mins = int((tip - now).total_seconds() // 60)
     S = out_p["slot"]
-    lines = [f"{out_p['name']} ({S}) is {reason}. His game starts at {_fmt_t(tip)} ET, in {mins} minutes."]
+    lines = [f"{out_p['name']} ({S}) is {reason}."]
     if opts:
         val, b, slot, y = opts[0]
-        bt = _fmt_t(tips[b["team"]])
         if y is None:
-            lines.append(f"Best swap: start {b['name']} at {S} (about {val:.0f} points, {bt} game).")
+            lines.append(f"Start {b['name']} at {S} (~{val:.0f}).")
         else:
-            lines.append(f"Best swap: move {y['name']} to {S} and start {b['name']} at {slot} (about {val:.0f} points, {bt} game).")
-        more = [f"{b2['name']} ({v2:.0f})" for v2, b2, s2, y2 in opts[1:3]]
+            lines.append(f"Move {y['name']} to {S}, start {b['name']} at {slot} (~{val:.0f}).")
+        more = [b2["name"] for v2, b2, s2, y2 in opts[1:3]]
         if more:
-            lines.append("Also possible: " + ", ".join(more) + ".")
+            lines.append("Or: " + ", ".join(more) + ".")
     else:
-        lines.append(f"No bench player can cover {S} tonight.")
         if fas:
             f = fas[0]
-            lines.append(f"Free-agent option: {f[1]['name']} ({f[1]['team']}, about {(f[1].get('tonight') or f[1]['level']):.0f} points, {_fmt_t(f[2])} game). It uses an add and a drop.")
+            lines.append(f"No bench fit. Free agent: {f[1]['name']} (~{(f[1].get('tonight') or f[1]['level']):.0f}), costs an add.")
         else:
-            lines.append("No free agent fits either: leave the slot empty.")
+            lines.append("No bench or free-agent fit: leave it empty.")
     return "\n".join(lines)
 
 
@@ -911,7 +936,7 @@ def late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id):
         status = o or p.injuryStatus or "ACTIVE"
         pretend = p.name.lower() in PRETEND_OUT
         out = pretend or (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or o in ("Out", "Doubtful")
-        reason = "out (test)" if pretend else (f"{o.lower()} on the official injury report" if o in ("Out", "Doubtful") else {"OUT": "out (ESPN)", "INJURY_RESERVE": "on injured reserve", "SUSPENSION": "suspended"}.get(p.injuryStatus, "out"))
+        reason = "out (test)" if pretend else (f"{o.lower()} (injury report)" if o in ("Out", "Doubtful") else {"OUT": "out", "INJURY_RESERVE": "on IR", "SUSPENSION": "suspended"}.get(p.injuryStatus, "out"))
         roster.append({"id": p.playerId, "name": p.name, "slot": p.lineupSlot, "elig": list(getattr(p, "eligibleSlots", []) or []), "team": canon(p.proTeam or ""),
                        "out": out, "reason": reason if out else "", "p": 0.0 if out else P_STATUS.get(status, 0.94), "level": plan_by_id.get(p.playerId, {}).get("tonight") or plan_by_id.get(p.playerId, {}).get("level", 20.0)})
     lu = s.setdefault("lu", {})
@@ -937,8 +962,8 @@ def late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id):
         opts = swap_options(q, roster, tips, NOW)
         fas = [] if opts else fa_options(q, W.get("fa_pool"), tips, NOW)
         body = scratch_message(q, tip, NOW, opts, fas, q["reason"], tips)
-        title = (f"Still in your lineup: {q['name']} is out" if want == 2 else f"Swap out {q['name']} before {_fmt_t(tip)}")
-        if push(title, body, priority=5 if mins <= 60 else 4, tags=["rotating_light"]):
+        title = (f"Still starting {q['name']} (out)" if want == 2 else f"Swap out {q['name']} by {_fmt_t(tip)}")
+        if push(title, body, priority=5 if mins <= 60 else 4, tags=["rotating_light"], actions=[btn("Open my team", ESPN_TEAM)]):
             lu[key] = want
             _ledger("late_scratch", player=q["name"], stage=want, mins_to_tip=round(mins), swap=(opts[0][1]["name"] if opts else None))
 
