@@ -1084,6 +1084,23 @@ def p_taken(ll, days_ahead):
     return 1 - (1 - p48) ** (days_ahead / 2.0)
 
 
+# RECLAIM RISK (reclaim_study.py, 2026-10-25: 772 drops of healthy players in this league, 2023-26): share of dropped players another team took within N days, by his
+# recent points per game. Replaces the old max(RECLAIM_LOSE 15%, p_taken) rule, which was a little low for 27+ ppg players and about double the real risk under 27.
+RECLAIM_DAYS = [2, 3, 4, 7]
+RECLAIM_TABLE = [(33, [0.32, 0.38, 0.43, 0.51]), (27, [0.19, 0.27, 0.36, 0.44]), (20, [0.11, 0.18, 0.22, 0.34]), (-99, [0.07, 0.12, 0.16, 0.24])]
+
+
+def reclaim_lose(ll, days):
+    """chance the player you drop is gone before you can re-add him, after `days` days (interpolated in the measured table; beyond 7 days the day-4-to-7 rate continues)"""
+    cur = next(c for lo, c in RECLAIM_TABLE if ll >= lo)
+    if days <= RECLAIM_DAYS[0]:
+        return cur[0]
+    for d0, c0, d1, c1 in zip(RECLAIM_DAYS, cur, RECLAIM_DAYS[1:], cur[1:]):
+        if days <= d1:
+            return c0 + (c1 - c0) * (days - d0) / (d1 - d0)
+    rate = 1 - ((1 - cur[3]) / (1 - cur[2])) ** (1 / 3.0)
+    return 1 - (1 - cur[3]) * (1 - rate) ** (days - 7)
+
 STREAM_HOLD_EVAL = {}      # candidate id -> best 'add now and KEEP him' option the stream search saw on its first round (read by the pickup alert so it agrees with the plan)
 
 
@@ -1109,7 +1126,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
 
     def lose_p(dr, wait_days=2):
         """chance the player you drop is gone before you can re-add him: about 15% for the usual two days on waivers, more the longer he sits (same per-2-day rate as p_taken)"""
-        return max(RECLAIM_LOSE, p_taken(LL(dr), max(2, wait_days)))
+        return reclaim_lose(LL(dr), max(2, wait_days))
 
     def fut(dr, wait_days=2):
         # the gap to the free agent you could re-stream with, for the rest of the season, but only the share we expect to actually lose: you can re-add the player you drop once the stream is over

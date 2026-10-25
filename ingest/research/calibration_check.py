@@ -4,7 +4,7 @@ Each check reports its sample so far and whether that is enough to act on. Nothi
   1. WIN CHANCE       the plan's win chance for every team at the first run of each matchup (ledger "league" records) vs the real result  (want 60+ team-matchups)
   2. OPPONENT HABITS  realistic projection (perfect-lineup projection x owner efficiency, study #3) vs perfect-lineup projection, against real totals
   3. INJURY TAGS      how often Questionable / Doubtful / Probable players actually played (DailyFantasyFuel tags at tip-off; grade_dfs.py) vs the plan's 57% / 4% / 92%
-  4. DROPPED PLAYERS  share of players dropped in this league who were added by another team within 2 days, by points per game, vs the plan's 25% / 16% / 12% (RECLAIM_LOSE 15%)
+  4. DROPPED PLAYERS  share of players dropped in this league who were added by another team within 2 days, by points per game, vs the plan's measured table (reclaim_lose in build_week_plan.py: 32% / 19% / 11% / 7% within 2 days)
   5. DFF ACCURACY     grade_dfs.py's report (accuracy and how fast it reacts to injury news)
   6. ADDS             adds used per matchup by Tommy vs the 7 allowed (unused adds expire)
 Writes ingest/research/data/calibration_report.txt.  Run from ingest/:  .venv/Scripts/python research/calibration_check.py
