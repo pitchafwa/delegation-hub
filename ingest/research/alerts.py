@@ -783,11 +783,13 @@ def first_tip_check(W, T, mine, off, s, can_send):
         days_src = T.get("days_after") if (made and T.get("days_after")) else T["days"]      # you have made the plan's moves: check against the lineup that assumes them
         today_plan = next((d for d in days_src if d["date"] == TODAY.isoformat()), None)
         probs = []
+        tips = team_tips()
         for p in mine.roster:
             slot = p.lineupSlot
             starting = slot not in ("BE", "IR")
             is_out = (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or off.get(norm(p.name).replace(" ", "")) == "Out"
-            if starting and is_out:
+            t_ = tips.get(canon(p.proTeam or ""))
+            if starting and is_out and t_ is not None and t_ > NOW:     # only matters if his team plays today and the game has not started (a starter with no game uses no start)
                 probs.append(f"Bench {p.name} ({slot}): he is out.")
         if today_plan and not today_plan.get("locked"):
             benched = {p.playerId: p for p in mine.roster if p.lineupSlot in ("BE", "IR")}
