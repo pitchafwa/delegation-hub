@@ -1539,7 +1539,7 @@ function renderWeek(){
       const what=claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`;
       const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when} (the drop happens then). `:'';
       doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain)}); });
-    if(!seq.length) doItems.push({when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
+    if(!seq.length) doItems.push(M.adds_limit-T.adds_used<=0?{when:'Week',what:`All ${M.adds_limit} adds used`,sub:'No more pickups until the next matchup starts. Just set your lineup.',gain:''}:{when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
   const chg=isMe?planChanges(T,sb):null;
   const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
