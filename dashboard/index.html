@@ -1363,7 +1363,7 @@ function matchupHtml(T,O,M,liveOk){
   const maxStarts=Math.ceil(cap-1e-9)-1+10, capPct=cap/maxStarts*100;
   const capBar=(h,right)=>{ if(h.s0==null) return ''; const a=Math.min(100,h.s0/maxStarts*100), b=Math.max(0,Math.min(100,h.s1/maxStarts*100)-a);
     return `<div class="muCap"><b>${Math.round(h.s0)}</b> &rarr; ${Math.round(h.s1)} of ${maxStarts} max · cap ${Math.round(cap)}${h.locked?' <span class="liveStatus">capped</span>':''}</div><div class="muBar${right?' r':''}"><i style="width:${a}%"></i><i class="add" style="width:${b}%"></i><b class="muTick" style="${right?'right':'left'}:${capPct.toFixed(1)}%"></b></div>`; };
-  const row=x=>x?`<div class="muPl ${x.st}${x.planned?' planned':''}"><span class="muSlot">${esc(x.slot)}</span><span class="muWho"><span class="pName" data-pc="${esc(x.name)}" role="button" tabindex="0">${esc(shortName(x.name))}</span><small>${esc(x.sub||'')}</small></span><span class="muPts">${x.pts!=null?x.pts.toFixed(1):(x.st==='out'?'—':x.proj)}</span></div>`
+  const row=x=>x?`<div class="muPl ${x.st}${x.planned?' planned':''}"><span class="muSlot">${esc(x.slot)}</span><span class="muWho"><span class="pName" data-pc="${esc(x.name)}" role="button" tabindex="0">${esc(shortName(x.name))}</span><small>${esc(x.sub||'')}</small></span><span class="muPts">${x.pts!=null?x.pts.toFixed(1):(x.st==='out'?'—':(x.st==='live'||x.st==='final'?'0.0':x.proj))}</span></div>`
     :`<div class="muPl empty"><span class="muSlot">—</span><span class="muWho">open slot</span><span class="muPts"></span></div>`;
   const colHtml=a=>Array.from({length:n},(_,i)=>row(a[i])).join('');
   const chips=days.map(d=>{ const lbl=d===today?'Today':shortDay(d); const isLive=d===today&&liveOk&&LIVE.me&&(LIVE.me.lineup||[]).some(x=>x.st==='live');
