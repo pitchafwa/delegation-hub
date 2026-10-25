@@ -392,3 +392,7 @@ This week's gains are valued by their effect on this matchup's win chance (build
 - SKIPPED #8 (Tommy will decide on tanking himself).
 - SET UP #9: research/calibration_check.py; monthly scheduled task fantasy-hub-calibration (1st of Dec-Mar, 9am); ledger now logs every team's projections each run. Early hint: dropped players taken within 2 days 2/29 (plan assumes 12-25%).
 - DONE #10: playoff-week fixes in build_week_plan.py (no-matchup weeks count nothing; next week weighted by chance of playing; 35+ protection lifted for non-keepers in the final).
+
+## QoL backlog (2026-10-24)
+- Season review page: each week's result vs the plan's projection, adds used, streamer points, moves suggested vs made, projection accuracy, calibration results.
+- Trade analyzer polish: player search instead of checkbox lists, side-by-side lineup before/after, shareable link to a trade.
