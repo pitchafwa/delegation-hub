@@ -1508,7 +1508,7 @@ for t in lg.teams:
     tc = counters.get(t.team_id, {})
     adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
-    moves, seq = search_moves(r, total, c0, steps=min(max(adds_left, 1), 8))
+    moves, seq = search_moves(r, total, c0, steps=min(adds_left, 8))
     r_stream = None
     tonight_picks = None
     pickup_checks = None
@@ -1532,7 +1532,7 @@ for t in lg.teams:
                 _w = [x.strip().lower() for x in os.environ["STREAM_TEST_WEAKEN"].split(",")]
                 _rs = [dict(x, level=round(x["level"] - 14, 1)) if any(k in x["name"].lower() for k in _w) else x for x in r]
                 _tot = plan_team(_rs, c0)
-            seq, r_stream = stream_search(_rs, _tot, c0, steps=min(max(adds_left, 1), 8))
+            seq, r_stream = stream_search(_rs, _tot, c0, steps=min(adds_left, 8))
             pickup_checks = {str(k): v for k, v in STREAM_HOLD_EVAL.items()}
         except Exception as _ex:
             print("stream manager failed, keeping the greedy sequence:", repr(_ex)[:160])
@@ -1556,7 +1556,7 @@ for t in lg.teams:
     advice = advise_injuries(r, total, c0, lambda n: norm(n).replace(" ", ""), _ir_free)
     if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
-        _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(max(adds_left, 1), 8))
+        _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(adds_left, 8))
         unlock = (total + (seq[-1]["cum"] if seq else 0.0)) - (total0 + (seq0[-1]["cum"] if seq0 else 0.0))
         for m in ir_moves:
             m["unlocks"] = round(unlock, 1)
