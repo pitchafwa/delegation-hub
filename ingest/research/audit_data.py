@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-H = Path(r"C:\Users\tommy\OneDrive\Documents\Claude\fantasy-basketball-hub\dashboard")
+H = Path(__file__).resolve().parent.parent.parent / "dashboard"
 L = lambda n: json.load(open(H / n, encoding="utf-8"))
 issues = []
 def flag(area, msg): issues.append((area, msg))
