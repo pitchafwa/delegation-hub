@@ -121,6 +121,8 @@
   .scoreStrip{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;padding-top:.75rem;border-top:1px solid var(--line);font-size:.9rem;color:var(--ink-soft)}.scoreStrip b{font-family:'Barlow Condensed',monospace;color:var(--ink)}
   .scoreCard .liveAdv{margin-top:.5rem}
   .doList{display:flex;flex-direction:column;gap:.5rem}.doItem{display:flex;gap:.8rem;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem}.doWhen{min-width:3.2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;font-weight:600;color:var(--accent);padding-top:.15rem}.doBody{flex:1;display:flex;flex-direction:column;gap:.2rem;font-size:.97rem}.doBody span{font-size:.86rem;color:var(--ink-soft)}.doGain{font-family:'Barlow Condensed',monospace;font-weight:600;color:var(--good)}
+  .doAct{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.35rem}.doBtn{min-height:40px;padding:.35rem .9rem;border-radius:999px;border:0;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer}.doBtn:disabled{opacity:.6;cursor:default}
+  .doMsg{font-size:.84rem;color:var(--ink-soft)}.doMsg.good{color:var(--good)}.doMsg.bad{color:var(--warn)}.doMsg a{color:inherit}
   .lineupBox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.15rem .9rem}.luRow{display:flex;gap:.7rem;align-items:center;min-height:2.6rem;border-bottom:1px solid var(--line)}.luRow:last-child{border-bottom:0}.luSlot{width:2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;color:var(--ink-soft)}.luName{flex:1;font-size:.97rem}.luPts{font-family:'Barlow Condensed',monospace;font-weight:600}
   .faTabs{display:flex;gap:.4rem;margin:0 0 .6rem}.faTabs button{flex:1;min-height:44px;border-radius:8px;border:1px solid var(--line-strong);background:transparent;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}.faTabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
   .faRow{display:flex;gap:.7rem;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.6rem .9rem;margin-bottom:.4rem}.faName{flex:1;font-size:.97rem;display:flex;flex-direction:column;gap:.15rem}.faSub{font-size:.84rem;color:var(--ink-soft)}.faGain{font-family:'Barlow Condensed',monospace;font-weight:600;color:var(--good);min-width:2.6rem;text-align:right}
@@ -1598,12 +1600,13 @@ function renderWeek(){
       const whenLbl=claim&&d===todayIso?'Tonight':dShort(d);
       const what=claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`;
       const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when} (the drop happens then). `:'';
-      doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain)}); });
+      const mv=d===todayIso?{add:a.add.id,drop:a.drop?a.drop.id:'',kind:claim?'waiver':'fa',name:a.add.name,dropName:a.drop?a.drop.name:''}:null;      // one-tap: only moves due today
+      doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
     if(!seq.length) doItems.push(M.adds_limit-T.adds_used<=0?{when:'Week',what:`All ${M.adds_limit} adds used`,sub:'No more pickups until the next matchup starts. Just set your lineup.',gain:''}:{when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
   const chg=isMe?planChanges(T,sb):null;
   const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
-  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
+  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
   // tonight's lineup in ESPN slot order, points if he plays
   const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
   const luNow=dayRow&&!dayRow.locked?dayRow.start.slice().sort((a,b)=>(SLOT_O[a.slot]??9)-(SLOT_O[b.slot]??9)||b.ef-a.ef):[];
@@ -3239,6 +3242,36 @@ function renderStamp(){
 /* Refresh plan: starts the cloud plan build (refresh-gameday.yml) with the same GitHub key the Set lineup panel uses, waits for the new
    week_plan.json commit, and loads it straight from the repository (the public site catches up a minute later when it redeploys). */
 const PR={busy:false,msg:''};
+/* ONE-TAP MOVES (2026-10-25): a Do now move due today gets a button that makes it in ESPN through the roster-move workflow (same GitHub token as Set lineup).
+   The workflow re-checks the move against the newest plan and ESPN, sends one transaction (add + drop together), verifies it, and starts a plan rebuild. */
+const MV_BASE='https://raw.githubusercontent.com/pitchafwa/delegation-hub/move-data/';
+const MV={};   // key -> {busy, msg, ok}
+const mvKey=m=>`${m.add}:${m.drop}:${m.kind}`;
+function mvButton(m){
+  const st=MV[mvKey(m)]||{}, label=m.kind==='waiver'?'Claim in ESPN':'Add in ESPN';
+  const btn=st.ok?'':`<button type="button" class="doBtn" data-mv="${esc(JSON.stringify(m))}" ${st.busy?'disabled':''}>${st.busy?'Working…':label}</button>`;
+  return `<span class="doAct">${btn}${st.msg?`<span class="doMsg${st.ok===false?' bad':(st.ok?' good':'')}">${st.msg}</span>`:''}</span>`;
+}
+async function mvRun(m){
+  const k=mvKey(m), set=(o)=>{ MV[k]=Object.assign(MV[k]||{},o); if(activeView()==='week') renderWeek(); };
+  if(!slTok()){ set({ok:false,msg:'Needs the GitHub token from Set lineup in ESPN (one-time setup).'}); return; }
+  const q=m.kind==='waiver'?`Put in a waiver claim for ${m.name}${m.dropName?`, dropping ${m.dropName} if it goes through`:''}?`:`Add ${m.name}${m.dropName?` and drop ${m.dropName}`:''} in ESPN now?`;
+  if(!confirm(q)) return;
+  const rid=Date.now().toString(36)+Math.random().toString(36).slice(2,6), t0=Date.now();
+  set({busy:true,ok:undefined,msg:'Sending…'});
+  try{
+    const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/roster-move.yml/dispatches`,{method:'POST',headers:Object.assign(ghH(),{'Content-Type':'application/json'}),body:JSON.stringify({ref:'main',inputs:{add:String(m.add),drop:String(m.drop||''),kind:m.kind,rid}})});
+    if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the token (it may have expired, or lacks Actions write access).':'GitHub returned status '+r.status);
+  }catch(e){ set({busy:false,ok:false,msg:esc(e.message)}); return; }
+  set({msg:'Checking the move and sending it to ESPN (about a minute)…'});
+  for(let i=0;i<36;i++){
+    await new Promise(res=>setTimeout(res,5000));
+    try{ const j=await (await fetch(MV_BASE+'move_result.json?t='+Date.now(),{cache:'no-store'})).json();
+      if(j&&j.rid===rid){ set({busy:false,ok:!!j.ok,msg:esc(j.message)+(j.run?` <a href="${esc(j.run)}" target="_blank" rel="noopener">log</a>`:'')}); return; } }catch(e){}
+  }
+  set({busy:false,ok:false,msg:'No answer after 3 minutes. Check the ESPN app before trying again.'});
+}
+document.addEventListener('click',e=>{ const b=e.target.closest('.doBtn'); if(!b||b.disabled) return; try{ mvRun(JSON.parse(b.dataset.mv)); }catch(err){} });
 const ghH=()=>({Authorization:'Bearer '+slTok(),Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
 async function ghRaw(path,sha){ const r=await fetch(`https://api.github.com/repos/${SL_REPO}/contents/${path}?ref=${sha}`,{headers:Object.assign(ghH(),{Accept:'application/vnd.github.raw+json'}),cache:'no-store'}); return r.ok?r.json():null; }
 function applyNewPlan(w,sp){
