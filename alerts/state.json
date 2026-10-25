@@ -13,99 +13,97 @@
  "fa_high": {},
  "last_status": {
   "2530530": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "3059319": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "3978": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4278594": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4395626": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4397136": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "5041955": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-24",
+   "date": "2026-10-25",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   }
  },
- "lu": {
-  "2026-10-24:5041939": 1
- },
+ "lu": {},
  "my_drops": {
   "4683747": "2026-10-24"
  },
