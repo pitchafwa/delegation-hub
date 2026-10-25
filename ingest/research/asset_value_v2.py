@@ -246,6 +246,20 @@ def prospect_value(picks, ages, h, c, mu=None):
 # bring in the hub's prospects
 hub = json.loads((ROOT.parent.parent / "dashboard" / "hub_data.json").read_text(encoding="utf-8"))["players"]
 pros = [q for q in hub if q["kind"] == "prospect"]
+# ROOKIES WHO HAVE DEBUTED (rookie_inseason_study.py, 2026-10-25): a first-year player has no NBA season for the veteran model to anchor on, so he stays on the prospect
+# engine for his whole rookie season and his games so far update it (below, after the paths are built). Before this, a rookie's first game moved him to the veteran
+# side, where he fell back to a weak start plus 2-3 games (Peterson 37.2 -> 22.9, Lendeborg 23.0 -> 42.8).
+ROOKIE_CLASS = LAST_YR + 1
+_rk = u[u["real_draft_year"] == ROOKIE_CLASS].dropna(subset=["PLAYER_ID"]).assign(PLAYER_ID=lambda x: x["PLAYER_ID"].astype(int)).set_index("PLAYER_ID")
+_have = {int(q["id"][1:]) for q in pros} | set(live["PLAYER_ID"].astype(int))
+for q in hub:
+    _pid = int(q["id"][1:])
+    if q["kind"] == "current" and _pid in _rk.index and _pid not in _have:
+        _r = _rk.loc[_pid]
+        pros.append({"player": q["player"], "id": f"p{_pid}", "age": q.get("age"), "debuted": True,
+                     "pick": int(_r["real_draft_number"]) if pd.notna(_r["real_draft_number"]) and _r["real_draft_number"] < 61 else None,
+                     "talent_pctile": float(_r["talent_pctile"]) if pd.notna(_r["talent_pctile"]) else None})
+print(f"rookies who have debuted, kept on the prospect engine: {sum(1 for q in pros if q.get('debuted'))}")
 _ovr_path = ROOT / "prospect_overrides.json"
 OVR = json.loads(_ovr_path.read_text(encoding="utf-8")) if _ovr_path.exists() else {}
 pr_pick_actual = np.array([q["pick"] if q.get("pick") else 61 for q in pros], dtype=float)
@@ -327,6 +341,31 @@ for h in range(1, H + 1):
     a = A_p[:, h - 1] + (Bh - Bh0)                        # the team-situation effect applies to both engines
     E_p[:, h - 1] = np.where(np.isnan(A_p[:, h - 1]), Bh, (1 - lam) * Bh + lam * a)
 E_p = smooth_tail(E_p)
+# IN-SEASON UPDATE FOR ROOKIES (rookie_inseason_study.py: 542 rookies, draft classes 2010-2025, each class predicted by a model fit without it).
+# Rest of the rookie season = a + b x prospect projection + c x his points per game so far, with a/b/c by games played (interpolated between the fitted checkpoints).
+# Early games carry real information about role and minutes (after 2 games they already get about half the weight; held-out error 6.2 vs 7.7 for the projection
+# alone), and the intercept carries the acclimation: rookies score about +5 pts/g more over the rest of the season than in their first games.
+# Later seasons move by a share of the surprise so far (early pts/g - projection): 0.28 after 1 game, 0.47 after 5, 0.70 after 41, fitted on season two.
+RK_N = [1, 2, 3, 5, 8, 12, 20, 30, 41]
+RK_A = [4.041, 4.624, 5.768, 5.47, 4.804, 4.43, 4.327, 4.735, 4.826]
+RK_B = [0.572, 0.427, 0.305, 0.263, 0.24, 0.226, 0.194, 0.153, 0.118]
+RK_C = [0.34, 0.477, 0.54, 0.608, 0.673, 0.699, 0.751, 0.793, 0.841]
+RK_CARRY_N, RK_CARRY = [1, 2, 3, 5, 12, 20, 41], [0.28, 0.376, 0.425, 0.47, 0.537, 0.581, 0.697]
+_kg = pd.read_csv(D / "kalman_input.csv", usecols=["PLAYER_ID", "SEASON", "MIN", "PTS", "REB", "AST", "STL", "BLK", "TOV", "FG3M", "FTM", "FTA", "TD3"])
+_kg = _kg[(_kg["SEASON"] == f"{ROOKIE_CLASS}-{str(ROOKIE_CLASS + 1)[2:]}") & (_kg["MIN"] > 0)]
+_kg["fp"] = _kg["PTS"] + 1.5 * _kg["REB"] + 2 * _kg["AST"] + 3 * _kg["STL"] + 3 * _kg["BLK"] + _kg["FG3M"] + 2 * _kg["FTM"] - _kg["FTA"] - _kg["TOV"] + 3 * _kg["TD3"]
+_rk_g = _kg.groupby("PLAYER_ID")["fp"].agg(["count", "mean"])
+for i, q in enumerate(pros):
+    _pid = int(q["id"][1:])
+    if _pid not in _rk_g.index or np.isnan(E_p[i, 0]):
+        continue
+    n, e = int(_rk_g.loc[_pid, "count"]), float(_rk_g.loc[_pid, "mean"])
+    p0 = float(E_p[i, 0])
+    a, b, c = (float(np.interp(n, RK_N, v)) for v in (RK_A, RK_B, RK_C))
+    carry = float(np.interp(n, RK_CARRY_N, RK_CARRY))
+    E_p[i, 0] = max(a + b * p0 + c * e, 0.0)
+    E_p[i, 1:] = np.maximum(E_p[i, 1:] + carry * (e - p0), 0.0)
+    print(f"  rookie update: {q['player']:24s} {n:2d} games at {e:5.1f}  projection {p0:5.1f} -> {E_p[i, 0]:5.1f} this season, later seasons {carry * (e - p0):+5.1f}")
 elite_p = (pr_pick <= 5) & (pr_age <= 21.5)
 # price-side copies of the paths: the same projection plus the scouting prior for young top-5 picks
 EA_v = E_v + ELITE_UPLIFT * elite_v[:, None]

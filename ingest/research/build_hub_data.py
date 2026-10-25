@@ -187,6 +187,8 @@ _avcols = [f"av{k}" for k in range(20)]
 # calibrated Output B path. Tested out-of-sample (engine_blend_test.py, prospect_engine_test.py).
 _up = pd.read_csv(ROOT / "data" / f"unified_paths{SFX}.csv")
 UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 11)] for r in _up.itertuples()}
+# rookies who have played are on the prospect engine with their games folded in (asset_value_v2.py): that path's first season IS the rest-of-season number
+ROOKIE_LIVE = {int(r.PLAYER_ID) for r in _up.itertuples() if r.kind == "prospect"}
 # 90th-percentile career ("ceiling outcome") per player: path + asset value at each keeper count (asset_value_v2.py)
 _cp = pd.read_csv(ROOT / "data" / f"ceiling_paths{SFX}.csv")
 CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 11)],
@@ -249,7 +251,7 @@ for _, r in current.iterrows():
         "history_values": hist["values"],
         "year0_ppg": _traj_c[0],
         # season mode: the same projection, re-weighted by how much faster season-mode DELCO reacts to this season's games (ratio of the two raw filter outputs)
-        "season_ppg": round(_traj_c[0] * float(np.clip((r["season_ppg"] / r["trajectory"][0]) if ("season_ppg" in r and pd.notna(r["season_ppg"]) and r["trajectory"][0] > 0) else 1.0, 0.6, 1.6)), 1),
+        "season_ppg": _traj_c[0] if int(r["PLAYER_ID"]) in ROOKIE_LIVE else round(_traj_c[0] * float(np.clip((r["season_ppg"] / r["trajectory"][0]) if ("season_ppg" in r and pd.notna(r["season_ppg"]) and r["trajectory"][0] > 0) else 1.0, 0.6, 1.6)), 1),
         "peak_ppg": max(_traj_c),
         "peak_year_index": int(np.argmax(_traj_c)),
         "trajectory": _traj_c,
