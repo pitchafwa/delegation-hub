@@ -75,7 +75,7 @@ def game_progress():
         c = e["competitions"][0]
         st = c["status"]
         state = st["type"]["state"]
-        info = {"state": state, "clock": (st.get("type") or {}).get("shortDetail") or "", "tip": e.get("date")}
+        info = {"state": state, "clock": (st.get("type") or {}).get("shortDetail") or "", "tip": e.get("date"), "event": e.get("id")}
         for t in c["competitors"]:
             GAME_INFO[canon(t["team"]["abbreviation"])] = info
         if state == "pre":
@@ -89,6 +89,24 @@ def game_progress():
         for t in c["competitors"]:
             out[canon(t["team"]["abbreviation"])] = left
     return out
+
+
+_BOX = {}
+
+
+def ruled_out(event):
+    """ESPN athlete ids listed as Out on the game's own page (ESPN game summary 'injuries'), which updates at tip-off even when the fantasy injury tag lags.
+    ESPN athlete ids are the fantasy player ids. Empty set if unavailable."""
+    if not event:
+        return set()
+    if event not in _BOX:
+        try:
+            j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary", params={"event": event}, timeout=20).json()
+            _BOX[event] = {int(i["athlete"]["id"]) for t in j.get("injuries", []) for i in t.get("injuries", []) if str(i.get("status", "")).lower() == "out"}
+        except Exception as ex:
+            print("game summary unavailable:", repr(ex)[:80])
+            _BOX[event] = set()
+    return _BOX[event]
 
 
 def load(name):
@@ -187,10 +205,12 @@ def main():
             pr = plan_roster.get(tid, {}).get(e["id"], {})
             tcanon = canon(PRO_TEAM_MAP.get(e["team"]) or "")
             gi = GAME_INFO.get(tcanon)
+            started = bool(gi and gi["state"] in ("in", "post"))
+            not_dressed = bool(gi) and not e["played"] and e["id"] is not None and int(e["id"]) in ruled_out(gi.get("event"))      # ruled out on the game page
             if gi is not None or not prog:
-                outp = e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION")
+                outp = e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed
                 stt = ("out" if outp and not e["played"] else ("final" if gi and gi["state"] == "post" else ("live" if gi and gi["state"] == "in" else "pre"))) if gi else ("final" if e["played"] else "pre")
-                lineup[tid].append({"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else None, "st": stt,
+                lineup[tid].append({"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else (0.0 if started and not outp else None), "st": stt,
                                     "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"])})
             lvl = pr.get("tonight") or pr.get("level", 22.0)
             boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
@@ -199,7 +219,7 @@ def main():
                 if prog:                                             # the NBA board loaded and his team is not on it: no game today, he cannot score or use a start
                     continue
                 left = 0.0 if e["played"] else 1.0                   # no board at all: fall back to "to play until ESPN marks him as played"
-            p_play = 0.0 if e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") else 0.94
+            p_play = 0.0 if (e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed) else 0.94
             full_day[tid] += (lvl + boost) * p_play
             if left <= 0.0 or p_play <= 0.0:
                 continue
