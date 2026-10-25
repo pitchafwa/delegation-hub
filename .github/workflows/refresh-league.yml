@@ -52,6 +52,11 @@ jobs:
           SWID: ${{ secrets.SWID }}
         run: python research/build_draft_data.py
 
+      # Late-season motivation: how much each NBA team's core and young players are expected to play in our fantasy playoffs (NBA standings + this season's lottery rules)
+      - name: Late-season motivation
+        working-directory: ingest
+        run: python research/late_season.py || echo "late-season step failed (non-critical)"
+
       # Cap-aware weekly plan for every team (lineups by day, best adds, opponent projection). Reads the rosters/schedule/injuries just pulled.
       - name: Build the weekly plan
         working-directory: ingest
@@ -87,7 +92,7 @@ jobs:
         run: |
           git config user.name "league-refresh-bot"
           git config user.email "league-refresh-bot@users.noreply.github.com"
-          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/nba_schedule.json dashboard/draft_data.json dashboard/schedule_plan.json dashboard/season_calendar.json dashboard/playoff_odds.json dashboard/odds_history.json dashboard/team_usage.json dashboard/fa_seen.json ledger
+          git add dashboard/league_rosters.json dashboard/week_plan.json dashboard/nba_schedule.json dashboard/draft_data.json dashboard/schedule_plan.json dashboard/season_calendar.json dashboard/playoff_odds.json dashboard/odds_history.json dashboard/team_usage.json dashboard/fa_seen.json dashboard/late_season.json ledger
           git add dashboard/projection_log.csv 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "pushed=false" >> "$GITHUB_OUTPUT"

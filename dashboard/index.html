@@ -1711,11 +1711,15 @@ function poG(team){ if(!SP||!SP.nba||!team) return null; const t=TEAM_CANON[team
    with fantasy-playoff weeks weighted by how much a point there moves the title (playoff_odds.json title_per_pt, from the season simulation). */
 const TPP=()=>(ODDS&&ODDS.title_per_pt)||null;
 const fmtTitle=v=>v==null?null:(v<0.05?'<0.1%':'+'+v.toFixed(1)+'%');
+/* late-season motivation (late_season.json): expected share of normal playing time in our fantasy playoffs for a team's core / young players */
+let LS=null; fetch('late_season.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ LS=x; }).catch(()=>{});
+function lateMult(team,id){ const t=LS&&LS.teams?LS.teams[TEAM_CANON[team]||team]:null; if(!t||id==null) return 1; id=Number(id); if((t.core||[]).includes(id)) return t.core_mult??1; if((t.young||[]).includes(id)) return t.young_mult??1; return 1; }
 function titleValRD(p){
   const T=TPP(); if(!T||!SP||!SP.nba||!RD) return null;
   const w=SP.nba[TEAM_CANON[p.team]||p.team]; if(!w) return null;
   const av=p.g_rem>0?Math.min(1,p.exp_gp/p.g_rem):0, edge=Math.max(0,p.ppg-RD.repl_ppg);
-  let s=0; for(let k=(SP.current_week||1);k<=22;k++){ const g=(w[k-1]||{}).g||0; s+=g*av*edge*0.85*(k>=20?(T[String(k)]??T.reg):T.reg); }
+  const lm=lateMult(p.team,p.id);
+  let s=0; for(let k=(SP.current_week||1);k<=22;k++){ const g=(w[k-1]||{}).g||0; s+=g*av*edge*0.85*(k>=20?(T[String(k)]??T.reg)*lm:T.reg); }
   return 100*s;
 }
 function titleValStash(st){      // Season free-agent list: rest-of-season points over a streamer, split into regular-season and playoff-week points
@@ -2112,6 +2116,7 @@ function pcHtml(P){
   else if(isMine) chips.push('<span class="pc2Ch mine">Yours</span>'+(wk&&wk.protected?'<span class="pc2Ch mine">Keeper</span>':''));
   else if(owner) chips.push(`<span class="pc2Ch">${esc(owner.abbrev)}${O&&owner.abbrev===O.abbrev?' · your opponent':''}</span>`);
   else chips.push('<span class="pc2Ch fa">Free agent</span>');
+  if(team&&pid!=null&&lateMult(team,pid)<=0.9) chips.push('<span class="pc2Ch warn">Rest risk in your playoffs</span>');   // only when a team is clearly resting players (late_season.json)
   // ---- what the plan does with him (one line)
   let plan='', inPlan=false;
   if(T&&pid!=null){

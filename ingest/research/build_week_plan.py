@@ -1028,13 +1028,34 @@ PREP_MODE = 0 < weeks_after() <= 6 and bool(SP_NBA)
 STASH_MIN = 60              # study #7: suggest an IR stash only when the Season-tab value is clearly high (rest-of-season points over a streamer)
 
 
-def weighted_games(team):
-    """games his NBA team plays from next matchup through the final, playoff weeks weighted by TITLE_W (cap trims depth about 15%: x 0.85)"""
+# LATE-SEASON MOTIVATION (late_season.py): expected share of normal playing time in our fantasy playoffs for a team's core players (rest on teams with nothing to
+# play for) and young players (more minutes there). Small under this season's lottery rules; 1.0 when the file is missing.
+try:
+    _LS = (json.load(open(HUB / "late_season.json", encoding="utf-8")).get("teams") or {})
+except Exception:
+    _LS = {}
+
+
+def late_mult(team, pl=None):
+    t = _LS.get(canon(team or ""))
+    if not t or pl is None:
+        return 1.0
+    pid = pl.get("espn_id")
+    if pid in t.get("core", []):
+        return float(t.get("core_mult", 1.0))
+    if pid in t.get("young", []):
+        return float(t.get("young_mult", 1.0))
+    return 1.0
+
+
+def weighted_games(team, pl=None):
+    """games his NBA team plays from next matchup through the final, playoff weeks weighted by TITLE_W and by his expected late-season playing time (cap trims depth about 15%: x 0.85)"""
     lst = SP_NBA.get(team) or []
     tot = 0.0
+    lm = late_mult(team, pl)
     for w in range(mp_id + 1, LAST_WEEK + 1):
         g = (lst[w - 1].get("g", 0) if w - 1 < len(lst) else 3.3)
-        tot += g * float(TITLE_W.get(str(w), 1.0) if w in set(_CAL.get("playoff_weeks") or []) else 1.0)
+        tot += g * (float(TITLE_W.get(str(w), 1.0)) * lm if w in set(_CAL.get("playoff_weeks") or []) else 1.0)
     return 0.85 * tot
 
 
@@ -1095,7 +1116,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         if dr is None:
             return 0.0
         if PREP_MODE:
-            return max(0.0, LL(dr) - restream) * weighted_games(dr["team"]) * lose_p(dr, wait_days)
+            return max(0.0, LL(dr) - restream) * weighted_games(dr["team"], dr) * lose_p(dr, wait_days)
         return max(0.0, LL(dr) - restream) * GAMES_PER_WEEK * wk_left * lose_p(dr, wait_days)
 
     def roster_ok(ros):
@@ -1108,7 +1129,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     def fut_hold(tgt, f):
         # keeping the add for the rest of the season instead of the player dropped: the level gap for the weeks that remain (a negative cost = he is better than the player dropped; credited at 60% because free-agent levels are noisy)
         if PREP_MODE:                                                # playoff prep: real schedules, playoff weeks weighted by title value, edge over a streamer only
-            c = max(0.0, LL(tgt) - restream) * weighted_games(tgt["team"]) - max(0.0, LL(f) - restream) * weighted_games(f["team"])
+            c = max(0.0, LL(tgt) - restream) * weighted_games(tgt["team"], tgt) - max(0.0, LL(f) - restream) * weighted_games(f["team"], f)
             return c * (1.0 if c > 0 else 0.6)
         gap = LL(tgt) - LL(f)
         return gap * GAMES_PER_WEEK * wk_left * (1.0 if gap > 0 else 0.6)
