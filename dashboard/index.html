@@ -1161,7 +1161,7 @@ function renderTeams(){
   setHash('teams',cur.t.abbrev,true);
   const wp=cur.wp, oppT=wp&&wp.opp!=null?L.teams.find(x=>x.id==wp.opp):null;
   const postChip=post?`<span class="comp" title="from the playoff simulation: ${pctf(post.made)} to make the playoffs, ${pctf(post.title)} for the title">${{contend:'Contending',rebuild:'Rebuilding',balanced:'Balanced'}[post.posture]||post.posture}</span>`:'';
-  const nextLine=wp&&oppT?`This week vs <b>${esc(oppT.abbrev)}</b>: ${wp.win_prob!=null?`<b>${(wp.win_prob*100).toFixed(0)}%</b> to win`:''}${wp.expected_total?` · projected ${Math.round(wp.expected_total)} to ${Math.round(wp.opp_expected||0)}`:''}`:'';
+  const nextLine=wp&&oppT?`This week vs <b>${esc(oppT.abbrev)}</b>: ${wp.win_prob!=null?`<b>${(wp.win_prob*100).toFixed(0)}%</b> to win`:''}${wp.expected_total?` · projected ${Math.round(wp.proj_final??wp.expected_total)} to ${Math.round(wp.opp_expected||0)}`:''}`:'';
   const header=`<div class="profCard" style="margin-top:.4rem"><div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:baseline;justify-content:space-between"><div><span style="font-size:1.15rem;font-weight:700">${esc(cur.t.name)}</span> <span class="hint">${esc(cur.t.abbrev)}</span></div><div class="comps" style="padding:0">${postChip}${cur.wins!=null&&cur.losses!=null?`<span class="comp">${cur.wins}-${cur.losses}</span>`:''}${cur.made!=null?`<span class="comp">Playoffs ${pctf(cur.made)}</span><span class="comp">Title ${pctf(cur.title)}</span>`:''}</div></div>
     ${nextLine?`<div class="note" style="margin-top:.35rem">${nextLine}</div>`:''}</div>`;
   // ---- tiles
@@ -1493,7 +1493,7 @@ function renderWeek(){
   const dayRow=(T.days||[]).find(d=>d.date===todayIso);
   // scoreboard: live numbers when the alerts job has them, the plan's otherwise
   const sb=liveOk?{me:LIVE.me.pts,meP:LIVE.me.exp_final,op:LIVE.opp.pts,opP:LIVE.opp.exp_final,oa:LIVE.opp.abbrev,wp:LIVE.win_prob,st:LIVE.me.starts,cap:LIVE.cap,au:LIVE.me.adds_used!=null?LIVE.me.adds_used:T.adds_used,dl:LIVE.days_left}
-    :{me:T.pts_so_far||0,meP:T.expected_total,op:O?(O.pts_so_far||0):null,opP:O?O.expected_total:null,oa:O?O.abbrev:'',wp:T.win_prob,st:T.starts_so_far,cap:M.cap,au:T.adds_used,dl:M.planned_days.length};
+    :{me:T.pts_so_far||0,meP:T.proj_final??T.expected_total,op:O?(O.pts_so_far||0):null,opP:O?(T.opp_expected??O.expected_total):null,oa:O?O.abbrev:'',wp:T.win_prob,st:T.starts_so_far,cap:M.cap,au:T.adds_used,dl:M.planned_days.length};
   const wpN=sb.wp!=null?Math.round(sb.wp*100):null, wpCol=wpN==null?'var(--ink)':(wpN>=60?'var(--good)':(wpN<=40?'var(--warn)':'var(--ink)'));
   const dlTxt=sb.dl<0.05?'final':(liveOk?sb.dl.toFixed(1):String(sb.dl));
   let spark='';

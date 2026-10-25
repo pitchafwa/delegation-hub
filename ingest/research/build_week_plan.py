@@ -1447,15 +1447,35 @@ def plan_ir(r):
 
 # OPPONENT HABITS (opponent_habits_study.py): an opponent's realistic rest-of-week points = the plan's perfect-lineup projection x his lineup efficiency (team_usage.json, from his cap use)
 try:
-    _TU_EFF = json.load(open(HUB / "team_usage.json", encoding="utf-8")).get("eff") or {}
+    _TU = json.load(open(HUB / "team_usage.json", encoding="utf-8"))
 except Exception:
-    _TU_EFF = {}
+    _TU = {}
+_TU_EFF = _TU.get("eff") or {}
+_TU_STREAM = _TU.get("stream") or {}
 
 
 def owner_eff(team_id, abbrev=None):
     if abbrev == MY_ABBREV:
         return 1.0
     return float((_TU_EFF.get(str(team_id)) or {}).get("e", 0.957))
+
+
+# OPPONENT STREAMING (opponent_adds_net.py, 2026-10-25): the plan's opponent projection is his CURRENT roster, but owners keep adding players during the week. Each owner's habit
+# (net points per 7 days from his adds, team_usage.json "stream") is added for the days left, and never more than about 30 points per add he has left (the best streamers' rate).
+# When he actually makes an add, the new player is on his roster and the estimate for those days is replaced by the real thing.
+STREAM_PER_ADD = 30.0
+STREAM_LEAGUE = 41.0
+
+
+def opp_stream(team_id, abbrev, adds_left, days_left):
+    if abbrev == MY_ABBREV or adds_left <= 0 or days_left <= 0:
+        return 0.0
+    r = float((_TU_STREAM.get(str(team_id)) or {}).get("r", STREAM_LEAGUE))
+    return max(0.0, min(r * days_left / 7.0, adds_left * STREAM_PER_ADD))
+
+
+def adds_left_of(team_id):
+    return max(0, adds_limit - ((counters.get(team_id, {}).get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0)))
 
 
 # leverage inputs for MY matchup: margin so far, both teams' expected rest of the week (as the plan sees them now), and how much time is left
@@ -1469,7 +1489,8 @@ try:
         _eo = plan_team(_ro, so_far[_op_id]["starts"])
         _hr = datetime.now(ET).hour + datetime.now(ET).minute / 60.0
         _dl = len(plan_days) - (min(1.0, max(0.0, (_hr - 18.5) / 4.0)) if not os.environ.get("PLAN_TODAY") else 0.0)    # tonight's games under way: part of today is gone
-        LEV = {"margin": so_far[_me_t.team_id]["pts"] - so_far[_op_id]["pts"], "exp_diff": _em - _eo * owner_eff(_op_id), "sigma": wp_sigma(_dl), "days_left": round(_dl, 2)}
+        _os = opp_stream(_op_id, None, adds_left_of(_op_id), _dl)
+        LEV = {"margin": so_far[_me_t.team_id]["pts"] - so_far[_op_id]["pts"], "exp_diff": _em - _eo * owner_eff(_op_id) - _os, "sigma": wp_sigma(_dl), "days_left": round(_dl, 2), "opp_stream": round(_os, 1)}
         _wp0 = _Phi((LEV["margin"] + WP_BETA * LEV["exp_diff"]) / LEV["sigma"])
         print(f"leverage: margin so far {LEV['margin']:+.0f}, expected rest {LEV['exp_diff']:+.0f}, {_dl:.2f} days left, win chance {_wp0:.0%}; "
               f"+20 this week is worth {this_week_value(20.0):.1f} points-equivalent")
@@ -1504,9 +1525,10 @@ for t in lg.teams:
     r, ir_moves = plan_ir(r_orig)
     c0 = so_far[t.team_id]["starts"]
     total, rows, naive = plan_team(r, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV))
-    plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + so_far[t.team_id]["pts"]      # realistic total: perfect-lineup projection x the owner's lineup habits
     tc = counters.get(t.team_id, {})
-    adds_left = max(0, adds_limit - (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0))
+    adds_left = adds_left_of(t.team_id)
+    _stream = opp_stream(t.team_id, t.team_abbrev, adds_left, len(plan_days))
+    plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + _stream + so_far[t.team_id]["pts"]      # realistic total: perfect-lineup projection x the owner's lineup habits, plus his usual streaming
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
     moves, seq = search_moves(r, total, c0, steps=min(adds_left, 8))
     r_stream = None
@@ -1565,11 +1587,13 @@ for t in lg.teams:
     dropped = {m["drop"]["id"] for m in seq if m["drop"]}
     r_after = r_stream if r_stream is not None else [p for p in r if p["espn_id"] not in dropped] + [fa_map2[m["add"]["id"]] for m in seq]
     total_after, rows_after, _n2 = plan_team(r_after, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV)) if seq else (total, rows, naive)
+    if t.team_abbrev == MY_ABBREV:                            # Tommy makes the plan's moves: his projection counts them, as the opponent's counts his usual streaming
+        plans[t.team_id] += max(0.0, total_after - total)
     out_teams.append({"id": t.team_id, "abbrev": t.team_abbrev, "name": t.team_name.strip(), "tonight_picks": tonight_picks, "pickup_checks": pickup_checks if t.team_abbrev == MY_ABBREV else None, "opp": opp.get(t.team_id), "weekly_actual": weekly_actual.get(t.team_id, {}),
                       "asset_5th": round(_a5th(r), 1), "dynasty_adds": [dict(x, would_rank=1 + sum(1 for p in r if p["asset_rank"] is not None and (ASSET_HP.get(p["hub_id"]) or 0) > x["asset"]), dyn_pts=dyn_pts(x["asset"], _a5th(r))) for x in dyn_pool[:15]], "days_after": rows_after, "injury_advice": advice, "expected_after": round(total_after, 1),
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
-                      "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1),
+                      "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1), "stream_exp": round(_stream, 1), "adds_left": adds_left,
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
                                   "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
@@ -1582,6 +1606,7 @@ for tm in out_teams:
         diff = plans[tm["id"]] - plans[o]
         rem = len(plan_days) / n_days
         tm["opp_expected"] = round(plans[o], 1)
+        tm["proj_final"] = round(plans[tm["id"]], 1)
         tm["eff"] = round(owner_eff(tm["id"], tm["abbrev"]), 3)
         tm["win_prob"] = round(erf_win(diff, WEEK_SD * math.sqrt(2) * math.sqrt(max(rem, 0.05))), 3)
 
@@ -1728,6 +1753,7 @@ try:
         _iso = today.isoformat()
         _recs = [{"kind": "plan", "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), "run": _run, "date": _iso, "matchup": mp_id, "team": MY_ABBREV,
                   "expected_total": _me["expected_total"], "expected_after_moves": _me.get("expected_after"), "win_prob": _me.get("win_prob"), "opp_expected": _me.get("opp_expected"),
+                  "proj_final": _me.get("proj_final"), "opp_stream": (LEV or {}).get("opp_stream"),
                   "adds_used": _me["adds_used"], "adds_limit": adds_limit, "starts_so_far": _me["starts_so_far"], "cap": round(cap, 1),
                   "sequence": [{"add": m["add"]["name"], "add_id": m["add"]["id"], "drop": (m["drop"] or {}).get("name"), "gain": m["gain"], "week_gain": m["week_gain"], "boost": m["add"].get("boost", 0),
                                 "by_day": [x["gain"] for x in m.get("by_day", [])]} for m in _me["sequence"]],

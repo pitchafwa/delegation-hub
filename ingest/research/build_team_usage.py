@@ -76,6 +76,29 @@ def owner_efficiency(rows):
     return eff, owners
 
 
+# OWNER STREAMING (opponent_adds_study.py + opponent_adds_net.py, 2026-10-25): what an owner's in-week adds are worth, in points per 7 days, net of the player each add replaces.
+# 2025-26: league average +41 a week, owners from -5 to +109; a stable habit (split-half r 0.76; gross streaming season to season r 0.76). Week-to-week noise is large (SD 93),
+# so an owner's own average is pulled toward the league with 10.5 weeks' weight. A new owner gets the league average. Tommy's own adds come from the plan, so he gets none.
+STREAM_NOTE = "opponent streaming: expected net points from his in-week adds, per 7 days (opponent_adds_net.py)"
+
+
+def owner_streaming(owners):
+    import config
+    f = Path(__file__).resolve().parent / "opponent_streaming.json"          # committed summary of opponent_adds_net.py (the cloud run has no data folder)
+    if not f.exists():
+        return {}
+    net = json.load(open(f, encoding="utf-8"))
+    lg, k = float(net["league_per7"]), float(net.get("k", 10.5))
+    out = {}
+    for (y, tid), o in owners.items():
+        if y != config.SEASON:
+            continue
+        n = int(net["n"].get(o, 0)) if o else 0
+        r = 0.0 if tid == 12 else (float(net["owner_per7"].get(o, 0.0)) * n + k * lg) / (n + k)
+        out[str(tid)] = {"r": round(r, 1), "n": n}
+    return out
+
+
 def main():
     data = json.load(open(OUT, encoding="utf-8")) if OUT.exists() else {"rows": []}
     rows = {(r["y"], r["mp"], r["team"]): r for r in data["rows"]}
@@ -128,7 +151,7 @@ def main():
     out = sorted(rows.values(), key=lambda r: (r["y"], r["mp"], r["team"]))
     eff, owners = owner_efficiency(out)
     OUT.write_text(json.dumps({"generated": date.today().isoformat(), "cap_note": "cap = 40 for a 7-day matchup, scaled for other lengths", "rows": out,
-                               "eff": eff, "eff_note": EFF_NOTE}, separators=(",", ":")), encoding="utf-8")
+                               "eff": eff, "eff_note": EFF_NOTE, "stream": owner_streaming(owners), "stream_note": STREAM_NOTE}, separators=(",", ":")), encoding="utf-8")
     print("wrote", OUT, len(out), "team-matchups")
 
 

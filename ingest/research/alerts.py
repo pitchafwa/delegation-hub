@@ -211,7 +211,7 @@ def digest(kind):
     gen = datetime.fromisoformat(W["generated"].replace("Z", "+00:00")).astimezone(ET)
     lines = []
     wp = T.get("win_prob")
-    lines.append(f"Matchup {M['id']} vs {O['abbrev'] if O else '?'}: projected {T['expected_total']:.0f}" + (f" to {O['expected_total']:.0f}" if O else "") + (f", {wp * 100:.0f}% chance to win." if wp is not None else "."))
+    lines.append(f"Matchup {M['id']} vs {O['abbrev'] if O else '?'}: projected {T.get('proj_final', T['expected_total']):.0f}" + (f" to {T.get('opp_expected', O['expected_total']):.0f}" if O else "") + (f", {wp * 100:.0f}% chance to win." if wp is not None else "."))
     if T.get("ir_moves"):
         for m in T["ir_moves"][:3]:
             lines.append({"to_ir": f"IR: move {m['name']} ({m['status']}) to an open IR slot", "activate": f"IR: {m['name']} is healthy but stuck in IR, activate him",

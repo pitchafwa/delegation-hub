@@ -240,13 +240,20 @@ def main():
     cum_end = dict(cum)                                         # expected starts at the end of today (before tomorrow's games)
     fut = {my_id: 0.0, opp_id: 0.0}
     fut_days = 0
+    # OPPONENT STREAMING (opponent_adds_net.py): his usual net gain from in-week adds, per day still open to him, capped at ~30 points per add he had left when the plan was built
+    # (an add made since then is not in the plan's days yet, so the estimate keeps standing in for it until the plan refreshes). MY days are the plan's days after its suggested moves.
+    _tus = (load("team_usage.json") or {}).get("stream") or {}
+    o_rate = float((_tus.get(str(opp_id)) or {}).get("r", 41.0)) / 7.0
+    o_adds = (plan_team.get(opp_id) or {}).get("adds_left")
+    o_cap = 30.0 * o_adds if o_adds is not None else 1e9
+    stream = 0.0
     for d in days:
         if d <= TODAY:
             continue
         got = False
         for tid in (my_id, opp_id):
             t = plan_team.get(tid)
-            dd = next((x for x in (t or {}).get("days", []) if x["date"] == d.isoformat()), None)
+            dd = next((x for x in (t or {}).get("days_after" if tid == my_id and (t or {}).get("days_after") else "days", []) if x["date"] == d.isoformat()), None)
             w_open = p_open[tid] if d == next_day else (1.0 if cum[tid] < cap else 0.0)
             if w_open <= 0.0:                                     # certainly at the cap when this day begins: the day is locked
                 lock_note.setdefault(tid, "locks after today" if d == next_day else "locked from " + d.strftime("%a"))
@@ -255,6 +262,8 @@ def main():
                 lock_note.setdefault(tid, f"may lock after today ({1 - w_open:.0%} chance)")
             if dd:
                 fut[tid] += w_open * dd["pts"] * (float(t.get("eff") or 1.0) if tid != my_id else 1.0)      # the plan's days assume perfect lineups: scale by the owner's real habits
+                if tid == opp_id:
+                    stream += w_open * o_rate
                 cum[tid] += w_open * max(0.0, dd.get("starts_after", 0) - dd.get("starts_before", 0))
                 got = got or dd["pts"] > 0
             elif not plan_match:                             # crude fallback: this team's average points per day so far
@@ -262,6 +271,8 @@ def main():
                 fut[tid] += pts[tid] / played_days
                 got = True
         fut_days += 1 if got else 0
+    stream = max(0.0, min(stream, o_cap))
+    fut[opp_id] += stream
     frac_today = 0.0
     if full_day[my_id] + full_day[opp_id] > 0:
         frac_today = min(1.0, (rem_today[my_id] + rem_today[opp_id]) / (full_day[my_id] + full_day[opp_id]))
@@ -318,7 +329,7 @@ def main():
         advice.append(f"Next planned add: {best_add['add']['name']} ({_when}" + (f", drop {_dr}" if _dr else "") + f", about +{best_add['gain']:.0f}).")
     out = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "season": YEAR, "matchup": mp, "date": TODAY.isoformat(), "plan_used": bool(plan_match),
            "me": {"abbrev": teams[my_id], "name": names[my_id], "pts": round(pts[my_id], 1), "exp_rem": round(exp_rem[my_id], 1), "exp_final": round(pts[my_id] + exp_rem[my_id], 1), "starts": starts[my_id], "adds_used": adds_used, "left_today": sorted(left_today[my_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[my_id], "starts_before_today": sb[my_id], "starts_end_today": round(cum_end[my_id], 1)},
-           "opp": {"abbrev": teams[opp_id], "name": names[opp_id], "pts": round(pts[opp_id], 1), "exp_rem": round(exp_rem[opp_id], 1), "exp_final": round(pts[opp_id] + exp_rem[opp_id], 1), "starts": starts[opp_id], "left_today": sorted(left_today[opp_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[opp_id], "starts_before_today": sb[opp_id], "starts_end_today": round(cum_end[opp_id], 1)},
+           "opp": {"abbrev": teams[opp_id], "name": names[opp_id], "pts": round(pts[opp_id], 1), "exp_rem": round(exp_rem[opp_id], 1), "exp_final": round(pts[opp_id] + exp_rem[opp_id], 1), "starts": starts[opp_id], "left_today": sorted(left_today[opp_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[opp_id], "starts_before_today": sb[opp_id], "starts_end_today": round(cum_end[opp_id], 1), "exp_stream": round(stream, 1)},
            "cap": cap, "days_left": round(rem_days, 2), "win_prob": round(wp, 3), "expected_margin": round(mu, 1), "advice": advice, "history": hist}
     print(json.dumps({k: v for k, v in out.items() if k != "history"}, indent=1)[:40000])
     if DRY:
