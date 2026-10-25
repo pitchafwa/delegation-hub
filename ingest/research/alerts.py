@@ -824,6 +824,15 @@ def first_tip_check(W, T, mine, off, s, can_send):
                 q = benched.get(x["id"])
                 if q is not None and q.injuryStatus not in ("OUT", "INJURY_RESERVE") and off.get(norm(q.name).replace(" ", "")) != "Out":
                     probs.append(f"Start {x['name']}: he's on your {'IR' if q.lineupSlot == 'IR' else 'bench'}.")
+            # the other direction (2026-10-25): a player in your ESPN lineup whom the plan rests today to save a start under the games cap. Only players the plan knows
+            # (someone you just added is not in the plan yet) and only if his game has not started.
+            plan_ids = {int(x["id"]) for x in today_plan["start"]}
+            known = {int(x["id"]) for x in T.get("roster", [])} | {int(m["add"]["id"]) for m in (T.get("sequence") or [])}
+            for p in mine.roster:
+                t_ = tips.get(canon(p.proTeam or ""))
+                if (p.lineupSlot not in ("BE", "IR") and int(p.playerId) in known and int(p.playerId) not in plan_ids and t_ is not None and t_ > NOW
+                        and p.injuryStatus not in ("OUT", "INJURY_RESERVE", "SUSPENSION") and off.get(norm(p.name).replace(" ", "")) != "Out"):
+                    probs.append(f"Bench {p.name}: not in today's plan (uses a start the plan saves).")
         if probs:
             h = hashlib.md5("|".join(sorted(probs)).encode()).hexdigest()[:10]
             key = f"{TODAY.isoformat()}:{h}"
