@@ -271,6 +271,9 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   .plTm{display:inline-flex;align-items:center;gap:3px}.plTm img{width:16px;height:16px;object-fit:contain}
   .plOwn{font-weight:700;color:var(--ink)}.plOwn.me{color:var(--accent)}.plOwn.fa{color:var(--good)}
   .plSt{display:flex;gap:12px;font-size:.74rem;color:var(--ink-faint);margin-top:3px;white-space:nowrap;overflow:hidden}
+  #stFullBtn{font-size:.82rem !important;padding:0 .7rem}
+  .tmr.stWide .plSt{flex-wrap:wrap;row-gap:2px;white-space:normal}
+  .tmr.stWide .plSt span{white-space:nowrap}
   .plSt b{font-family:"Barlow Condensed",sans-serif;font-size:.98rem;font-weight:700;color:var(--ink);margin-right:3px}
   .plSt .up b,.plKey b.up{color:var(--good)}.plSt .down b,.plKey b.down{color:var(--warn)}
   .plKey{text-align:right;min-width:58px}
@@ -1782,6 +1785,7 @@ function addHeaderInfo(root){
   let q=false; new MutationObserver(()=>{ if(q) return; q=true; setTimeout(()=>{ q=false; addHeaderInfo(document); },0); }).observe(document.body,{childList:true,subtree:true});
 })();
 const isMobile=()=>window.matchMedia('(max-width:720px)').matches;
+try{ window.matchMedia('(max-width:720px)').addEventListener('change',()=>{ try{ const v=activeView(); if(v) setView(v); }catch(e){} }); }catch(e){}
 function mobileTables(pane){
   makeSortable(pane);
   pane.querySelectorAll('table:not(.heat)').forEach(t=>{
@@ -3036,7 +3040,7 @@ function injBurden(teamId){
   const top=a=>a.slice().sort((x,y)=>y-x).slice(0,10).reduce((u,v)=>u+v,0);
   return Math.max(0,(top(pl.map(x=>x.ppg))-top(pl.map(x=>x.avail)))*4);
 }
-let stSort={k:'rec',asc:false};
+let stSort={k:'rec',asc:false}, stFull=(()=>{ try{ return localStorage.getItem('stFull')==='1'; }catch(e){ return false; } })();
 function renderStandings(){
   const pane=document.getElementById('standingsPane');
   if(!ODDS||!W){ pane.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>'; return; }
@@ -3090,24 +3094,44 @@ function renderStandings(){
   }
   const mv=rows.filter(r=>r.dT!=null).sort((a,b)=>Math.abs(b.dT)-Math.abs(a.dT))[0]; if(mv&&Math.abs(mv.dT)>=0.01) tiles.push(['Biggest mover (7 days)',`${esc(mv.o.abbrev)} title ${sg(mv.dT*100,1)} pts`]);
   // phones: one row per team in the shared list style; the big number follows the sort (Title odds when sorted by record)
-  const SK={rec:['Record',r=>r.o.wins+0.5*(r.o.t||0)+r.o.pf/1e7],title:['Title',r=>r.o.title],made:['Playoffs',r=>r.o.made],projW:['Proj pts/wk',r=>r.projW],ppw:['Pts/wk',r=>r.ppw],pps:['PPS',r=>r.pps],luck:['Luck',r=>r.luck],inj:['Inj pts/wk',r=>r.inj]};
+  // phones: one row per team in the shared list style. Every column of the full table can be the sort; the big number follows it (Title odds when sorted by record)
+  const pr=r=>r.o.exp_wins!=null?`${Math.round(r.o.exp_wins)}-${Math.max(0,19-Math.round(r.o.exp_wins))}`:null;
+  const n0=(v,d=0)=>v!=null?v.toFixed(d):null, lkC=r=>r.luck!=null?(r.luck>=0.5?'up':(r.luck<=-0.5?'down':'')):'';
+  // [label, sort value, big number, its label]
+  const SK={rec:['Record',r=>r.o.wins+0.5*(r.o.t||0)+r.o.pf/1e7,r=>pctf(r.o.title),'Title'],
+    proj:['Projected record',r=>r.o.exp_wins,pr,'Proj record'],
+    streak:['Streak',r=>r.o.streak?(r.o.streak[0]==='W'?1:-1)*+r.o.streak.slice(1):0,r=>r.o.streak||null,'Streak'],
+    ppw:['Pts/wk',r=>r.ppw,r=>n0(r.ppw),'Pts/wk'], papw:['Opp pts/wk',r=>r.papw,r=>n0(r.papw),'Opp pts/wk'],
+    ap:['All-play',r=>r.apPct,r=>r.apPct!=null?`${r.o.ap_w.toFixed(0)}-${r.o.ap_l.toFixed(0)}`:null,'All-play'],
+    luck:['Luck',r=>r.luck,r=>r.luck!=null?sg(r.luck,1):null,'Luck'],
+    projW:['Proj pts/wk',r=>r.projW,r=>n0(r.projW),'Proj pts/wk'], use:['Starts per matchup',r=>r.useAvg,r=>n0(r.useAvg,1),'Starts'],
+    pps:['Points per start',r=>r.pps,r=>n0(r.pps,1),'Pts/start'], inj:['Injury burden',r=>r.inj,r=>r.inj!=null?(r.inj<0.5?'0':r.inj.toFixed(0)):null,'Inj pts/wk'],
+    wk:['This week',r=>r.wt.win_prob,r=>r.wt.win_prob!=null?Math.round(r.wt.win_prob*100)+'%':null,'Win chance'],
+    made:['Playoff odds',r=>r.o.made,r=>pctf(r.o.made),'Playoffs'], bye:['Bye odds',r=>r.o.bye,r=>pctf(r.o.bye),'Bye'],
+    title:['Title odds',r=>r.o.title,r=>pctf(r.o.title),'Title'], dT:['Title trend',r=>r.dT,r=>r.dT!=null?sg(r.dT*100,1):null,'Title 7d'],
+    team:['Team',r=>r.o.abbrev,r=>pctf(r.o.title),'Title']};
   let listHtml='';
   if(isMobile()){
-    const f=(SK[stSort.k]||SK.rec)[1], lst=rows.slice().sort((a,b)=>{ const x=f(a), y=f(b); return (stSort.asc?1:-1)*((x??-1e9)-(y??-1e9)); });
-    const keyOf=r=>({title:[pctf(r.o.title),'Title'],made:[pctf(r.o.made),'Playoffs'],projW:[r.projW!=null?r.projW.toFixed(0):'—','Proj pts/wk'],ppw:[r.ppw!=null?r.ppw.toFixed(0):'—','Pts/wk'],pps:[r.pps!=null?r.pps.toFixed(1):'—','Pts/start'],
-      luck:[r.luck!=null?sg(r.luck,1):'—','Luck'],inj:[r.inj!=null?(r.inj<0.5?'0':r.inj.toFixed(0)):'—','Inj pts/wk']})[stSort.k]||[pctf(r.o.title),'Title'];
-    listHtml=lst.map((r,i)=>{ const o=r.o, wt=r.wt, op=r.op, k=keyOf(r);
+    const sk=SK[stSort.k]||SK.rec, f=sk[1];
+    const lst=rows.slice().sort((a,b)=>{ const x=f(a), y=f(b); if(typeof x==='string'||typeof y==='string') return (stSort.asc?1:-1)*String(y).localeCompare(String(x)); return (stSort.asc?1:-1)*((x??-1e9)-(y??-1e9)); });
+    listHtml=lst.map((r,i)=>{ const o=r.o, wt=r.wt, op=r.op;
       const col=r.dT==null?'':(r.dT>=0.005?'up':(r.dT<=-0.005?'down':''));
       const tag=o.clinch==='bye'?chip('Clinched bye','good'):(o.clinch==='playoffs'?chip('Clinched','good'):(o.elim?chip('Out'):''));
       const wk=wt.pts_so_far!=null&&op?`This week <b>${wt.pts_so_far.toFixed(0)}–${op.pts_so_far.toFixed(0)}</b> vs ${esc(op.abbrev)}${wt.win_prob!=null?' · '+Math.round(wt.win_prob*100)+'%':''}`:'';
-      const row=tmRow({rank:stSort.k==='rec'&&!stSort.asc?i+1:rows.indexOf(r)+1,abbrev:o.abbrev,name:r.name,me:r.me,attr:`data-team="${esc(o.abbrev)}"`,chips:[tag],meta:wk,
-        stats:[[`${o.wins}-${o.l||0}${o.t?'-'+o.t:''}`,'record'],[pctf(o.made),'playoffs'],[r.pps!=null?r.pps.toFixed(1):null,'PPS'],[stSort.k==='title'?null:(r.dT!=null&&Math.abs(r.dT)>=0.001?sg(r.dT*100,1):null),'title 7d',col]],
-        key:{v:k[0],l:k[1],cls:k[1]==='Luck'&&r.luck!=null?(r.luck>=0.5?'up':(r.luck<=-0.5?'down':'')):''}});
+      // the stat the big number shows is left out of the lines below
+      const all=[['rec',`${o.wins}-${o.l||0}${o.t?'-'+o.t:''}`,'record'],['proj',pr(r),'proj'],['made',pctf(o.made),'playoffs'],['title',pctf(o.title),'title'],
+        ['ppw',n0(r.ppw),'pts/wk'],['projW',n0(r.projW),'proj/wk'],['pps',n0(r.pps,1),'PPS'],['luck',r.luck!=null?sg(r.luck,1):null,'luck',lkC(r)],
+        ['papw',n0(r.papw),'opp/wk'],['ap',r.apPct!=null?`${o.ap_w.toFixed(0)}-${o.ap_l.toFixed(0)}`:null,'all-play'],['bye',pctf(o.bye),'bye'],['streak',o.streak||null,'streak'],
+        ['use',n0(r.useAvg,1),'starts'],['inj',r.inj!=null?(r.inj<0.5?'0':r.inj.toFixed(0)):null,'inj/wk'],['dT',r.dT!=null&&Math.abs(r.dT)>=0.001?sg(r.dT*100,1):null,'title 7d',col]];
+      const CORE=['rec','proj','made','title','ppw','pps'], shown=k=>k==='rec'||((stFull||CORE.includes(k))&&k!==stSort.k&&!(k==='title'&&(stSort.k==='rec'||stSort.k==='team')));
+      const stats=all.filter(x=>shown(x[0])).map(x=>[x[1],x[2],x[3]]);
+      const row=tmRow({rank:rows.indexOf(r)+1,abbrev:o.abbrev,name:r.name,me:r.me,attr:`data-team="${esc(o.abbrev)}"`,chips:[tag],meta:wk,cls:'stWide',stats,
+        key:{v:sk[2](r),l:sk[3],cls:stSort.k==='luck'?lkC(r):(stSort.k==='dT'?col:'')}});
       return row+(stSort.k==='rec'&&!stSort.asc&&i===nPO-1?'<div class="tmCut">Playoff line</div>':''); }).join('');
   }
   pane.innerHTML=`<div class="controls"><span class="hint">Week ${ODDS.current_week} of 19 · ${ODDS.weeks_left} regular-season matchups left · top ${nPO} make the playoffs</span></div>
     <div class="stTiles">${tiles.map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
-    ${isMobile()?`<div class="controls">${sortMenu('stSortSel',[['rec','Record'],['title','Title odds'],['made','Playoff odds'],['projW','Proj pts/wk'],['ppw','Pts/wk'],['pps','Points per start'],['luck','Luck'],['inj','Injury burden']],stSort.k,stSort.asc)}</div><div class="plList" id="standList">${listHtml}</div>`:''}
+    ${isMobile()?`<div class="controls">${sortMenu('stSortSel',Object.entries(SK).map(([k,v])=>[k,v[0]]),stSort.k,stSort.asc).replace(/<\/div>$/,`<button type="button" id="stFullBtn" aria-pressed="${stFull}">${stFull?'Fewer':'More'}</button></div>`)}</div><div class="plList" id="standList">${listHtml}</div>`:''}
     <div class="tablewrap"${isMobile()?' style="display:none"':''}><table id="standTbl"><thead><tr><th>Rk</th><th style="text-align:left">Team</th><th>Record</th><th>Proj</th><th style="text-align:left">Streak</th><th>Pts/wk</th><th>Opp pts/wk</th><th>All-play</th><th>Luck</th><th>Proj pts/wk</th><th data-gloss="Starts per matchup">Starts</th><th>PPS</th><th>Inj pts/wk</th><th style="text-align:left">This week</th><th>Playoffs</th><th>Bye</th><th>Title</th><th style="text-align:left">Title trend</th></tr></thead><tbody>${body}</tbody></table></div>
     <h2 class="todayH" style="margin-top:1.6rem">Seed odds</h2>
     <div class="tablewrap"><table class="heat seedTbl"><thead><tr><th style="text-align:left">Team</th>${Array.from({length:nPO},(_,k)=>`<th>${k+1}</th>`).join('')}<th>Out</th></tr></thead><tbody>${rows.map(r=>{ const sd=r.o.seed||[], out=1-(r.o.made||0);
@@ -3116,7 +3140,8 @@ function renderStandings(){
   const goT=e=>{ const tr=e.target.closest('[data-team]'); if(!tr||e.target.closest('a,.pName')) return; pendingTeam=tr.dataset.team; setView('teams'); };
   pane.querySelector('#standTbl tbody').addEventListener('click',goT);
   const sl=pane.querySelector('#standList'); if(sl) sl.addEventListener('click',goT);
-  const ss=pane.querySelector('#stSortSel'); if(ss){ ss.addEventListener('change',e=>{ stSort={k:e.target.value,asc:e.target.value==='inj'}; renderStandings(); }); pane.querySelector('#stSortSelDir').addEventListener('click',()=>{ stSort.asc=!stSort.asc; renderStandings(); }); }
+  const ss=pane.querySelector('#stSortSel'); if(ss){ ss.addEventListener('change',e=>{ stSort={k:e.target.value,asc:['inj','papw','team'].includes(e.target.value)}; renderStandings(); }); pane.querySelector('#stSortSelDir').addEventListener('click',()=>{ stSort.asc=!stSort.asc; renderStandings(); });
+    pane.querySelector('#stFullBtn').addEventListener('click',()=>{ stFull=!stFull; try{ localStorage.setItem('stFull',stFull?'1':'0'); }catch(e){} renderStandings(); }); }
   if(!isMobile()) mobileTables(pane);
 }
 function renderAbout(){
