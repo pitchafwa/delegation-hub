@@ -156,6 +156,7 @@ for stat in KALMAN_STATS:
 
     posterior = run_filter_all_players(player_ids, days, age, gain, obs, Q, R, peak_age, slope_up, slope_down, x0_arr)
     df["_post"] = posterior
+    df[f"_postC_{stat}"] = posterior          # career-mode belief after each game (short-term program baseline)
     end_state = df.loc[last_game_idx].set_index("PLAYER_ID")["_post"]
     diff = last_game_age - peak_age
     daily_slope = annual_slope(stat, last_game_age, fit["params"]) / 365.0
@@ -185,7 +186,8 @@ try:
     _now = df["_postS_MIN"].clip(lower=0) * (sum(w * df[f"_postS_{k}"] for k, w in _W.items()) + 3.0 * _stl)
     _out = pd.DataFrame({"PLAYER_ID": df["PLAYER_ID"], "PLAYER_NAME": df["PLAYER_NAME"], "GAME_DATE": df["GAME_DATE"].dt.strftime("%Y-%m-%d"),
                          "SEASON": df["SEASON"], "MIN": df["MIN"], "pre": _pre.round(1), "after": _now.round(1), "afterMIN": df["_postS_MIN"].round(1)})
-    _full = _out.assign(preMIN=df["_pre_MIN"].round(1), TEAM=df["TEAM"])
+    _career = df["_postC_MIN"].clip(lower=0) * (sum(w * df[f"_postC_{k}"] for k, w in _W.items()) + 3.0 * _stl)
+    _full = _out.assign(preMIN=df["_pre_MIN"].round(1), TEAM=df["TEAM"], career=_career.round(1), careerMIN=df["_postC_MIN"].round(1))
     _full.to_csv(ROOT / "data" / "delco_pregame_all.csv.gz", index=False)        # every game, for the short-term projection study
     _out = _out[_out["SEASON"] >= sorted(df["SEASON"].unique())[-2]].groupby("PLAYER_ID").tail(15)
     _out.to_csv(ROOT / "data" / "delco_pregame.csv", index=False)
