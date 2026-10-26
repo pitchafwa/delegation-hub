@@ -137,6 +137,34 @@ def best_level_feats():
     return {"fp_gap": P["fp_ew4"] - P["delco"], "min_gap": (P["min_ew2"] - P["delco_min"]) * rate}
 
 
+
+def a_feats():
+    """Phase 4 pick (model A): batch 1 winner + DELCO slope + trade, return, season-phase, rookie and threes/turnovers streak terms"""
+    g = P
+    b1 = best_level_feats()
+    stint = (g["new_team"] | (g["season"] != g.groupby("pid")["season"].shift(1))).groupby(g["pid"]).cumsum()
+    fp_stint = g.groupby([g["pid"], stint])["fp"].transform(lambda s: s.expanding().mean())
+    post = ((g["games_since_trade"] <= 10) & g["traded_in_season"].groupby(g["pid"]).cumsum().gt(0)).astype(float)
+    gap_prev = g["days_since_prev"].where(g["gp_season"] > 1, 0)
+    ret_start = gap_prev >= 6
+    since_ret = g.groupby([g["pid"], ret_start.groupby(g["pid"]).cumsum()]).cumcount()
+    ret25 = (ret_start.groupby(g["pid"]).cumsum().gt(0) & since_ret.between(1, 4) & ~ret_start).astype(float)
+    early = (g["season_day"] <= 30).astype(float)
+    late = (g["season_day"] >= 150).astype(float)
+    first = g.groupby("pid")["season"].transform("min")
+    rook = ((first >= "2015-16") & (g["season"] == first)).astype(float)
+    raw = pd.read_parquet(D / "st_panel.parquet", columns=["pid", "date", "fg3m", "tov", "info_id"]).sort_values(["pid", "date"])
+    hot = {}
+    for c, v in {"threes": raw["fg3m"], "turnovers": -raw["tov"]}.items():
+        s5 = v.groupby(raw["pid"]).transform(lambda s: s.rolling(5, min_periods=5).mean())
+        s40 = v.groupby(raw["pid"]).transform(lambda s: s.rolling(40, min_periods=15).mean())
+        hot["hot_" + c] = pd.Series((s5 - s40).to_numpy(), index=raw["info_id"]).reindex(P.index)
+    return {**b1, "delco_lvl": P["delco"] - 24.0, "post": post, "post_x_newgap": post * (fp_stint - g["delco"]),
+            "ret1": ret_start.astype(float), "ret25": ret25,
+            "early": early, "early_x_fp": early * b1["fp_gap"], "early_x_min": early * b1["min_gap"], "late": late, "late_star": late * (g["delco"] >= 35),
+            "rook": rook, "rook_x_min": rook * b1["min_gap"], **hot}
+
+
 # ---------------- baselines
 def baselines():
     rate = P["delco"] / P["delco_min"].clip(lower=8)

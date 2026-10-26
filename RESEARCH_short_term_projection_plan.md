@@ -186,3 +186,35 @@ With opponent and home/away per upcoming game, A is 12.481 and C is 12.476.
   - Phase 5: measured fade per distance and spread of outcomes, then a final 7-day calibration.
   - Phase 6: replay of 2025-26 weeks with the planner.
   - Test 2 (starters) is added to A when its data lands.
+
+### Phase 5, horizon, fade and spread (2026-10-26; research/st_phase5.py, log research/data/st_phase5.log)
+- **Fade by days ahead** (model A refit for each bucket):
+  - Minutes change carried: 39% (1 day; mostly back-to-backs), 46% (2), 42% (3), 38% (4-5), 33% (6-7), 31% (8-10), 25% (11-14).
+  - Points gap: a steady 34-39% at every distance.
+  - Relative to the near days: 100% through ~5 days, 85% at 6-7, 80% at 8-10, 65% at 11-14.
+  - The live fade (100% / 60% / 30% applied to v1's change) drops too fast: a role change sticks well into the second week.
+- **Two weeks is useful:** model A beats season DELCO at every distance. By 0.59 one day out, 0.41 at 6-7 days, still 0.37 at 11-14 days.
+- **Spread of one game around the forecast** barely grows with distance; it depends on level.
+  - Standard deviation 10.8 (under 15) to 15.2 (45+). As a share of level: 77% for fringe players, 28% for stars.
+  - 10th-90th percentile is about ±12-19 points.
+- **7-day totals (A × chance model re-centred):**
+  - Typical miss 33.46 vs 34.44 live; lean −0.86 vs +4.19.
+  - By level, the live rule under-counts fringe players badly (+9.1, the flat 61%). The new one leans +1.9 (under 15) and −1.2 to −2.3 (15+).
+  - The remaining by-level lean is the last calibration item. It could be a level-based scale, or it could wait for the replay to say whether it matters.
+
+### Phase 6.1, decision replay (2026-10-26; research/st_replay.py, research/st_replay_report.py)
+2025-26: 204 team-weeks. Same rules ("now"), with each number deciding adds, drops and lineups.
+Scored on real points plus the measured future cost of drops, paired by team-week against v1 (live).
+
+| Number | vs live, points per week | beats live |
+|---|---|---|
+| plain recency average (the replay tool's old default) | −11.5 ± 4.7 | 40% of weeks |
+| v1 (live) | 0 | |
+| A | +1.4 ± 4.1 | 49% |
+| A + chance model | −0.9 ± 4.3 | 49% |
+
+With no moves (lineups only), every number is within ±1.
+- v1 is clearly better than a plain recent average for decisions, which confirms last week's switch.
+- A's better accuracy (7-day miss −1.0, no leans) does not show up as more points in decisions: +1.4 a week is well inside the noise.
+- The chance-to-play model does not help decisions at all.
+- Why: most adds and drops are between players whose numbers are far apart. The cases where A and v1 disagree enough to change a move are rare, and they split both ways.
