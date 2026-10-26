@@ -1,0 +1,168 @@
+{
+ "note": "Next-few-days DELCO, model A (RESEARCH_short_term_projection_plan.md, Phases 4-5; fit 2015-22, judged 2022-26; st_phase5.py). Level for a game d days after his last game = season DELCO + const + sum(coef x feature), coefficients by days-ahead bucket.",
+ "buckets": [
+  [
+   1,
+   1
+  ],
+  [
+   2,
+   2
+  ],
+  [
+   3,
+   3
+  ],
+  [
+   4,
+   5
+  ],
+  [
+   6,
+   7
+  ],
+  [
+   8,
+   10
+  ],
+  [
+   11,
+   14
+  ]
+ ],
+ "coef": [
+  {
+   "const": 0.8805,
+   "fp_gap": 0.3391,
+   "min_gap": 0.3888,
+   "delco_lvl": -0.0661,
+   "post": -0.4057,
+   "post_x_newgap": 0.1271,
+   "ret1": 0.379,
+   "ret25": 0.5683,
+   "early": -0.2923,
+   "early_x_fp": -0.0083,
+   "early_x_min": -0.2865,
+   "late": 1.7555,
+   "late_star": -1.4771,
+   "rook": -0.0733,
+   "rook_x_min": 0.0719,
+   "hot_threes": -0.6016,
+   "hot_turnovers": -0.3984
+  },
+  {
+   "const": 0.5908,
+   "fp_gap": 0.3662,
+   "min_gap": 0.4638,
+   "delco_lvl": -0.0136,
+   "post": -0.0088,
+   "post_x_newgap": 0.246,
+   "ret1": -0.342,
+   "ret25": 0.6333,
+   "early": -0.4862,
+   "early_x_fp": -0.0478,
+   "early_x_min": -0.1901,
+   "late": 1.0034,
+   "late_star": -1.3576,
+   "rook": 0.0641,
+   "rook_x_min": 0.0644,
+   "hot_threes": -0.3899,
+   "hot_turnovers": -0.5931
+  },
+  {
+   "const": 0.6973,
+   "fp_gap": 0.3644,
+   "min_gap": 0.4234,
+   "delco_lvl": -0.0382,
+   "post": -0.2098,
+   "post_x_newgap": 0.1682,
+   "ret1": 0.3807,
+   "ret25": 0.488,
+   "early": -0.2564,
+   "early_x_fp": -0.1219,
+   "early_x_min": -0.1765,
+   "late": 1.1951,
+   "late_star": -1.1533,
+   "rook": 0.0537,
+   "rook_x_min": 0.0348,
+   "hot_threes": -0.4573,
+   "hot_turnovers": -0.4812
+  },
+  {
+   "const": 0.8752,
+   "fp_gap": 0.3571,
+   "min_gap": 0.3756,
+   "delco_lvl": -0.0274,
+   "post": 0.052,
+   "post_x_newgap": 0.2221,
+   "ret1": 0.1824,
+   "ret25": 0.4965,
+   "early": -0.5759,
+   "early_x_fp": -0.0117,
+   "early_x_min": -0.1832,
+   "late": 1.3927,
+   "late_star": -1.8361,
+   "rook": 0.043,
+   "rook_x_min": 0.0692,
+   "hot_threes": -0.4496,
+   "hot_turnovers": -0.52
+  },
+  {
+   "const": 0.961,
+   "fp_gap": 0.376,
+   "min_gap": 0.331,
+   "delco_lvl": -0.033,
+   "post": -0.0083,
+   "post_x_newgap": 0.2298,
+   "ret1": 0.3816,
+   "ret25": 0.2979,
+   "early": -0.5351,
+   "early_x_fp": -0.0469,
+   "early_x_min": -0.1224,
+   "late": 1.3699,
+   "late_star": -2.0049,
+   "rook": 0.1869,
+   "rook_x_min": 0.0444,
+   "hot_threes": -0.5443,
+   "hot_turnovers": -0.5239
+  },
+  {
+   "const": 1.0597,
+   "fp_gap": 0.3732,
+   "min_gap": 0.3141,
+   "delco_lvl": -0.0346,
+   "post": -0.0088,
+   "post_x_newgap": 0.2084,
+   "ret1": 0.4798,
+   "ret25": 0.3592,
+   "early": -0.4739,
+   "early_x_fp": -0.054,
+   "early_x_min": -0.1311,
+   "late": 1.5917,
+   "late_star": -2.3261,
+   "rook": 0.1793,
+   "rook_x_min": 0.0602,
+   "hot_threes": -0.589,
+   "hot_turnovers": -0.3678
+  },
+  {
+   "const": 1.168,
+   "fp_gap": 0.385,
+   "min_gap": 0.2505,
+   "delco_lvl": -0.0376,
+   "post": -0.0098,
+   "post_x_newgap": 0.2343,
+   "ret1": 0.2523,
+   "ret25": 0.3609,
+   "early": -0.4036,
+   "early_x_fp": -0.0761,
+   "early_x_min": -0.0614,
+   "late": 1.9395,
+   "late_star": -3.2464,
+   "rook": 0.2549,
+   "rook_x_min": 0.053,
+   "hot_threes": -0.6404,
+   "hot_turnovers": -0.2557
+  }
+ ]
+}

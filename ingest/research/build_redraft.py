@@ -175,6 +175,53 @@ except Exception as _ex:
     print("DELCO game-by-game unavailable:", repr(_ex)[:100])
 
 
+# NEXT-FEW-DAYS DELCO, model A (2026-10-26, Tommy; RESEARCH_short_term_projection_plan.md Phases 4-6, st_model.json): season DELCO corrected for his recent
+# minutes and scoring (weighted to the last ~2 / ~4 games), level, trades, returns, time of season, rookies and 3-point / turnover streaks, with its own
+# coefficients for each distance ahead (1, 2, 3, 4-5, 6-7, 8-10, 11-14 days after his last game). Replaces the v1 st_delta (still written, for the blend study).
+ST_MODEL = json.load(open(Path(__file__).resolve().parent / "st_model.json", encoding="utf-8"))
+ST_BUCKETS = ST_MODEL["buckets"]
+_cur_log = logs[logs["season"] == season_now]
+SEASON_START_LOG = _cur_log["date"].min().date() if len(_cur_log) else today
+
+
+def st_bucket(days):
+    days = min(max(int(days), 1), 14)
+    return next(i for i, (lo, hi) in enumerate(ST_BUCKETS) if lo <= days <= hi)
+
+
+def st_model(pl, now_, mn_):
+    """[delta vs season DELCO for each days-ahead bucket], last game date; None when he has no recent playing stretch"""
+    pl = pl[pl["min"] > 0]
+    if not (now_ and mn_) or len(pl) < 3 or (today - pl["date"].iloc[-1].date()).days > 14:
+        return None, None
+    rate = now_ / max(mn_, 8.0)
+    fp_gap = float(pl["fp"].ewm(halflife=4).mean().iloc[-1]) - now_
+    min_gap = (float(pl["min"].ewm(halflife=2).mean().iloc[-1]) - mn_) * rate
+    cur = pl[pl["season"] == season_now]
+    post = post_gap = ret1 = ret25 = 0.0
+    if len(cur):
+        tch = [i for i in range(1, len(cur)) if cur["team"].iloc[i] != cur["team"].iloc[i - 1]]
+        if tch and len(cur) - 1 - tch[-1] <= 10:
+            post = 1.0
+            post_gap = float(cur["fp"].iloc[tch[-1]:].mean()) - now_
+        gaps = cur["date"].diff().dt.days.to_numpy()
+        starts = [i for i in range(1, len(cur)) if gaps[i] >= 6]
+        if starts and starts[-1] == len(cur) - 1:
+            ret1 = 1.0
+        elif starts and 1 <= len(cur) - 1 - starts[-1] <= 4:
+            ret25 = 1.0
+    sday = (pl["date"].iloc[-1].date() - SEASON_START_LOG).days
+    early, late = float(sday <= 30), float(sday >= 150)
+    rook = float(pl["season"].nunique() == 1 and pl["season"].iloc[-1] == season_now)
+    hot = {}
+    for nm, v in (("hot_threes", pl["fg3m"]), ("hot_turnovers", -pl["tov"])):
+        hot[nm] = float(v.iloc[-5:].mean() - v.iloc[-40:].mean()) if len(pl) >= 15 else 0.0
+    f = {"fp_gap": fp_gap, "min_gap": min_gap, "delco_lvl": now_ - 24.0, "post": post, "post_x_newgap": post * post_gap, "ret1": ret1, "ret25": ret25,
+         "early": early, "early_x_fp": early * fp_gap, "early_x_min": early * min_gap, "late": late, "late_star": late * float(now_ >= 35),
+         "rook": rook, "rook_x_min": rook * min_gap, **hot}
+    return [round(c["const"] + sum(c[k] * v for k, v in f.items()), 1) for c in ST_MODEL["coef"]], str(pl["date"].iloc[-1].date())
+
+
 def team_games(team, d0, d1):
     return sum(1 for ds, _, _ in games_by_team.get(team, ()) if d0 <= ds <= d1)
 
@@ -242,6 +289,8 @@ for e in raw:
                # his scoring gap carry into his next few games; +1.25 is the measured lean of season DELCO for players in a playing stretch. Only when the last game is recent.
                "st_delta": (lambda now_, mn_, l3: round(1.254 + 0.113 * (float(l3.fp.mean()) - now_) + 0.363 * (float(l3["min"].mean()) - mn_) * (now_ / max(mn_, 8.0)), 1)
                             if (now_ and mn_ and len(l3) == 3 and (today - l3["date"].iloc[-1].date()).days <= 14) else None)(DNOW.get(key(name)), DMIN.get(key(name)), last.iloc[-3:]),
+               # next-few-days DELCO, model A: change vs season DELCO for each days-ahead bucket after his last game (st_d0)
+               **dict(zip(("st_dl", "st_d0"), st_model(pl, DNOW.get(key(name)), DMIN.get(key(name))))),
                # this season's per-game averages in BOX_AVG order, and the season they belong to (last season until games are played)
                "sa": [round(float(cur[c].mean()), 1) for c in BOX_AVG] if len(cur) else None, "sa_gp": int(len(cur)), "sa_season": cur["season"].iloc[-1] if len(cur) else None}
     n_played = rec.get("n_season", 0) if rec.get("gs") == season_now and season_now.startswith(str(SEASON_ID - 1)) else 0
@@ -251,6 +300,10 @@ for e in raw:
     # expected pace) build_week_plan.py applies to the daily plan -- "opponent missing production" is skipped here since it needs that script's
     # live league-wide injury/usage-flow build, not worth duplicating for this chart. Falls back to the flat ppg when matchup data is unavailable.
     next_proj = None
+    # next-few-days DELCO for each of those games (not for a player out now: a return gets the post-return ramp in the plan)
+    st_ok = rec.get("st_dl") and not out_now
+    st_for = lambda ds: rec["st_dl"][st_bucket((date.fromisoformat(ds) - date.fromisoformat(rec["st_d0"])).days)] if st_ok else 0.0
+    next_st = [st_for(ds) for ds, _, _ in nxt_games] if st_ok else None
     if MC and team_matchup:
         own_tm = team_matchup.get(team)
         nsp = (hp.get("next_season_proj") if hp and hp.get("kind") == "current" else (hp.get("rookie_proj") if hp else None)) if hp else None
@@ -259,14 +312,16 @@ for e in raw:
         for ds, opp, home in nxt_games:
             tm = team_matchup.get(opp)
             if not (own_tm and tm):
-                next_proj.append(round(ppg, 1))
+                next_proj.append(round(ppg + st_for(ds), 1))
                 continue
             posdef = pos[0] * tm["fpC"] + pos[1] * tm["fpF"] + pos[2] * tm["fpG"]
             day_before = (date.fromisoformat(ds) - timedelta(days=1)).isoformat()
             b2b_opp = day_before in dates_by_team.get(opp, set())
             exp_pace = MC.expected_pace(own_tm["pace"], tm["pace"])
             adj = MC.adjustment(drtg_opp=tm["drtg"], posdef_opp=posdef, b2b_opp=b2b_opp, exp_pace=exp_pace)
-            next_proj.append(round(ppg + adj, 1))
+            next_proj.append(round(ppg + st_for(ds) + adj, 1))
+    elif st_ok:
+        next_proj = [round(ppg + v, 1) for v in next_st]
     fr = form_p.get(key(name))
     s = sigma_ppg(n_played)
     rows.append({"id": p["id"], "name": name, "team": team, "pos": None,
@@ -274,7 +329,7 @@ for e in raw:
                  "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),
                  "inj_tier": hp.get("injury_tier") if hp else None, "inj_missed": hp.get("injury_missed") if hp else None, "inj_hmissed": hp.get("injury_health_missed") if hp else None, "traj": (hp.get("trajectory") or [None])[:3] if hp else None,
-                 "next": nxt, "next_proj": next_proj, **rec,
+                 "next": nxt, "next_proj": next_proj, "next_st": next_st, **rec,
                  "form": ({"d": fr["d"], "keep": fr["keep"], "chips": fr.get("chips", [])} if fr and "d" in fr else None)})
 
 # ESPN slot ids -> positions (0 PG, 1 SG, 2 SF, 3 PF, 4 C, 5 G, 6 F)

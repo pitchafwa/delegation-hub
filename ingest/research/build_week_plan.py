@@ -256,17 +256,21 @@ def formkey(name):
 print("form split loaded for", len(FORM), "players")
 
 
-# NEXT-FEW-DAYS NUMBER (short_term_study.py, 2026-10-26, Tommy): for days after tonight, season DELCO adjusted for his recent minutes and scoring
-# (redraft_data.json st_delta, built daily on the PC) replaces ESPN's season projection + last-15 average. Fades back toward season DELCO for games further out.
+# NEXT-FEW-DAYS DELCO (2026-10-26, Tommy): for days after tonight (and tonight until DailyFantasyFuel posts), season DELCO corrected for his recent
+# minutes, scoring and situation, with a measured weight for each distance after his last game (model A, RESEARCH_short_term_projection_plan.md;
+# redraft_data.json st_dl / st_d0, built daily on the PC; buckets in st_model.json). Replaced v1 (st_delta, which faded 100/60/30%) and, before that,
+# ESPN's season projection + last-15 average. v1 is still logged ("st_v1") for the Dec 14 blend study.
 try:
-    ST = {int(r["id"]): r for r in json.load(open(HUB / "redraft_data.json", encoding="utf-8"))["players"] if r.get("st_delta") is not None}
+    ST = {int(r["id"]): r for r in json.load(open(HUB / "redraft_data.json", encoding="utf-8"))["players"] if r.get("st_dl")}
 except Exception:
     ST = {}
+ST_BUCKETS = json.load(open(Path(__file__).resolve().parent / "st_model.json", encoding="utf-8"))["buckets"]
 
 
-def st_fade(d):
-    ahead = (d - today).days
-    return 1.0 if ahead <= 4 else (0.6 if ahead <= 8 else 0.3)
+def st_delta_on(pl, d):
+    """next-few-days DELCO change vs season DELCO for a game on date d (bucket = days after his last game)"""
+    days = min(max((d - date.fromisoformat(pl["st_d0"])).days, 1), 14)
+    return pl["st_dl"][next(i for i, (lo, hi) in enumerate(ST_BUCKETS) if lo <= days <= hi)]
 
 
 def make_player(p, on_roster_slot=None):
@@ -294,9 +298,9 @@ def make_player(p, on_roster_slot=None):
     st_fields = {}
     # not for a player who is out now: the study only covers players in a playing stretch, and a player back from a long absence gets the post-return ramp instead
     if st and st_base and (p.injuryStatus or "ACTIVE") not in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
-        base = max(0.0, st_base + st["st_delta"])
+        st_fields = {"st_base": round(st_base, 1), "st_dl": st["st_dl"], "st_d0": st["st_d0"], "st_delta": st.get("st_delta")}
+        base = max(0.0, st_base + st_delta_on(st_fields, today))
         src = "DELCO next days"
-        st_fields = {"st_base": round(st_base, 1), "st_delta": st["st_delta"]}
     return {**st_fields, "level_espn": level_espn, "espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)], "form": form, "level_pre": round(level_pre, 1),
             "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "official": {},  "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None, "hist_n": len((hp or {}).get("history_years") or []),
             "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None,
@@ -312,7 +316,7 @@ def level_on(pl, d):
     elif pl.get("dfs_carry"):                       # a free agent the daily table has priced for a day already posted: his current role is the better guide for the days not posted yet
         base = DFSP.FA_CARRY * pl["dfs_carry"] + (1 - DFSP.FA_CARRY) * pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     elif "st_base" in pl and not pl.get("ramp_by_date"):     # next-few-days DELCO, fading back to the season number for games further out (not on top of a post-return ramp)
-        base = max(0.0, pl["st_base"] + st_fade(d) * pl["st_delta"]) + pl.get("boost", {}).get(iso, 0.0)
+        base = max(0.0, pl["st_base"] + st_delta_on(pl, d)) + pl.get("boost", {}).get(iso, 0.0)
     else:
         base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     base += pl.get("matchup_by_date", {}).get(iso, 0.0)
@@ -913,7 +917,9 @@ for pl in [x for rr in rosters.values() for x in rr] + fa_players:
                          # added 2026-10-24 for the projection-blend study (blend_study.py): career-mode DELCO, ESPN's last-15 average, and the blended level the plan used
                          "model_career": pl.get("model_career") or "", "l15": pl.get("l15") or "", "gp15": pl.get("gp15") or "", "level": pl.get("level") or "", "is_fa": int(bool(pl.get("is_fa"))),
                          # added 2026-10-26: the next-few-days DELCO number and the ESPN-based number it replaced (for the Dec 14 blend study)
-                         "st": round(pl["st_base"] + pl["st_delta"], 1) if "st_base" in pl else "", "level_espn": pl.get("level_espn") or ""})
+                         "st": round(pl["st_base"] + st_delta_on(pl, today), 1) if "st_base" in pl else "", "level_espn": pl.get("level_espn") or "",
+                         # added 2026-10-26 with model A: the v1 number it replaced
+                         "st_v1": round(pl["st_base"] + pl["st_delta"], 1) if pl.get("st_delta") is not None else ""})
     seen_log.add(key)
 if new_rows and not os.environ.get("PLAN_TODAY") and not _c0:          # a simulated day must never write the projection log the blend study grades
     fields = list(new_rows[0].keys())
