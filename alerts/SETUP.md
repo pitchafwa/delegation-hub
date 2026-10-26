@@ -12,7 +12,12 @@ Repo > Settings > Secrets and variables > Actions > New repository secret: name 
 ## 3. Send yourself a test
 Repo > Actions > "Phone alerts (ntfy)" > Run workflow > mode `test`. A notification should arrive within a minute.
 
-## 4. Reliable timer with cron-job.org (GitHub's own scheduler drops and delays runs)
+## 4. Reliable timer: Cloudflare Worker `delegation-timer` (since 2026-10-26; replaces cron-job.org)
+`cloudflare/timer/` wakes every 5 minutes and starts every workflow on time (alerts check/daily/weekly/lineup, the morning league refresh, the plan rebuilds);
+the schedule is in `cloudflare/timer/index.js`. Deploy: `npx wrangler deploy` from that folder. Token (once): `npx wrangler secret put GH_TOKEN` (the same
+fine-grained token: this repo only, Actions read and write). Status: https://delegation-timer.tommy-valtin.workers.dev  (token_set, last run, today's schedule).
+
+## 4 (old). cron-job.org timer (retired once the Worker is confirmed; kept for reference)
 1. Create a free account at cron-job.org.
 2. Create a GitHub token: GitHub > Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate. Repository access: only `delegation-hub`.
    Permissions: Repository permissions > Actions: Read and write. Expiration: 1 year. Copy the token.
