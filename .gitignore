@@ -48,3 +48,4 @@ ingest/research/data/market/
 ingest/research/data/gamelevel/
 ingest/rebuild_request.txt
 dashboard/week_plan_test.json
+.wrangler/
