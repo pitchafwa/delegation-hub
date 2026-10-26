@@ -2420,11 +2420,13 @@ function renderMatchups(){
   }
   const list=pairs.slice().sort((x,y)=>((y[0]===meId||y[1]===meId)-(x[0]===meId||x[1]===meId))).map(card).join('');
   const wkLbl=w=>{ const c=cal.find(x=>x.id===w); return c?`${fd(c.start)} – ${fd(c.end)}`:''; };
+  // a week the NBA has left mostly open (NBA Cup knockout dates): far fewer games than a normal week of its length
+  const thin=state!=='final'&&SP&&SP.avg_games&&wcal&&SP.avg_games[wk-1]<0.6*3.4*wcal.days/7;
   const chips=cal.filter(c=>c.id<=nReg).map(c=>`<button type="button" class="mxWk${c.id===wk?' on':''}${c.id===cur?' cur':''}" data-w="${c.id}">${c.id}</button>`).join('');
   pane.innerHTML=`<div class="mxHead"><button type="button" class="mxNav" data-d="-1" ${wk<=1?'disabled':''} aria-label="Previous week">‹</button>
       <div class="mxTitle"><b>Week ${wk}</b><span>${wkLbl(wk)}${wk===cur?' · this week':(state==='final'?' · final':'')}</span></div>
       <button type="button" class="mxNav" data-d="1" ${wk>=nReg?'disabled':''} aria-label="Next week">›</button></div>
-    <div class="mxWks" id="mxWks">${chips}</div>
+    <div class="mxWks" id="mxWks">${chips}</div>${thin?'<div class="note" style="margin:0 0 10px">Most of this week&rsquo;s NBA games aren&rsquo;t scheduled yet (NBA Cup). Game counts and projections fill in when the NBA sets the dates.</div>':''}
     <div class="mxList">${list||'<div class="hint" style="padding:1rem">No matchups for this week.</div>'}</div>`;
   pane.querySelectorAll('.mxNav').forEach(b=>b.addEventListener('click',()=>{ MX.week=Math.min(nReg,Math.max(1,wk+ +b.dataset.d)); MX.open=null; renderMatchups(); }));
   pane.querySelector('#mxWks').addEventListener('click',e=>{ const b=e.target.closest('[data-w]'); if(!b) return; MX.week=+b.dataset.w; MX.open=null; renderMatchups(); });
