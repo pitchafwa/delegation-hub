@@ -1584,9 +1584,12 @@ function renderWeek(){
     }
     if(T.stash_suggest){ const s=T.stash_suggest; doItems.push({when:'Today',what:`Add ${s.name} and move him to IR`,sub:`A free IR slot and an add that would go unused (${s.why}). ${s.injury?esc(s.injury)+', ':''}${s.back_date?'back about '+new Date(s.back_date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})+'. ':''}About +${s.gain} over the rest of the season.`,gain:''}); }
     const seq=(T.sequence||[]).map(a=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); let d=a.on||(g.length?a.by_day[bi].date:todayIso);
-      if(a.add.waiver&&a.add.waiver.date){ const c=new Date(a.add.waiver.date+'T12:00:00'); c.setDate(c.getDate()-1); const cd=c.toISOString().slice(0,10); if(cd<d) d=cd<todayIso?todayIso:cd; }   // the claim must be in before the 3am run: the night before
-      return {a,d}; }).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
-    seq.forEach(({a,d})=>{
+      // a waiver player the plan wants ON the day he clears must be claimed the night before (the claim runs at 3am); if the plan wants him later, he is a free agent by then: add him on the plan's day
+      const claimNow=!!(a.add.waiver&&a.add.waiver.date&&a.on&&a.on<=a.add.waiver.date);
+      if(claimNow){ const c=new Date(a.add.waiver.date+'T12:00:00'); c.setDate(c.getDate()-1); const cd=c.toISOString().slice(0,10); d=cd<todayIso?todayIso:cd; }
+      else if(a.on) d=a.on;
+      return {a,d,claimNow}; }).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
+    seq.forEach(({a,d,claimNow})=>{
       const nx=iso=>(iso>M.end?'next ':'')+fmtDow(iso);
       const kind=a.keep?'Keep him':(a.release?`Keep him until ${nx(a.release)}`:(a.hold_through&&a.hold_through>(a.on||d)?`Rental through ${nx(a.hold_through)}`:'One-day rental'));
       const risk=(a.p_taken||0)>0.01?` · ${sgn0(a.gain_adj)} after a ${Math.round(a.p_taken*100)}% chance he is taken`:'';
@@ -1598,10 +1601,10 @@ function renderWeek(){
         if(Math.abs(a.next_gain||0)>=1) bits.push(`${sgn0(a.next_gain)} next week`);
         if((a.future_cost||0)<=-1) bits.push(`${sgn0(-a.future_cost)} rest of season`); else if((a.future_cost||0)>=1) bits.push(`${sgn0(-a.future_cost)} risk of losing ${a.drop?a.drop.name.split(' ').slice(-1)[0]:'him'}`);
         pts=bits.length?' · '+bits.join(', '):''; }
-      const claim=!!a.add.waiver;
+      const claim=claimNow;
       const whenLbl=claim&&d===todayIso?'Tonight':dShort(d);
       const what=claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`;
-      const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when} (the drop happens then). `:'';
+      const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when} (the drop happens then). `:(a.add.waiver?`On waivers until ${a.add.waiver.when}; a free agent by ${dShort(d)}, so no claim needed. `:'');
       const mv=d===todayIso?{add:a.add.id,drop:a.drop?a.drop.id:'',kind:claim?'waiver':'fa',name:a.add.name,dropName:a.drop?a.drop.name:''}:null;      // one-tap: only moves due today
       doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
     if(!seq.length) doItems.push(M.adds_limit-T.adds_used<=0?{when:'Week',what:`All ${M.adds_limit} adds used`,sub:'No more pickups until the next matchup starts. Just set your lineup.',gain:''}:{when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});

@@ -271,6 +271,30 @@ def result_body(ok, message, mode, pv=None, applied=None):
             "applied": applied or [], "run": arg("--run-url")}
 
 
+def fresh_day_moves(lg, ds):
+    """the moves one day needs NOW: re-read that day's lineup from ESPN and compare with the plan's starters (same rules as the preview)"""
+    W = load("week_plan.json")
+    SP = load("schedule_plan.json")
+    me = next(t for t in W["teams"] if t["abbrev"] == W["my_abbrev"])
+    d = next(x for x in me["days"] if x["date"] == ds)
+    if d.get("locked"):
+        return []
+    first_day = date.fromisoformat(SP["calendar"][0]["start"])
+    dd = date.fromisoformat(ds)
+    today = datetime.now(ET).date()
+    raw = lg.espn_request.league_get(params={"view": ["mRoster"], "scoringPeriodId": scoring_period(dd, first_day)})
+    team = next(t for t in raw["teams"] if t["id"] == me["id"])
+    cur, elig = {}, {}
+    for e in team["roster"]["entries"]:
+        cur[e["playerId"]] = (e["playerPoolEntry"]["player"]["fullName"], SLOT_NAME.get(e["lineupSlotId"], str(e["lineupSlotId"])))
+        elig[e["playerId"]] = {SLOT_NAME.get(i) for i in e["playerPoolEntry"]["player"].get("eligibleSlots", [])} & set(SLOT_CAP)
+    want = {x["id"]: x["slot"] for x in d["start"]}
+    plays = {r["id"] for r in me["roster"] if ds in r.get("games", [])}
+    moves, _ = minimal_moves(cur, elig, want, plays, dd == today, today_locked_teams(today), {p["id"]: canon(p["team"]) for p in me["roster"]})
+    moves.sort(key=lambda m: (m["to"] != "BE", m["to"]))
+    return moves
+
+
 def do_apply(pv, want_hash, out_dir):
     """apply exactly the previewed moves: refuses unless the freshly built preview has the same hash the user reviewed"""
     if not want_hash or pv["hash"] != want_hash:
@@ -291,8 +315,16 @@ def do_apply(pv, want_hash, out_dir):
     for d in pv["days"]:
         if not d["moves"]:
             continue
+        moves = d["moves"]
+        if applied:
+            # ESPN copies a lineup change forward to every later day, so after the first day is set the later days' lineups have changed:
+            # re-read the day from ESPN and recompute its moves right before writing (2026-10-26: 'Scottie Barnes is already in the BE slot')
+            moves = fresh_day_moves(lg, d["date"])
+            if not moves:
+                applied.append(d["date"])
+                continue
         try:
-            write_lineup(lg, d["sp"], d["moves"], team_id=load("week_plan.json")["teams"][0]["id"] and next(t for t in load("week_plan.json")["teams"] if t["abbrev"] == load("week_plan.json")["my_abbrev"])["id"])
+            write_lineup(lg, d["sp"], moves, team_id=next(t for t in load("week_plan.json")["teams"] if t["abbrev"] == load("week_plan.json")["my_abbrev"])["id"])
             applied.append(d["date"])
         except Exception as ex:
             return result_body(False, f"Stopped at {d['date']}: {ex}. Days already set: {', '.join(applied) or 'none'}. The snapshot lineup_snapshot_{pv['hash']}.json can undo them.", "apply", pv, applied)
