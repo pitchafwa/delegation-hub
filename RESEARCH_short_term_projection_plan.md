@@ -126,3 +126,23 @@ Each signal added on top of the batch 1 winner (fit 2015-22, judged 2022-26). Ty
 - **Did nothing:** per-minute rate change separate from minutes; it is already inside the points gap.
 - **Rest (test 13):** no effect on points when a player does play. Back-to-backs −0.6%, older players on a back-to-back −1.6% more.
   Rest matters for whether he plays, which the chance-to-play model already uses.
+### Batch 3 (2026-10-26; research/st_batch3.py, log research/data/st_batch3.log)
+Base = batch 1 winner + DELCO slope (games 1-6 typical miss 12.556).
+- **Test 4, games cut short:** count them in full; every discount was worse.
+  - Short games, other than blowouts, foul trouble or injury: 6,968. Halving them costs +0.008; dropping them costs +0.032.
+  - Blowouts: 1,836. Dropping them costs +0.007.
+  - Foul trouble: 189. No effect either way.
+  - Injury exits, listed on the next report (228, 2021+): no gain from discounting.
+  - Even after the short games, full weight already runs a little high (lean −0.2 to −0.8). Discounting makes that worse (−1.5 to −2.4).
+  - So a short night says something real about the next games. Players often come back limited, and only about 40% of a minutes change carries anyway. Flagg-type nights stay in.
+- **Test 8, trades:** for the first 10 games with a new team, add +0.25 and weight his scoring with the new team (about 26% of its gap).
+  For traded players: miss 12.37 → 12.21, lean +0.46 → 0.0. Tiny overall (−0.004); keep it, since it is cheap and fixes a known blind spot.
+- **Test 17, back from 5+ days off:** about +0.4 to +0.5 for the next 5 games (they bounce back more than the short window says). Small (−0.002), and the lean goes to zero.
+- **Test 18, season phase:** −0.016 overall.
+  - First month: −0.55, and the recent window counts a bit less. First-month lean −0.6 → 0.0.
+  - From day 150: +1.0 for most players, −1.6 for DELCO 35+ (late-season rest of stars).
+  - The late part overlaps late_season.py's playoff multipliers, so pick one in Phase 4, not both.
+- **Tests 12 + 14, opponent and blowout risk per upcoming game:** opponent is the biggest single gain so far (−0.042 at every distance).
+  - +10% fantasy points allowed by the opponent → +6% for the player. Lean by opponent quintile runs −1.5 (toughest) to +1.5 (easiest).
+  - Blowout risk (net-rating mismatch) adds nothing for starters or bench.
+  - The plan already applies an opponent adjustment day by day (matchup_context.py, additive, capped ±2.5). Phase 4 compares that existing adjustment with this one on the harness and keeps one.
