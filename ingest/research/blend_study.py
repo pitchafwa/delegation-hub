@@ -66,7 +66,7 @@ act = games.drop_duplicates(["day", "key"]).set_index(["day", "key"])["fp"]
 
 log = pd.read_csv(HUB / "projection_log.csv")
 log["key"] = log["name"].map(norm)
-for c in ("espn", "model", "model_career", "l15", "props", "level"):
+for c in ("espn", "model", "model_career", "l15", "props", "level", "st", "level_espn"):
     if c in log:
         log[c] = pd.to_numeric(log[c], errors="coerce")
 log = log.drop_duplicates(["date", "key"])

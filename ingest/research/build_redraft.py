@@ -162,7 +162,7 @@ for name, pl in logs.groupby("name", sort=False):
     by_name.setdefault(key(name), []).append(pl)
 print("game logs through", str(logs["date"].max())[:10], "season", season_now, "; form split for", len(form_p), "players")
 # DELCO going into each recent game (kalman_vor.py -> data/delco_pregame.csv): the game-log chart draws it as his trend line
-DPRE, DNOW = {}, {}
+DPRE, DNOW, DMIN = {}, {}, {}
 try:
     import pandas as _pd
     _dp = _pd.read_csv(Path(__file__).resolve().parent / "data" / "delco_pregame.csv")
@@ -170,6 +170,7 @@ try:
         DPRE[(key(r_.PLAYER_NAME), r_.GAME_DATE)] = float(r_.pre)
     for nm_, g_ in _dp.groupby("PLAYER_NAME"):
         DNOW[key(nm_)] = float(g_["after"].iloc[-1])
+        DMIN[key(nm_)] = float(g_["afterMIN"].iloc[-1]) if "afterMIN" in g_ else None
 except Exception as _ex:
     print("DELCO game-by-game unavailable:", repr(_ex)[:100])
 
@@ -237,6 +238,10 @@ for e in raw:
                # box-score lines for the bar tooltips: [pts, reb, ast, stl, blk, 3pm, ftm, tov] per game, aligned with g/gd/gm
                "gx": [[int(r[c]) for c in BOX] for _, r in last.iterrows()],
                "gk_raw": [DPRE.get((key(name), str(v)[:10])) for v in last["date"]],
+               # NEXT-FEW-DAYS adjustment (short_term_study.py, 2026-10-26): about 36% of his minutes change over the last 3 games (at his usual rate) and 11% of
+               # his scoring gap carry into his next few games; +1.25 is the measured lean of season DELCO for players in a playing stretch. Only when the last game is recent.
+               "st_delta": (lambda now_, mn_, l3: round(1.254 + 0.113 * (float(l3.fp.mean()) - now_) + 0.363 * (float(l3["min"].mean()) - mn_) * (now_ / max(mn_, 8.0)), 1)
+                            if (now_ and mn_ and len(l3) == 3 and (today - l3["date"].iloc[-1].date()).days <= 14) else None)(DNOW.get(key(name)), DMIN.get(key(name)), last.iloc[-3:]),
                # this season's per-game averages in BOX_AVG order, and the season they belong to (last season until games are played)
                "sa": [round(float(cur[c].mean()), 1) for c in BOX_AVG] if len(cur) else None, "sa_gp": int(len(cur)), "sa_season": cur["season"].iloc[-1] if len(cur) else None}
     n_played = rec.get("n_season", 0) if rec.get("gs") == season_now and season_now.startswith(str(SEASON_ID - 1)) else 0

@@ -184,8 +184,8 @@ try:
     _pre = df["_pre_MIN"].clip(lower=0) * (sum(w * df[f"_pre_{k}"] for k, w in _W.items()) + 3.0 * _stl)
     _now = df["_postS_MIN"].clip(lower=0) * (sum(w * df[f"_postS_{k}"] for k, w in _W.items()) + 3.0 * _stl)
     _out = pd.DataFrame({"PLAYER_ID": df["PLAYER_ID"], "PLAYER_NAME": df["PLAYER_NAME"], "GAME_DATE": df["GAME_DATE"].dt.strftime("%Y-%m-%d"),
-                         "SEASON": df["SEASON"], "MIN": df["MIN"], "pre": _pre.round(1), "after": _now.round(1)})
-    _full = _out.assign(preMIN=df["_pre_MIN"].round(1), afterMIN=df["_postS_MIN"].round(1), TEAM=df["TEAM"])
+                         "SEASON": df["SEASON"], "MIN": df["MIN"], "pre": _pre.round(1), "after": _now.round(1), "afterMIN": df["_postS_MIN"].round(1)})
+    _full = _out.assign(preMIN=df["_pre_MIN"].round(1), TEAM=df["TEAM"])
     _full.to_csv(ROOT / "data" / "delco_pregame_all.csv.gz", index=False)        # every game, for the short-term projection study
     _out = _out[_out["SEASON"] >= sorted(df["SEASON"].unique())[-2]].groupby("PLAYER_ID").tail(15)
     _out.to_csv(ROOT / "data" / "delco_pregame.csv", index=False)

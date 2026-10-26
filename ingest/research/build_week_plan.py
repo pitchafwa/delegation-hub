@@ -256,6 +256,19 @@ def formkey(name):
 print("form split loaded for", len(FORM), "players")
 
 
+# NEXT-FEW-DAYS NUMBER (short_term_study.py, 2026-10-26, Tommy): for days after tonight, season DELCO adjusted for his recent minutes and scoring
+# (redraft_data.json st_delta, built daily on the PC) replaces ESPN's season projection + last-15 average. Fades back toward season DELCO for games further out.
+try:
+    ST = {int(r["id"]): r for r in json.load(open(HUB / "redraft_data.json", encoding="utf-8"))["players"] if r.get("st_delta") is not None}
+except Exception:
+    ST = {}
+
+
+def st_fade(d):
+    ahead = (d - today).days
+    return 1.0 if ahead <= 4 else (0.6 if ahead <= 8 else 0.3)
+
+
 def make_player(p, on_roster_slot=None):
     hp = hub_player(p.playerId, p.name)
     espn_proj = (p.stats.get(f"{SEASON_ID}_projected") or {}).get("applied_avg")
@@ -275,7 +288,15 @@ def make_player(p, on_roster_slot=None):
         adj = max(-FORM_ADJ_CAP, min(FORM_ADJ_CAP, FORM_ADJ_SHRINK * (form["keep"] - w_prod * form["d"])))
         base = max(0.0, base + adj)
         form = dict(form, adj=round(adj, 1))
-    return {"espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)], "form": form, "level_pre": round(level_pre, 1),
+    level_espn = round(base, 1)
+    st = ST.get(int(p.playerId))
+    st_base = ours if ours else (st["ppg"] if st else None)
+    st_fields = {}
+    if st and st_base:
+        base = max(0.0, st_base + st["st_delta"])
+        src = "DELCO next days"
+        st_fields = {"st_base": round(st_base, 1), "st_delta": st["st_delta"]}
+    return {**st_fields, "level_espn": level_espn, "espn_id": p.playerId, "name": p.name, "team": canon(p.proTeam or ""), "slots": [s for s in p.eligibleSlots if s in set(SLOTS)], "form": form, "level_pre": round(level_pre, 1),
             "status": p.injuryStatus or "ACTIVE", "level": round(base, 1), "src": src, "official": {},  "espn_level": espn_proj, "model_level": ours, "espn_avg": (p.stats.get(f"{SEASON_ID}_projected") or {}).get("avg"), "hub_id": hp["id"] if hp else None, "hist_n": len((hp or {}).get("history_years") or []),
             "ir": on_roster_slot == "IR", "asset_rank": ASSET_RANK.get(hp["id"]) if hp else None, "kind": hp.get("kind") if hp else None,
             "model_career": hp.get("year0_ppg") if hp else None, "l15": round(l15["applied_avg"], 1) if gp15 >= 3 and l15.get("applied_avg") else None, "gp15": gp15}
@@ -289,6 +310,8 @@ def level_on(pl, d):
         base = pl["lvl_by_date"][iso]
     elif pl.get("dfs_carry"):                       # a free agent the daily table has priced for a day already posted: his current role is the better guide for the days not posted yet
         base = DFSP.FA_CARRY * pl["dfs_carry"] + (1 - DFSP.FA_CARRY) * pl["level"] + pl.get("boost", {}).get(iso, 0.0)
+    elif "st_base" in pl:                           # next-few-days DELCO, fading back to the season number for games further out
+        base = max(0.0, pl["st_base"] + st_fade(d) * pl["st_delta"]) + pl.get("boost", {}).get(iso, 0.0)
     else:
         base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     base += pl.get("matchup_by_date", {}).get(iso, 0.0)
@@ -887,7 +910,9 @@ for pl in [x for rr in rosters.values() for x in rr] + fa_players:
         new_rows.append({"date": today.isoformat(), "espn_id": pl["espn_id"], "name": pl["name"], "team": pl["team"], "status": pl["status"],
                          "espn": pl["espn_level"] or "", "model": pl["model_level"] or "", "props": pl.get("lvl_by_date", {}).get(today.isoformat(), ""),
                          # added 2026-10-24 for the projection-blend study (blend_study.py): career-mode DELCO, ESPN's last-15 average, and the blended level the plan used
-                         "model_career": pl.get("model_career") or "", "l15": pl.get("l15") or "", "gp15": pl.get("gp15") or "", "level": pl.get("level") or "", "is_fa": int(bool(pl.get("is_fa")))})
+                         "model_career": pl.get("model_career") or "", "l15": pl.get("l15") or "", "gp15": pl.get("gp15") or "", "level": pl.get("level") or "", "is_fa": int(bool(pl.get("is_fa"))),
+                         # added 2026-10-26: the next-few-days DELCO number and the ESPN-based number it replaced (for the Dec 14 blend study)
+                         "st": round(pl["st_base"] + pl["st_delta"], 1) if "st_base" in pl else "", "level_espn": pl.get("level_espn") or ""})
     seen_log.add(key)
 if new_rows and not os.environ.get("PLAN_TODAY") and not _c0:          # a simulated day must never write the projection log the blend study grades
     fields = list(new_rows[0].keys())
