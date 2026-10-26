@@ -98,3 +98,17 @@ Pick the simplest model within noise of the best.
 
 Suggested first batch after Phase 1–2: 1 (minutes trend lengths), 2 (starter changes), 6 + 7 (teammates out/returning, forward-looking), 19 (availability).
 These are the likeliest big wins and the ones v1 handles worst.
+
+## Results log
+### Batch 1 (2026-10-26; research/st_batch1.py, log research/data/st_batch1.log; judged on 2022-23..2025-26 unless noted)
+- **Test 1, minutes trend length:** the best pair is minutes weighted toward the last ~2 games (half-life 2) plus points weighted over the last ~4 (half-life 4).
+  Typical miss vs v1: game 1 12.33 vs 12.39, games 2-3 12.51 vs 12.57, 4-6 12.72 vs 12.77, 7-9 12.95 vs 13.00 (about 0.05 better at every distance).
+  Share of a minutes change that carries: 51% next game, 42% games 2-3, 35% games 4-6, 30% games 7-9. The points gap carries a steady ~34%.
+  This is the measured fade, replacing the guessed 1.0/0.6/0.3. Stars still overrated by ~0.9; separate star terms do nothing. Not fixed yet.
+- **Tests 6+7, teammates listed out / returning (official report; fit 2021-22..22-23, judged 23-24..25-26):** a teammate listed out helps next game (+0.19 × his level
+  × player's minutes share), fading to zero by game 4. A returning teammate costs a little later on. Overall gain ~0.01: real, but too small to matter on top of test 1.
+- **Test 19, chance to play:** a fitted model beats the flat 85/81/61% (Brier 0.142 → 0.135, most at game 1: 0.113 → 0.097) and is well calibrated.
+  Key signals: recent minutes, level, age, time of season, minutes swings. The flat rule under-predicts (79% vs 82% actual), which made the whole 7-day number run 4 points low.
+  The report status adds almost nothing here, because these are mornings after a game he played (rarely listed out then). Players already out are handled by the injury status path.
+- **Week (7-day points):** v1 + flat 34.31 / lean +3.9; best level + model 33.60 / lean −0.2. Most of the gain is the chance-to-play model.
+- **Test 2 (starters):** waiting on the 2024-27 starter download (NBA site throttled it once; restarted slower).

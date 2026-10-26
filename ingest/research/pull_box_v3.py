@@ -32,14 +32,14 @@ for season in SEASONS:
                 df = boxscoretraditionalv3.BoxScoreTraditionalV3(game_id=gid.zfill(10), timeout=60).get_data_frames()[0]
                 break
             except Exception as ex:
-                time.sleep(5 * (attempt + 1))
+                time.sleep(30 * (attempt + 1))
                 df = None
         if df is None or df.empty:
             print("  failed", gid, flush=True)
             continue
         df = df.assign(gameId=gid.zfill(10), game_date=gdate, season_year=season)
         buf.append(df)
-        time.sleep(0.6)
+        time.sleep(1.5)
         if len(buf) >= 25 or i == len(todo) - 1:
             chunk = pd.concat(buf)
             chunk.to_csv(out, mode="a", header=not out.exists(), index=False)
