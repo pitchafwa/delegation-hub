@@ -155,3 +155,34 @@ Base = all kept so far (games 1-6 typical miss 12.535).
   Rookie terms cut that to +0.37 / +0.54 (−0.002 overall). Second-year players are already right. A small keep, pending Phase 4.
 - **Test 15, home/away:** about +1.4% at home and −1.4% away; travel (2+ straight road games) adds nothing. −0.003. Tiny; a candidate only as a day-by-day term next to the opponent.
 - Phase 3 is complete except test 2 (starters), which waits on the download.
+
+### Phase 4, model comparison (2026-10-26; research/st_phase4.py, research/st_avail_recentre.py, logs in research/data/)
+Games 1-6 typical miss on 2022-26 (lower is better):
+
+| Model | Typical miss |
+|---|---|
+| Season DELCO | 12.952 |
+| v1 (live) | 12.629 |
+| Batch 1 winner | 12.574 |
+| **A, corrections with all kept signals** | **12.528** |
+| B, minutes × rate | 12.580 |
+| C, boosted trees | 12.524 |
+| Stack | = C (it put all weight on the trees) |
+
+With opponent and home/away per upcoming game, A is 12.481 and C is 12.476.
+- **Pick A.** It is within noise of the trees (0.005) and has no lean anywhere:
+  - stars +0.06, rookies +0.38, role up +0.09, first month +0.08.
+  - The trees lean +1.0 on stars, −0.8 on players losing minutes, and +0.55 in the first month.
+- **Structural (minutes × rate)** is worse and leans −0.6 on stars.
+- **Opponent term, refit on each model:** about +5.8% per +10% fantasy points allowed. Home vs away ±1.3%.
+- **Chance-to-play model drift:** players sit more every year (played share 88% in 2015-16 → 81% in 2024-26), so a model fit on older seasons predicts too much playing time (85% vs 82%).
+  - Fix: re-centre it each season on the season before (a shift in log-odds). Mean 0.823 vs 0.824 actual, Brier 0.132 (flat rule 0.142).
+  - Live, it is refit through last season and re-centred on last season.
+- **7-day points:**
+  - v1 + flat (live today): 34.32, lean +4.0.
+  - A + opponent/home + chance model: 33.52; lean −2.6 before re-centring, about −1 after.
+  - The remaining −1 goes to the Phase 5 calibration.
+- **Next:**
+  - Phase 5: measured fade per distance and spread of outcomes, then a final 7-day calibration.
+  - Phase 6: replay of 2025-26 weeks with the planner.
+  - Test 2 (starters) is added to A when its data lands.
