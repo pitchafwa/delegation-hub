@@ -146,3 +146,12 @@ Base = batch 1 winner + DELCO slope (games 1-6 typical miss 12.556).
   - +10% fantasy points allowed by the opponent → +6% for the player. Lean by opponent quintile runs −1.5 (toughest) to +1.5 (easiest).
   - Blowout risk (net-rating mismatch) adds nothing for starters or bench.
   - The plan already applies an opponent adjustment day by day (matchup_context.py, additive, capped ±2.5). Phase 4 compares that existing adjustment with this one on the harness and keeps one.
+### Batch 4 (2026-10-26; research/st_batch4.py, log research/data/st_batch4.log)
+Base = all kept so far (games 1-6 typical miss 12.535).
+- **Test 11, streaks by category:** −0.007 overall. Most of a hot streak in points or assists carries; this is already counted in the points gap.
+  Threes (−0.7) and turnovers (−0.6) mostly fall back. Steals+blocks, rebounds and free throws fall back a little.
+  Real, but small. Keep threes and turnovers only if Phase 4 finds them worth it.
+- **Test 16, rookies and second-year players:** rookies are still underrated by about +0.5 (+0.66 in their first 20 games).
+  Rookie terms cut that to +0.37 / +0.54 (−0.002 overall). Second-year players are already right. A small keep, pending Phase 4.
+- **Test 15, home/away:** about +1.4% at home and −1.4% away; travel (2+ straight road games) adds nothing. −0.003. Tiny; a candidate only as a day-by-day term next to the opponent.
+- Phase 3 is complete except test 2 (starters), which waits on the download.
