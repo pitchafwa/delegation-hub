@@ -56,8 +56,16 @@ VARIANTS = {
     "now+lastdays": dict(min_net=6, protect=35, lose=lose_measured, cost_mult=1.0, first_day=4),
     "now+top6only": dict(min_net=6, protect=999, lose=lose_measured, cost_mult=1.0, first_day=0),
     "now+min12": dict(min_net=12, protect=35, lose=lose_measured, cost_mult=1.0, first_day=0),
+    "now+sched": dict(min_net=6, protect=35, lose=lose_measured, cost_mult=1.0, first_day=0, sched=True),
     "now+cram": dict(min_net=6, protect=35, lose=lose_measured, cost_mult=1.0, first_day=0, cram=True),
 }
+
+
+def fut_games(p, d_end):
+    """the player's team's real games in the 6 weeks after this matchup, times his usual chance of playing (schedule-aware future value, test #3)"""
+    tm = p.get("team")
+    gs = sum(1 for dd in B.team_days.get(tm, set()) if d_end < dd <= d_end + timedelta(days=42))
+    return gs * B.p_future(p["level"])
 
 
 def future_level(n, d_end):
@@ -173,6 +181,11 @@ def run_week(days, rostered_by_sp, var):
                         wk = ev([p for p in roster if p is not dr] + [f], rem, d, c, cap) - base
                         if dr is None:
                             cost = 0.0
+                        elif var.get("sched"):                  # #3: the teams' REAL games over the next 6 weeks instead of a flat 3.3 a week
+                            gd_, gf_ = fut_games(dr, dates[-1]), fut_games(f, dates[-1])
+                            rent = var["lose"](dr["level"], len(rem) + 2) * max(0.0, dr["level"] - restream) * gd_
+                            keep = max(0.0, dr["level"] * gd_ - f["level"] * gf_)
+                            cost = min(rent, keep) * var["cost_mult"]
                         else:
                             rent = var["lose"](dr["level"], len(rem) + 2) * max(0.0, dr["level"] - restream) * GPW * ROS
                             keep = max(0.0, dr["level"] - f["level"]) * GPW * ROS
