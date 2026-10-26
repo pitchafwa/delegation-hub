@@ -56,6 +56,7 @@ VARIANTS = {
     "now+lastdays": dict(min_net=6, protect=35, lose=lose_measured, cost_mult=1.0, first_day=4),
     "now+top6only": dict(min_net=6, protect=999, lose=lose_measured, cost_mult=1.0, first_day=0),
     "now+min12": dict(min_net=12, protect=35, lose=lose_measured, cost_mult=1.0, first_day=0),
+    "now+cram": dict(min_net=6, protect=35, lose=lose_measured, cost_mult=1.0, first_day=0, cram=True),
 }
 
 
@@ -94,11 +95,15 @@ def run_week(days, rostered_by_sp, var):
         p["start_level"] = p["level"]
     lv_rank = sorted(roster, key=lambda p: -p["level"])
     c, total, adds, moves = 0, 0.0, 0, []
+    cram_drops = set()
     for i, d in enumerate(dates):
         rem = dates[i:]
         for p in roster:
             p["level"] = B.level(p["n"], d)
         set_today(roster, d)
+        if cram_drops:                                # the package's drops leave this morning (its streamers are already on the roster, playing only today)
+            roster = [p for p in roster if p["n"] not in cram_drops]
+            cram_drops = set()
         if var and adds < ADDS and i >= var["first_day"] and c < cap:
             taken = rostered_by_sp.get(sps[i], set())
             pool = []
@@ -116,9 +121,43 @@ def run_week(days, rostered_by_sp, var):
                 pool.append(f)
             pool.sort(key=lambda p: -(p["level"] * sum(p["sched"].values())))
             restream = sorted((f["level"] for f in pool), reverse=True)[2] if len(pool) >= 3 else 22.0
+            full_pool = pool
             pool = pool[:N_CAND]
             set_today(pool, d)
             prot = {p["n"] for p in lv_rank[:6]} | {p["n"] for p in roster if p["level"] >= var["protect"]}
+            # LAST-DAY PACKAGE (2026-10-26, Tommy): on the second-to-last morning, weigh as ONE move "after tonight's games drop k players and add k streamers who
+            # play tomorrow", so the lineup plan can sit players today to enter the last day just under the cap and fill it (a day started under the cap counts in full)
+            if var.get("cram") and i == len(dates) - 2:
+                last = dates[-1]
+                cand = sorted([f for f in full_pool if f["sched"].get(last)], key=lambda f: -f["level"])[:8]
+                drops_c = sorted([p for p in roster if p["n"] not in prot], key=lambda p: p["level"])
+                n_open = max(0, 15 - len(roster))
+                base = ev(roster, rem, d, c, cap)
+                best_pkg = None
+                for k in range(2, min(ADDS - adds, len(cand), len(drops_c) + n_open) + 1):
+                    new, cost, pairs = list(roster), 0.0, []
+                    for j in range(k):
+                        f = dict(cand[j])
+                        f["sched"] = {dd: (dd == last) for dd in rem}
+                        f["played"], f["pts"] = False, 0.0          # arrives tomorrow: cannot play today
+                        dr = drops_c[j - n_open] if j >= n_open else None
+                        if dr is not None:
+                            new = [q for q in new if q is not dr]
+                            dr2 = dict(dr)
+                            dr2["sched"] = {dd: (dr["sched"].get(dd, False) and dd != last) for dd in rem}
+                            new.append(dr2)
+                            cost += var["lose"](dr["level"], 2) * max(0.0, dr["level"] - restream) * GPW * ROS * var["cost_mult"]
+                        new.append(f)
+                        pairs.append((f, dr))
+                    net = ev(new, rem, d, c, cap) - base - cost
+                    if best_pkg is None or net > best_pkg[0]:
+                        best_pkg = (net, new, pairs)
+                if best_pkg and best_pkg[0] >= var["min_net"] + 10:
+                    _, roster, pairs = best_pkg
+                    adds += len(pairs)
+                    for f, dr in pairs:
+                        moves.append((f, dr, restream, 1))
+                    cram_drops = {dr["n"] for _f, dr in pairs if dr is not None}
             for _step in range(2):                    # up to two moves a morning
                 if adds >= ADDS:
                     break
@@ -185,6 +224,8 @@ def main():
     print(f"{len(keys)} team-weeks x {len(VARIANTS)} variants", flush=True)
     for k, (mp, team) in enumerate(keys):
         for name, var in VARIANTS.items():
+            if os.environ.get("ONLY_VARIANTS") and name not in os.environ["ONLY_VARIANTS"].split(","):
+                continue
             r = run_week(W[(mp, team)], rostered_by_sp, var)
             if r:
                 out.append(dict(mp=mp, team=team, variant=name, **r))
@@ -200,6 +241,8 @@ def report(df):
     base = df[df.variant == "none"].set_index(["mp", "team"])
     rows = []
     for name in VARIANTS:
+        if name not in set(df.variant):
+            continue
         x = df[df.variant == name].set_index(["mp", "team"])
         j = x.join(base, rsuffix="_b", how="inner")
         gain = (j.points - j.points_b) + j.future
