@@ -112,3 +112,17 @@ These are the likeliest big wins and the ones v1 handles worst.
   The report status adds almost nothing here, because these are mornings after a game he played (rarely listed out then). Players already out are handled by the injury status path.
 - **Week (7-day points):** v1 + flat 34.31 / lean +3.9; best level + model 33.60 / lean −0.2. Most of the gain is the chance-to-play model.
 - **Test 2 (starters):** waiting on the 2024-27 starter download (NBA site throttled it once; restarted slower).
+### Batch 2 (2026-10-26; research/st_batch2.py, log research/data/st_batch2.log)
+Each signal added on top of the batch 1 winner (fit 2015-22, judged 2022-26). Typical miss over games 1-6 is 12.574 for the winner.
+- **Kept: season DELCO slightly overstates how far a player sits from average.** The next few games come back toward the middle by 3-6% of the distance from 24.
+  The pull is larger further ahead. Example: a 50-DELCO star is about 1 point lower and a 12-DELCO player about 0.5 higher.
+  This removes the star overrating (lean −0.88 → +0.09), shrinks the rookie and fringe leans, and is the best single gain (−0.018; −0.039 for games 7-9).
+- **Not worth adding** (each 0.003-0.005, about +0.007 all together; simplest model kept):
+  - Minutes stability.
+  - Rotation size: a deeper rotation, oddly, means slightly more points.
+  - Usage change: about 27% of a usage jump carries.
+  - Shooting luck: hot 3-point and free-throw shooting regresses about 80% back, but it is small in points.
+  - Career vs season gap.
+- **Did nothing:** per-minute rate change separate from minutes; it is already inside the points gap.
+- **Rest (test 13):** no effect on points when a player does play. Back-to-backs −0.6%, older players on a back-to-back −1.6% more.
+  Rest matters for whether he plays, which the chance-to-play model already uses.

@@ -100,6 +100,43 @@ def week_table(levels, avails, split=TEST):
     return pd.DataFrame(out).set_index("model")
 
 
+# ---------------- shared fitting helpers (signal batches): corrections to DELCO, fit separately for each horizon bucket
+def kb_of(k):
+    return next(i for i, (lo, hi, _) in enumerate(KB) if lo <= k <= hi)
+
+
+TP = T[T["played"]].assign(kb=lambda d: d["k"].map(kb_of))
+
+
+def fit_by_k(feats, train_seasons=TRAIN):
+    """least squares of (points - DELCO) on the features, by horizon bucket. feats: {name: Series by info_id}"""
+    tr = TP[TP["season"].isin(train_seasons)]
+    coefs = {}
+    for b in range(len(KB)):
+        t = tr[tr["kb"] == b]
+        X = np.column_stack([np.ones(len(t))] + [t["info_id"].map(f).to_numpy() for f in feats.values()])
+        y = t["fp"].to_numpy() - t["info_id"].map(P["delco"]).to_numpy()
+        ok = np.isfinite(X).all(1) & np.isfinite(y)
+        coefs[b] = np.linalg.lstsq(X[ok], y[ok], rcond=None)[0]
+    return coefs
+
+
+def predict_by_k(feats, coefs):
+    out = {}
+    for k in range(1, 11):
+        c = coefs[kb_of(min(k, 9))]
+        out[k] = P["delco"] + c[0] + sum(c[i + 1] * f.reindex(P.index).fillna(0.0) for i, f in enumerate(feats.values()))
+    s = pd.concat(out, names=["k"]).swaplevel().sort_index()
+    s.index.names = ["info_id", "k"]
+    return s
+
+
+def best_level_feats():
+    """batch 1 winner: minutes weighted to the last ~2 games, points to the last ~4"""
+    rate = P["delco"] / P["delco_min"].clip(lower=8)
+    return {"fp_gap": P["fp_ew4"] - P["delco"], "min_gap": (P["min_ew2"] - P["delco_min"]) * rate}
+
+
 # ---------------- baselines
 def baselines():
     rate = P["delco"] / P["delco_min"].clip(lower=8)
