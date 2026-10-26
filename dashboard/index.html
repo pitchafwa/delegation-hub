@@ -99,6 +99,26 @@
   .teambox{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:.5rem .65rem;font-size:.76rem;line-height:1.5;white-space:normal}
   .teambox .note{margin-top:.3rem;font-size:.68rem}
   .trajChart{width:100%;height:auto;display:block}
+  #psFab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:60;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.32);cursor:pointer}
+  #psFab svg{width:24px;height:24px}
+  @media(max-width:720px){#psFab{right:14px;bottom:calc(56px + 14px + env(safe-area-inset-bottom))}}
+  #psBox{position:fixed;inset:0;z-index:85;display:none}
+  #psBox.open{display:block}
+  #psBox .psScrim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+  #psBox .psPanel{position:relative;margin:max(10vh,calc(env(safe-area-inset-top) + 1rem)) auto 0;width:min(520px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.35);overflow:hidden}
+  #psBox input{display:block;width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:.85rem 1rem;font:inherit;font-size:16px;background:var(--surface);color:var(--ink);outline:none}
+  #psList{max-height:min(60vh,440px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #psList button{display:flex;width:100%;align-items:center;gap:.6rem;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:.6rem 1rem;font:inherit;min-height:48px;cursor:pointer}
+  #psList button:last-child{border-bottom:0}
+  #psList button.on,#psList button:hover{background:var(--surface-2)}
+  #psList .psN{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #psList .psM{color:var(--ink-soft);font-size:.8rem;white-space:nowrap}
+  #psList .psO{font-size:.75rem;font-weight:600;padding:.1rem .4rem;border-radius:6px;background:var(--surface-2);color:var(--ink-soft);white-space:nowrap}
+  #psList .psO.fa{color:var(--accent)}
+  #psList .psV{width:2.6rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:.85rem}
+  #psList .psE{padding:1rem;color:var(--ink-soft);font-size:.9rem}
   #playerCard{position:fixed;inset:0;z-index:80;pointer-events:none}
   #playerCard .pcScrim{position:absolute;inset:0;background:rgba(0,0,0,.45);opacity:0;transition:opacity .18s}
   #playerCard .pcPanel{position:absolute;top:0;right:0;bottom:0;width:min(480px,100vw);background:var(--paper);border-left:1px solid var(--line-strong);box-shadow:-8px 0 24px rgba(0,0,0,.3);transform:translateX(100%);transition:transform .2s ease;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -2143,6 +2163,55 @@ function openPlayerCard(name,pushHistory=true){
 window.addEventListener('popstate',()=>{ const el=document.getElementById('playerCard'); if(el&&el.classList.contains('open')){ el.classList.remove('open'); PC_OPEN=null; } });
 document.addEventListener('click',e=>{ const s=e.target.closest('.pName'); if(s){ openPlayerCard(s.dataset.pc); } });
 document.addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return; const s=e.target.closest&&e.target.closest('.pName'); if(s){ e.preventDefault(); openPlayerCard(s.dataset.pc); } });
+
+/* floating player search: every page, opens the player card */
+function psPool(){
+  const by=new Map(), own=new Map();
+  if(typeof W!=='undefined'&&W) for(const t of (W.teams||[])) for(const r of (t.roster||[])) own.set(pnorm(r.name),t.abbrev);
+  const add=(name,team,pos,v)=>{ const k=pnorm(name); if(!k) return; const o=by.get(k);
+    if(!o) by.set(k,{name,team,pos,v,k,words:String(name).split(/[\s\-.']+/).map(norm).filter(Boolean)}); else { o.team=o.team||team; o.pos=o.pos||pos; if(o.v==null) o.v=v; } };
+  if(typeof RD!=='undefined'&&RD&&RD.players) for(const p of RD.players) add(p.name,p.team,p.pos,p.ppg);
+  if(typeof W!=='undefined'&&W){ for(const t of (W.teams||[])) for(const r of (t.roster||[])) add(r.name,r.team,(r.slots||[]).filter(x=>x!=='UT').join('/'),r.level);
+    for(const r of [...(W.fa_pool||[]),...(W.stash_pool||[])]) add(r.name,r.team,(r.slots||[]).filter(x=>x!=='UT').join('/'),r.level); }
+  if(typeof D!=='undefined'&&D&&D.players) for(const p of D.players) add(p.player,p.team,p.pos,null);
+  for(const o of by.values()) o.own=own.get(o.k)||null;
+  return [...by.values()];
+}
+let PS_POOL=null, PS_HITS=[], PS_SEL=0;
+function psRender(){
+  const box=document.getElementById('psBox'), q=box.querySelector('input').value, list=document.getElementById('psList');
+  const qn=norm(q), qw=q.split(/[\s\-.']+/).map(norm).filter(Boolean);
+  if(!qn){ PS_HITS=[]; list.innerHTML=''; return; }
+  const rank=p=>{ if(p.k.startsWith(qn)) return 0; if(qw.every(w=>p.words.some(x=>x.startsWith(w)))) return 1; if(p.k.includes(qn)) return 2; return -1; };
+  PS_HITS=PS_POOL.map(p=>[rank(p),p]).filter(x=>x[0]>=0).sort((a,b)=>a[0]-b[0]||(b[1].v??-1)-(a[1].v??-1)).slice(0,12).map(x=>x[1]);
+  PS_SEL=Math.min(PS_SEL,Math.max(PS_HITS.length-1,0));
+  list.innerHTML=PS_HITS.length?PS_HITS.map((p,i)=>`<button type="button" data-i="${i}" class="${i===PS_SEL?'on':''}"><span class="psN">${esc(p.name)}</span><span class="psM">${esc([p.team,p.pos].filter(Boolean).join(' · '))}</span><span class="psO${p.own?'':' fa'}">${p.own?esc(p.own):'FA'}</span><span class="psV">${p.v!=null?p.v.toFixed(1):''}</span></button>`).join('')
+    :'<div class="psE">No players found.</div>';
+  list.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>psPick(+b.dataset.i)));
+}
+function psPick(i){ const p=PS_HITS[i]; if(!p) return; psClose(); openPlayerCard(p.name); }
+function psClose(){ const box=document.getElementById('psBox'); if(box) box.classList.remove('open'); }
+function psOpen(){
+  let box=document.getElementById('psBox');
+  if(!box){ box=document.createElement('div'); box.id='psBox';
+    box.innerHTML='<div class="psScrim"></div><div class="psPanel" role="dialog" aria-label="Find a player"><input type="search" placeholder="Find a player…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go"/><div id="psList"></div></div>';
+    document.body.appendChild(box);
+    box.querySelector('.psScrim').addEventListener('click',psClose);
+    const inp=box.querySelector('input');
+    inp.addEventListener('input',()=>{ PS_SEL=0; psRender(); });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Escape'){ e.preventDefault(); psClose(); }
+      else if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); if(!PS_HITS.length) return; PS_SEL=(PS_SEL+(e.key==='ArrowDown'?1:-1)+PS_HITS.length)%PS_HITS.length; psRender(); const on=box.querySelector('#psList .on'); if(on) on.scrollIntoView({block:'nearest'}); }
+      else if(e.key==='Enter'){ e.preventDefault(); psPick(PS_SEL); } });
+  }
+  PS_POOL=psPool(); PS_SEL=0;
+  const inp=box.querySelector('input'); inp.value=''; psRender();
+  box.classList.add('open'); inp.focus();
+}
+{ const fab=document.createElement('button'); fab.id='psFab'; fab.type='button'; fab.setAttribute('aria-label','Find a player'); fab.title='Find a player (/)';
+  fab.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>';
+  fab.addEventListener('click',psOpen); document.body.appendChild(fab); }
+document.addEventListener('keydown',e=>{ if(e.key!=='/'||e.ctrlKey||e.metaKey||e.altKey) return; const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; e.preventDefault(); psOpen(); });
 
 let NSCH;   // nba_schedule.json, loaded the first time a player card opens (the 7-day strip)
 function pcHtml(P){
