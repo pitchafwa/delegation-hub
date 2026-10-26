@@ -292,7 +292,8 @@ def make_player(p, on_roster_slot=None):
     st = ST.get(int(p.playerId))
     st_base = ours if ours else (st["ppg"] if st else None)
     st_fields = {}
-    if st and st_base:
+    # not for a player who is out now: the study only covers players in a playing stretch, and a player back from a long absence gets the post-return ramp instead
+    if st and st_base and (p.injuryStatus or "ACTIVE") not in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
         base = max(0.0, st_base + st["st_delta"])
         src = "DELCO next days"
         st_fields = {"st_base": round(st_base, 1), "st_delta": st["st_delta"]}
@@ -310,7 +311,7 @@ def level_on(pl, d):
         base = pl["lvl_by_date"][iso]
     elif pl.get("dfs_carry"):                       # a free agent the daily table has priced for a day already posted: his current role is the better guide for the days not posted yet
         base = DFSP.FA_CARRY * pl["dfs_carry"] + (1 - DFSP.FA_CARRY) * pl["level"] + pl.get("boost", {}).get(iso, 0.0)
-    elif "st_base" in pl:                           # next-few-days DELCO, fading back to the season number for games further out
+    elif "st_base" in pl and not pl.get("ramp_by_date"):     # next-few-days DELCO, fading back to the season number for games further out (not on top of a post-return ramp)
         base = max(0.0, pl["st_base"] + st_fade(d) * pl["st_delta"]) + pl.get("boost", {}).get(iso, 0.0)
     else:
         base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)

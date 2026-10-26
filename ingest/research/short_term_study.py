@@ -63,6 +63,27 @@ g["out_new"] = g["out_fp"] - [team_avg.get((t, gid), 0.0) for t, gid in zip(g["T
 pg = g.groupby("PLAYER_ID")
 g["l3_fp"] = pg["fp"].transform(lambda s: s.rolling(3, min_periods=3).mean())
 g["l3_min"] = pg["MIN"].transform(lambda s: s.rolling(3, min_periods=3).mean())
+# CLEAN GAMES (2026-10-26, Tommy: Flagg's 17 minutes on 10/23 were an injury exit, not a smaller role). A short game says nothing about the role when
+#   blowout   the final margin was 20+ (starters sit the fourth quarter), or
+#   left hurt minutes under 60% of what DELCO expected AND he missed his team's next game.
+# l3c_* = the last 3 CLEAN games (a short game of either kind is skipped).
+tm_pts = g.groupby(["GAME_ID", "TEAM"])["PTS"].sum()
+opp = tm_pts.groupby(level=0).transform("sum") - tm_pts
+g["margin"] = [abs(tm_pts[(a, b)] - opp[(a, b)]) for a, b in zip(g["GAME_ID"], g["TEAM"])]
+g["exp_min"] = pg["afterMIN"].shift(1)
+team_seq = {t: list(d.sort_values("GAME_DATE")["GAME_ID"]) for t, d in g.groupby("TEAM")[["GAME_ID", "GAME_DATE"]].apply(lambda d: d.drop_duplicates()).reset_index(level=0).groupby("TEAM")}
+nxt_game = {}
+for t, seq in team_seq.items():
+    for a, b in zip(seq, seq[1:]):
+        nxt_game[(t, a)] = b
+played_set = set(zip(g["PLAYER_ID"], g["GAME_ID"]))
+short = g["MIN"] < 0.6 * g["exp_min"].fillna(0)
+missed_next = [(pid, nxt_game.get((t, gid))) not in played_set if nxt_game.get((t, gid)) else False for pid, t, gid in zip(g["PLAYER_ID"], g["TEAM"], g["GAME_ID"])]
+g["censored"] = (short & (g["margin"] >= 20)) | (short & pd.Series(missed_next, index=g.index))
+print(f"games marked not-a-role-signal: {g['censored'].mean():.1%} (blowout short {((short) & (g['margin'] >= 20)).mean():.1%}, left hurt {(short & pd.Series(missed_next, index=g.index)).mean():.1%})")
+for col, src in (("l3c_fp", "fp"), ("l3c_min", "MIN")):
+    clean = g[src].where(~g["censored"])
+    g[col] = clean.groupby(g["PLAYER_ID"]).transform(lambda s: s.dropna().rolling(3, min_periods=3).mean().reindex(s.index).ffill())
 nxt = []
 for pid, d in pg:
     fp, dt = d["fp"].to_numpy(), d["GAME_DATE"].to_numpy()
@@ -72,19 +93,21 @@ for pid, d in pg:
             t[i] = fp[i + 1:i + 4].mean()
     nxt.append(pd.Series(t, index=d.index))
 g["target"] = pd.concat(nxt)
-X = g.dropna(subset=["target", "after", "afterMIN", "l3_fp", "l3_min"]).copy()
+X = g.dropna(subset=["target", "after", "afterMIN", "l3_fp", "l3_min", "l3c_fp", "l3c_min"]).copy()
 X = X[X["after"] >= 10]
 X["min_gap"] = X["l3_min"] - X["afterMIN"]
 X["fp_gap"] = X["l3_fp"] - X["after"]
 X["rate"] = X["after"] / X["afterMIN"].clip(lower=8)
 X["min_gap_pts"] = X["min_gap"] * X["rate"]                 # minutes change converted to points at his usual rate
+X["min_gap_c"] = (X["l3c_min"] - X["afterMIN"]) * X["rate"]  # same over the last 3 CLEAN games
+X["fp_gap_c"] = X["l3c_fp"] - X["after"]
 X["out_share"] = X["out_fp"] * X["afterMIN"] / 240.0        # production up for grabs, weighted by his share of the floor time
 X["out_new_share"] = X["out_new"] * X["afterMIN"] / 240.0
 tr, te = X[X["SEASON"].isin(TRAIN)], X[~X["SEASON"].isin(TRAIN)]
 print(f"info points: train {len(tr)}, test {len(te)}\n")
 
 MODELS = {"DELCO only": [], "+ recent points (fp_gap)": ["fp_gap"], "+ minutes change": ["min_gap_pts"], "+ both": ["fp_gap", "min_gap_pts"],
-          "+ both + teammates out": ["fp_gap", "min_gap_pts", "out_share", "out_new_share"]}
+          "+ both + teammates out": ["fp_gap", "min_gap_pts", "out_share", "out_new_share"], "+ both, clean games": ["fp_gap_c", "min_gap_c"]}
 res, coefs = {}, {}
 def fit(cols, d):
     if not cols:
@@ -97,7 +120,8 @@ def pred(cols, b, d):
     return d["after"].to_numpy() + b[0] + sum(b[i + 1] * d[c].to_numpy() for i, c in enumerate(cols))
 rmse = lambda y, p: float(np.sqrt(np.mean((y - p) ** 2)))
 SUBSETS = {"all": te.index, "role up (minutes +5 over 3 games)": te.index[te["min_gap"] >= 5], "role down (minutes -5)": te.index[te["min_gap"] <= -5],
-           "big teammate out (new, 30+ pts of production)": te.index[te["out_new"] >= 30], "hot (last 3 +10 over DELCO)": te.index[te["fp_gap"] >= 10]}
+           "big teammate out (new, 30+ pts of production)": te.index[te["out_new"] >= 30], "hot (last 3 +10 over DELCO)": te.index[te["fp_gap"] >= 10],
+           "a short game in the last 3": te.index[te["min_gap"] - (te["l3c_min"] - te["afterMIN"]) <= -3]}
 print("Error predicting the next 3 games (fantasy pts/g, test seasons 2022-26):")
 hdr = "  model".ljust(34) + "".join(f"{k[:26]:>28}" for k in SUBSETS)
 print(hdr)
