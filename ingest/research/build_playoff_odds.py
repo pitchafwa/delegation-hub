@@ -4,6 +4,7 @@
   uv run python research/build_playoff_odds.py --backtest            check the model on last season's real checkpoints (weeks 3, 6, 9, 12, 15) and print calibration
 """
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -127,6 +128,19 @@ def live():
            "me": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in res.items() if k.startswith("focus_") and k != "focus_wins_dist"},
            "me_wins_dist": {str(k): {"p": round(v["p"], 3), "made": round(v["made"], 3)} for k, v in (res["focus_wins_dist"] or {}).items()},
            "me_plus25": {"made": round(float(up["made"][mi]), 3), "title": round(float(up["title"][mi]), 3)}}
+    # every regular-season pairing (League > Matchups): final scores for weeks played, projected totals and win chance for the rest
+    # (win chance from the live tracker's calibrated model, win_prob_model.json: Phi(0.72 x projected margin / spread for the week's length))
+    wpm = json.load(open(Path(__file__).resolve().parent / "win_prob_model.json"))
+    sig7 = wpm["sigma"]["7"]
+    out["schedule"] = []
+    for g in games:
+        r = {"week": g["week"], "a": g["a"], "b": g["b"], "done": g["done"], "sa": g["sa"], "sb": g["sb"]}
+        pa, pb = mu.get((g["a"], g["week"])), mu.get((g["b"], g["week"]))
+        if not g["done"] and pa is not None and pb is not None:
+            d = lens.get(g["week"], 7)
+            sig = wpm["sigma"].get(str(d)) or sig7 * (d / 7.0) ** 0.5
+            r.update(pa=round(pa), pb=round(pb), p_a=round(0.5 * (1 + math.erf(wpm["beta"] * (pa - pb) / sig / math.sqrt(2))), 3))
+        out["schedule"].append(r)
     st = season_table(ids, games)
     for t in out["teams"]:
         t.update(st[t["id"]])

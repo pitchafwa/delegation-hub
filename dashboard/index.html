@@ -272,6 +272,41 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   .plOwn{font-weight:700;color:var(--ink)}.plOwn.me{color:var(--accent)}.plOwn.fa{color:var(--good)}
   .plSt{display:flex;gap:12px;font-size:.74rem;color:var(--ink-faint);margin-top:3px;white-space:nowrap;overflow:hidden}
   #stFullBtn{font-size:.82rem !important;padding:0 .7rem}
+  /* League > Matchups */
+  .mxHead{display:flex;align-items:center;gap:.6rem;margin:.2rem 0 .6rem}
+  .mxNav{width:42px;height:42px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:1.4rem;line-height:1;cursor:pointer}
+  .mxNav:disabled{opacity:.35;cursor:default}
+  .mxTitle{flex:1;text-align:center}.mxTitle b{display:block;font-family:"Barlow Condensed",sans-serif;font-size:1.35rem;letter-spacing:.02em}.mxTitle span{font-size:.78rem;color:var(--ink-faint)}
+  .mxWks{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}.mxWks::-webkit-scrollbar{display:none}
+  .mxWk{flex:0 0 auto;min-width:36px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink-soft);font:inherit;font-size:.85rem;cursor:pointer}
+  .mxWk.cur{border-color:var(--accent);color:var(--ink)}.mxWk.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+  .mxList{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));align-items:start}
+  .mxCard{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px 8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .mxCard.mine{box-shadow:inset 3px 0 0 var(--accent)}.mxCard.open{grid-column:1/-1;cursor:default}
+  .mxRow{display:grid;grid-template-columns:minmax(0,1fr) auto 44px;align-items:center;gap:8px;padding:4px 0;color:var(--ink-soft)}
+  .mxRow.lead{color:var(--ink)}.mxRow.lead .mxNum{color:var(--ink)}
+  .mxTm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mxTm b{font-family:"Barlow Condensed",sans-serif;font-size:1.1rem;color:inherit}.mxTm span{font-size:.78rem;color:var(--ink-faint)}
+  .mxRow.me .mxTm b{color:var(--accent)}
+  .mxNum{font-family:"Barlow Condensed",sans-serif;font-size:1.5rem;font-weight:700;text-align:right;line-height:1;color:var(--ink-soft)}.mxNum em{display:block;font-style:normal;font-family:inherit;font-size:.72rem;font-weight:400;color:var(--ink-faint)}
+  .mxW,.mxL,.mxP{justify-self:end;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:.95rem}
+  .mxW{color:var(--good)}.mxL{color:var(--ink-faint)}.mxP{color:var(--ink-faint)}.mxP.fav{color:var(--ink)}
+  .mxFoot{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);margin-top:6px;padding-top:6px;font-size:.74rem;color:var(--ink-faint)}
+  .mxMore{color:var(--accent);font-weight:600}
+  .mxLive{color:var(--good);font-weight:700}
+  .mxDet{margin-top:10px;cursor:default}
+  .mxDays{display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));gap:2px 4px;font-size:.78rem;margin-bottom:10px;overflow-x:auto}
+  .mxDh{text-align:center;color:var(--ink-faint);font-size:.68rem;line-height:1.2}.mxDt{font-family:"Barlow Condensed",sans-serif;font-weight:700}
+  .mxDv{text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:.98rem;color:var(--ink-soft)}.mxDv.hi{color:var(--ink);font-weight:700}.mxDv.pj{font-style:italic;color:var(--ink-faint)}
+  .mxRosters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:720px){.mxRosters{grid-template-columns:1fr}.mxList{grid-template-columns:1fr}}
+  .mxRh{font-family:"Barlow Condensed",sans-serif;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--line);padding-bottom:3px;margin-bottom:2px}
+  .mxPl{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+  .mxPl>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mxPl i{font-style:normal;font-size:.72rem;color:var(--ink-faint)}
+  .mxPl b{font-family:"Barlow Condensed",sans-serif;font-size:1.05rem;text-align:right}
+  .mxPl em{grid-column:1/-1;font-style:normal;font-size:.72rem;color:var(--ink-faint);margin-top:-2px}.mxPl em:empty{display:none}
+  .mxPl.gone{opacity:.6}
+  .mxLinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .mxGo{flex:1;min-height:40px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface-2);color:var(--ink);font:inherit;font-size:.85rem;cursor:pointer}
   .tmr.stWide .plSt{flex-wrap:wrap;row-gap:2px;white-space:normal}
   .tmr.stWide .plSt span{white-space:nowrap}
   .plSt b{font-family:"Barlow Condensed",sans-serif;font-size:.98rem;font-weight:700;color:var(--ink);margin-right:3px}
@@ -680,7 +715,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   <div class="controls" style="display:none">
     <div class="seg" id="segView" style="display:none !important">
       <button data-v="week" id="weekBtn" aria-pressed="true">Today</button>
-      <button data-v="sched" id="schedBtn">Schedule</button>
+      <button data-v="sched" id="schedBtn">Matchups</button>
       <button data-v="board">Board</button>
       <button data-v="redraft" id="redraftBtn">Redraft</button>
       <button data-v="standings" id="standingsBtn">Standings</button>
@@ -737,7 +772,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, weekAfter=false, LIVE=null, SP=null, schedTeam=null, schedSort='playoffs', dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, weekAfter=false, LIVE=null, SP=null, dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -2301,64 +2336,105 @@ function oddsHtml(mine){
     <table class="advTbl" style="width:100%;font-size:.8rem"><tr><th style="text-align:left">Team</th><th>W now</th><th>Exp. W</th><th>Playoffs</th><th>Bye</th><th>Title</th></tr>${rows}</table>
 </details>`;
 }
-function renderSchedule(){
-  const pane=document.getElementById('schedPane'); if(!SP) return;
-  const cal=SP.calendar, cur=SP.current_week, avg=SP.avg_games;
-  if(schedTeam==null){ const me=SP.teams.find(t=>t.abbrev===SP.my_abbrev); schedTeam=(me||SP.teams[0]).id; }
-  const T=SP.teams.find(t=>t.id===schedTeam);
-  const mineTeams=new Set(T.players.filter(p=>!p.ir).map(p=>p.team));
-  const sum=(row,ids)=>ids.reduce((a,i)=>a+row[i-1].g,0);
-  let names=Object.keys(SP.nba);
-  const key={playoffs:t=>-sum(SP.nba[t],SP.playoff_weeks),next4:t=>-sum(SP.nba[t],SP.next4),team:t=>0};
-  names.sort((a,b)=>(key[schedSort](a)-key[schedSort](b))||a.localeCompare(b));
-  const fd=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
-  const color=(g,a)=>{ const d=g-a; if(Math.abs(d)<0.6) return ''; return d>0?`background:color-mix(in srgb,var(--accent) ${Math.min(55,d*22)}%,transparent)`:`background:color-mix(in srgb,var(--warn) ${Math.min(55,-d*22)}%,transparent)`; };
-  const head=cal.map(w=>`<th class="${w.playoff?'po':''} ${w.id===cur?'cur':''}" title="${fd(w.start)} – ${fd(w.end)} · ${w.days} days · cap ${w.cap}${w.playoff?' · PLAYOFFS':''}">${w.id}</th>`).join('');
-  const heatRows=names.map(t=>`<tr><td class="${mineTeams.has(t)?'mine':''}"><b>${esc(t)}</b></td>${SP.nba[t].map((c,i)=>`<td class="num ${cal[i].id===cur?'cur':''}" style="${color(c.g,avg[i]*(cal[i].days/ (cal[i].days)))}" title="${esc(t)} · week ${i+1}: ${c.g} games${c.b?', '+c.b+' back-to-back'+(c.b>1?'s':''):''}">${c.g}</td>`).join('')}</tr>`).join('');
-  const avgRow=`<tr><td class="hint">avg</td>${avg.map(a=>`<td class="num hint">${a.toFixed(1)}</td>`).join('')}</tr>`;
-  const NX=SP.next4, PO=SP.playoff_weeks;
-  const gcell=(p,ids)=>ids.map(i=>`<td class="num" style="${color(p.games[i-1],avg[i-1])}">${p.games[i-1]}</td>`).join('');
-  const xfmt=v=>`<td class="num" style="color:var(--${v>0.4?'good':(v<-0.4?'warn':'ink-faint')})">${v>0?'+':''}${v.toFixed(1)}</td>`;
-  const rosterRows=T.players.slice().sort((a,b)=>b.level-a.level).map(p=>`<tr><td style="text-align:left">${pc(p.name)}${p.ir?' <span class="hint">IR</span>':''}${p.status!=='ACTIVE'&&!p.ir?` <span class="liveStatus">${esc(p.status)}</span>`:''}</td><td style="text-align:left">${esc(p.team)}</td><td class="num">${p.level}</td>${gcell(p,NX)}${xfmt(p.x4)}${gcell(p,PO)}${xfmt(p.xp)}<td style="text-align:left;white-space:normal">${p.flags.map(f=>`<span class="comp">${esc(f)}</span>`).join(' ')}</td></tr>`).join('');
-  const NXh=NX.map(i=>`<th>Wk ${i}</th>`).join(''), POh=PO.map(i=>`<th>Wk ${i}</th>`).join('');
-  const projRows=SP.teams.slice().sort((a,b)=>PO.reduce((s,i)=>s+b.proj[i],0)-PO.reduce((s,i)=>s+a.proj[i],0)).map((t,i)=>{
-    const n4=NX.reduce((s,k)=>s+t.proj[k],0), po=PO.reduce((s,k)=>s+t.proj[k],0);
-    return `<tr class="${t.id===T.id?'':''}"><td class="num">${i+1}</td><td style="text-align:left"><b>${esc(t.abbrev)}</b> <span class="hint">${esc(t.name)}</span></td><td class="num">${n4.toFixed(0)}</td><td class="num"><b>${po.toFixed(0)}</b></td></tr>`;}).join('');
-  const PP=SP.playoffs, isMe=T.abbrev===SP.my_abbrev;
-  const gtxt=g=>g.join('·');
-  const faRows=PP.fa_adds.slice(0,8).map(a=>`<tr><td style="text-align:left"><b>${pc(a.name)}</b> <span class="hint">${esc(a.team)}</span></td><td class="num">${a.level}</td><td class="num">${gtxt(a.games)}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td><td style="text-align:left" class="hint">${a.drop?'for '+esc(a.drop):''}</td></tr>`).join('');
-  const trRows=PP.trade_targets.slice(0,10).map(a=>`<tr><td style="text-align:left"><b>${pc(a.name)}</b> <span class="hint">${esc(a.team)} · ${esc(a.owner)}</span></td><td class="num">${a.level}</td><td class="num">${gtxt(a.games)}</td><td class="num"><b>+${a.gain.toFixed(0)}</b></td><td class="num hint">${a.asset_rank?'#'+a.asset_rank:'—'}</td></tr>`).join('');
-  const stRows=PP.streamers_next_week.slice(0,8).map(a=>`<tr><td style="text-align:left"><b>${pc(a.name)}</b> <span class="hint">${esc(a.team)}</span></td><td class="num">${a.level}</td><td class="num">${a.games}</td><td class="num"><b>${a.pts.toFixed(0)}</b></td></tr>`).join('');
-  const H=t=>`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:1.2rem 0 .4rem">${t}</div>`;
-  pane.innerHTML=`
-    <div class="controls"><select id="schedSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${SP.teams.map(t=>`<option value="${t.id}" ${t.id===T.id?'selected':''}>${esc(t.abbrev)} · ${esc(t.name)}</option>`).join('')}</select>
-      <select id="schedSortSel" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.85rem">${[['playoffs','Sort NBA teams: playoff games'],['next4','Sort NBA teams: next 4 weeks'],['team','Sort NBA teams: A–Z']].map(([k,t])=>`<option value="${k}" ${schedSort===k?'selected':''}>${t}</option>`).join('')}</select>
-      <span class="hint">updated ${new Date(SP.generated).toLocaleString()}</span></div>
-    ${H('NBA games per fantasy week (gold shading = more than average, red = fewer; gold team names have a player on the selected roster; the outlined column is the current week)')}
-    <div class="tablewrap heatWrap"><table class="heat"><thead><tr><th>Team</th>${head}</tr></thead><tbody>${heatRows}${avgRow}</tbody></table></div>
-    <div class="hint" style="margin-top:.3rem">Week 1 has 6 days and week 17 has 14 (All-Star). Weeks ${PO.join(', ')} are the playoffs. Hover a cell for back-to-backs.</div>
-    ${H('Roster schedule: games over the next 4 weeks and the playoffs (± = games vs an average team)')}
-    <div class="tablewrap"><table class="schedTbl"><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th>Level</th>${NXh}<th>± 4wk</th>${POh}<th>± playoffs</th><th style="text-align:left">Flags</th></tr></thead><tbody>${rosterRows}</tbody></table></div>
-    ${H('Projected points: next 4 weeks and playoff weeks '+PO.join('–')+' (current rosters, all teams)')}
-    <div class="tablewrap"><table><thead><tr><th>#</th><th style="text-align:left">Team</th><th>Next 4 wks</th><th>Playoffs</th></tr></thead><tbody>${projRows}</tbody></table></div>
-    ${H('Playoff planner for '+esc(SP.my_abbrev)+': best free-agent adds by points gained in weeks '+PO.join('–'))}
-    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Add</th><th>Level</th><th>Games wk ${PO.join('·')}</th><th>Playoff gain</th><th style="text-align:left">Swap</th></tr></thead><tbody>${faRows||'<tr><td colspan="5" class="hint" style="padding:1rem">no free-agent data yet</td></tr>'}</tbody></table></div>
-    ${H('Trade targets by playoff points added to '+esc(SP.my_abbrev))}
-    <div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th>Level</th><th>Games wk ${PO.join('·')}</th><th>Playoff gain</th><th>Asset rk</th></tr></thead><tbody>${trRows}</tbody></table></div>
-    <div class="legend" style="margin-top:1rem"><b>How to use this page to make decisions.</b>
-      <ol style="margin:.4rem 0 .6rem 1.2rem;padding:0;line-height:1.5">
-        <li><b>Every Sunday night or Monday morning (about 2 minutes).</b> Look at the heat map column for the coming week. Find your stars' NBA teams. If a star's team has <b>2 or more games fewer than average</b> (a red cell), that star gives you little that week. Do not drop him. The weekly plan already accounts for it: when that week starts, its suggested moves stream around the light schedule. The <b>Roster schedule</b> table flags these as "light week soon" a week or two ahead so you are not surprised.</li>
-        <li><b>Before you spend an add.</b> Go to the This week tab and read the add-timing table. If it says <b>add now</b>, do it today. Only if it says <b>wait until [day]</b> should you hold off. Keep one add in reserve for an injury when you have 3 or more left.</li>
-        <li><b>If you are choosing between two similar free agents or trade targets</b>, take the one with more games in the weeks that matter. One extra game is worth about one player-game of points (roughly 30 to 45 points for a solid starter), which is bigger than most gaps in projected level.</li>
-        <li><b>Around week 12 and after (playoffs are weeks ${PO.join(', ')}).</b> Look at <b>Trade targets</b> and <b>Playoff planner adds</b>. A player with a heavy playoff schedule (gold in weeks ${PO.join('–')}, "heavy playoffs" flag) is worth more to you than his season-long numbers suggest, and one with a light playoff schedule is worth less. Trade for the heavy ones and sell the light ones while the market still prices them on season averages. Do not trade a keeper-level asset only for a playoff schedule: this page ignores next year.</li>
-        <li><b>Check your own strength.</b> In <b>Projected points</b>, compare your playoff total with the other teams. If you rank near the top, protect what you have and only make small moves. If you are well behind, the biggest gains are in the playoff adds and trade targets lists.</li>
-        <li><b>How much to trust it.</b> Treat differences of a few points as noise. Act on gaps of about 15 points or more, or on a whole light week for a star. Projections beyond the next two weeks assume normal health and the average rate of missed games, so re-check anyone who gets hurt. The NBA schedule is provisional and the fantasy-week calendar is our inference until ESPN publishes it, and both refresh daily.</li>
-      </ol>
-      <b>What the numbers are.</b> Heat map: games per NBA team per fantasy week. Roster ±: games over the next 4 weeks (or the three playoff weeks) minus the league average. Projected points: once games are played, each team's real points in its last three full weeks scaled by how light or heavy each future week's schedule is (in the 2025-26 backtest this missed by about 178 points one week ahead, versus 207 for the pure model and 246 for "same as last week"). Before that, the cap-aware daily lineup solver from the This week tab, cut 5% because it ran that high in the backtest. Either way the schedule is what explains a team's week-to-week swings (correlation 0.7), but the table is a poor power ranking for the playoffs: how a team has actually been scoring ranked playoff teams better. A player who is out now counts as absent for 2 weeks, then at 60% availability, since return dates are unknown. Playoff gain: points added across weeks ${PO.join('–')} by adding that player (a free agent replaces your weakest non-protected player). It does not know who you will face in the playoffs.</div>`;
-  document.getElementById('schedSel').addEventListener('change',e=>{schedTeam=+e.target.value; renderSchedule();});
-  document.getElementById('schedSortSel').addEventListener('change',e=>{schedSort=e.target.value; renderSchedule();});
-  mobileTables(pane); collapseLegends(pane);
+/* League > Matchups: every matchup of any week. Finished weeks: final scores and each player's counted points (scoreboard.json + scoreboard/w<N>.json);
+   this week: score so far, projected final and win chance (live tracker for my matchup, the plan for the rest); later weeks: projected totals and win chance
+   (playoff_odds.json schedule). Tap a matchup for the head-to-head: daily totals and both rosters. */
+let SB, SBW={}, MX={week:null,open:null};
+function mxLoadWeek(w){
+  if(SBW[w]!==undefined) return;
+  SBW[w]=null; fetch(`scoreboard/w${w}.json`,{cache:'no-cache'}).then(r=>r.ok?r.json():false).then(x=>{ SBW[w]=x||false; if(activeView()==='sched') renderMatchups(); }).catch(()=>{ SBW[w]=false; });
 }
+function renderMatchups(){
+  const pane=document.getElementById('schedPane');
+  if(SB===undefined){ SB=null; fetch('scoreboard.json',{cache:'no-cache'}).then(r=>r.ok?r.json():false).then(x=>{ SB=x||false; if(activeView()==='sched') renderMatchups(); }).catch(()=>{ SB=false; }); }
+  if(!ODDS||!W||SB===null){ pane.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>'; return; }
+  const cal=(SP&&SP.calendar)||[], cur=W.matchup.id, nReg=19;
+  if(MX.week==null) MX.week=cur;
+  const wk=MX.week, wcal=cal.find(c=>c.id===wk), state=wk<cur?'final':(wk===cur?'now':'next');
+  const meId=ODDS.my_id;
+  const tname=id=>{ const t=W.teams.find(x=>x.id===id); return t?{ab:t.abbrev,nm:t.name}:(SB&&SB.teams[id]?{ab:SB.teams[id].abbrev,nm:SB.teams[id].name}:{ab:'?',nm:''}); };
+  const fd=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  const dname=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'});
+  // the week's pairings: [away id, home id]
+  let pairs=[];
+  if(state==='final'&&SB) pairs=SB.matchups.filter(m=>m.week===wk).map(m=>[m.teams[0].id,m.teams[1].id]);
+  else pairs=(ODDS.schedule||[]).filter(g=>g.week===wk).map(g=>[g.a,g.b]);
+  if(state==='now'&&!pairs.length) pairs=W.teams.filter(t=>t.opp!=null&&t.id<t.opp).map(t=>[t.id,t.opp]);
+  const liveMine=LIVE&&LIVE.matchup===cur&&LIVE.me?LIVE:null;
+  // one side of a matchup: {pts, proj, p (win chance), sub}
+  const side=(id,oid)=>{
+    if(state==='final'){ const m=SB.matchups.find(x=>x.week===wk&&x.teams.some(t=>t.id===id)), t=m.teams.find(t=>t.id===id), o=m.teams.find(t=>t.id===oid);
+      const won=m.winner==='TIE'?null:((m.winner==='HOME')===(t.side==='home'));
+      return {pts:t.total,won,sub:`${t.starts} starts`}; }
+    if(state==='now'){ const t=W.teams.find(x=>x.id===id)||{};
+      if(liveMine&&(id===meId||oid===meId)){ const me=id===meId, s=me?liveMine.me:liveMine.opp; return {pts:s.pts,proj:s.exp_final,p:me?liveMine.win_prob:1-liveMine.win_prob,sub:`${s.starts??'—'} of ${liveMine.cap} starts`,live:true}; }
+      return {pts:t.pts_so_far??0,proj:t.proj_final,p:t.win_prob,sub:`${t.starts_so_far??0} of ${W.matchup.cap} starts`}; }
+    const g=(ODDS.schedule||[]).find(x=>x.week===wk&&(x.a===id||x.b===id)); if(!g) return {};
+    const a=g.a===id; return {proj:a?g.pa:g.pb,p:g.p_a!=null?(a?g.p_a:1-g.p_a):null};
+  };
+  const pct=p=>p==null?'':Math.round(p*100)+'%';
+  const card=([a,b])=>{
+    const key=`${a}-${b}`, sa=side(a,b), sb=side(b,a), mine=a===meId||b===meId, open=MX.open===key;
+    const row=(id,s,o)=>{ const t=tname(id), lead=state==='final'?s.won===true:(state==='now'?(s.pts>o.pts):((s.p||0)>0.5));
+      const big=state==='next'?(s.proj!=null?Math.round(s.proj):'—'):Math.round(s.pts??0);
+      const right=state==='final'?(s.won===true?'<span class="mxW">W</span>':(s.won===false?'<span class="mxL">L</span>':'<span class="mxL">T</span>')):`<span class="mxP${(s.p||0)>=0.5?' fav':''}">${pct(s.p)}</span>`;
+      return `<div class="mxRow${id===meId?' me':''}${lead?' lead':''}"><div class="mxTm"><b>${esc(t.ab)}</b> <span>${esc(t.nm)}</span></div>
+        <div class="mxNum">${big}${state==='now'&&s.proj!=null?`<em>proj ${Math.round(s.proj)}</em>`:''}</div>${right}</div>`; };
+    const subs=`${esc(tname(a).ab)} ${sa.sub} · ${esc(tname(b).ab)} ${sb.sub}`, foot=state==='final'?subs:(state==='now'?`${sa.live?'<span class="mxLive">Live</span> ':''}${subs}`:'Projected');
+    return `<div class="mxCard${mine?' mine':''}${open?' open':''}" data-k="${key}">${row(a,sa,sb)}${row(b,sb,sa)}<div class="mxFoot">${foot}<span class="mxMore">${open?'Hide':'Details'}</span></div>${open?`<div class="mxDet">${mxDetail(a,b)}</div>`:''}</div>`;
+  };
+  function mxDetail(a,b){
+    const days=wcal?Array.from({length:wcal.days},(_,i)=>{ const d=new Date(wcal.start+'T12:00:00'); d.setDate(d.getDate()+i); return d.toISOString().slice(0,10); }):[];
+    const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+    if(state!=='next'){ mxLoadWeek(wk); if(SBW[wk]===null||SBW[wk]===undefined) return '<div class="hint">Loading…</div>'; }
+    const det=state!=='next'&&SBW[wk]?SBW[wk]:null, m=det?det.matchups.find(x=>x.teams.some(t=>t.id===a)):null;
+    const st=id=>m?m.teams.find(t=>t.id===id):null, pn=id=>det&&det.players[id]?det.players[id][0]:String(id);
+    // daily totals: real for days played, plan for the rest of this week
+    const wt=id=>W.teams.find(x=>x.id===id);
+    const dayv=(id,i,iso)=>{ const s=st(id); if(s&&(state==='final'||iso<today)) return [s.by_day[i],0];
+      if(state==='now'){ const d=(wt(id)||{days:[]}).days.find(x=>x.date===iso); if(iso===today&&s&&s.by_day[i]) return [s.by_day[i],0]; return d?[d.pts,1]:[null,1]; } return [null,1]; };
+    let strip='';
+    if(days.length&&state!=='next') strip=`<div class="mxDays" style="grid-template-columns:44px repeat(${days.length},minmax(0,1fr))"><div></div>${days.map(iso=>`<div class="mxDh">${dname(iso)}<br>${iso.slice(8)}</div>`).join('')}
+      ${[a,b].map(id=>`<div class="mxDt">${esc(tname(id).ab)}</div>${days.map((iso,i)=>{ const [v,proj]=dayv(id,i,iso), o=dayv(id===a?b:a,i,iso)[0]; return `<div class="mxDv${proj?' pj':''}${v!=null&&o!=null&&v>o?' hi':''}">${v==null?'·':Math.round(v)}</div>`; }).join('')}`).join('')}</div>`;
+    const roster=id=>{
+      let rows=[];
+      if(state==='final'||state==='now'){
+        const s=st(id), have=new Map(((s&&s.players)||[]).map(p=>[p.id,p]));
+        if(state==='now'){ const t=wt(id)||{roster:[],days:[]}, rest=new Map();
+          t.days.filter(d=>d.date>=today).forEach(d=>(d.start||[]).forEach(x=>{ const r=rest.get(x.id)||{n:0,ef:0}; r.n+=x.p??1; r.ef+=x.ef; rest.set(x.id,r); }));
+          (t.roster||[]).forEach(p=>{ if(!have.has(p.id)) have.set(p.id,{id:p.id,pts:0,bench:0,starts:0}); });
+          rows=[...have.values()].map(p=>{ const rp=(t.roster||[]).find(x=>x.id===p.id), r=rest.get(p.id); return {name:rp?rp.name:pn(p.id),nba:rp?rp.team:'',pts:p.pts,starts:p.starts,bench:p.bench,rest:r,on:!!rp,ir:rp&&rp.ir}; })
+            .sort((x,y)=>(y.pts+(y.rest?y.rest.ef:0))-(x.pts+(x.rest?x.rest.ef:0)));
+        } else rows=[...have.values()].map(p=>({name:pn(p.id),pts:p.pts,starts:p.starts,bench:p.bench}));
+      } else {
+        const t=SP&&SP.teams.find(x=>x.id===id);
+        rows=t?t.players.filter(p=>!p.ir).map(p=>({name:p.name,nba:p.team,lvl:p.level,g:p.games[wk-1]})).sort((x,y)=>y.lvl*y.g-x.lvl*x.g):[];
+      }
+      const line=r=>state==='next'
+        ?`<div class="mxPl"><span>${pc(r.name)} <i>${esc(r.nba||'')}</i></span><b>${r.g} game${r.g===1?"":"s"}</b><em>${r.lvl} per game</em></div>`
+        :`<div class="mxPl${r.on===false?' gone':''}"><span>${pc(r.name)} ${r.nba?`<i>${esc(r.nba)}</i>`:''}${r.ir?' <i>IR</i>':''}</span><b>${r.pts?Math.round(r.pts):(r.starts?0:'—')}</b><em>${[r.starts?`${r.starts} start${r.starts>1?'s':''}`:'',r.bench?`${Math.round(r.bench)} on bench`:'',r.rest&&r.rest.n>=0.5?`${r.rest.n.toFixed(0)} more planned · +${Math.round(r.rest.ef)}`:''].filter(Boolean).join(' · ')}</em></div>`;
+      return `<div class="mxRos"><div class="mxRh">${esc(tname(id).ab)}</div>${rows.map(line).join('')||'<div class="hint">no data</div>'}</div>`;
+    };
+    const link=state==='now'?`<div class="mxLinks">${[a,b].map(id=>`<button type="button" class="mxGo" data-team="${id}">${esc(tname(id).ab)} plan on Today →</button>`).join('')}</div>`:'';
+    return strip+`<div class="mxRosters">${roster(a)}${roster(b)}</div>`+link;
+  }
+  const list=pairs.slice().sort((x,y)=>((y[0]===meId||y[1]===meId)-(x[0]===meId||x[1]===meId))).map(card).join('');
+  const wkLbl=w=>{ const c=cal.find(x=>x.id===w); return c?`${fd(c.start)} – ${fd(c.end)}`:''; };
+  const chips=cal.filter(c=>c.id<=nReg).map(c=>`<button type="button" class="mxWk${c.id===wk?' on':''}${c.id===cur?' cur':''}" data-w="${c.id}">${c.id}</button>`).join('');
+  pane.innerHTML=`<div class="mxHead"><button type="button" class="mxNav" data-d="-1" ${wk<=1?'disabled':''} aria-label="Previous week">‹</button>
+      <div class="mxTitle"><b>Week ${wk}</b><span>${wkLbl(wk)}${wk===cur?' · this week':(state==='final'?' · final':'')}</span></div>
+      <button type="button" class="mxNav" data-d="1" ${wk>=nReg?'disabled':''} aria-label="Next week">›</button></div>
+    <div class="mxWks" id="mxWks">${chips}</div>
+    <div class="mxList">${list||'<div class="hint" style="padding:1rem">No matchups for this week.</div>'}</div>`;
+  pane.querySelectorAll('.mxNav').forEach(b=>b.addEventListener('click',()=>{ MX.week=Math.min(nReg,Math.max(1,wk+ +b.dataset.d)); MX.open=null; renderMatchups(); }));
+  pane.querySelector('#mxWks').addEventListener('click',e=>{ const b=e.target.closest('[data-w]'); if(!b) return; MX.week=+b.dataset.w; MX.open=null; renderMatchups(); });
+  pane.querySelector('.mxList').addEventListener('click',e=>{
+    const go=e.target.closest('.mxGo'); if(go){ weekTeam=+go.dataset.team; setView('week'); window.scrollTo(0,0); return; }
+    if(e.target.closest('a,.pName')||e.target.closest('.mxDet')) return;
+    const c=e.target.closest('.mxCard'); if(!c) return; MX.open=MX.open===c.dataset.k?null:c.dataset.k; renderMatchups(); });
+  const on=pane.querySelector('.mxWk.on'); if(on) on.scrollIntoView({block:'nearest',inline:'center'});
+}
+
 function renderTrades(){
   const pane=document.getElementById('tradesPane');
   const myT=TR&&TR.teams?TR.teams.find(t=>t.abbrev===(W&&W.my_abbrev)):null;
@@ -3155,8 +3231,8 @@ function renderAbout(){
 /* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
 const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
 const navGroups=()=>offseason()
-  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['week','Last week']]]]
-  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Schedule']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['keepers','Keepers'],['draft','Draft']]]];
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['week','Last week']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['keepers','Keepers'],['draft','Draft']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
@@ -3182,7 +3258,7 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!SP,board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true};
+    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true};
     if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
       ['board','redraft','about','standings','teams','week','trades','sched','draft','keepers'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
@@ -3200,7 +3276,7 @@ function wire(){
     document.getElementById('weekPane').style.display = b.dataset.v==='week' ? '' : 'none';
     document.getElementById('tradesPane').style.display = b.dataset.v==='trades' ? '' : 'none';
     document.getElementById('schedPane').style.display = b.dataset.v==='sched' ? '' : 'none';
-    if(b.dataset.v==='sched') renderSchedule();
+    if(b.dataset.v==='sched') renderMatchups();
     document.getElementById('draftPane').style.display = b.dataset.v==='draft' ? '' : 'none';
     document.getElementById('keepersPane').style.display = b.dataset.v==='keepers' ? '' : 'none';
     if(b.dataset.v==='keepers') renderKeepers();
@@ -3364,7 +3440,7 @@ async function loadLive(){
   }
 }
 loadLive(); setInterval(loadLive,120000);
-fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(activeView()==='week'||activeView()==='standings') setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
+fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(['week','standings','sched'].includes(activeView())) setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
 fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='standings') renderStandings(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
