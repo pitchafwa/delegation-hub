@@ -44,6 +44,20 @@ if _bd_path.exists():
         games.loc[_need, "AGE_AT_GAME"] = (games.loc[_need, "GAME_DATE"] - _born).dt.days / 365.25
         games.loc[_need, "AGE"] = games.loc[_need, "AGE_AT_GAME"].round()
 
+# Still no age (no season row yet AND no birthdate on file; 2026-10-26 this silently dropped 91 players' current-season games, Jokic and Durant among them):
+# carry the player's last known age forward by the time elapsed since that game.
+_need = games["AGE_AT_GAME"].isna()
+if _need.any():
+    _known = games.loc[~games["AGE_AT_GAME"].isna(), ["PLAYER_ID", "GAME_DATE", "AGE_AT_GAME"]].sort_values("GAME_DATE").groupby("PLAYER_ID").tail(1).set_index("PLAYER_ID")
+    _k_age = games.loc[_need, "PLAYER_ID"].map(_known["AGE_AT_GAME"])
+    _k_date = games.loc[_need, "PLAYER_ID"].map(_known["GAME_DATE"])
+    games.loc[_need, "AGE_AT_GAME"] = _k_age + (games.loc[_need, "GAME_DATE"] - _k_date).dt.days / 365.25
+    games.loc[_need, "AGE"] = games.loc[_need, "AGE_AT_GAME"].round()
+    print(f"age carried forward for {int(_need.sum() - games.loc[_need, 'AGE'].isna().sum())} current-season games without a birthdate on file")
+    _left = games["AGE_AT_GAME"].isna()                      # a first-year player with no birthdate on file: a typical rookie age
+    games.loc[_left, "AGE_AT_GAME"] = 21.5
+    games.loc[_left, "AGE"] = 22.0
+
 games["DAYS_SINCE_LAST"] = games.groupby("PLAYER_ID")["GAME_DATE"].diff().dt.days
 games["DAYS_SINCE_LAST"] = games["DAYS_SINCE_LAST"].fillna(180)  # first game of career: treat as a fresh start
 

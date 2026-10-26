@@ -161,6 +161,17 @@ by_name = {}
 for name, pl in logs.groupby("name", sort=False):
     by_name.setdefault(key(name), []).append(pl)
 print("game logs through", str(logs["date"].max())[:10], "season", season_now, "; form split for", len(form_p), "players")
+# DELCO going into each recent game (kalman_vor.py -> data/delco_pregame.csv): the game-log chart draws it as his trend line
+DPRE, DNOW = {}, {}
+try:
+    import pandas as _pd
+    _dp = _pd.read_csv(Path(__file__).resolve().parent / "data" / "delco_pregame.csv")
+    for r_ in _dp.itertuples():
+        DPRE[(key(r_.PLAYER_NAME), r_.GAME_DATE)] = float(r_.pre)
+    for nm_, g_ in _dp.groupby("PLAYER_NAME"):
+        DNOW[key(nm_)] = float(g_["after"].iloc[-1])
+except Exception as _ex:
+    print("DELCO game-by-game unavailable:", repr(_ex)[:100])
 
 
 def team_games(team, d0, d1):
@@ -225,6 +236,7 @@ for e in raw:
                "s_avg": round(float(cur.fp.mean()), 1) if len(cur) else None, "s_min": round(float(cur["min"].mean()), 1) if len(cur) else None,
                # box-score lines for the bar tooltips: [pts, reb, ast, stl, blk, 3pm, ftm, tov] per game, aligned with g/gd/gm
                "gx": [[int(r[c]) for c in BOX] for _, r in last.iterrows()],
+               "gk_raw": [DPRE.get((key(name), str(v)[:10])) for v in last["date"]],
                # this season's per-game averages in BOX_AVG order, and the season they belong to (last season until games are played)
                "sa": [round(float(cur[c].mean()), 1) for c in BOX_AVG] if len(cur) else None, "sa_gp": int(len(cur)), "sa_season": cur["season"].iloc[-1] if len(cur) else None}
     n_played = rec.get("n_season", 0) if rec.get("gs") == season_now and season_now.startswith(str(SEASON_ID - 1)) else 0
@@ -264,6 +276,11 @@ for e in raw:
 POS = {0: "PG", 1: "SG", 2: "SF", 3: "PF", 4: "C"}
 for r in rows:
     r["pos"] = "/".join(POS[i] for i in (r.pop("pos_ids") or []) if i in POS) or "—"
+    # DELCO line on the game-log chart, scaled so it ends at the projection the page shows (the shown number also blends other sources)
+    raw, now_ = r.pop("gk_raw", None), DNOW.get(key(r["name"]))
+    if raw and now_ and any(v is not None for v in raw):
+        sc = min(1.6, max(0.6, r["ppg"] / now_)) if now_ > 0 else 1.0
+        r["gk"] = [round(v * sc, 1) if v is not None else None for v in raw]
 
 # ---------------- valuation
 rows.sort(key=lambda r: -r["ppg"] * r["exp_gp"])

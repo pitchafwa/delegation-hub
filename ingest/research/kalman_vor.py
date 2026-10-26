@@ -161,9 +161,11 @@ for stat in KALMAN_STATS:
     daily_slope = annual_slope(stat, last_game_age, fit["params"]) / 365.0
     year0[stat] = (end_state + daily_slope * days_to_next_season).clip(lower=0)
     sm = SEASON_MODE.get(stat, {"QM": 1, "J": 0})
-    post_s = run_filter_all_players(player_ids, days, age, gain, obs, Q, R, peak_age, slope_up, slope_down, x0_arr,
-                                    q_mult=float(sm["QM"]), season_start=season_start_arr, jump=float(sm["J"]) * R / (1.0 if is_min else 30.0))
+    post_s, pre_s = run_filter_all_players(player_ids, days, age, gain, obs, Q, R, peak_age, slope_up, slope_down, x0_arr, return_pre=True,
+                                           q_mult=float(sm["QM"]), season_start=season_start_arr, jump=float(sm["J"]) * R / (1.0 if is_min else 30.0))
     df["_post_s"] = post_s
+    df[f"_pre_{stat}"] = pre_s           # season-mode belief going INTO each game (the site's game-log chart draws it as a line)
+    df[f"_postS_{stat}"] = post_s
     end_s = df.loc[last_game_idx].set_index("PLAYER_ID")["_post_s"]
     year0_season[stat] = (end_s + daily_slope * days_to_next_season).clip(lower=0)
     print(f"  {stat} year-0 projected (career and season mode).")
@@ -174,6 +176,20 @@ stl_rate = df.groupby("PLAYER_ID").apply(
 )
 year0["STL"] = stl_rate.reindex(year0.index).fillna(0.0)
 year0_season["STL"] = year0["STL"]
+# DELCO GOING INTO EACH GAME (2026-10-26, Tommy): fantasy points per game the season-mode filter expected before each of a player's recent games, plus its
+# belief now (after his last game), so the site can draw his trend on the game-log chart. Recent seasons only, last 15 rows per player.
+try:
+    _W = {"PTS": 1.0, "REB": 1.5, "AST": 2.0, "BLK": 3.0, "FG3M": 1.0, "FTM": 2.0, "FTA": -1.0, "TOV": -1.0}
+    _stl = df["PLAYER_ID"].map(year0["STL"]).fillna(0.0).to_numpy()
+    _pre = df["_pre_MIN"].clip(lower=0) * (sum(w * df[f"_pre_{k}"] for k, w in _W.items()) + 3.0 * _stl)
+    _now = df["_postS_MIN"].clip(lower=0) * (sum(w * df[f"_postS_{k}"] for k, w in _W.items()) + 3.0 * _stl)
+    _out = pd.DataFrame({"PLAYER_ID": df["PLAYER_ID"], "PLAYER_NAME": df["PLAYER_NAME"], "GAME_DATE": df["GAME_DATE"].dt.strftime("%Y-%m-%d"),
+                         "SEASON": df["SEASON"], "MIN": df["MIN"], "pre": _pre.round(1), "after": _now.round(1)})
+    _out = _out[_out["SEASON"] >= sorted(df["SEASON"].unique())[-2]].groupby("PLAYER_ID").tail(15)
+    _out.to_csv(ROOT / "data" / "delco_pregame.csv", index=False)
+    print(f"  wrote delco_pregame.csv ({len(_out)} rows)")
+except Exception as _ex:
+    print("  delco_pregame.csv skipped:", repr(_ex)[:120])
 print("  STL year-0 set to flat career rate (no Kalman filter -- tested, didn't help).")
 
 season_base = pd.read_csv(ROOT / "data" / "player_season_base.csv")
