@@ -111,7 +111,12 @@ These are the likeliest big wins and the ones v1 handles worst.
   Key signals: recent minutes, level, age, time of season, minutes swings. The flat rule under-predicts (79% vs 82% actual), which made the whole 7-day number run 4 points low.
   The report status adds almost nothing here, because these are mornings after a game he played (rarely listed out then). Players already out are handled by the injury status path.
 - **Week (7-day points):** v1 + flat 34.31 / lean +3.9; best level + model 33.60 / lean −0.2. Most of the gain is the chance-to-play model.
-- **Test 2 (starters):** waiting on the 2024-27 starter download (NBA site throttled it once; restarted slower).
+- **Test 2 (starters)** (2026-10-26, after the 2024-27 starter download; research/st_test2.py), on top of model A:
+  - Started last game vs his start share over the 10 games before his last 5: +2.0 pts game 1, +1.4 games 2-3, +1.1 games 4-9 per full change.
+  - Overall −0.013 (game 1 −0.023). Best where it should be: role down −0.026, back from 5+ days off −0.037, role-up lean +0.08 → 0.0.
+  - The last-5 share adds nothing more; scaling by scoring rate adds nothing.
+  - Same size as the kept season-phase terms. But the live pipeline has no starter data: it would need a daily box-score pull from the NBA site,
+    which throttles hard (and may block GitHub's servers). Not added; waiting on a decision.
 ### Batch 2 (2026-10-26; research/st_batch2.py, log research/data/st_batch2.log)
 Each signal added on top of the batch 1 winner (fit 2015-22, judged 2022-26). Typical miss over games 1-6 is 12.574 for the winner.
 - **Kept: season DELCO slightly overstates how far a player sits from average.** The next few games come back toward the middle by 3-6% of the distance from 24.
@@ -185,7 +190,7 @@ With opponent and home/away per upcoming game, A is 12.481 and C is 12.476.
 - **Next:**
   - Phase 5: measured fade per distance and spread of outcomes, then a final 7-day calibration.
   - Phase 6: replay of 2025-26 weeks with the planner.
-  - Test 2 (starters) is added to A when its data lands.
+  - Test 2 (starters): tested, small gain, needs a live starter feed (see batch 1 log).
 
 ### Phase 5, horizon, fade and spread (2026-10-26; research/st_phase5.py, log research/data/st_phase5.log)
 - **Fade by days ahead** (model A refit for each bucket):
