@@ -66,6 +66,10 @@ jobs:
             echo "Rebuilding the plan: $(cat ingest/rebuild_request.txt)"
             gh workflow run refresh-gameday.yml --ref main || echo "dispatch failed"
           fi
+          if [ -f ingest/league_request.txt ]; then
+            echo "Starting the morning league refresh (GitHub's schedule is late)"
+            gh workflow run refresh-league.yml --ref main || echo "dispatch failed"
+          fi
 
       # Live matchup tracker: score, expected rest of the week, win probability. Published to a throwaway branch (one commit, force-pushed) so the site is not rebuilt.
       - name: Live matchup

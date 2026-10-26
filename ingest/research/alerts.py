@@ -338,7 +338,25 @@ def first_tip(W, T):
     return min(tips) if tips else None
 
 
-PLAN_RUNS_UTC = [(1, 7), (9, 37), (19, 7), (22, 7)]   # scheduled plan builds: refresh-gameday x3 and the morning refresh-league
+PLAN_RUNS_UTC = [(1, 7), (5, 7), (9, 37), (19, 7), (22, 7)]   # scheduled plan builds: refresh-gameday x4 and the morning refresh-league
+
+
+def league_refresh_check(s):
+    """GitHub starts the scheduled morning refresh (rosters, schedule, plan, odds, team usage) 3-7 hours late. This job is started on time by cron-job.org,
+    so from 6am ET it starts that refresh itself when today's has not run yet (the workflow step after this script dispatches refresh-league), once a day."""
+    if NOW.hour < 6 or s.get("league_req") == TODAY.isoformat():
+        return
+    LR = load("nba_schedule.json") or {}            # written only by the morning refresh (the game-day runs also rewrite the rosters, so those cannot tell)
+    try:
+        gen = datetime.fromisoformat(LR["generated"]).astimezone(ET)
+    except Exception:
+        return
+    if gen.date() >= TODAY:
+        return
+    print(f"morning league refresh has not run today (last run {gen:%a %H:%M} ET): starting it")
+    s["league_req"] = TODAY.isoformat()
+    if not DRY:
+        (Path(__file__).resolve().parent.parent / "league_request.txt").write_text("morning refresh missing", encoding="utf-8")
 
 
 def plan_rebuild_check(W, T, mine, s):
@@ -441,6 +459,10 @@ def run_check():
             plan_rebuild_check(W, T, mine, s)
         except Exception as ex:
             print("plan rebuild check failed:", repr(ex)[:120])
+        try:
+            league_refresh_check(s)
+        except Exception as ex:
+            print("league refresh check failed:", repr(ex)[:120])
     # ---- status alerts
     if msgs:
         print("status changes (no alert; late-scratch and the plan handle them):", "; ".join(m for _, m in msgs)[:300])
@@ -998,6 +1020,10 @@ def run_lineup():
             plan_rebuild_check(W, T, mine, s)
         except Exception as ex:
             print("plan rebuild check failed:", repr(ex)[:120])
+        try:
+            league_refresh_check(s)
+        except Exception as ex:
+            print("league refresh check failed:", repr(ex)[:120])
         if json.dumps(s.get("plan_rebuild"), sort_keys=True) != before_rb:
             save_state(s)
     if not soon and not FORCE:

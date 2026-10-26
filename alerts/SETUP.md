@@ -26,6 +26,12 @@ Repo > Actions > "Phone alerts (ntfy)" > Run workflow > mode `test`. A notificat
    | daily | `{"ref":"main","inputs":{"mode":"daily"}}` | 8:30 every day |
    | weekly | `{"ref":"main","inputs":{"mode":"weekly"}}` | 9:30 every day (the script only sends on the first day of a matchup, Monday) |
    | lineup | `{"ref":"main","inputs":{"mode":"lineup"}}` | every 5 minutes from 10:00 to 23:55, every day (added 2026-10-04: the LATE-SCRATCH watch; it exits in seconds unless one of your teams tips within 4 hours) |
+   Data refreshes (added 2026-10-26: GitHub was starting the scheduled refreshes 3-7 hours late). Same headers and token; body `{"ref":"main"}`:
+   | Job | URL ends in | Schedule (America/New_York) |
+   |---|---|---|
+   | league refresh | `/actions/workflows/refresh-league.yml/dispatches` | 5:37 every day |
+   | plan refresh | `/actions/workflows/refresh-gameday.yml/dispatches` | 0:10, 15:07, 18:07 and 21:07 every day |
+   (Backstop without these: from 6am the alerts job starts the league refresh itself if it has not run, and the plan rebuild check restarts skipped plan builds.)
 4. Turn on failure notifications in cron-job.org so you hear if the timer itself breaks. A successful trigger returns HTTP 204.
 
 ## What you will get
