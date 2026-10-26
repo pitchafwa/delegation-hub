@@ -1679,7 +1679,10 @@ for tm in out_teams:
         tm["opp_expected"] = round(plans[o], 1)
         tm["proj_final"] = round(plans[tm["id"]], 1)
         tm["eff"] = round(owner_eff(tm["id"], tm["abbrev"]), 3)
-        tm["win_prob"] = round(erf_win(diff, WEEK_SD * math.sqrt(2) * math.sqrt(max(rem, 0.05))), 3)
+        # same calibrated model as the live tracker (win_prob_model.json; live_matchup.py), so the League tab and the Today card agree:
+        # margin so far + 0.72 x the expected remaining margin, over the measured spread for the days left (was: full margin / (253 x sqrt 2) x sqrt(share left))
+        sf = tm["pts_so_far"] - next(x["pts_so_far"] for x in out_teams if x["id"] == o)
+        tm["win_prob"] = round(_Phi((sf + WP_BETA * (diff - sf)) / wp_sigma(max(len(plan_days), 0.25))), 3)
 
 # ---- STASH POOL: free agents the this-week search cannot see -- out now (injured), or whose team has no game in the planning window.
 # build_schedule_plan.py values each of them over the REST OF THE SEASON (when he is back, how many games, what he would replace) and merges them with the dynasty adds.
