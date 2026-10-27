@@ -232,6 +232,15 @@ def p_future(level):
 
 
 FA_ANCHOR, FA_SHRINK = 22.0, 0.6      # free agents are picked because they look good, so shrink their level toward replacement (backtest: predicted gain 93 -> 75 vs realized ~53)
+# 2026-10-27 (Tommy approved): at least a flat markdown too. fa_gap_by_week.py (2024-25 and 2025-26 real rosters, DELCO pregame numbers): free agents at the
+# same DELCO level as rostered players were overrated ~5 pts more in matchup weeks 1-2 and ~2.5 more for the rest of the season, about the same from 20 to 28
+# (the proportional shrink alone took almost nothing off a 22-24 streamer); above ~28 the proportional shrink is the larger one and is kept.
+FA_FLAT = 5.0 if mp_id <= 2 else 2.5
+
+
+def fa_mark(v):
+    """a free agent's number for THIS WEEK's add decisions (see FA_SHRINK / FA_FLAT)"""
+    return min(v - FA_FLAT, FA_ANCHOR + FA_SHRINK * (v - FA_ANCHOR))
 try:
     import nba_injury_reports as NIR
     OFFICIAL, OFFICIAL_AT = NIR.latest_statuses()
@@ -331,7 +340,7 @@ def level_on(pl, d):
     elif "st_base" in pl and not pl.get("ramp_by_date"):     # next-few-days DELCO, fading back to the season number for games further out (not on top of a post-return ramp)
         base = max(0.0, pl["st_base"] + st_delta_on(pl, d))
         if pl.get("is_fa"):                          # the same free-agent shrink as pl["level"] (2026-10-27: this path skipped it from 10-26, so FA adds looked ~6 pts too good)
-            base = FA_ANCHOR + FA_SHRINK * (base - FA_ANCHOR)
+            base = fa_mark(base)
         base += pl.get("boost", {}).get(iso, 0.0)
     else:
         base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)
@@ -603,7 +612,7 @@ fa_players = _tag_waivers([make_player(p) for p in lg.free_agents(size=400)])   
 for _p in fa_players:
     _p["is_fa"] = True
     _p["level_raw"] = _p["level"]                                             # true level, before the weekly-decision shrink below
-    _p["level"] = round(FA_ANCHOR + FA_SHRINK * (_p["level"] - FA_ANCHOR), 1)  # shrink toward replacement for THIS WEEK's add decision only (see FA_SHRINK's comment) -- a
+    _p["level"] = round(fa_mark(_p["level"]), 1)  # shrink toward replacement for THIS WEEK's add decision only (see FA_SHRINK's comment) -- a
                                                                                 # long-horizon evaluation (Long-term adds) should use level_raw instead; see build_schedule_plan.py
 fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days + LOOK_DAYS)]
 # an add cannot use tonight's game once it has started or is about to (10 minutes to make the move): he joins from tomorrow (2026-10-26: a 7:12pm plan's add for an
@@ -1798,8 +1807,8 @@ def build_stash():
         f = make_player(_p)
         f["is_fa"] = True
         f["level_raw"] = f["level"]                                            # true level, before the weekly-decision shrink -- see build_week_plan.py's fa_players comment
-        f["level"] = round(FA_ANCHOR + FA_SHRINK * (f["level"] - FA_ANCHOR), 1)
-        if f["level"] < 18 or not f["team"]:
+        f["level"] = round(fa_mark(f["level"]), 1)
+        if FA_ANCHOR + FA_SHRINK * (f["level_raw"] - FA_ANCHOR) < 18 or not f["team"]:      # the stash cut-off as it was before FA_FLAT (a stash is a long-run call)
             continue
         hp = hub_player(_p.playerId, _p.name)
         row = {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "level_raw": f["level_raw"], "ll": round(long_level(f), 1), "status": f["status"], "out_now": bool(out_now),
