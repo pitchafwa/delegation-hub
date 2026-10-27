@@ -593,6 +593,64 @@ for _p in fa_players:
         _p["from"] = today + timedelta(days=1)
 
 
+# ---------- ROSTER BRIDGE (2026-10-26, Tommy): a move made after a day's lock shows only in ESPN's roster for the NEXT day (activated Flagg, swapped Bey for Walker
+# after tonight's tips: today still had Flagg on IR and Bey on the bench). Read my team's roster for tomorrow too: a player only on today's leaves after today
+# ("until"), a player only on tomorrow's joins tomorrow ("from"), an IR player on tomorrow's bench/lineup is activated from tomorrow. My PENDING waiver claims are
+# taken as going through at the 3am run: the add joins on his clear date, the drop leaves the day before, and the claim counts against this matchup's adds.
+BRIDGE, BRIDGE_PENDING_ADDS = [], 0
+MY_ESPN_IDS_NOW = []
+try:
+    from espn_api.basketball.player import Player as _EspnPlayer
+    _me = next(t for t in lg.teams if t.team_abbrev == MY_ABBREV)
+    _cur = rosters[_me.team_id]
+    MY_ESPN_IDS_NOW = sorted(int(p["espn_id"]) for p in _cur)
+    _tom = today + timedelta(days=1)
+    if SEASON_START <= today and (not days or _tom <= days[-1]):
+        _d = lg.espn_request.league_get(params={"view": ["mRoster"], "scoringPeriodId": (today - SEASON_START).days + 2, "forTeamId": _me.team_id})
+        _ent = next(x for x in _d["teams"] if x["id"] == _me.team_id)["roster"]["entries"]
+        _next = {int(e["playerId"]): _EspnPlayer(e, SEASON_ID) for e in _ent}
+        if _next:
+            _ids = {int(p["espn_id"]) for p in _cur}
+            for p in _cur:
+                q = _next.get(int(p["espn_id"]))
+                if q is None:
+                    p["until"] = today
+                    BRIDGE.append(f"-{p['name']} after today")
+                elif p["ir"] and q.lineupSlot != "IR":
+                    p["ir"], p["from"] = False, _tom
+                    BRIDGE.append(f"{p['name']} off IR from tomorrow")
+            for pid, q in _next.items():
+                if pid not in _ids:
+                    np_ = make_player(q, q.lineupSlot)
+                    np_["from"] = _tom
+                    _cur.append(np_)
+                    BRIDGE.append(f"+{np_['name']} from tomorrow")
+        _pt = lg.espn_request.league_get(params={"view": ["mPendingTransactions", "mTransactions2"]})      # mPendingTransactions alone returns nothing
+        for tx in sorted(_pt.get("transactions") or [], key=lambda x: x.get("proposedDate") or 0):
+            if tx.get("teamId") != _me.team_id or tx.get("type") != "WAIVER" or tx.get("status") != "PENDING":
+                continue
+            _add = [int(i["playerId"]) for i in tx.get("items", []) if i.get("type") == "ADD"]
+            _drop = [int(i["playerId"]) for i in tx.get("items", []) if i.get("type") == "DROP"]
+            _byid = {int(p["espn_id"]): p for p in _cur}
+            if any(x not in _byid or (_byid[x].get("until") and _byid[x]["until"] <= today) for x in _drop) or any(x in _byid for x in _add):
+                continue                                     # names a player who is already gone (or an add already made): ESPN will void it
+            f = next((f for f in fa_players if int(f["espn_id"]) in _add), None)
+            if f is None:
+                continue
+            clear = f.get("from") or _tom
+            g = dict(f, level=f.get("level_raw", f["level"]), is_fa=False, from_claim=True)
+            g["from"] = clear
+            _cur.append(g)
+            fa_players = [x for x in fa_players if int(x["espn_id"]) not in _add]
+            for x in _drop:
+                _byid[x]["until"] = clear - timedelta(days=1)
+            BRIDGE_PENDING_ADDS += 1
+            BRIDGE.append(f"claim: +{g['name']} from {clear.isoformat()}, -" + ", ".join(_byid[x]["name"] for x in _drop))
+    print("roster bridge:", "; ".join(BRIDGE) or "none")
+except Exception as ex:
+    print("roster bridge skipped:", repr(ex)[:160])
+
+
 # ---------- DYNASTY ADDS: free agents with long-term value (keeper-league asset value at 5 keepers), whether or not they help this week.
 # Scans a wide free-agent list; remembers when each player first appeared so 'newly available' (dropped by a team) can be flagged.
 def asset5(hp):
@@ -1559,7 +1617,8 @@ def opp_stream(team_id, abbrev, adds_left, days_left):
 
 
 def adds_left_of(team_id):
-    return max(0, adds_limit - ((counters.get(team_id, {}).get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0)))
+    pend = BRIDGE_PENDING_ADDS if any(t.team_id == team_id and t.team_abbrev == MY_ABBREV for t in lg.teams) else 0       # my pending waiver claims (roster bridge)
+    return max(0, adds_limit - ((counters.get(team_id, {}).get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0)) - pend)
 
 
 # leverage inputs for MY matchup: margin so far, both teams' expected rest of the week (as the plan sees them now), and how much time is left
@@ -1678,7 +1737,7 @@ for t in lg.teams:
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1), "stream_exp": round(_stream, 1), "adds_left": adds_left,
-                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
+                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "bridge": (BRIDGE if t.team_abbrev == MY_ABBREV else []), "espn_ids": (MY_ESPN_IDS_NOW if t.team_abbrev == MY_ABBREV else None), "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
                                   "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})

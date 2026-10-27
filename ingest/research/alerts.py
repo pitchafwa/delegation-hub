@@ -369,7 +369,7 @@ def plan_rebuild_check(W, T, mine, s):
     if last_at and (now - last_at) < timedelta(minutes=10):
         return
     gen = datetime.fromisoformat(W["generated"]).astimezone(ZoneInfo("UTC"))
-    plan_ids = sorted(int(p["id"]) for p in T["roster"])
+    plan_ids = T.get("espn_ids") or sorted(int(p["id"]) for p in T["roster"])     # espn_ids: today's ESPN roster the plan was built from (the plan's own roster may include tomorrow's players: roster bridge)
     espn_ids = sorted(int(p.playerId) for p in mine.roster)
     why = None
     if plan_ids != espn_ids:
@@ -632,6 +632,8 @@ def ir_back_alert(T, s, mine, off, can_send):
         o = off.get(norm(p.name).replace(" ", ""))
         if p.lineupSlot != "IR" or e in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
             continue
+        if f"{p.name} off IR from tomorrow" in (T.get("bridge") or []) and not ((tips.get(canon(p.proTeam or "")) or NOW) > NOW):
+            continue                                             # already activated in ESPN for tomorrow (after today's lock) and no game of his left today
         tip = tips.get(canon(p.proTeam or ""))
         if in_quiet() and not FORCE and not (tip and tip > NOW):
             continue
