@@ -22,6 +22,7 @@ import os
 import random
 import re
 import sys
+import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -172,11 +173,23 @@ if len(plan_days) <= 2 and plan_days[-1] == mp_end and mp_id < _CAL["last_week"]
 # NBA schedule for the matchup (+ the day before, for back-to-back detection)
 games = {}     # date -> {team: iso tipoff}
 opp_of = {}    # date -> {team: opponent abbrev} (for the matchup-context adjustment: who is he actually facing that day)
+# a failed or empty fetch for a day the season schedule says has games is retried, then stops the build: the 2026-10-27 6pm plan got an empty
+# scoreboard for that day, planned no games, and the lineup alert told Tommy to bench his whole lineup
+try:
+    _sched_days = set(json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))["games"])
+except Exception:
+    _sched_days = set()
 for d in [days[0] - timedelta(days=1)] + days + LOOK_DAYS:
-    try:
-        j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard", params={"dates": d.strftime("%Y%m%d")}, timeout=30).json()
-    except Exception:
-        j = {}
+    for _try in range(4):
+        try:
+            j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard", params={"dates": d.strftime("%Y%m%d")}, timeout=30).json()
+        except Exception:
+            j = {}
+        if j.get("events") or d.isoformat() not in _sched_days:
+            break
+        time.sleep(5 * (_try + 1))
+    else:
+        sys.exit(f"ESPN scoreboard returned no games for {d} (the schedule lists some): not writing a plan without that day's games")
     g = {}
     o = {}
     for ev in j.get("events", []):

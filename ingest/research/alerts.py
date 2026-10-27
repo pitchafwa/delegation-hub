@@ -985,8 +985,8 @@ def first_tip_check(W, T, mine, off, s, can_send):
             t_ = tips.get(canon(p.proTeam or ""))
             if starting and is_out and t_ is not None and t_ > NOW:     # only matters if his team plays today and the game has not started (a starter with no game uses no start)
                 probs.append(f"Bench {p.name} ({slot}): out.")
-        if today_plan and not today_plan.get("locked"):
-            benched = {p.playerId: p for p in mine.roster if p.lineupSlot in ("BE", "IR")}
+        if today_plan and not today_plan.get("locked") and today_plan.get("nba_teams"):     # a plan built without today's games (a failed schedule fetch, 2026-10-27) says nothing about today's lineup
+            benched ={p.playerId: p for p in mine.roster if p.lineupSlot in ("BE", "IR")}
             for x in today_plan["start"]:
                 q = benched.get(x["id"])
                 if q is not None and q.injuryStatus not in ("OUT", "INJURY_RESERVE") and off.get(norm(q.name).replace(" ", "")) != "Out":
