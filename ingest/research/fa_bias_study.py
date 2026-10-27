@@ -114,3 +114,38 @@ for col, lab in (("model", "season DELCO"), ("espn", "ESPN"), ("st", "next-few-d
     print(f"{lab}, all levels:")
     print(line("rostered", by[(col, False, "all")]))
     print(line("free agents", by[(col, True, "all")]))
+
+# ---------------- PART 3 (2026-10-27): last season again, but with DELCO's own pregame number (data/delco_pregame_all.csv.gz: built from games before
+# that one only, leaning on earlier seasons early on -- the same kind of number the plan uses now), week by week, to see how the free-agent gap
+# behaves through a season instead of waiting for this one
+k = pd.read_csv(B.D / "delco_pregame_all.csv.gz", usecols=["PLAYER_ID", "GAME_DATE", "SEASON", "pre"])
+k = k[k.SEASON == "2025-26"]
+k["d"] = pd.to_datetime(k.GAME_DATE).dt.date
+pid_name = dict(zip(B.g.PLAYER_ID, B.g.n))
+k["n"] = k.PLAYER_ID.map(pid_name)
+fp = {(n, d.date()): v for n, d, v in zip(B.g.n, B.g.GAME_DATE, B.g.fp)}
+rows3 = []
+for mp in range(1, 20):
+    sps = sorted(int(sp) for sp, recs in B.league.items() if recs and recs[0]["mp"] == mp)
+    if not sps:
+        continue
+    d0, d1 = B.sp_date(sps[0]), B.sp_date(sps[-1])
+    rostered = {B.norm(e[1]) for r in B.league[str(sps[0])] for e in r["e"]}
+    wk = k[(k.d >= d0) & (k.d <= d1)].sort_values("d")
+    for n, sub in wk.groupby("n"):
+        acts = [fp[(n, d)] for d in sub.d if (n, d) in fp]
+        if not acts or pd.isna(sub.pre.iloc[0]):
+            continue
+        rows3.append(dict(mp=mp, n=n, pre=float(sub.pre.iloc[0]), act=sum(acts) / len(acts), fa=n not in rostered))
+d3 = pd.DataFrame(rows3)
+d3["err"] = d3.act - d3.pre
+print(f"\nPART 3: 2025-26 with DELCO's pregame number (the first game of each week), {len(d3)} player-weeks")
+print("players DELCO put at 20-35, by matchup week:  actual minus DELCO for rostered | free agents | the gap (how much more free agents were overrated)")
+for lab, lo, hi in (("weeks 1-2", 1, 2), ("weeks 3-4", 3, 4), ("weeks 5-6", 5, 6), ("weeks 7-9", 7, 9), ("weeks 10-13", 10, 13), ("weeks 14-19", 14, 19)):
+    s = d3[(d3.mp >= lo) & (d3.mp <= hi) & (d3.pre >= 20) & (d3.pre < 35)]
+    r, f = s[~s.fa].err, s[s.fa].err
+    if len(f) < 15:
+        print(f"  {lab:<12} too few free agents ({len(f)})")
+        continue
+    se = (r.var() / len(r) + f.var() / len(f)) ** 0.5
+    print(f"  {lab:<12} rostered {r.mean():+5.1f} (n={len(r)})   free agents {f.mean():+5.1f} (n={len(f)})   gap {r.mean() - f.mean():+4.1f} (+/- {1.96 * se:.1f})")
