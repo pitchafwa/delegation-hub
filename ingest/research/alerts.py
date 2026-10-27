@@ -483,6 +483,7 @@ def run_check():
         print("plan target watch skipped:", repr(ex)[:90])
     # (injury-opportunity adds are announced by plan_move_alert, which names the injury news as the reason: one message per move)
     # ---- lineup checks: planned starter benched / OUT player in the lineup before the first tip, and the per-game late-scratch watch with a named swap
+    ir_back_alert(T, s, mine, off, can_send)
     first_tip_check(W, T, mine, off, s, can_send)
     late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id)
     save_state(s)
@@ -595,6 +596,8 @@ def roster_fix_alert(T, s, mine, can_send):
         in_ir = slot[pid] == "IR"
         if (m["action"] == "to_ir" and in_ir) or (m["action"] != "to_ir" and not in_ir):
             continue                                             # already done in ESPN
+        if m["action"] != "to_ir":
+            continue                                             # activations: ir_back_alert checks ESPN live and says it once
         key = f"{pid}:{m['action']}"
         if key in sent:
             continue
@@ -602,13 +605,51 @@ def roster_fix_alert(T, s, mine, can_send):
         if m["action"] == "to_ir":
             title, body = f"Move {m['name']} to IR", f"He's {st}. Free move; it opens a roster spot."
         elif m["action"] == "activate_swap":
-            title, body = f"Activate {m['name']} from IR", f"He's healthy but stuck on IR. Activate him, drop {(m.get('drop') or {}).get('name', 'your lowest-value player')}."
+            title, body = f"Activate {m['name']} from IR", f"He's no longer listed out but stuck on IR. Activate him, drop {(m.get('drop') or {}).get('name', 'your lowest-value player')}."
         else:
-            title, body = f"Activate {m['name']} from IR", "He's healthy but stuck on IR. Move him to your bench or lineup."
+            title, body = f"Activate {m['name']} from IR", ("He's no longer listed out but stuck on IR. Your roster is full: drop someone to activate him." if m["action"] == "activate_needs_spot" else "He's no longer listed out but stuck on IR. Move him to your bench or lineup.")
         if m.get("unlocks") and m["unlocks"] > 0.5:
             body += f" +{m['unlocks']:.0f} this week."
         if push(title, body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
             sent[key] = TODAY.isoformat()
+
+
+def ir_back_alert(T, s, mine, off, can_send):
+    """LIVE check, independent of the plan (2026-10-26: Flagg was upgraded to probable and played while parked on IR; the plan only activated ACTIVE players
+    and nothing alerted). Any player in an IR slot whom ESPN no longer lists as out can play and makes the ESPN lineup illegal: say so at once, with his game
+    time and the drop the plan suggests if the roster is full. Also asks for a plan rebuild so the week plan counts his games. Once per player per status per day."""
+    if not can_send:
+        return
+    sent = s.setdefault("irback_sent", {})
+    for k in [k for k, d in sent.items() if (TODAY - date.fromisoformat(d)).days > 3]:
+        sent.pop(k)
+    if off is None:
+        off = official_today({norm(p.name).replace(" ", "") for p in mine.roster})
+    tips = team_tips()
+    full = len([p for p in mine.roster if p.lineupSlot != "IR"]) >= 15
+    for p in mine.roster:
+        e = p.injuryStatus or "ACTIVE"
+        o = off.get(norm(p.name).replace(" ", ""))
+        if p.lineupSlot != "IR" or e in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
+            continue
+        tip = tips.get(canon(p.proTeam or ""))
+        if in_quiet() and not FORCE and not (tip and tip > NOW):
+            continue
+        key = f"{p.playerId}:{TODAY.isoformat()}:{e}:{o or ''}"
+        if key in sent:
+            continue
+        st = {"ACTIVE": "healthy", "DAY_TO_DAY": "day-to-day"}.get(e, e.lower().replace("_", " "))
+        body = f"ESPN now lists him {st}" + (f", official report: {o}" if o else "") + ". He can't score from IR."
+        if tip and tip > NOW and o != "Out":
+            body += f" His game tips at {_fmt_t(tip)}: put him in your lineup."
+        mv = next((m for m in (T.get("ir_moves") or []) if int(m.get("id") or 0) == int(p.playerId) and m.get("drop")), None)
+        if full:
+            body += f" Roster is full: activate him and drop {mv['drop']['name']}." if mv else " Roster is full: you'll need to drop someone to activate him."
+        if push(f"Activate {p.name} from IR", body, priority=5 if (tip and tip > NOW) else 4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
+            sent[key] = TODAY.isoformat()
+            plan_st = next((q.get("status") for q in T["roster"] if int(q["id"]) == int(p.playerId)), None)
+            if plan_st != e or not any(int(m.get("id") or 0) == int(p.playerId) for m in (T.get("ir_moves") or [])):
+                request_rebuild(s, f"{p.name} back from IR ({e})")
 
 
 def plan_move_alert(lg, T, s, mine, can_send):
@@ -1007,7 +1048,7 @@ def run_lineup():
         return
     T = my_team(W)
     tips = team_tips()
-    mine_teams = {canon(p["team"]) for p in T["roster"] if not p["ir"]}
+    mine_teams = {canon(p["team"]) for p in T["roster"] if not p["ir"] or p.get("status") not in ("OUT", "INJURY_RESERVE", "SUSPENSION")}
     soon = [t for tm, t in tips.items() if tm in mine_teams and NOW < t <= NOW + timedelta(hours=4)]
     from espn_api.basketball import League
     import config
@@ -1025,6 +1066,14 @@ def run_lineup():
         except Exception as ex:
             print("league refresh check failed:", repr(ex)[:120])
         if json.dumps(s.get("plan_rebuild"), sort_keys=True) != before_rb:
+            save_state(s)
+    if active() or FORCE:
+        before_ir = json.dumps(s.get("irback_sent"), sort_keys=True)
+        try:
+            ir_back_alert(T, s, mine, None, active() or FORCE)
+        except Exception as ex:
+            print("IR check failed:", repr(ex)[:120])
+        if json.dumps(s.get("irback_sent"), sort_keys=True) != before_ir:
             save_state(s)
     if not soon and not FORCE:
         print("no game of yours tips within 4 hours")

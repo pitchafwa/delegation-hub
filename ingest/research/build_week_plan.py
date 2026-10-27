@@ -1422,6 +1422,9 @@ def advise_injuries(r, total, c0, key_of, ir_free):
         # in season take the LATER of our history and ESPN's date (team timelines run optimistic); in the offseason ESPN's date is the better guide
         plan_games = (g_espn if g_espn is not None else ours) if pre else (max(ours, g_espn) if g_espn is not None else ours)
         plan_games = min(plan_games, g_season)
+        back_now = bool(pl["ir"] and pl["status"] not in IR_OK + ("SUSPENSION",) and not (info and info.get("status") == "Out"))
+        if back_now:
+            plan_games = 0.0                                  # ESPN no longer lists him out: he can play now (and is not IR-eligible)
         p_back = IA.p_back_within(curve, g_play)
         if g_espn is not None and info.get("return_date"):
             rd = info["return_date"][:10]
@@ -1460,7 +1463,9 @@ def advise_injuries(r, total, c0, key_of, ir_free):
         else:
             verdict = "DROP"
         why = []
-        if season_end:
+        if back_now:
+            why.append("ESPN no longer lists him out" + (f" (official report: {pl['official'].get(t0)})" if pl.get("official", {}).get(t0) else ""))
+        elif season_end:
             why.append("expected out for the rest of the season")
         elif pre and g_espn is not None:
             why.append(f"ESPN expects him back {info['return_date'][:10]} (about {g_espn} games missed)")
@@ -1491,7 +1496,8 @@ def plan_ir(r):
     free_ir = max(0, IR_SLOTS - len(on_ir))
     to_ir = sorted([p for p in r if not p["ir"] and p["status"] in IR_OK], key=lambda p: -p["level"])[:free_ir]
     ids_to_ir = {p["espn_id"] for p in to_ir}
-    back = sorted([p for p in on_ir if p["status"] == "ACTIVE"], key=lambda p: -p["level"])
+    # anyone ESPN no longer lists as out (healthy OR day-to-day) is not IR-eligible and can play: activate him (2026-10-26: Flagg sat on IR the night he was probable)
+    back = sorted([p for p in on_ir if p["status"] not in IR_OK + ("SUSPENSION",)], key=lambda p: -p["level"])
     plan = {p["espn_id"]: p for p in r}
     moves = []
     for p in to_ir:
