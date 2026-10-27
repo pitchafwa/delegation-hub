@@ -2256,7 +2256,7 @@ function pcHtml(P){
   const planHtml=plan?`<div class="pc2Plan${inPlan?'':' off'}"><div class="k">${inPlan?'In your plan':'Plan'}</div><div class="v">${plan}</div></div>`:'';
   // ---- projections
   const playsToday=wk&&(wk.games||[]).includes(todayIso);
-  const nextVal=wk?(playsToday?wk.tonight:wk.level):null;
+  const nextVal=wk?(playsToday?wk.tonight:(wk.next??wk.level)):null;
   const seasonD=h?(h.season_ppg??h.year0_ppg):(rd?rd.ppg:null);
   const tile=(v,l,cls)=>`<div class="${cls||''}"><b>${v!=null&&v!==''?(typeof v==='number'?v.toFixed(v>=10?0:1).replace(/\.0$/,''):v):'—'}</b><span>${l}</span></div>`;
   const prj=`<div class="pc2Sec"><div class="pc2St">Projected points a game ${ib('Projected')}</div><div class="pc2Prj">

@@ -10,7 +10,7 @@ const JOBS = [
   ["alerts.yml", { mode: "check" }, (h, m) => h >= 8 && h <= 23 && m % 20 === 0],          // status changes, plan moves, pickups
   ["alerts.yml", { mode: "daily" }, (h, m) => h === 8 && m === 30],                         // PC-refresh heartbeat
   ["alerts.yml", { mode: "weekly" }, (h, m) => h === 9 && m === 30],                        // weekly brief (the script only sends on a matchup's first day)
-  ["alerts.yml", { mode: "lineup" }, (h, m) => h >= 10 && h <= 23],                         // late-scratch watch + live matchup, every 5 minutes
+  ["alerts.yml", { mode: "lineup" }, (h, m) => h >= 10 || h < 2],                           // late-scratch watch + live matchup, every 5 minutes; until 2am for the DFF watch / lock-in alert
   ["refresh-league.yml", null, (h, m) => h === 5 && m === 35],                              // morning: rosters, schedule, plan, odds, team usage
   ["refresh-gameday.yml", null, (h, m) => (h === 0 && m === 10) || ((h === 15 || h === 18 || h === 21) && m === 5)],   // plan rebuilds
 ];

@@ -324,6 +324,12 @@ def level_on(pl, d):
     return base * r if r is not None else base
 
 
+def next_pts(pl):
+    """the plan's number for his next game after today (the player card's 'Next game' tile: 2026-10-27, it showed the free-agent weekly level instead)"""
+    d = next((d for d in plan_days + LOOK_DAYS if d > today and plays(pl["team"], d)), None)
+    return round(level_on(pl, d), 1) if d else None
+
+
 def p_play(pl, d):
     p = _p_play0(pl, d) * pl.get("p_scale", 1.0)
     return p * DFSP_UNLISTED_P if d.isoformat() in pl.get("dfs_unlisted", ()) else p
@@ -961,6 +967,7 @@ dfs_meta = {"enabled": False}
 try:
     import dfs_proj as DFSP
     dfs_meta = DFSP.apply([x for rr in rosters.values() for x in rr] + fa_players, plan_days + LOOK_DAYS, fa_ids={f["espn_id"] for f in fa_players})
+    dfs_meta["dates"] = sorted({d for x in [x for rr in rosters.values() for x in rr] + fa_players for d in x.get("dfs_dates", ())})     # days DFF has posted (alerts.py: has tomorrow's slate reached the plan yet)
     print("dfs projections:", dfs_meta)
 except Exception as ex:
     dfs_meta = {"enabled": False, "error": str(ex)[:120]}
@@ -1396,7 +1403,9 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         ros = build(ros, option(f, i["s"], i["e"]), tgt, i["s"])
         seq.append({"add": {"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "status": f["status"],
                             "boost": round(max(f.get("boost", {}).values(), default=0.0), 1), "boost_why": sorted(f.get("boost_why", [])),
-                            "ll": round(LL(f), 1), "games": [d.isoformat() for d in plan_days if d >= i["s"] and (i["e"] is None or d <= i["e"]) and p_play(f, d) > 0], "waiver": f.get("waiver")},
+                            "ll": round(LL(f), 1), "games": [d.isoformat() for d in plan_days if d >= i["s"] and (i["e"] is None or d <= i["e"]) and p_play(f, d) > 0], "waiver": f.get("waiver"),
+                            # lock-in-early alert (2026-10-27): is his number for the add day DailyFantasyFuel's (posted) or ours, and DFF's injury tag for that day
+                            "dff_on": i["s"].isoformat() in f.get("dfs_dates", ()), "dff_tag": (f.get("dfs_tag") or {}).get(i["s"].isoformat()) or None, "pts_on": round(level_on(f, i["s"]), 1)},
                     "drop": ({"form": tgt.get("form"), "ramp": tgt.get("ramp_note"), "id": tgt["espn_id"], "name": tgt["name"], "level": tgt["level"], "asset_rank": tgt["asset_rank"], "flag": drop_flag(tgt),
                               "streamer": bool(tgt.get("_stream"))} if tgt else None),
                     "gain": round(i["net"], 1), "week_gain": round(i["wk"] - i.get("wk_next", 0.0), 1), "next_gain": round(i.get("wk_next", 0.0), 1), "future_cost": round(i["fut"], 1),
@@ -1739,7 +1748,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1), "stream_exp": round(_stream, 1), "adds_left": adds_left,
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "bridge": (BRIDGE if t.team_abbrev == MY_ABBREV else []), "espn_ids": (MY_ESPN_IDS_NOW if t.team_abbrev == MY_ABBREV else None), "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
+                                  "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "next": next_pts(p), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))]}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -1858,7 +1867,7 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "dfs": dfs_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
            "leverage": ({"x20": round(this_week_value(20.0) / 20.0, 2), "wp": LEV.get("wp"), "days_left": LEV.get("days_left")} if LEV else None),
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "level_raw": f.get("level_raw", f["level"]), "ll": round(long_level(f), 1), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
+       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "next": next_pts(f), "level_raw": f.get("level_raw", f["level"]), "ll": round(long_level(f), 1), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
                      "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind")} for f in fa_players],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}

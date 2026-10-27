@@ -477,6 +477,7 @@ def run_check():
         print("roster fix check skipped:", repr(ex)[:90])
     try:
         plan_move_alert(lg, T, s, mine, can_send)
+        lock_in_alert(lg, T, s, mine, can_send)
         stash_alert(T, s, mine, can_send)
         plan_target_watch(lg, T, s, mine, can_send)
     except Exception as ex:
@@ -712,9 +713,9 @@ def plan_move_alert(lg, T, s, mine, can_send):
             acts = [btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
         else:
             title = f"Tomorrow: add {a}"
-            body = f"{drop_txt}. {kind.capitalize()}, +{m['gain']:.0f}. Nothing to do tonight."
+            body = f"{drop_txt}. {kind.capitalize()}, +{m['gain']:.0f}. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows."
             acts = [btn("Open plan", PLAN_URL)]
-        if (FORCE or not in_quiet()) and base + ":" + stage not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
+        if (FORCE or not in_quiet()) and base + ":" + stage not in ann and base + ":lock" not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
             if push(title, body, priority=4, tags=["arrows_counterclockwise"], actions=acts):
                 ann[base + ":" + stage] = TODAY.isoformat()
                 ann.setdefault(base, TODAY.isoformat())
@@ -724,6 +725,99 @@ def plan_move_alert(lg, T, s, mine, can_send):
             if 0 < mins <= 120:
                 if push(f"Still to do: add {a}", f"{drop_txt} before his {_fmt_t(tip)} tip ({int(mins)} min).", priority=5, tags=["alarm_clock"], actions=[btn("Add in ESPN", espn_add(pid))]):
                     ann[base + ":rem"] = TODAY.isoformat()
+
+
+# ---------- LOCK IN TONIGHT (2026-10-27, Tommy): ESPN locks roster moves at the day's first NBA tip (league setting rosterLocktimeType FIRSTGAME_SCORINGPERIOD; lineups
+# lock game by game). After that an add/drop takes effect TOMORROW and the dropped player still counts tonight, so tomorrow's pickup can be made tonight and nobody can
+# take him overnight. Only on DailyFantasyFuel's number, never ours: lock_early_study.py found DFF's night-before number moves little by tip (90% within ~10 pts) while
+# ours misses DFF by up to ~15 for free agents and runs ~6 high. So the 5-minute job watches for DFF posting tomorrow's slate (usually 10pm-midnight), asks for a plan
+# rebuild at once, and the rebuilt plan's moves for tomorrow that rest on DFF and still clear LOCK_MIN_GAIN get one alert, even late at night.
+LOCK_MIN_GAIN = 10.0          # the move's gain must survive a typical DFF night-before-to-tip swing (90th percentile about 10)
+LOCK_UNTIL_H = 2              # lock-in alerts run until 2am ET; later, the morning alerts take over
+DFF_WATCH_MIN = 15            # minutes between DFF page checks while waiting for tomorrow's slate (one request each)
+DFF_POSTED_ROWS = 40          # rows for a date before the slate counts as posted
+
+
+def lock_target():
+    """the date a move made right now first counts for, when that is a lock-in-tonight situation: tomorrow after today's first tip, or today between midnight
+    and LOCK_UNTIL_H (the overnight slate). None otherwise. Monday is skipped: whether a Sunday-night move counts against the old week's adds is not verified."""
+    if NOW.hour < LOCK_UNTIL_H:
+        t = TODAY
+    elif NOW.hour >= 12:
+        tips = team_tips()
+        if not tips or NOW < min(tips.values()):
+            return None
+        t = TODAY + timedelta(days=1)
+    else:
+        return None
+    return None if t.weekday() == 0 else t
+
+
+def dff_watch(W, T, s):
+    """tonight, while a move is planned for tomorrow and the plan has no DFF numbers for tomorrow yet: check DFF every DFF_WATCH_MIN minutes and ask for a plan
+    rebuild as soon as tomorrow's slate is posted (the rebuilt plan's moves then come through lock_in_alert)"""
+    tgt = lock_target()
+    if tgt is None:
+        return
+    iso = tgt.isoformat()
+    if iso in (((W.get("matchup") or {}).get("dfs") or {}).get("dates") or []):
+        return
+    if not any(m.get("on") == iso for m in (T.get("sequence") or [])):
+        return
+    w = s.setdefault("dff_watch", {})
+    if w.get("req") == iso:
+        return
+    if w.get("at") and NOW - datetime.fromisoformat(w["at"]) < timedelta(minutes=DFF_WATCH_MIN) and not FORCE:
+        return
+    w["at"] = NOW.isoformat(timespec="seconds")
+    import dfs_proj
+    n = sum(1 for byd in dfs_proj.fetch().values() if iso in byd)
+    print(f"DFF watch: {n} rows for {iso}")
+    if n >= DFF_POSTED_ROWS:
+        w["req"] = iso
+        request_rebuild(s, f"DFF posted {iso} numbers ({n} players)")
+
+
+def lock_in_alert(lg, T, s, mine, can_send):
+    """one alert per planned move for the lock_target date whose add is a free agent (no waiver wait) priced by DFF for that day, not tagged questionable,
+    with a gain of at least LOCK_MIN_GAIN. Sent through quiet hours (until LOCK_UNTIL_H): this is the moment to make the move."""
+    tgt = lock_target()
+    if not can_send or tgt is None:
+        return
+    import waivers as WV
+    iso = tgt.isoformat()
+    moves = [m for m in (T.get("sequence") or []) if m.get("on") == iso]
+    if not moves:
+        return
+    pool = {int(p["id"]) for p in WV.available_pool(lg, 300) if p.get("status") != "WAIVERS"}
+    mine_ids = {int(p.playerId) for p in mine.roster}
+    ann = s.setdefault("plan_announced", {})
+    tonight = tgt != TODAY
+    for m in moves:
+        a = m["add"]
+        pid = int(a["id"])
+        drop = m.get("drop") or {}
+        base = f"{pid}:{m['on']}:{drop.get('id')}"
+        if base + ":lock" in ann or pid in mine_ids or pid not in pool or a.get("waiver"):
+            continue
+        if not a.get("dff_on") or (a.get("dff_tag") or "").upper() in ("Q", "GTD", "D", "O") or (a.get("status") or "ACTIVE") != "ACTIVE" or m["gain"] < LOCK_MIN_GAIN:
+            print(f"lock-in: {a['name']} not sent (DFF {'yes' if a.get('dff_on') else 'not posted'}, tag {a.get('dff_tag')}, {a.get('status')}, gain {m['gain']:+.0f})")
+            continue
+        dr = drop.get("name")
+        if drop.get("id") is not None and int(drop["id"]) not in mine_ids and m.get("chain"):
+            dr = m["chain"]
+        kind = "long-term pickup" if m.get("keep") else ("rental" if (m.get("hold_through") or m["on"]) > m["on"] else "one-game rental")
+        if tonight:
+            title = f"Lock in tonight: add {a['name']}"
+            body = (f"Drop {dr} now. It takes effect tomorrow; tonight's lineup is unchanged." if dr else "Add him now. It takes effect tomorrow.")
+        else:
+            title = f"Add {a['name']} now"
+            body = f"Drop {dr}." if dr else "Open roster spot."
+        pts = a.get("pts_on")
+        body += (f" DFF: {pts:.0f} {'tomorrow' if tonight else 'today'}." if pts else "") + f" {kind.capitalize()}, +{m['gain']:.0f}."
+        if push(title, body, priority=4, tags=["lock"], actions=[btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]):
+            ann[base + ":lock"] = TODAY.isoformat()
+            ann.setdefault(base, TODAY.isoformat())
 
 
 def stash_alert(T, s, mine, can_send):
@@ -1066,7 +1160,7 @@ def run_lineup():
     lg = League(league_id=config.LEAGUE_ID, year=W["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
     mine = next(t for t in lg.teams if t.team_abbrev == W["my_abbrev"])
     if active() or FORCE:                     # every 5 minutes: a roster move (or a skipped scheduled build) starts a plan rebuild
-        before_rb = json.dumps(s.get("plan_rebuild"), sort_keys=True)
+        before_rb = json.dumps([s.get("plan_rebuild"), s.get("dff_watch")], sort_keys=True)
         try:
             plan_rebuild_check(W, T, mine, s)
         except Exception as ex:
@@ -1075,7 +1169,11 @@ def run_lineup():
             league_refresh_check(s)
         except Exception as ex:
             print("league refresh check failed:", repr(ex)[:120])
-        if json.dumps(s.get("plan_rebuild"), sort_keys=True) != before_rb:
+        try:
+            dff_watch(W, T, s)
+        except Exception as ex:
+            print("DFF watch failed:", repr(ex)[:120])
+        if json.dumps([s.get("plan_rebuild"), s.get("dff_watch")], sort_keys=True) != before_rb:
             save_state(s)
     if active() or FORCE:                     # every 5 minutes: a playable player stuck on IR, and the plan's moves (2026-10-26: a 7:12pm plan's add for an 8pm game
         before_mv = json.dumps([s.get("irback_sent"), s.get("plan_announced"), s.get("plan_rebuild")], sort_keys=True)     # was only sent by the 8:01 check)
@@ -1087,6 +1185,10 @@ def run_lineup():
             plan_move_alert(lg, T, s, mine, active() or FORCE)
         except Exception as ex:
             print("plan move check failed:", repr(ex)[:120])
+        try:
+            lock_in_alert(lg, T, s, mine, active() or FORCE)
+        except Exception as ex:
+            print("lock-in check failed:", repr(ex)[:120])
         if json.dumps([s.get("irback_sent"), s.get("plan_announced"), s.get("plan_rebuild")], sort_keys=True) != before_mv:
             save_state(s)
     if not soon and not FORCE:

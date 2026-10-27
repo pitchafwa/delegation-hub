@@ -91,6 +91,17 @@ print("\nB. DFF's last number minus our number (same player, same game):")
 summ("all", ours)
 for k, v in by_kind.items():
     summ(k, v)
+# free agents by source: st = next-few-days DELCO (logged from 10-26; NOT shrunk toward replacement), level = the plan's level (shrunk), model/espn = raw season numbers
+fa_src = defaultdict(list)
+for r in csv.DictReader(open(PLOG, encoding="utf-8")):
+    k = (r["date"], norm(r["name"]))
+    if k in final and r.get("is_fa") == "1":
+        for col in ("st", "level", "model", "espn"):
+            if r.get(col):
+                fa_src[col].append(final[k] - float(r[col]))
+print("  free agents, by which of our numbers:")
+for col, v in fa_src.items():
+    summ("    " + col, v)
 
 # ---- C. do a night's planned moves survive into the next day?
 plans = [json.loads(l) for l in open(LEDGER, encoding="utf-8")]
