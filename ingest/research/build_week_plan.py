@@ -316,7 +316,10 @@ def level_on(pl, d):
     elif pl.get("dfs_carry"):                       # a free agent the daily table has priced for a day already posted: his current role is the better guide for the days not posted yet
         base = DFSP.FA_CARRY * pl["dfs_carry"] + (1 - DFSP.FA_CARRY) * pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     elif "st_base" in pl and not pl.get("ramp_by_date"):     # next-few-days DELCO, fading back to the season number for games further out (not on top of a post-return ramp)
-        base = max(0.0, pl["st_base"] + st_delta_on(pl, d)) + pl.get("boost", {}).get(iso, 0.0)
+        base = max(0.0, pl["st_base"] + st_delta_on(pl, d))
+        if pl.get("is_fa"):                          # the same free-agent shrink as pl["level"] (2026-10-27: this path skipped it from 10-26, so FA adds looked ~6 pts too good)
+            base = FA_ANCHOR + FA_SHRINK * (base - FA_ANCHOR)
+        base += pl.get("boost", {}).get(iso, 0.0)
     else:
         base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     base += pl.get("matchup_by_date", {}).get(iso, 0.0)
