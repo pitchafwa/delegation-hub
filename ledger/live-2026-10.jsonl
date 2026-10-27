@@ -937,3 +937,4 @@
 {"kind":"live","ts":"2026-10-27T00:05:57+00:00","season":2027,"matchup":2,"wp":0.772,"margin":-37.0,"me":45.5,"opp":82.5,"exp_me":1787.9,"exp_opp":1489.4,"days_left":6.83,"opp_abbrev":"BBL"}
 {"kind":"live","ts":"2026-10-27T00:10:26+00:00","season":2027,"matchup":2,"wp":0.75,"margin":-57.5,"me":45.5,"opp":103.0,"exp_me":1783.5,"exp_opp":1503.9,"days_left":6.82,"opp_abbrev":"BBL"}
 {"kind":"live","ts":"2026-10-27T00:10:57+00:00","season":2027,"matchup":2,"wp":0.75,"margin":-57.5,"me":45.5,"opp":103.0,"exp_me":1782.8,"exp_opp":1503.5,"days_left":6.82,"opp_abbrev":"BBL"}
+{"kind":"live","ts":"2026-10-27T00:15:25+00:00","season":2027,"matchup":2,"wp":0.741,"margin":-64.5,"me":45.5,"opp":110.0,"exp_me":1779.5,"exp_opp":1508.0,"days_left":6.81,"opp_abbrev":"BBL"}
