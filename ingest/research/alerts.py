@@ -690,14 +690,23 @@ def plan_move_alert(lg, T, s, mine, can_send):
         kind = "long-term pickup" if m.get("keep") else ("rental" if (m.get("hold_through") or m["on"]) > m["on"] else "one-game rental")
         bkl = [b for b in (m.get("backups") or []) if b.get("net", 0) > 0]
         tail = f" If he's gone: {bkl[0]['name']}." if bkl else ""
+        if drop.get("id") is not None and int(drop["id"]) not in mine_ids and m.get("chain"):
+            dr = m["chain"]                                      # the earlier add in this chain was not made: the player it would have replaced is the drop
         drop_txt = f"Drop {dr}" if dr else "Open roster spot"
+        tip = tips.get(canon(m["add"]["team"]))
+        if days_to == 0 and not claim and m["on"] in (m["add"].get("games") or []) and (tip is None or tip <= NOW + timedelta(minutes=5)):
+            # his game tonight has started (or is about to): the plan's reason for adding him today is gone. Say nothing; get a plan that knows it
+            if base + ":late" not in ann:
+                ann[base + ":late"] = TODAY.isoformat()
+                request_rebuild(s, f"{a}: tonight's game has started before the add")
+            continue
         if claim:
             title = f"Tonight: claim {a}"
             body = f"{drop_txt} in the claim. Waivers run {WV.when(w)}. {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
             acts = [btn("Claim in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
         elif days_to == 0:
             title = f"Now: add {a}"
-            body = f"{drop_txt}. {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
+            body = f"{drop_txt}" + (f" before his {_fmt_t(tip)} tip" if tip is not None and m["on"] in (m["add"].get("games") or []) else "") + f". {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
             acts = [btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
         else:
             title = f"Tomorrow: add {a}"
@@ -708,7 +717,6 @@ def plan_move_alert(lg, T, s, mine, can_send):
                 ann[base + ":" + stage] = TODAY.isoformat()
                 ann.setdefault(base, TODAY.isoformat())
         # reminder: today's add still not made and his game is about two hours away
-        tip = tips.get(canon(m["add"]["team"]))
         if days_to == 0 and pid in pool and tip is not None and base + ":rem" not in ann:
             mins = (tip - NOW).total_seconds() / 60
             if 0 < mins <= 120:
@@ -1067,13 +1075,17 @@ def run_lineup():
             print("league refresh check failed:", repr(ex)[:120])
         if json.dumps(s.get("plan_rebuild"), sort_keys=True) != before_rb:
             save_state(s)
-    if active() or FORCE:
-        before_ir = json.dumps(s.get("irback_sent"), sort_keys=True)
+    if active() or FORCE:                     # every 5 minutes: a playable player stuck on IR, and the plan's moves (2026-10-26: a 7:12pm plan's add for an 8pm game
+        before_mv = json.dumps([s.get("irback_sent"), s.get("plan_announced"), s.get("plan_rebuild")], sort_keys=True)     # was only sent by the 8:01 check)
         try:
             ir_back_alert(T, s, mine, None, active() or FORCE)
         except Exception as ex:
             print("IR check failed:", repr(ex)[:120])
-        if json.dumps(s.get("irback_sent"), sort_keys=True) != before_ir:
+        try:
+            plan_move_alert(lg, T, s, mine, active() or FORCE)
+        except Exception as ex:
+            print("plan move check failed:", repr(ex)[:120])
+        if json.dumps([s.get("irback_sent"), s.get("plan_announced"), s.get("plan_rebuild")], sort_keys=True) != before_mv:
             save_state(s)
     if not soon and not FORCE:
         print("no game of yours tips within 4 hours")

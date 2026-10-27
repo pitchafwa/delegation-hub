@@ -584,6 +584,13 @@ for _p in fa_players:
     _p["level"] = round(FA_ANCHOR + FA_SHRINK * (_p["level"] - FA_ANCHOR), 1)  # shrink toward replacement for THIS WEEK's add decision only (see FA_SHRINK's comment) -- a
                                                                                 # long-horizon evaluation (Long-term adds) should use level_raw instead; see build_schedule_plan.py
 fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days + LOOK_DAYS)]
+# an add cannot use tonight's game once it has started or is about to (10 minutes to make the move): he joins from tomorrow (2026-10-26: a 7:12pm plan's add for an
+# 8pm game reached the phone after tip-off)
+_now_utc = datetime.now(timezone.utc)
+for _p in fa_players:
+    _t = games.get(today, {}).get(canon(_p["team"]))
+    if _t and datetime.fromisoformat(_t.replace("Z", "+00:00")) <= _now_utc + timedelta(minutes=10) and (not _p.get("from") or _p["from"] <= today):
+        _p["from"] = today + timedelta(days=1)
 
 
 # ---------- DYNASTY ADDS: free agents with long-term value (keeper-league asset value at 5 keepers), whether or not they help this week.
