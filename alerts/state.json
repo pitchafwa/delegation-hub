@@ -11,89 +11,89 @@
  },
  "last_status": {
   "2530530": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "3059319": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "3978": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4278580": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-27",
+   "date": "2026-10-28",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "league_req": "2026-10-26",
@@ -139,8 +139,6 @@
   "weekly": "2"
  },
  "target_gone": {
-  "4397014:2026-10-25": "2026-10-25",
-  "4432194:2026-10-24": "2026-10-24",
-  "4594327:2026-10-25": "2026-10-24"
+  "4397014:2026-10-25": "2026-10-25"
  }
 }
