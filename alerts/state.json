@@ -128,8 +128,7 @@
   "why": "scheduled build at 05:07Z did not run (plan from 04:11Z)"
  },
  "rosterfix_sent": {
-  "5041939:activate_swap": "2026-10-26",
-  "5041939:to_ir": "2026-10-24"
+  "5041939:activate_swap": "2026-10-26"
  },
  "sent": {
   "daily": "2026-10-23",
