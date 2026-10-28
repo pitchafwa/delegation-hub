@@ -320,6 +320,8 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   .mxRosters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media (max-width:720px){.mxRosters{grid-template-columns:1fr}.mxList{grid-template-columns:1fr}}
   .mxRh{font-family:"Barlow Condensed",sans-serif;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--line);padding-bottom:3px;margin-bottom:2px}
+  .mxLast{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.mxLast summary{cursor:pointer;font-weight:600;font-size:.9rem}
+  .mxLast summary span{display:block;font-weight:400;font-size:.74rem;color:var(--ink-faint);margin-top:2px}.mxLast[open] summary{margin-bottom:6px}
   .mxPl{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:.86rem}
   .mxPl>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mxPl i{font-style:normal;font-size:.72rem;color:var(--ink-faint)}
   .mxPl b{font-family:"Barlow Condensed",sans-serif;font-size:1.05rem;text-align:right}
@@ -2485,7 +2487,20 @@ function renderMatchups(){
       return `<div class="mxRos"><div class="mxRh">${esc(tname(id).ab)}</div>${rows.map(line).join('')||'<div class="hint">no data</div>'}</div>`;
     };
     const link=state==='now'?`<div class="mxLinks">${[a,b].map(id=>`<button type="button" class="mxGo" data-team="${id}">${esc(tname(id).ab)} plan on Today →</button>`).join('')}</div>`:'';
-    return strip+`<div class="mxRosters">${roster(a)}${roster(b)}</div>`+link;
+    return strip+(state==='now'&&(a===meId||b===meId)?mxLastDay():'')+`<div class="mxRosters">${roster(a)}${roster(b)}</div>`+link;
+  }
+  // the matchup's last day: free agents who play it, for loading up on starts (2026-10-28, Tommy), and the players you could drop for them
+  function mxLastDay(){
+    const end=W.matchup.end, me=W.teams.find(t=>t.abbrev===W.my_abbrev), today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+    if(!me||end<today) return '';
+    const dd=(me.days||[]).find(d=>d.date===end)||{}, games=((W.matchup.nba_games||{})[end]||[]).length/2, dn=dname(end);
+    const fas=(W.fa_pool||[]).filter(f=>f.last_day!=null&&f.last_p>=0.3).sort((x,y)=>y.last_day*y.last_p-x.last_day*x.last_p).slice(0,12);
+    const drops=(me.roster||[]).filter(p=>!p.protected&&!p.ir).sort((x,y)=>(x.ll??x.level)-(y.ll??y.level)).slice(0,4);
+    const fa=f=>`<div class="mxPl"><span>${pc(f.name)} <i>${esc(f.team)} · ${esc((f.slots||[]).filter(x=>x!=='UT').join('/'))}</i></span><b>${Math.round(f.last_day)}</b><em>${[f.waiver?`waivers until ${esc(f.waiver.when)}`:'',f.status&&f.status!=='ACTIVE'?esc(f.status.replace('_',' ').toLowerCase()):'',f.last_p<0.8?`${Math.round(f.last_p*100)}% to play`:''].filter(Boolean).join(' · ')}</em></div>`;
+    const dr=p=>`<div class="mxPl"><span>${pc(p.name)} <i>${esc(p.team)}</i></span><b>${p.last_day!=null?Math.round(p.last_day):'—'}</b><em>${p.last_day!=null?`plays ${dn}`:`no game ${dn}`} · season value ${Math.round(p.ll??p.level)}</em></div>`;
+    return `<details class="mxLast"><summary>${dn} pickups <span>${fd(end)} · ${games} NBA games · you start ${(dd.start||[]).length} · ${Math.round(dd.starts_before??0)} of ${W.matchup.cap} starts used going in</span></summary>
+      <div class="mxRosters"><div class="mxRos"><div class="mxRh">Free agents playing ${dn}</div>${fas.map(fa).join('')||'<div class="hint">none</div>'}</div>
+      <div class="mxRos"><div class="mxRh">Easiest drops</div>${drops.map(dr).join('')||'<div class="hint">none</div>'}</div></div></details>`;
   }
   const list=pairs.slice().sort((x,y)=>((y[0]===meId||y[1]===meId)-(x[0]===meId||x[1]===meId))).map(card).join('');
   const wkLbl=w=>{ const c=cal.find(x=>x.id===w); return c?`${fd(c.start)} – ${fd(c.end)}`:''; };
