@@ -345,6 +345,7 @@ def level_on(pl, d):
     else:
         base = pl["level"] + pl.get("boost", {}).get(iso, 0.0)
     base += pl.get("matchup_by_date", {}).get(iso, 0.0)
+    base *= rot_factors(pl, d)[1]
     r = pl.get("ramp_by_date", {}).get(iso)
     return base * r if r is not None else base
 
@@ -355,8 +356,36 @@ def next_pts(pl):
     return round(level_on(pl, d), 1) if d else None
 
 
+# ROTATION (2026-10-28, Tommy approved): a healthy player his coach is not using. Injury status cannot see it (Oscar Tshiebwe: inactive / DNP-CD / two-way
+# assignment in every Rockets game, still planned at ~94% to play and 28 pts). Measured on 2024-25 and 2025-26 box scores, players DELCO had at 15+,
+# healthy games only: by games played in his last 5 healthy team games -> chance he plays the next one (relative to 99% for 5 of 5) and his points if he
+# plays relative to DELCO.  5/5: 99%, 103%  4/5: 83%, 100%  3/5: 70%, 93%  2/5: 58%, 92%  1/5: 39%, 82%  0/5: 23%, 78%.
+# Counts from dashboard/rotation_status.json (build_rotation_status.py, the PC's daily refresh); skipped when older than 36 hours, for fewer than 3
+# healthy games, for a player now on another team, and on days DFF has priced (its numbers already know the rotation).
+ROT_TABLE = {0: (0.23, 0.78), 1: (0.39, 0.82), 2: (0.59, 0.92), 3: (0.71, 0.93), 4: (0.84, 1.0)}
+try:
+    _rs = json.load(open(HUB / "rotation_status.json", encoding="utf-8"))
+    ROT = _rs["players"] if datetime.now(timezone.utc) - datetime.fromisoformat(_rs["generated"]) < timedelta(hours=36) else {}
+    if not ROT:
+        print("rotation status older than 36 hours: no rotation adjustment")
+except Exception as _ex:
+    ROT = {}
+    print("rotation status unavailable:", _ex)
+
+
+def rot_factors(pl, d):
+    """(chance-to-play multiplier, points multiplier) for a healthy player out of the rotation; (1, 1) otherwise"""
+    r = ROT.get(norm(pl["name"]))
+    if not r or r["n"] < 3 or canon(r["team"]) != canon(pl["team"] or "") or d.isoformat() in pl.get("lvl_by_date", {}):
+        return 1.0, 1.0
+    k = round(r["played"] * 5 / r["n"])
+    if k == 4 and pl["level"] >= 25:          # one missed game is often rest for a regular: 4 of 5 played -> 89-90% at 25+ (vs 82% at 15-25)
+        return 0.91, 1.0
+    return ROT_TABLE.get(k, (1.0, 1.0))
+
+
 def p_play(pl, d):
-    p = _p_play0(pl, d) * pl.get("p_scale", 1.0)
+    p = _p_play0(pl, d) * pl.get("p_scale", 1.0) * rot_factors(pl, d)[0]
     return p * DFSP_UNLISTED_P if d.isoformat() in pl.get("dfs_unlisted", ()) else p
 
 
