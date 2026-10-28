@@ -2495,12 +2495,12 @@ function renderMatchups(){
     if(!me||end<today) return '';
     const dd=(me.days||[]).find(d=>d.date===end)||{}, games=((W.matchup.nba_games||{})[end]||[]).length/2, dn=dname(end);
     const fas=(W.fa_pool||[]).filter(f=>f.last_day!=null&&f.last_p>=0.3).sort((x,y)=>y.last_day*y.last_p-x.last_day*x.last_p).slice(0,12);
-    const drops=(me.roster||[]).filter(p=>!p.protected&&!p.ir).sort((x,y)=>(x.ll??x.level)-(y.ll??y.level)).slice(0,4);
+    const drops=(me.roster||[]).filter(p=>!p.ir&&p.last_day==null).sort((x,y)=>(x.ll??x.level)-(y.ll??y.level));   // only players with no game that day: dropping one costs no start
     const fa=f=>`<div class="mxPl"><span>${pc(f.name)} <i>${esc(f.team)} · ${esc((f.slots||[]).filter(x=>x!=='UT').join('/'))}</i></span><b>${Math.round(f.last_day)}</b><em>${[f.waiver?`waivers until ${esc(f.waiver.when)}`:'',f.status&&f.status!=='ACTIVE'?esc(f.status.replace('_',' ').toLowerCase()):'',f.last_p<0.8?`${Math.round(f.last_p*100)}% to play`:''].filter(Boolean).join(' · ')}</em></div>`;
-    const dr=p=>`<div class="mxPl"><span>${pc(p.name)} <i>${esc(p.team)}</i></span><b>${p.last_day!=null?Math.round(p.last_day):'—'}</b><em>${p.last_day!=null?`plays ${dn}`:`no game ${dn}`} · season value ${Math.round(p.ll??p.level)}</em></div>`;
+    const dr=p=>`<div class="mxPl"><span>${pc(p.name)} <i>${esc(p.team)}</i></span><b>${Math.round(p.ll??p.level)}</b><em>season value${p.protected?' · keeper-level':''}</em></div>`;
     return `<details class="mxLast"><summary>${dn} pickups <span>${fd(end)} · ${games} NBA games · you start ${(dd.start||[]).length} · ${Math.round(dd.starts_before??0)} of ${W.matchup.cap} starts used going in</span></summary>
       <div class="mxRosters"><div class="mxRos"><div class="mxRh">Free agents playing ${dn}</div>${fas.map(fa).join('')||'<div class="hint">none</div>'}</div>
-      <div class="mxRos"><div class="mxRh">Easiest drops</div>${drops.map(dr).join('')||'<div class="hint">none</div>'}</div></div></details>`;
+      <div class="mxRos"><div class="mxRh">Your players with no game ${dn}</div>${drops.map(dr).join('')||'<div class="hint">none</div>'}</div></div></details>`;
   }
   const list=pairs.slice().sort((x,y)=>((y[0]===meId||y[1]===meId)-(x[0]===meId||x[1]===meId))).map(card).join('');
   const wkLbl=w=>{ const c=cal.find(x=>x.id===w); return c?`${fd(c.start)} – ${fd(c.end)}`:''; };
