@@ -327,7 +327,11 @@ def main():
         if h_["t"] >= _cut or b_ not in _seen:
             _thin.append(h_)
         _seen.add(b_)
-    hist = _thin[-1500:]
+    # drop one-reading blips: win chance ~10+ points off BOTH neighbours in the same direction while the score margin moved under 15 (bad reads from a failed scoreboard fetch, 2026-10-27/28;
+    # a real change from a plan rebuild or injury news does not snap straight back)
+    hist = [h_ for i_, h_ in enumerate(_thin) if not (0 < i_ < len(_thin) - 1
+            and (h_["wp"] - _thin[i_ - 1]["wp"]) * (h_["wp"] - _thin[i_ + 1]["wp"]) >= 0.01
+            and abs(h_["margin"] - _thin[i_ - 1]["margin"]) < 15 and abs(h_["margin"] - _thin[i_ + 1]["margin"]) < 15)][-1500:]
     my_plan = plan_team.get(my_id, {})
     adds_used = my_plan.get("adds_used")
     best_add = next((a for a in (my_plan.get("sequence") or [])[:1]), None)
