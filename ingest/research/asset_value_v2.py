@@ -373,7 +373,7 @@ for i, q in enumerate(pros):
 VET_IN_N = 2
 _dl = pd.read_csv(D / "delco_pregame_all.csv.gz", usecols=["PLAYER_ID", "GAME_DATE", "SEASON", "after"])
 _dl = _dl[_dl["SEASON"] == f"{ROOKIE_CLASS}-{str(ROOKIE_CLASS + 1)[2:]}"].sort_values("GAME_DATE").groupby("PLAYER_ID")["after"].agg(["count", "last"])
-for i, pid in (enumerate(live["PLAYER_ID"]) if os.environ.get("VET_INSEASON") == "1" else []):     # off until Tommy reviews the before/after (2026-10-29)
+for i, pid in enumerate(live["PLAYER_ID"]):
     pid = int(pid)
     if pid not in _dl.index or int(_dl.loc[pid, "count"]) < VET_IN_N or np.isnan(E_v[i, 0]):
         continue
