@@ -1390,15 +1390,17 @@ function wrapHdr(id,html,def=true){
 
 /* ===== MATCHUP VIEW (Today): both lineups for a chosen day. Today uses the live tracker when it has this matchup (live points, game clock); other days use the
    plan (your column includes the planned moves; the opponent's is his projected best lineup). */
-let MU_DAY=null;
+let MU_DAY=null, MU_PICKED=false;
 const shortName=n=>{ const p=String(n).split(' '); return p.length>1?p[0][0]+'. '+p.slice(1).join(' '):n; };
 const SLOT_ORD={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,'SG/SF':7,'G/F':8,'PF/C':9,'F/C':10,UT:11};
 function matchupHtml(T,O,M,liveOk){
   if(!O) return '';
   const days=M.planned_days||[], today=days[0];
   if(!days.length) return '';
-  if(!MU_DAY||!days.includes(MU_DAY)) MU_DAY=today;
-  const live=liveOk&&LIVE.me&&LIVE.me.lineup&&MU_DAY===today;
+  // overnight (2026-10-29): until 6am ET the live tracker is still on last night's games while the plan has moved to the new day; keep that day first
+  const liveDay=liveOk&&LIVE.date?LIVE.date:today, cdays=days.includes(liveDay)?days:[liveDay,...days];
+  if(!MU_PICKED||!MU_DAY||!cdays.includes(MU_DAY)) MU_DAY=liveDay;
+  const live=liveOk&&LIVE.me&&LIVE.me.lineup&&MU_DAY===liveDay;
   const adds=new Map((T.sequence||[]).map(a=>[a.add.name,a]));
   const tipT=iso=>iso?new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(':00','').replace(' ',''):'';
   let mine=[], theirs=[], hm={}, ho={};
@@ -1429,7 +1431,7 @@ function matchupHtml(T,O,M,liveOk){
   const row=x=>x?`<div class="muPl ${x.st}${x.planned?' planned':''}"><span class="muSlot">${esc(x.slot)}</span><span class="muWho"><span class="pName" data-pc="${esc(x.name)}" role="button" tabindex="0">${esc(shortName(x.name))}</span><small>${esc(x.sub||'')}</small></span><span class="muPts">${x.pts!=null?x.pts.toFixed(1):(x.st==='out'?'—':(x.st==='live'||x.st==='final'?'0.0':x.proj))}</span></div>`
     :`<div class="muPl empty"><span class="muSlot">—</span><span class="muWho">open slot</span><span class="muPts"></span></div>`;
   const colHtml=a=>Array.from({length:n},(_,i)=>row(a[i])).join('');
-  const chips=days.map(d=>{ const lbl=d===today?'Today':shortDay(d); const isLive=d===today&&liveOk&&LIVE.me&&(LIVE.me.lineup||[]).some(x=>x.st==='live');
+  const chips=cdays.map(d=>{ const lbl=d===today?'Today':(d<today?'Last night':shortDay(d)); const isLive=d===liveDay&&liveOk&&LIVE.me&&(LIVE.me.lineup||[]).some(x=>x.st==='live');
     return `<button type="button" class="muChip${d===MU_DAY?' on':''}" data-mud="${d}">${isLive?'<span class="muDot"></span>':''}${lbl}${isLive?' · live':''}</button>`; }).join('');
   const rem=a=>Math.round(a.filter(x=>x.st==='pre').reduce((s,x)=>s+x.proj*0.94,0)+a.filter(x=>x.st==='live').reduce((s,x)=>s+Math.max(0,x.proj-(x.pts||0))*0.5,0));
   const foot=live?`<div class="muFoot"><div>Still to come <b>~${rem(mine)}</b></div><div>Still to come <b>~${rem(theirs)}</b></div></div>`:'';
@@ -1437,7 +1439,7 @@ function matchupHtml(T,O,M,liveOk){
     <div class="muChips">${chips}</div>
     <div class="muBox">
       <div class="muHead"><div><div class="muTm"><span class="you">YOU</span> · ${esc(T.abbrev)}</div><div class="muBig">${hm.big} <span class="muLbl">${hm.lbl}</span></div>${capBar(hm,false)}</div>
-        <div><div class="muTm">${esc(O.abbrev)}</div><div class="muBig"><span class="muLbl">${ho.lbl}</span> ${ho.big}</div>${capBar(ho,true)}</div></div>
+        <div><div class="muTm">${esc(live&&LIVE.opp.abbrev?LIVE.opp.abbrev:O.abbrev)}</div><div class="muBig"><span class="muLbl">${ho.lbl}</span> ${ho.big}</div>${capBar(ho,true)}</div></div>
       <div class="muRows"><div class="muCol">${colHtml(mine)}</div><div class="muCol r">${colHtml(theirs)}</div></div>
       ${foot}
     </div>
@@ -1636,7 +1638,11 @@ function renderWeek(){
   const wp=T.win_prob!=null?`${(T.win_prob*100).toFixed(0)}%`:'—';
   // live matchup card (data from the alerts job every ~20 minutes; only for the user's own team and the matchup the plan is for)
   const meT=W.teams.find(t=>t.abbrev===W.my_abbrev);
-  const liveOk=LIVE&&meT&&T.id===meT.id&&LIVE.season===W.season&&LIVE.matchup===M.id&&LIVE.me&&LIVE.me.abbrev===W.my_abbrev;
+  // overnight the tracker can still be on last night's games, which on Sunday night are the previous matchup's
+  const liveNight=!!(LIVE&&LIVE.date&&M.planned_days&&LIVE.date<M.planned_days[0]);
+  const liveOk=LIVE&&meT&&T.id===meT.id&&LIVE.season===W.season&&(LIVE.matchup===M.id||(liveNight&&LIVE.matchup===M.id-1))&&LIVE.me&&LIVE.me.abbrev===W.my_abbrev;
+  const lc=liveOk?((SP&&SP.calendar)||[]).find(c=>c.id===LIVE.matchup):null;
+  const wpS=lc?lc.start:M.start, wpE=lc?(()=>{ const d=new Date(lc.start+'T12:00:00'); d.setDate(d.getDate()+lc.days-1); return d.toISOString().slice(0,10); })():M.end;
   let liveHtml='';
   if(false){
     const L2=LIVE, ago=Math.max(0,Math.round((Date.now()-new Date(L2.generated).getTime())/60000));
@@ -1676,9 +1682,9 @@ function renderWeek(){
     <div class="scoreTop"><div><div class="scoreLbl">${isMe?'You · ':''}${esc(T.abbrev)}</div><div class="scoreBig">${sb.me.toFixed(0)}</div><div class="scoreLbl">projected ${sb.meP.toFixed(0)}</div></div>
       <div class="scoreMid"><div class="scoreWp" style="color:${wpCol}">${wpN!=null?wpN+'%':'—'}</div><div class="scoreLbl">win chance ${ib('Win chance')}</div></div>
       <div style="text-align:right"><div class="scoreLbl">${esc(sb.oa||'opponent')}</div><div class="scoreBig" style="color:var(--ink-soft)">${sb.op!=null?sb.op.toFixed(0):'—'}</div><div class="scoreLbl">${sb.opP!=null?'projected '+sb.opP.toFixed(0):''}</div></div></div>
-    ${wideWp?`<div class="scoreStrip wpRow"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b><i>starts ${ib('Cap')}</i></span>${wpChart(LIVE.history||[],M.start,M.end,true)}<span style="text-align:right"><b>${Math.max(0,M.adds_limit-sb.au)}</b><i>adds left</i></span></div>`
+    ${wideWp?`<div class="scoreStrip wpRow"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b><i>starts ${ib('Cap')}</i></span>${wpChart(LIVE.history||[],wpS,wpE,true)}<span style="text-align:right"><b>${Math.max(0,M.adds_limit-sb.au)}</b><i>adds left</i></span></div>`
       :`<div class="scoreStrip"><span><b>${Number(sb.st).toFixed(0)} / ${Number(sb.cap).toFixed(0)}</b><i>starts ${ib('Cap')}</i></span><span><b>${Math.max(0,M.adds_limit-sb.au)}</b><i>adds left</i></span><span><b>${dlTxt}</b><i>${sb.dl===1?'day':'days'} left</i></span></div>
-    ${liveOk?wpChart(LIVE.history||[],M.start,M.end):''}`}
+    ${liveOk?wpChart(LIVE.history||[],wpS,wpE):''}`}
     ${liveOk?(LIVE.advice||[]).filter(a=>!/^Next planned add/.test(a)).map(a=>`<div class="liveAdv">${esc(a)}</div>`).join(''):''}
   </div>`;
   // Do now: the same dated steps the phone alerts use
@@ -1775,7 +1781,7 @@ function renderWeek(){
       first.parentNode.insertBefore(jb,first);   // sits under the Details heading
       jb.addEventListener('click',e=>{ const b=e.target.closest('button[data-jump]'); if(!b) return; const d=document.getElementById('sec-'+b.dataset.jump); if(!d) return; d.open=true; secState[b.dataset.jump]=true; d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
     secs.forEach(d=>d.addEventListener('toggle',()=>{ secState[d.dataset.sec]=d.open; })); }
-  pane.querySelectorAll('.muChip').forEach(b=>b.addEventListener('click',()=>{ MU_DAY=b.dataset.mud; const y=window.scrollY; renderWeek(); window.scrollTo(0,y); }));
+  pane.querySelectorAll('.muChip').forEach(b=>b.addEventListener('click',()=>{ MU_DAY=b.dataset.mud; MU_PICKED=true; const y=window.scrollY; renderWeek(); window.scrollTo(0,y); }));
   pane.querySelectorAll('.faTabs button').forEach(b=>b.addEventListener('click',()=>{ pane.querySelectorAll('.faTabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b))); pane.querySelectorAll('.faPanel').forEach(pn=>pn.hidden=pn.dataset.fap!==b.dataset.fat); }));
   fillSetLineup();
   document.getElementById('weekSel').addEventListener('change',e=>{weekTeam=+e.target.value; renderWeek();});

@@ -34,7 +34,8 @@ from season import current_season_id
 YEAR = int(os.environ.get("LIVE_YEAR", current_season_id()))
 import season_calendar as SCAL
 SEASON_START = SCAL.opener() if YEAR == current_season_id() else {2026: date(2025, 10, 21)}.get(YEAR, SCAL.opener())      # derived for this season; last season's opener only for the --dry replay test
-TODAY = date.fromisoformat(os.environ["LIVE_DATE"]) if os.environ.get("LIVE_DATE") else datetime.now(ET).date()
+# the fantasy day runs until 6am ET: games that tip at 10:30pm still belong to that day's scoring period, so after midnight keep tracking them (2026-10-29)
+TODAY = date.fromisoformat(os.environ["LIVE_DATE"]) if os.environ.get("LIVE_DATE") else (datetime.now(ET) - timedelta(hours=6)).date()
 NOW = datetime.now(ET)
 DRY = "--dry" in sys.argv
 OUT = Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else ROOT / "ingest" / "live_out" / "live_matchup.json"
@@ -136,7 +137,8 @@ def main():
     if my_id is None:
         print("cannot find my team")
         return
-    mp = int(os.environ.get("LIVE_MP") or raw.get("status", {}).get("currentMatchupPeriod") or 0)
+    # the matchup that contains the fantasy day (late on the last night of a matchup ESPN may already show the next one)
+    mp = int(os.environ.get("LIVE_MP") or next((i for i, a_, b_ in SCAL.bounds() if a_ <= TODAY <= b_), None) or raw.get("status", {}).get("currentMatchupPeriod") or 0)
     m = next((x for x in raw["schedule"] if x.get("matchupPeriodId") == mp and "away" in x and my_id in (x["home"]["teamId"], x["away"]["teamId"])), None)
     if m is None:
         print("no matchup found for period", mp)
