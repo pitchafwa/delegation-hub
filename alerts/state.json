@@ -9,89 +9,89 @@
  },
  "last_status": {
   "2530530": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "3059319": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "3978": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4278580": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-28",
+   "date": "2026-10-29",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   }
  },
  "league_req": "2026-10-26",
@@ -100,8 +100,7 @@
   "4065732": "2026-10-27",
   "4278594": "2026-10-25",
   "4395626": "2026-10-25",
-  "4397136": "2026-10-27",
-  "4683747": "2026-10-24"
+  "4397136": "2026-10-27"
  },
  "pickup_sent": {
   "3059319:WAIVERS": "2026-10-22",
@@ -131,7 +130,5 @@
   "lineup": "2026-10-28:7dd889d519",
   "weekly": "2"
  },
- "target_gone": {
-  "4397014:2026-10-25": "2026-10-25"
- }
+ "target_gone": {}
 }
