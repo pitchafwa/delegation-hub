@@ -173,23 +173,38 @@ if len(plan_days) <= 2 and plan_days[-1] == mp_end and mp_id < _CAL["last_week"]
 # NBA schedule for the matchup (+ the day before, for back-to-back detection)
 games = {}     # date -> {team: iso tipoff}
 opp_of = {}    # date -> {team: opponent abbrev} (for the matchup-context adjustment: who is he actually facing that day)
-# a failed or empty fetch for a day the season schedule says has games is retried, then stops the build: the 2026-10-27 6pm plan got an empty
-# scoreboard for that day, planned no games, and the lineup alert told Tommy to bench his whole lineup
+# a failed or empty fetch for a day the season schedule says has games is retried, then filled from the season schedule file (dashboard/nba_schedule.json:
+# [away, home, "HH:MMZ"] per game). The 2026-10-27 6pm plan got an empty scoreboard for today, planned no games, and the lineup alert said bench everyone;
+# 2026-10-29 ESPN returned nothing to GitHub's servers for every past day of the week, and stopping the build left the plan a day old overnight.
 try:
-    _sched_days = set(json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))["games"])
+    _SCHED = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))["games"]
 except Exception:
-    _sched_days = set()
+    _SCHED = {}
+
+
+def _sched_events(d):
+    evs = []
+    for g_ in _SCHED.get(d.isoformat(), []):
+        if len(g_) < 3 or "TBD" in g_[:2]:
+            continue
+        hh = int(str(g_[2])[:2]) if str(g_[2])[:2].isdigit() else 23
+        tip = (d + timedelta(days=1 if hh < 12 else 0)).isoformat() + "T" + str(g_[2])          # "00:30Z" is the next UTC day
+        evs.append({"date": tip, "competitions": [{"competitors": [{"team": {"abbreviation": g_[0]}}, {"team": {"abbreviation": g_[1]}}]}]})
+    return evs
+
+
 for d in [days[0] - timedelta(days=1)] + days + LOOK_DAYS:
-    for _try in range(4):
+    for _try in range(3):
         try:
             j = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard", params={"dates": d.strftime("%Y%m%d")}, timeout=30).json()
         except Exception:
             j = {}
-        if j.get("events") or d.isoformat() not in _sched_days:
+        if j.get("events") or d.isoformat() not in _SCHED:
             break
-        time.sleep(5 * (_try + 1))
+        time.sleep(4 * (_try + 1))
     else:
-        sys.exit(f"ESPN scoreboard returned no games for {d} (the schedule lists some): not writing a plan without that day's games")
+        j = {"events": _sched_events(d)}
+        print(f"ESPN scoreboard returned no games for {d}: using the season schedule file ({len(j['events'])} games)")
     g = {}
     o = {}
     for ev in j.get("events", []):
