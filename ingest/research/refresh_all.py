@@ -176,6 +176,12 @@ try:
             pu = git("push", "--quiet")
             say("pushed" if pu.returncode == 0 else f"PUSH FAILED: {pu.stderr.strip()[:200]}")
             status["steps"]["push"] = {"ok": pu.returncode == 0}
+    # 6. back up the PC-only pieces (Claude memory and scheduled tasks, Windows tasks) into the OneDrive restore folder (../_restore/RESTORE.md); non-critical
+    _bk = REPO.parent / "_restore" / "backup_now.py"
+    if _bk.exists():
+        _b = subprocess.run([sys.executable, str(_bk)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        status["steps"]["restore_backup"] = {"ok": _b.returncode == 0}
+        say(((_b.stdout or "") + (_b.stderr or "")).strip()[-300:])
     finish(True)
 except Exception as e:
     finish(False, repr(e)[:300])
