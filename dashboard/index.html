@@ -3504,8 +3504,8 @@ function renderStamp(){
     const etToday=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}), pd=W.matchup&&W.matchup.planned_days&&W.matchup.planned_days[0];
     if(!offseason()&&pd&&pd<etToday&&Date.now()-g<=12*3600e3) warn.push("the plan is still yesterday's; it rebuilds just after midnight (or tap Refresh plan)"); }
   const pcT=RS&&RS.finished?new Date(RS.finished):(RD&&RD.generated?new Date(RD.generated):null);
-  if(pcT&&!offseason()&&Date.now()-pcT>30*3600e3) warn.push('the daily model refresh on your PC last finished '+fmtT(pcT));
-  if(RS&&(RS.failed||[]).length) warn.push('the last PC refresh had failed steps ('+RS.failed.map(esc).join(', ')+')');
+  if(pcT&&!offseason()&&Date.now()-pcT>30*3600e3) warn.push('the daily model refresh on your PC last finished '+fmtT(pcT)+'. To fix: turn on your laptop and sign in; it catches up on its own in about 25 minutes (Refresh plan does not run it)');
+  if(RS&&(RS.failed||[]).length) warn.push('the last PC refresh had failed steps ('+RS.failed.map(esc).join(', ')+'). To fix: ask Claude to check the daily refresh log');
   if(ALERT_PLAN&&W&&W.generated){ const g=Date.parse(W.generated);
     if(g<ALERT_PLAN-1000) warn.push('loading the plan your alert came from ('+fmtT(new Date(ALERT_PLAN))+')');
     else if(g>ALERT_PLAN+60000) main+=` · <b>updated since your alert</b> (${fmtT(new Date(ALERT_PLAN))}): follow this page`; }

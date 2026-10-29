@@ -412,3 +412,20 @@ This week's gains are valued by their effect on this matchup's win chance (build
 - DONE study (2026-10-26) cap-risk replay (cap_risk_replay.py, 216 team-weeks of 2025-26 with real rosters and missed games): a planner that averages over every number of no-shows = current planner +0.1 pts/wk (se 0.5); perfect foresight of who plays is only +5.6/wk. The daily re-plan already captures nearly all the value; not built.
 - DONE study (2026-10-26) last-day package (stream_rules_replay.py variant now+cram, 204 team-weeks): weighing "sit some players on the second-to-last day, then drop k / add k last-day streamers" as one move changed only 6% of weeks and lost 17 pts in those (overall -1.1/wk, se 0.8). Not built.
 - BUILT short-term DELCO (2026-10-26) from short_term_study.py (2015-26, 77k held-out cases): next 3 games = season DELCO + 1.25 + 0.36 x (last-3 minutes - DELCO minutes) x his rate + 0.11 x (last-3 points - DELCO); fixes the +5.5 underrating after minutes jumps; teammates-out adds nothing beyond minutes. Replaces ESPN projection + last-15 for days after tonight (build_week_plan level_on, st_base/st_delta, fade 1.0/0.6/0.3 by days ahead); built in build_redraft.py (st_delta). Logged as st vs level_espn; the Dec 14 blend study judges it. Test #3 (real schedule for drop costs, stream_rules_replay now+sched): -0.2/wk, not built.
+
+## Laptop-free: move the PC-only pieces to the cloud (agreed as a backlog item 2026-10-29, Tommy)
+Goal: the site needs no laptop at all. Today three things run only on Tommy's PC: the 6:47am daily model refresh (DELCO, keeper values, next-few-days DELCO,
+rotation status, injury history, Hashtag snapshots), the DFF monitor (DFF history for the studies), and the Claude scheduled check-ins.
+Probe from a GitHub runner (2026-10-29, one-off workflow, since removed): stats.nba.com TIMES OUT (blocked; the only hard blocker: nba_api game logs and
+box_v3 DNP reasons); cdn.nba.com 403; ESPN scoreboard + game summaries OK (summary box scores carry MIN/PTS/FG/3PT/FT/REB/AST/TO/STL/BLK and didNotPlay +
+reason, e.g. "COACH'S DECISION"); NBA injury-report PDFs OK; DailyFantasyFuel OK; Hashtag OK.
+Plan (laptop keeps running everything until each stage is proven):
+1. Private storage: Cloudflare R2 bucket (free to 10 GB; the 1.2 GB ingest/research/data cannot go in the public repo, some of it is not ours to republish).
+   Tommy creates one R2 API token in the Cloudflare dashboard (~2 min); keys go in GitHub secrets.
+2. DFF monitor -> GitHub Action every 10 min from the Cloudflare timer, appending to its logs in R2.
+3. Daily refresh -> GitHub Action: box scores + DNP reasons from ESPN summaries (mapped to NBA ids via espn_id_map.json) instead of stats.nba.com; pull the
+   needed data from R2, run refresh_all.py, push results, upload changed data. Run side by side with the PC for ~a week: ESPN vs NBA stats per game, and
+   cloud vs PC DELCO / keeper values / rotation counts must match; then turn the PC task off. ESPN flaked to GitHub once (2026-10-29 overnight): retry,
+   fall back to yesterday's data, and flag it.
+4. Claude scheduled check-ins -> Claude cloud routines that read the data from R2.
+Cost: none (Actions free for public repos; R2 free tier). Memory notes stay per computer (the _restore kit covers them).
