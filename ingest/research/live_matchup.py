@@ -329,11 +329,20 @@ def main():
         if h_["t"] >= _cut or b_ not in _seen:
             _thin.append(h_)
         _seen.add(b_)
-    # drop one-reading blips: win chance ~10+ points off BOTH neighbours in the same direction while the score margin moved under 15 (bad reads from a failed scoreboard fetch, 2026-10-27/28;
-    # a real change from a plan rebuild or injury news does not snap straight back)
-    hist = [h_ for i_, h_ in enumerate(_thin) if not (0 < i_ < len(_thin) - 1
-            and (h_["wp"] - _thin[i_ - 1]["wp"]) * (h_["wp"] - _thin[i_ + 1]["wp"]) >= 0.01
-            and abs(h_["margin"] - _thin[i_ - 1]["margin"]) < 15 and abs(h_["margin"] - _thin[i_ + 1]["margin"]) < 15)][-1500:]
+    # drop blips: a run of 1-4 readings (up to ~20 minutes) whose win chance sits ~10+ points off the readings on BOTH sides, in the same direction, while
+    # the readings on either side agree with each other and the score margin moved under 25 (worth only a few points of win chance). Bad reads (a failed scoreboard fetch, 2026-10-27/28; the
+    # midnight day switch, 2026-10-29) look like that; real news (injury, plan rebuild) does not snap straight back. Re-checked every run, so it heals itself.
+    drop_ = set()
+    for i_ in range(1, len(_thin) - 1):
+        for k_ in range(1, 5):
+            if i_ + k_ >= len(_thin):
+                break
+            a_, z_, seg_ = _thin[i_ - 1], _thin[i_ + k_], _thin[i_:i_ + k_]
+            if (abs(a_["wp"] - z_["wp"]) < 0.05 and abs(a_["margin"] - z_["margin"]) < 25
+                    and all((x_["wp"] - a_["wp"]) * (x_["wp"] - z_["wp"]) >= 0.01 and abs(x_["margin"] - a_["margin"]) < 25 for x_ in seg_)):
+                drop_.update(range(i_, i_ + k_))
+                break
+    hist = [h_ for i_, h_ in enumerate(_thin) if i_ not in drop_][-1500:]
     my_plan = plan_team.get(my_id, {})
     adds_used = my_plan.get("adds_used")
     best_add = next((a for a in (my_plan.get("sequence") or [])[:1]), None)
