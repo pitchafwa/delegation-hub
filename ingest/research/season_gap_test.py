@@ -11,6 +11,7 @@ career DELCO at the end of the base season, by gap.
 PART 3, in-season: after a player's 5th game, which predicts the rest of that season.
 Run from ingest/:  .venv/Scripts/python research/season_gap_test.py
 """
+import os
 import sys
 from pathlib import Path
 
@@ -128,7 +129,7 @@ for N in (5, 10, 20):
 
 # ---------------- PART 5: the same blend, both directions and three seasons out (path + w * (season DELCO - path))
 print("\nPART 5: best weight on season DELCO by direction and horizon (h=1 rest of this season, h=2 next season, h=3 the one after)")
-for N in (5, 20):
+for N in tuple(int(x) for x in os.environ.get("GAP_N", "5,20").split(",")):
     at = kk[kk.i == N][["PLAYER_ID", "origin", "GAME_DATE", "after"]].rename(columns={"origin": "tgt", "GAME_DATE": "dN", "after": "SN"})
     for h in (1, 2, 3):
         t = E[E.h == h].copy()

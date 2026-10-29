@@ -366,6 +366,27 @@ for i, q in enumerate(pros):
     E_p[i, 0] = max(a + b * p0 + c * e, 0.0)
     E_p[i, 1:] = np.maximum(E_p[i, 1:] + carry * (e - p0), 0.0)
     print(f"  rookie update: {q['player']:24s} {n:2d} games at {e:5.1f}  projection {p0:5.1f} -> {E_p[i, 0]:5.1f} this season, later seasons {carry * (e - p0):+5.1f}")
+# IN-SEASON UPDATE FOR VETERANS (season_gap_test.py, 2026-10-29, Tommy approved; Ty Jerome: path 27 this season while season DELCO was 43 after 4 games at 58).
+# The path above is built before the season and barely moved with this season's games. Held out on 2016-24, from a veteran's 2nd game (the weights are the same after 2, 3, 4, 5 and 20 games): move the path toward
+# season-mode DELCO by w x (season DELCO - path). This season w = 0.7 (1.0 when DELCO is 5+ above the path, 0.6 when 5+ below): rest-of-season error 6.4 -> 5.6.
+# Next season 0.4 after 5 games -> 0.5 after 20 (8.0 -> 7.7 / 7.4); the season after 0.3 -> 0.4 (9.2 -> 9.1 / 8.8). Further out untested: fades by 0.7 a season.
+VET_IN_N = 2
+_dl = pd.read_csv(D / "delco_pregame_all.csv.gz", usecols=["PLAYER_ID", "GAME_DATE", "SEASON", "after"])
+_dl = _dl[_dl["SEASON"] == f"{ROOKIE_CLASS}-{str(ROOKIE_CLASS + 1)[2:]}"].sort_values("GAME_DATE").groupby("PLAYER_ID")["after"].agg(["count", "last"])
+for i, pid in (enumerate(live["PLAYER_ID"]) if os.environ.get("VET_INSEASON") == "1" else []):     # off until Tommy reviews the before/after (2026-10-29)
+    pid = int(pid)
+    if pid not in _dl.index or int(_dl.loc[pid, "count"]) < VET_IN_N or np.isnan(E_v[i, 0]):
+        continue
+    n, s_ = int(_dl.loc[pid, "count"]), float(_dl.loc[pid, "last"])
+    d0 = s_ - E_v[i, 0]
+    before = E_v[i, :3].round(1).tolist()
+    w = {1: 1.0 if d0 >= 5 else (0.6 if d0 <= -5 else 0.7), 2: float(np.interp(n, [2, 5, 20], [0.4, 0.4, 0.5])), 3: float(np.interp(n, [2, 3, 20], [0.2, 0.3, 0.4]))}
+    for h in range(1, H + 1):
+        wh = w[h] if h <= 3 else w[3] * 0.7 ** (h - 3)
+        if not np.isnan(E_v[i, h - 1]):
+            E_v[i, h - 1] = max(E_v[i, h - 1] + wh * (s_ - E_v[i, h - 1]), 0.0)
+    if abs(d0) >= 8:
+        print(f"  vet in-season: {live.loc[i, 'player'] if 'player' in live.columns else pid} {n} games, season DELCO {s_:5.1f}: path {before} -> {E_v[i, :3].round(1).tolist()}")
 elite_p = (pr_pick <= 5) & (pr_age <= 21.5)
 # price-side copies of the paths: the same projection plus the scouting prior for young top-5 picks
 EA_v = E_v + ELITE_UPLIFT * elite_v[:, None]
