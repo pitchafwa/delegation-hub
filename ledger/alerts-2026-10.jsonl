@@ -39,3 +39,5 @@
 {"kind":"alert","ts":"2026-10-29T18:15:30-04:00","title":"Swap out Dejounte Murray by 8:00pm","body":"Dejounte Murray (PG) is out (injury report).\nNo bench fit. Free agent: Scoot Henderson (~24), costs an add.","priority":4}
 {"kind":"late_scratch","ts":"2026-10-29T18:15:30-04:00","player":"Dejounte Murray","stage":1,"mins_to_tip":105,"swap":null}
 {"kind":"alert","ts":"2026-10-29T18:30:23-04:00","title":"Fix lineup by 8:00pm","body":"Bench Dejounte Murray (PG): out.","priority":4}
+{"kind":"alert","ts":"2026-10-29T19:15:24-04:00","title":"Now: add Scoot Henderson","body":"Open roster spot before his 10:00pm tip. One-game rental, +27. If he's gone: Jock Landale.","priority":4}
+{"kind":"alert","ts":"2026-10-29T19:15:24-04:00","title":"Tomorrow: add Quenton Jackson","body":"Open roster spot. Rental, +34. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
