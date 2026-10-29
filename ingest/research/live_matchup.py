@@ -13,6 +13,7 @@ import json
 import math
 import os
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -64,10 +65,16 @@ def game_progress():
     """canon NBA team -> share of its game still to play today (1.0 = not started, 0.0 = final), from ESPN's public NBA scoreboard (the NBA's own live feed blocks scripts).
     {} if unavailable: then a player counts as 'to play' until ESPN marks him as having played, which is the old behaviour."""
     from team_abbr import canon
-    try:
-        evs = requests.get(ESPN_SB, params={"dates": TODAY.strftime("%Y%m%d")}, timeout=20).json().get("events", [])
-    except Exception as ex:
-        print("NBA scoreboard unavailable:", repr(ex)[:80])
+    evs = None
+    for _try in range(3):                  # a failed fetch made every starter count as playing today: one-point win-chance drops of ~15 (2026-10-27/28)
+        try:
+            evs = requests.get(ESPN_SB, params={"dates": TODAY.strftime("%Y%m%d")}, timeout=20).json().get("events", [])
+            if evs:
+                break
+        except Exception as ex:
+            print("NBA scoreboard unavailable:", repr(ex)[:80])
+        time.sleep(4)
+    if not evs:
         return {}
     out = {}
     GAME_INFO.clear()
@@ -216,7 +223,7 @@ def main():
             boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
             if left is None:
-                if prog:                                             # the NBA board loaded and his team is not on it: no game today, he cannot score or use a start
+                if prog or (nba_today and tcanon not in nba_today):   # his team is not on the NBA board (or, without it, not in the plan's games for today): no game today
                     continue
                 left = 0.0 if e["played"] else 1.0                   # no board at all: fall back to "to play until ESPN marks him as played"
             p_play = 0.0 if (e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed) else 0.94
@@ -312,7 +319,15 @@ def main():
     except Exception:
         pass
     hist.append({"t": datetime.now(timezone.utc).isoformat(timespec="minutes"), "wp": round(wp, 3), "margin": round(margin, 1), "me": round(pts[my_id], 1), "opp": round(pts[opp_id], 1)})
-    hist = hist[-700:]                                            # runs every 5 minutes on game days: about two and a half days of points
+    # the whole matchup for the week chart (2026-10-28; it kept only the last ~2.5 days): every point from the last 12 hours, one per 30 minutes before that
+    _cut = (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat(timespec="minutes")
+    _seen, _thin = set(), []
+    for h_ in hist:
+        b_ = h_["t"][:14] + ("00" if int(h_["t"][14:16]) < 30 else "30")
+        if h_["t"] >= _cut or b_ not in _seen:
+            _thin.append(h_)
+        _seen.add(b_)
+    hist = _thin[-1500:]
     my_plan = plan_team.get(my_id, {})
     adds_used = my_plan.get("adds_used")
     best_add = next((a for a in (my_plan.get("sequence") or [])[:1]), None)
