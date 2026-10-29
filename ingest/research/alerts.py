@@ -19,6 +19,7 @@ import sys
 import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import requests
@@ -62,8 +63,14 @@ def norm(n):
 
 
 def load(name):
+    global PLAN_URL
     p = DASH / name
-    return json.load(open(p, encoding="utf-8")) if p.exists() else None
+    d = json.load(open(p, encoding="utf-8")) if p.exists() else None
+    if name == "week_plan.json" and d and d.get("generated"):
+        # every alert link names the plan it was built from; the site loads that plan (or newer) before showing it (2026-10-28: an alert said start
+        # Wiggins, the page Tommy opened still showed an older plan starting DeRozan)
+        PLAN_URL = SITE + "?plan=" + quote(d["generated"], safe="") + "#week"
+    return d
 
 
 def state():
@@ -1004,7 +1011,7 @@ def first_tip_check(W, T, mine, off, s, can_send):
             h = hashlib.md5("|".join(sorted(probs)).encode()).hexdigest()[:10]
             key = f"{TODAY.isoformat()}:{h}"
             if s.get("sent", {}).get("lineup") != key:
-                push(f"Fix lineup by {_fmt_t(tip)}", "\n".join(probs[:4]), priority=4, tags=["rotating_light"], actions=[btn("Open my team", ESPN_TEAM)])
+                push(f"Fix lineup by {_fmt_t(tip)}", "\n".join(probs[:4]), priority=4, tags=["rotating_light"], actions=[btn("Open my team", ESPN_TEAM), btn("Open plan", PLAN_URL)])
                 s.setdefault("sent", {})["lineup"] = key
 
 

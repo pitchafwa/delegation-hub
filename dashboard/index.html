@@ -3423,8 +3423,22 @@ renderNav();
 (function(){ try{ const mine=(document.querySelector('meta[name=build]')||{}).content; const UNSTAMPED='__'+'BUILD__'; if(!mine||mine===UNSTAMPED) return;
   fetch('index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(h=>{ const m=h.match(/<meta name="build" content="([^"]+)"/); if(m&&m[1]!==mine&&m[1]!==UNSTAMPED&&sessionStorage.getItem('reloaded')!==m[1]){ sessionStorage.setItem('reloaded',m[1]); location.reload(); } }).catch(()=>{}); }catch(e){} })();
 new MutationObserver(renderNav).observe(document.getElementById('segView'),{attributes:true,subtree:true,attributeFilter:['style','aria-pressed']});
+/* An alert link names the plan the alert came from (?plan=<generated>, alerts.py load): the page makes sure it shows that plan or a newer one, fetching past
+   any saved or cached copy, and says so when the plan has changed since the alert (2026-10-28: an alert said start Wiggins, the page showed an older plan). */
+var ALERT_PLAN=Date.parse(new URLSearchParams(location.search).get('plan')||'')||null;
+function planAt(){ return W&&W.generated?Date.parse(W.generated):0; }
+async function alertPlanSync(){
+  if(!ALERT_PLAN) return;
+  for(let i=0;i<12&&planAt()<ALERT_PLAN-1000;i++){
+    try{ applyNewPlan(await fetch('week_plan.json?_='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null),null); }catch(e){}
+    if(planAt()>=ALERT_PLAN-1000) break;
+    try{ const r=await fetch(`https://api.github.com/repos/${SL_REPO}/contents/dashboard/week_plan.json?ref=main`,{headers:Object.assign(slTok()?ghH():{},{Accept:'application/vnd.github.raw+json'}),cache:'no-store'}); if(r.ok) applyNewPlan(await r.json(),null); }catch(e){}
+    if(planAt()<ALERT_PLAN-1000) await new Promise(r=>setTimeout(r,5000));
+  }
+  renderStamp();
+}
 fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(w=>{
-  if(w&&w.teams){ W=w; renderStamp(); if(activeView()==='week'||activeView()==='standings') setView(activeView()); if(activeView()==='teams'&&L&&D) renderTeams(); } else throw new Error('no plan');
+  if(w&&w.teams){ if(!W||Date.parse(w.generated)>planAt()) W=w; renderStamp(); if(activeView()==='week'||activeView()==='standings') setView(activeView()); if(activeView()==='teams'&&L&&D) renderTeams(); } else throw new Error('no plan');
 }).catch(err=>{ const pn=document.getElementById('weekPane'); if(activeView()==='week') pn.innerHTML=`<div class="err" style="padding:1rem">Couldn't load this week's plan (${esc(String(err&&err.message||err))}). <button class="dbtn" id="weekRetry" type="button">Retry</button> <span class="hint">or open Players &gt; Board</span></div>`;
   const rb=document.getElementById('weekRetry'); if(rb) rb.addEventListener('click',()=>location.reload()); });
 let RS=null;   // local_refresh_status.json: when the daily model refresh on Tommy's PC last finished, and which steps failed
@@ -3438,6 +3452,9 @@ function renderStamp(){
   const pcT=RS&&RS.finished?new Date(RS.finished):(RD&&RD.generated?new Date(RD.generated):null);
   if(pcT&&!offseason()&&Date.now()-pcT>30*3600e3) warn.push('the daily model refresh on your PC last finished '+fmtT(pcT));
   if(RS&&(RS.failed||[]).length) warn.push('the last PC refresh had failed steps ('+RS.failed.map(esc).join(', ')+')');
+  if(ALERT_PLAN&&W&&W.generated){ const g=Date.parse(W.generated);
+    if(g<ALERT_PLAN-1000) warn.push('loading the plan your alert came from ('+fmtT(new Date(ALERT_PLAN))+')');
+    else if(g>ALERT_PLAN+60000) main+=` · <b>updated since your alert</b> (${fmtT(new Date(ALERT_PLAN))}): follow this page`; }
   const btn=W?` <button type="button" id="planRefresh" class="stampBtn" ${PR.busy?'disabled':''}>${PR.busy?'Rebuilding…':'Refresh plan'}</button>`:'';
   const msg=PR.msg?` <span class="stampMsg">${PR.msg}</span>`:'';
   el.innerHTML=(warn.length?`<b>Stale data:</b> ${warn.join('; ')}.${main?` <span class="hint">${main}</span>`:''}`:main)+btn+msg;
@@ -3515,6 +3532,7 @@ async function pollPlan(){
   try{ const [w,sp]=await Promise.all([fetch('week_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null),fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null)]); applyNewPlan(w,sp); }catch(e){}
 }
 setInterval(pollPlan,240000);
+alertPlanSync();
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ pollPlan(); loadLive(); } });
 fetch('local_refresh_status.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x){ RS=x; renderStamp(); } }).catch(()=>{});
 setInterval(renderStamp,300000);
