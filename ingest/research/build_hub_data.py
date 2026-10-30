@@ -189,6 +189,9 @@ _up = pd.read_csv(ROOT / "data" / f"unified_paths{SFX}.csv")
 UNIFIED = {int(r.PLAYER_ID): [round(float(getattr(r, f"E{h}")), 1) for h in range(1, 11)] for r in _up.itertuples()}
 # rookies who have played are on the prospect engine with their games folded in (asset_value_v2.py): that path's first season IS the rest-of-season number
 ROOKIE_LIVE = {int(r.PLAYER_ID) for r in _up.itertuples() if r.kind == "prospect"}
+# veterans whose this-season number already includes this season's games (asset_value_v2.py in-season update, 2026-10-29): season mode = that number.
+# Scaling it by season/Kalman again counted the hot start twice (Ty Jerome 43.5 -> 68).
+ROOKIE_LIVE |= {int(r.PLAYER_ID) for r in _up.itertuples() if str(getattr(r, "inseason", False)) == "True"}
 # 90th-percentile career ("ceiling outcome") per player: path + asset value at each keeper count (asset_value_v2.py)
 _cp = pd.read_csv(ROOT / "data" / f"ceiling_paths{SFX}.csv")
 CEIL = {int(r.PLAYER_ID): {"path": [round(float(getattr(r, f"C{h}")), 1) for h in range(1, 11)],

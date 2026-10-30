@@ -371,6 +371,7 @@ for i, q in enumerate(pros):
 # season-mode DELCO by w x (season DELCO - path). This season w = 0.7 (1.0 when DELCO is 5+ above the path, 0.6 when 5+ below): rest-of-season error 6.4 -> 5.6.
 # Next season 0.4 after 5 games -> 0.5 after 20 (8.0 -> 7.7 / 7.4); the season after 0.3 -> 0.4 (9.2 -> 9.1 / 8.8). Further out untested: fades by 0.7 a season.
 VET_IN_N = 2
+vet_in = np.zeros(len(live), dtype=bool)          # flagged so build_hub_data does not scale this season's number up to season mode a second time
 _dl = pd.read_csv(D / "delco_pregame_all.csv.gz", usecols=["PLAYER_ID", "GAME_DATE", "SEASON", "after"])
 _dl = _dl[_dl["SEASON"] == f"{ROOKIE_CLASS}-{str(ROOKIE_CLASS + 1)[2:]}"].sort_values("GAME_DATE").groupby("PLAYER_ID")["after"].agg(["count", "last"])
 for i, pid in enumerate(live["PLAYER_ID"]):
@@ -379,6 +380,7 @@ for i, pid in enumerate(live["PLAYER_ID"]):
         continue
     n, s_ = int(_dl.loc[pid, "count"]), float(_dl.loc[pid, "last"])
     d0 = s_ - E_v[i, 0]
+    vet_in[i] = True
     before = E_v[i, :3].round(1).tolist()
     w = {1: 1.0 if d0 >= 5 else (0.6 if d0 <= -5 else 0.7), 2: float(np.interp(n, [2, 5, 20], [0.4, 0.4, 0.5])), 3: float(np.interp(n, [2, 3, 20], [0.2, 0.3, 0.4]))}
     for h in range(1, H + 1):
@@ -529,6 +531,7 @@ cp.to_csv(D / f"ceiling_paths{SFX}.csv", index=False)
 up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, H + 1)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)
+up["inseason"] = list(vet_in) + [False] * len(pros)        # this season's number already updated with this season's games (veterans, in-season update above)
 for h in range(1, H + 1):
     up[f"K{h}"] = np.concatenate([kal_v[:, h - 1], A_p[:, h - 1]])
 up.to_csv(D / f"unified_paths{SFX}.csv", index=False)
