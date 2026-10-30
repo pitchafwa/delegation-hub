@@ -1,5 +1,12 @@
 {
- "avail_prev": {},
+ "avail_prev": {
+  "3059319": "WAIVERS",
+  "3147657": "WAIVERS",
+  "4395626": "FREEAGENT",
+  "4684793": "FREEAGENT",
+  "5104155": "FREEAGENT",
+  "5106060": "FREEAGENT"
+ },
  "benef_sent": {
   "2026-10-23:3032979": 1
  },
@@ -13,113 +20,106 @@
  },
  "last_status": {
   "2530530": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "3059319": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "DAY_TO_DAY",
-   "official": "Out"
+   "official": null
   },
   "3978": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
-   "official": "Available"
+   "official": null
   },
   "4278580": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4683678": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-29",
+   "date": "2026-10-30",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "league_req": "2026-10-26",
- "lu": {
-  "2026-10-29:3907497": 1
- },
+ "lu": {},
  "my_drops": {
   "4065732": "2026-10-27",
-  "4278594": "2026-10-25",
-  "4395626": "2026-10-25",
   "4397136": "2026-10-27"
  },
  "pickup_sent": {
-  "3059319:WAIVERS": "2026-10-22",
   "4278129:FREEAGENT": "2026-10-23",
-  "4395626:FREEAGENT": "2026-10-22",
   "4397014:WAIVERS": "2026-10-23",
   "4594327:FREEAGENT": "2026-10-23",
-  "4594327:WAIVERS": "2026-10-22",
   "5105839:FREEAGENT": "2026-10-23"
  },
  "plan_announced": {
@@ -137,9 +137,9 @@
   "6589:2026-10-30:4683678:eve": "2026-10-29"
  },
  "plan_rebuild": {
-  "at": "2026-10-30T03:50:50+00:00",
+  "at": "2026-10-30T04:03:00+00:00",
   "sig": "3978,6430,2530530,3059319,3135045,3907497,4065648,4065732,4065733,4278580,4395724,4397136,4431680,4433134,4684740,5041939,5041955,5105565",
-  "why": "DFF posted 2026-10-30 numbers (269 players)"
+  "why": "new free agent(s) to evaluate: Mikal Bridges, Andrew Wiggins, Bilal Coulibaly, Tre Jones"
  },
  "rosterfix_sent": {
   "5041939:activate_swap": "2026-10-26"
