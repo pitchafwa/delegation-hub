@@ -137,9 +137,9 @@
   "6589:2026-10-30:4683678:eve": "2026-10-29"
  },
  "plan_rebuild": {
-  "at": "2026-10-30T04:03:00+00:00",
+  "at": "2026-10-30T05:40:37+00:00",
   "sig": "3978,6430,2530530,3059319,3135045,3907497,4065648,4065732,4065733,4278580,4395724,4397136,4431680,4433134,4684740,5041939,5041955,5105565",
-  "why": "new free agent(s) to evaluate: Mikal Bridges, Andrew Wiggins, Bilal Coulibaly, Tre Jones"
+  "why": "scheduled build at 05:07Z did not run (plan from 04:11Z)"
  },
  "rosterfix_sent": {
   "5041939:activate_swap": "2026-10-26"
