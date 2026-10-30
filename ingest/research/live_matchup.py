@@ -240,6 +240,22 @@ def main():
                 left_today[tid].append({"name": e["name"], "ef": round(ef, 1)})
                 p_start[tid].append(p_play * (1.0 if left >= 1.0 else left))
             rem_today[tid] += ef
+    # OPPONENT'S UNSET LINEUP (2026-10-30): before his games tip, the opponent's ESPN lineup may not be set yet (in the morning it had 4 of his players with games
+    # in it; the plan expects ~8 and already scales for how well he usually sets lineups, eff). Until a game starts, his expected points and starts from games
+    # not yet started are at least the plan's. Once a game tips, its lineup is locked and the real lineup counts.
+    pre_n = {my_id: None, opp_id: None}
+    _ot = plan_team.get(opp_id) or {}
+    _orow = next((x for x in _ot.get("days", []) if x["date"] == TODAY.isoformat()), None)
+    if _orow and sb[opp_id] < cap:
+        _now = datetime.now(timezone.utc)
+        _pre = [x for x in _orow.get("start", []) if x.get("tip") and datetime.fromisoformat(x["tip"].replace("Z", "+00:00")) > _now]
+        _plan_pts = sum(x.get("ef", 0.0) for x in _pre) * float(_ot.get("eff") or 1.0)
+        _act_pre = [x for x in left_today[opp_id] if "live" not in x]
+        _act_pts = sum(x["ef"] for x in _act_pre)
+        if _plan_pts > _act_pts:
+            rem_today[opp_id] += _plan_pts - _act_pts
+            pre_n[opp_id] = max(len(_act_pre) * 0.94, sum(x.get("p", 0.94) for x in _pre))
+            print(f"opponent lineup not set yet: {len(_act_pre)} starters still to play vs {len(_pre)} in his plan; using the plan's {_plan_pts:.0f} (lineup {_act_pts:.0f})")
     # GAMES CAP, for BOTH teams: a team that began today at or over the cap cannot start anyone today or later (nothing more counts), and a team projected to cross it by the end of
     # today loses the days after. The plan assumes every team uses the cap perfectly and is only refreshed a few times a day, so without this a locked opponent still "scores" in the forecast.
     lock_note = {}
@@ -249,7 +265,7 @@ def main():
             rem_today[tid], left_today[tid] = 0.0, []
             lock_note[tid] = "locked"
         started_today = sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
-        cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else sum(1 for x in left_today[tid] if "live" not in x) * 0.94)   # players already on the floor are counted in started_today
+        cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else (pre_n[tid] if pre_n[tid] is not None else sum(1 for x in left_today[tid] if "live" not in x) * 0.94))   # players already on the floor are counted in started_today
     # LOCKOUT ODDS (2026-10-24): whether tomorrow is still open depends on how many of today's starters actually play. A team at 25 starts with 10 starters today and a
     # 34.3 cap locks itself out of tomorrow only if all 10 play (about 54%). The day after today is weighted by that chance instead of being treated as all or nothing.
     def p_open_tomorrow(tid):
@@ -349,7 +365,7 @@ def main():
     drop_ = set()
     # known-bad stretches too long for the blip rule: 2026-10-30 02:41-03:45 UTC, my last day wrongly counted as locked out (see "MY team re-plans" above)
     for i_, h_ in enumerate(_thin):
-        if "2026-10-30T02:41" <= h_["t"] <= "2026-10-30T03:45":
+        if "2026-10-30T02:41" <= h_["t"] <= "2026-10-30T03:45" or "2026-10-30T09:39" <= h_["t"] <= "2026-10-30T14:15":     # and the morning the opponent's unset lineup counted as final
             drop_.add(i_)
     for i_ in range(1, len(_thin) - 1):
         for k_ in range(1, 5):
