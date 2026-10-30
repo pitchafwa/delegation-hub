@@ -3,6 +3,7 @@
   "3059319": "WAIVERS",
   "3147657": "WAIVERS",
   "4395626": "FREEAGENT",
+  "4431679": "FREEAGENT",
   "4684793": "FREEAGENT",
   "5104155": "FREEAGENT",
   "5106060": "FREEAGENT"
@@ -134,9 +135,9 @@
   "6589:2026-10-30:4683678:eve": "2026-10-29"
  },
  "plan_rebuild": {
-  "at": "2026-10-30T07:00:57+00:00",
+  "at": "2026-10-30T11:19:54+00:00",
   "sig": "3978,6430,2530530,3135045,3907497,4065648,4065733,4278580,4395724,4431680,4432194,4432241,4433134,4684740,5041939,5041955,5105565",
-  "why": "roster changed: +Jamal Shead, -Andrew Wiggins, -Scoot Henderson"
+  "why": "new free agent(s) to evaluate: Precious Achiuwa"
  },
  "rosterfix_sent": {
   "5041939:activate_swap": "2026-10-26"
