@@ -276,6 +276,13 @@ def main():
     o_adds = (plan_team.get(opp_id) or {}).get("adds_left")
     o_cap = 30.0 * o_adds if o_adds is not None else 1e9
     stream = 0.0
+    # MY team re-plans (2026-10-29): the plan's days already keep the last day open under the cap. Running a start or two ahead of the plan used to push
+    # the projected count over the cap and wipe out the whole last day (-200 points, win chance 73% -> 52%), when the plan would simply bench one or two
+    # cheap starts earlier. So for my team the plan's own day-by-day opening stands, and the extra starts cost what the plan's cheapest starts are worth.
+    my_rows = (plan_team.get(my_id) or {}).get("days_after") or (plan_team.get(my_id) or {}).get("days") or []
+    my_today = next((x for x in my_rows if x["date"] == TODAY.isoformat()), None)
+    my_replan = bool(my_today) and sb[my_id] < cap
+    my_extra = max(0.0, cum_end[my_id] - my_today["starts_after"]) if my_replan else 0.0
     for d in days:
         if d <= TODAY:
             continue
@@ -284,6 +291,8 @@ def main():
             t = plan_team.get(tid)
             dd = next((x for x in (t or {}).get("days_after" if tid == my_id and (t or {}).get("days_after") else "days", []) if x["date"] == d.isoformat()), None)
             w_open = p_open[tid] if d == next_day else (1.0 if cum[tid] < cap else 0.0)
+            if tid == my_id and my_replan and dd:
+                w_open = 1.0 if dd.get("starts_before", 0) < cap else 0.0
             if w_open <= 0.0:                                     # certainly at the cap when this day begins: the day is locked
                 lock_note.setdefault(tid, "locks after today" if d == next_day else "locked from " + d.strftime("%a"))
                 continue
@@ -300,6 +309,11 @@ def main():
                 fut[tid] += pts[tid] / played_days
                 got = True
         fut_days += 1 if got else 0
+    if my_extra > 0:                                         # the starts the plan now has to give up, at the value of its cheapest remaining starts
+        fut_rows = [x for x in my_rows if x["date"] > TODAY.isoformat() and x.get("starts_after", 0) > x.get("starts_before", 0)]
+        per = [x["pts"] / (x["starts_after"] - x["starts_before"]) for x in fut_rows]
+        if per:
+            fut[my_id] = max(0.0, fut[my_id] - my_extra * 0.8 * min(per))
     stream = max(0.0, min(stream, o_cap))
     fut[opp_id] += stream
     frac_today = 0.0
@@ -333,6 +347,10 @@ def main():
     # the readings on either side agree with each other and the score margin moved under 25 (worth only a few points of win chance). Bad reads (a failed scoreboard fetch, 2026-10-27/28; the
     # midnight day switch, 2026-10-29) look like that; real news (injury, plan rebuild) does not snap straight back. Re-checked every run, so it heals itself.
     drop_ = set()
+    # known-bad stretches too long for the blip rule: 2026-10-30 02:41-03:45 UTC, my last day wrongly counted as locked out (see "MY team re-plans" above)
+    for i_, h_ in enumerate(_thin):
+        if "2026-10-30T02:41" <= h_["t"] <= "2026-10-30T03:45":
+            drop_.add(i_)
     for i_ in range(1, len(_thin) - 1):
         for k_ in range(1, 5):
             if i_ + k_ >= len(_thin):
