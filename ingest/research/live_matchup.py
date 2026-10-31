@@ -255,7 +255,20 @@ def main():
         if _plan_pts > _act_pts:
             rem_today[opp_id] += _plan_pts - _act_pts
             pre_n[opp_id] = max(len(_act_pre) * 0.94, sum(x.get("p", 0.94) for x in _pre))
+            p_start[opp_id] = [x.get("p", 0.94) for x in _pre] if sum(x.get("p", 0.94) for x in _pre) >= len(_act_pre) * 0.94 else p_start[opp_id]
             print(f"opponent lineup not set yet: {len(_act_pre)} starters still to play vs {len(_pre)} in his plan; using the plan's {_plan_pts:.0f} (lineup {_act_pts:.0f})")
+    # MY UNLOCKED LINEUP (2026-10-31, Tommy): until a game tips I can still change who starts in it, and I follow the plan. My ESPN lineup at 6am had one
+    # start too many for the cap (the plan benches someone), which counted Sunday as lost (81% -> 63%) until Tommy fixed the lineup. So for my games not
+    # yet started, today's points and starts are the plan's (after its moves), not whatever ESPN shows; started games count as played.
+    _mt = plan_team.get(my_id) or {}
+    _mrow = next((x for x in (_mt.get("days_after") or _mt.get("days") or []) if x["date"] == TODAY.isoformat()), None)
+    if _mrow and sb[my_id] < cap:
+        _now = datetime.now(timezone.utc)
+        _pre = [x for x in _mrow.get("start", []) if x.get("tip") and datetime.fromisoformat(x["tip"].replace("Z", "+00:00")) > _now]
+        _act_pre = [x for x in left_today[my_id] if "live" not in x]
+        rem_today[my_id] += sum(x.get("ef", 0.0) for x in _pre) - sum(x["ef"] for x in _act_pre)
+        pre_n[my_id] = sum(x.get("p", 0.94) for x in _pre)
+        p_start[my_id] = [x.get("p", 0.94) for x in _pre]
     # GAMES CAP, for BOTH teams: a team that began today at or over the cap cannot start anyone today or later (nothing more counts), and a team projected to cross it by the end of
     # today loses the days after. The plan assumes every team uses the cap perfectly and is only refreshed a few times a day, so without this a locked opponent still "scores" in the forecast.
     lock_note = {}
@@ -365,7 +378,7 @@ def main():
     drop_ = set()
     # known-bad stretches too long for the blip rule: 2026-10-30 02:41-03:45 UTC, my last day wrongly counted as locked out (see "MY team re-plans" above)
     for i_, h_ in enumerate(_thin):
-        if "2026-10-30T02:41" <= h_["t"] <= "2026-10-30T03:45" or "2026-10-30T09:39" <= h_["t"] <= "2026-10-30T14:15":     # and the morning the opponent's unset lineup counted as final
+        if "2026-10-30T02:41" <= h_["t"] <= "2026-10-30T03:45" or "2026-10-30T09:39" <= h_["t"] <= "2026-10-30T14:15" or "2026-10-31T09:39" <= h_["t"] <= "2026-10-31T13:59":     # and the morning the opponent's unset lineup counted as final
             drop_.add(i_)
     for i_ in range(1, len(_thin) - 1):
         for k_ in range(1, 5):
