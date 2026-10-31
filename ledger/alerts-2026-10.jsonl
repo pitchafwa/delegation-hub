@@ -48,3 +48,5 @@
 {"kind":"alert","ts":"2026-10-29T23:52:36-04:00","title":"Lock in tonight: add Jamal Shead","body":"Drop Andrew Wiggins now. It takes effect tomorrow; tonight's lineup is unchanged. DFF: 26 tomorrow. Rental, +16.","priority":4}
 {"kind":"alert","ts":"2026-10-30T08:01:16-04:00","title":"Now: add Draymond Green","body":"Drop Jamal Shead before his 10:00pm tip. Long-term pickup, +89. If he's gone: De'Anthony Melton.","priority":4}
 {"kind":"alert","ts":"2026-10-30T18:08:05-04:00","title":"Fix lineup by 7:00pm","body":"Start Sandro Mamukelashvili: he's on your bench.\nBench Day'Ron Sharpe: not in today's plan (uses a start the plan saves).","priority":4}
+{"kind":"alert","ts":"2026-10-31T17:25:49-04:00","title":"Swap out Dejounte Murray by 7:00pm","body":"Dejounte Murray (UT) is out.\nStart Grayson Allen at UT (~33).\nOr: Ty Jerome.","priority":4}
+{"kind":"late_scratch","ts":"2026-10-31T17:25:49-04:00","player":"Dejounte Murray","stage":1,"mins_to_tip":94,"swap":"Grayson Allen"}
