@@ -701,6 +701,9 @@ try:
                 elif p["ir"] and q.lineupSlot != "IR":
                     p["ir"], p["from"] = False, _tom
                     BRIDGE.append(f"{p['name']} off IR from tomorrow")
+                elif not p["ir"] and q.lineupSlot == "IR":          # moved to IR on tomorrow's lineup (2026-10-31: Murray, Draymond): done, not a Do now step
+                    p["ir"] = True
+                    BRIDGE.append(f"{p['name']} to IR from tomorrow")
             for pid, q in _next.items():
                 if pid not in _ids:
                     np_ = make_player(q, q.lineupSlot)
