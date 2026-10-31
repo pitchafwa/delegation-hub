@@ -50,3 +50,5 @@
 {"kind":"alert","ts":"2026-10-30T18:08:05-04:00","title":"Fix lineup by 7:00pm","body":"Start Sandro Mamukelashvili: he's on your bench.\nBench Day'Ron Sharpe: not in today's plan (uses a start the plan saves).","priority":4}
 {"kind":"alert","ts":"2026-10-31T17:25:49-04:00","title":"Swap out Dejounte Murray by 7:00pm","body":"Dejounte Murray (UT) is out.\nStart Grayson Allen at UT (~33).\nOr: Ty Jerome.","priority":4}
 {"kind":"late_scratch","ts":"2026-10-31T17:25:49-04:00","player":"Dejounte Murray","stage":1,"mins_to_tip":94,"swap":"Grayson Allen"}
+{"kind":"alert","ts":"2026-10-31T18:00:28-04:00","title":"Tomorrow: add Andrew Wiggins","body":"Drop Sandro Mamukelashvili. Long-term pickup, +54. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
+{"kind":"alert","ts":"2026-10-31T18:00:28-04:00","title":"Tomorrow: add Brandon Williams","body":"Drop Grayson Allen. One-game rental, +10. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
