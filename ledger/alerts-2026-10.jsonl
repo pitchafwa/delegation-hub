@@ -56,3 +56,5 @@
 {"kind":"alert","ts":"2026-10-31T18:06:56-04:00","title":"Move Draymond Green to IR","body":"He's out. Free move; it opens a roster spot. +29 this week.","priority":4}
 {"kind":"alert","ts":"2026-10-31T18:06:56-04:00","title":"Tomorrow: add Brandon Williams","body":"Open roster spot. Rental, +77. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
 {"kind":"alert","ts":"2026-10-31T18:06:57-04:00","title":"Tomorrow: add Gui Santos","body":"Open roster spot. Rental, +62. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
+{"kind":"alert","ts":"2026-10-31T18:25:23-04:00","title":"Still starting Dejounte Murray (out)","body":"Dejounte Murray (UT) is out (injury report).\nStart Ty Jerome at UT (~26).","priority":5}
+{"kind":"late_scratch","ts":"2026-10-31T18:25:24-04:00","player":"Dejounte Murray","stage":2,"mins_to_tip":35,"swap":"Ty Jerome"}
