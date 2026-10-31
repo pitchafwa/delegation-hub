@@ -220,7 +220,8 @@ def main():
                 outp = e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed
                 stt = ("out" if outp and not e["played"] else ("final" if gi and gi["state"] == "post" else ("live" if gi and gi["state"] == "in" else "pre"))) if gi else ("final" if e["played"] else "pre")
                 lineup[tid].append({"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else (0.0 if started and not outp else None), "st": stt,
-                                    "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"])})
+                                    "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"]),
+                                    "left": prog.get(tcanon)})                  # share of his game still to play (the card's above/below-projection marker)
             lvl = pr.get("tonight") or pr.get("level", 22.0)
             boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
