@@ -227,6 +227,7 @@ def team_games(team, d0, d1):
 
 
 rows = []
+
 for e in raw:
     p = e["player"]
     name = p["fullName"]
@@ -282,6 +283,7 @@ for e in raw:
                "l10": round(float(last.fp.mean()), 1), "m10": round(float(last["min"].mean()), 1), "ppm": round(float(last.fp.sum() / last["min"].sum()), 2),
                "sd": round(float(pl.fp.iloc[-25:].std()), 1) if len(pl) >= 8 else None, "n_season": int(len(cur)),
                "s_avg": round(float(cur.fp.mean()), 1) if len(cur) else None, "s_min": round(float(cur["min"].mean()), 1) if len(cur) else None,
+               "dmin": round(DMIN[key(name)], 1) if DMIN.get(key(name)) else None,       # DELCO's minutes per game (the live in-game final projection, live_proj_fit.py)
                # box-score lines for the bar tooltips: [pts, reb, ast, stl, blk, 3pm, ftm, tov] per game, aligned with g/gd/gm
                "gx": [[int(r[c]) for c in BOX] for _, r in last.iterrows()],
                "gk_raw": [DPRE.get((key(name), str(v)[:10])) for v in last["date"]],

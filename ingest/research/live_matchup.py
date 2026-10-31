@@ -83,9 +83,12 @@ def game_progress():
         c = e["competitions"][0]
         st = c["status"]
         state = st["type"]["state"]
-        info = {"state": state, "clock": (st.get("type") or {}).get("shortDetail") or "", "tip": e.get("date"), "event": e.get("id")}
+        info = {"state": state, "clock": (st.get("type") or {}).get("shortDetail") or "", "tip": e.get("date"), "event": e.get("id"),
+                "per": int(st.get("period") or 0), "secs": float(st.get("clock") or 0.0)}
+        sc = {canon(t["team"]["abbreviation"]): float(t.get("score") or 0) for t in c["competitors"]}
         for t in c["competitors"]:
-            GAME_INFO[canon(t["team"]["abbreviation"])] = info
+            ab = canon(t["team"]["abbreviation"])
+            GAME_INFO[ab] = dict(info, marg=sc[ab] - sum(v for k, v in sc.items() if k != ab))
         if state == "pre":
             left = 1.0
         elif state == "post":
@@ -97,6 +100,42 @@ def game_progress():
         for t in c["competitors"]:
             out[canon(t["team"]["abbreviation"])] = left
     return out
+
+
+# LIVE IN-GAME FINAL PROJECTION (2026-10-31, Tommy; live_proj_study.py / live_proj_fit.py: 600 games of 2025-26 replayed from play-by-play, 180 held out).
+# final = points so far + expected remaining minutes x scoring rate. The rate is his pregame points per DELCO minute, moved toward tonight's rate only by
+# minutes / (minutes + K) with K = 120: tonight's hot or cold start predicts almost nothing beyond the pregame rate. Remaining minutes come from a fitted
+# regression by game phase (pregame minutes left, his minutes pace tonight, score margin x time, fouls). Held-out error 6.49 vs 6.60 for the old
+# "pregame x share of game left" and 10.0 for naive pace (hot first quarters: naive pace 121, actual 49, this model 49).
+LPM = json.load(open(Path(__file__).resolve().parent / "live_proj_model.json", encoding="utf-8"))
+try:
+    RD_MIN = {int(r["id"]): (r.get("dmin") or r.get("m10") or r.get("s_min")) for r in json.load(open(DASH / "redraft_data.json", encoding="utf-8"))["players"]}
+except Exception:
+    RD_MIN = {}
+
+
+def live_final(e, gi, pre):
+    """projected final fantasy points for a player in a game in progress; None when his pregame minutes are unknown"""
+    pre_min = RD_MIN.get(int(e["id"])) if e.get("id") is not None else None
+    if not pre_min or not pre or gi.get("per", 0) < 1:
+        return None
+    per, secs = gi["per"], gi.get("secs", 0.0)
+    t = min(47.99, (per - 1) * 12 + (720 - secs) / 60.0) if per <= 4 else 47.99
+    ef = t / 48.0
+    mn, fp, pf, am = e.get("mn", 0.0), e["pts"], e.get("pf", 0.0), abs(gi.get("marg", 0.0))
+    x = [pre_min * (1 - ef), mn / max(ef, 1 / 48) * (1 - ef), am * ef, am * ef * ef, max(am - 15, 0) * ef, pf * (1 - ef), (pf >= 5) * (1 - ef),
+         (pf >= 4) * (1 - ef) * (ef < 0.75), mn * (1 - ef)]
+    a_, b_ = next((a, b) for a, b in LPM["phases"] if a <= t < b)
+    m = LPM["rem_min"][f"{a_}-{b_}"]
+    rem = min(max(sum(c * v for c, v in zip(m["coef"], x)) + m["intercept"], 0.0), 48 - t)
+    if per > 4:
+        rem = min(rem, secs / 60.0)
+    if pf >= 6:                                             # fouled out
+        rem = 0.0
+    rp = pre / pre_min
+    rg = fp / mn if mn > 0 else rp
+    w = mn / (mn + LPM["K"])
+    return fp + rem * (w * rg + (1 - w) * rp)
 
 
 _BOX = {}
@@ -175,8 +214,9 @@ def main():
                     pl = e.get("playerPoolEntry", {}).get("player", {})
                     st = [s for s in pl.get("stats", []) if s.get("scoringPeriodId") == sp and s.get("statSourceId") == 0]
                     played = bool(st and st[0].get("stats", {}).get("42", 0))
+                    ss = st[0].get("stats", {}) if st else {}
                     res[t["teamId"]].append(dict(id=pl.get("id"), name=pl.get("fullName"), slot=e.get("lineupSlotId"), played=played, pts=(st[0].get("appliedTotal") if st else None) or 0.0,
-                                                 status=pl.get("injuryStatus"), team=pl.get("proTeamId")))
+                                                 status=pl.get("injuryStatus"), team=pl.get("proTeamId"), mn=float(ss.get("40") or 0.0), pf=float(ss.get("9") or 0.0)))
         return res
 
     # ---- starts so far (past days + players who already played today)
@@ -216,14 +256,15 @@ def main():
             gi = GAME_INFO.get(tcanon)
             started = bool(gi and gi["state"] in ("in", "post"))
             not_dressed = bool(gi) and not e["played"] and e["id"] is not None and int(e["id"]) in ruled_out(gi.get("event"))      # ruled out on the game page
+            lvl = pr.get("tonight") or pr.get("level", 22.0)
+            boost = 0.0 if pr.get("tonight") else ((pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0)   # "tonight" already includes it
+            fin = live_final(e, gi, lvl) if (e["played"] and gi and gi["state"] == "in") else None
             if gi is not None or not prog:
                 outp = e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed
                 stt = ("out" if outp and not e["played"] else ("final" if gi and gi["state"] == "post" else ("live" if gi and gi["state"] == "in" else "pre"))) if gi else ("final" if e["played"] else "pre")
                 lineup[tid].append({"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else (0.0 if started and not outp else None), "st": stt,
                                     "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"]),
-                                    "left": prog.get(tcanon)})                  # share of his game still to play (the card's above/below-projection marker)
-            lvl = pr.get("tonight") or pr.get("level", 22.0)
-            boost = (pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0
+                                    "left": prog.get(tcanon), "final": round(fin, 1) if fin is not None else None})   # share of his game left; projected final (live_final)
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
             if left is None:
                 if prog or (nba_today and tcanon not in nba_today):   # his team is not on the NBA board (or, without it, not in the plan's games for today): no game today
@@ -234,7 +275,7 @@ def main():
             if left <= 0.0 or p_play <= 0.0:
                 continue
             if e["played"]:
-                ef = (lvl + boost) * left                            # on the floor tonight: the unplayed share of his game is still to come
+                ef = max(0.0, fin - e["pts"]) if fin is not None else (lvl + boost) * left       # on the floor tonight: what the in-game model expects from here
                 left_today[tid].append({"name": e["name"], "ef": round(ef, 1), "live": round(e["pts"], 1)})
             else:
                 ef = (lvl + boost) * p_play * left                   # not in yet: late in a game he is likely sitting, so scale by what is left
