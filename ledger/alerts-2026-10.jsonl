@@ -63,3 +63,5 @@
 {"kind":"alert","ts":"2026-10-31T19:01:34-04:00","title":"Tomorrow: add Andrew Wiggins","body":"Drop Gui Santos. Long-term pickup, +60. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
 {"kind":"alert","ts":"2026-10-31T19:25:27-04:00","title":"Swap out Ty Jerome by 8:00pm","body":"Ty Jerome (UT) is out.\nNo bench fit. Free agent: Marcus Smart (~27), costs an add.","priority":5}
 {"kind":"late_scratch","ts":"2026-10-31T19:25:28-04:00","player":"Ty Jerome","stage":1,"mins_to_tip":35,"swap":null}
+{"kind":"alert","ts":"2026-10-31T19:25:53-04:00","title":"Still starting Ty Jerome (out)","body":"Ty Jerome (UT) is out.\nNo bench fit. Free agent: Marcus Smart (~27), costs an add.","priority":5}
+{"kind":"late_scratch","ts":"2026-10-31T19:25:53-04:00","player":"Ty Jerome","stage":2,"mins_to_tip":34,"swap":null}
