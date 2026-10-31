@@ -16,87 +16,87 @@
  },
  "last_status": {
   "2530530": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "3135045": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "3978": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "DAY_TO_DAY",
-   "official": null
+   "official": "Questionable"
   },
   "4278580": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "6589": {
-   "date": "2026-10-30",
+   "date": "2026-10-31",
    "espn": "ACTIVE",
    "official": null
   }
@@ -110,12 +110,7 @@
   "4432241": "2026-10-30",
   "4683678": "2026-10-30"
  },
- "pickup_sent": {
-  "4278129:FREEAGENT": "2026-10-23",
-  "4397014:WAIVERS": "2026-10-23",
-  "4594327:FREEAGENT": "2026-10-23",
-  "5105839:FREEAGENT": "2026-10-23"
- },
+ "pickup_sent": {},
  "plan_announced": {
   "4065731:2026-10-30:3059319": "2026-10-29",
   "4065731:2026-10-30:3059319:eve": "2026-10-29",
