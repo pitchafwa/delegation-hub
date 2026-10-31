@@ -59,3 +59,4 @@
 {"kind":"alert","ts":"2026-10-31T18:25:23-04:00","title":"Still starting Dejounte Murray (out)","body":"Dejounte Murray (UT) is out (injury report).\nStart Ty Jerome at UT (~26).","priority":5}
 {"kind":"late_scratch","ts":"2026-10-31T18:25:24-04:00","player":"Dejounte Murray","stage":2,"mins_to_tip":35,"swap":"Ty Jerome"}
 {"kind":"alert","ts":"2026-10-31T18:27:11-04:00","title":"Tomorrow: add Andrew Wiggins","body":"Drop Brandon Williams. Long-term pickup, +39. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
+{"kind":"alert","ts":"2026-10-31T19:00:32-04:00","title":"Tomorrow: add Andrew Wiggins","body":"Drop Gui Santos. Long-term pickup, +60. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows.","priority":4}
