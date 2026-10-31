@@ -421,6 +421,8 @@ def _p_play0(pl, d):
         return 0.0
     if pl.get("until") and d > pl["until"]:       # stream manager: he is dropped after this date (last day he is on the roster)
         return 0.0
+    if d == today and pl.get("sat_today"):        # his game tipped with him on the bench
+        return 0.0
     if pl["ir"] or pl["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or d.isoformat() in pl.get("dfs_out", ()):
         return 0.0
     tier = "rotation" if pl["level"] >= ROTATION_LEVEL else "bench"
@@ -673,6 +675,14 @@ for _p in fa_players:
     _t = games.get(today, {}).get(canon(_p["team"]))
     if _t and datetime.fromisoformat(_t.replace("Z", "+00:00")) <= _now_utc + timedelta(minutes=10) and (not _p.get("from") or _p["from"] <= today):
         _p["from"] = today + timedelta(days=1)
+# a rostered player whose game today has already tipped with him on ESPN's bench cannot start today (2026-10-31: Peterson sat through his 3pm game, the plan still counted
+# his start and so told Tommy to bench Jerome to stay under the cap)
+for _t_ in lg.teams:
+    _slot = {int(p.playerId): p.lineupSlot for p in _t_.roster}
+    for _p in rosters[_t_.team_id]:
+        _t = games.get(today, {}).get(canon(_p["team"])) if _p["team"] else None
+        if _t and _slot.get(int(_p["espn_id"])) == "BE" and datetime.fromisoformat(_t.replace("Z", "+00:00")) <= _now_utc:
+            _p["sat_today"] = True
 
 
 # ---------- ROSTER BRIDGE (2026-10-26, Tommy): a move made after a day's lock shows only in ESPN's roster for the NEXT day (activated Flagg, swapped Bey for Walker
