@@ -143,7 +143,7 @@
   .wpTip{position:absolute;top:1.5rem;pointer-events:none;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:3px 7px;font-size:.78rem;white-space:nowrap;line-height:1.3}
   .scoreStrip{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;padding-top:.75rem;border-top:1px solid var(--line);font-size:.9rem;color:var(--ink-soft)}.scoreStrip b{font-family:'Barlow Condensed',monospace;color:var(--ink)}
   .scoreCard .liveAdv{margin-top:.5rem}
-  .doList{display:flex;flex-direction:column;gap:.5rem}.doItem{display:flex;gap:.8rem;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem}.doWhen{min-width:3.2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;font-weight:600;color:var(--accent);padding-top:.15rem}.doBody{flex:1;display:flex;flex-direction:column;gap:.2rem;font-size:.97rem}.doBody span{font-size:.86rem;color:var(--ink-soft)}.doGain{font-family:'Barlow Condensed',monospace;font-weight:600;color:var(--good)}.doRefresh{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .6rem;margin:.6rem 0 0;font-size:.86rem}
+  .doList{display:flex;flex-direction:column;gap:.5rem}.doItem{display:flex;gap:.8rem;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem}.doWhen{min-width:3.2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;font-weight:600;color:var(--accent);padding-top:.15rem}.doBody{flex:1;display:flex;flex-direction:column;gap:.2rem;font-size:.97rem}.doBody span{font-size:.86rem;color:var(--ink-soft)}.doGain{font-family:'Barlow Condensed',monospace;font-weight:600;color:var(--good)}
   .doAct{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-top:.35rem}.doBtn{min-height:40px;padding:.35rem .9rem;border-radius:999px;border:0;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer}.doBtn:disabled{opacity:.6;cursor:default}
   .doMsg{font-size:.84rem;color:var(--ink-soft)}.doMsg.good{color:var(--good)}.doMsg.bad{color:var(--warn)}.doMsg a{color:inherit}
   .lineupBox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.15rem .9rem}.luRow{display:flex;gap:.7rem;align-items:center;min-height:2.6rem;border-bottom:1px solid var(--line)}.luRow:last-child{border-bottom:0}.luSlot{width:2rem;font-family:'Barlow Condensed',monospace;font-size:.8rem;color:var(--ink-soft)}.luName{flex:1;font-size:.97rem}.luPts{font-family:'Barlow Condensed',monospace;font-weight:600}
@@ -1735,7 +1735,7 @@ function renderWeek(){
   }
   const chg=isMe?planChanges(T,sb):null;
   const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
-  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div><div class="doRefresh" id="doRefresh">${doRefreshHtml()}</div>`:'';
+  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
   // tonight's lineup in ESPN slot order, points if he plays
   const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
   const luNow=dayRow&&!dayRow.locked?dayRow.start.slice().sort((a,b)=>(SLOT_O[a.slot]??9)-(SLOT_O[b.slot]??9)||b.ef-a.ef):[];
@@ -3519,11 +3519,10 @@ function renderStamp(){
   if(ALERT_PLAN&&W&&W.generated){ const g=Date.parse(W.generated);
     if(g<ALERT_PLAN-1000) warn.push('loading the plan your alert came from ('+fmtT(new Date(ALERT_PLAN))+')');
     else if(g>ALERT_PLAN+60000) main+=` · <b>updated since your alert</b> (${fmtT(new Date(ALERT_PLAN))}): follow this page`; }
-  const btn=W?` <button type="button" id="planRefresh" class="stampBtn" ${PR.busy?'disabled':''}>${PR.busy?'Rebuilding…':'Refresh plan'}</button>`:'';
+  const btn=W?` <button type="button" id="planRefresh" class="stampBtn" ${PR.busy?'disabled':''}>${PR.busy?'Refreshing…':'Refresh everything'}</button>`:'';
   const msg=PR.msg?` <span class="stampMsg">${PR.msg}</span>`:'';
   el.innerHTML=(warn.length?`<b>Stale data:</b> ${warn.join('; ')}.${main?` <span class="hint">${main}</span>`:''}`:main)+btn+msg;
   el.classList.toggle('stale',warn.length>0);
-  const dr=document.getElementById('doRefresh'); if(dr) dr.innerHTML=doRefreshHtml();
 }
 /* Refresh plan: starts the cloud plan build (refresh-gameday.yml) with the same GitHub key the Set lineup panel uses, waits for the new
    week_plan.json commit, and loads it straight from the repository (the public site catches up a minute later when it redeploys). */
@@ -3567,6 +3566,16 @@ function applyNewPlan(w,sp){
   renderStamp(); if(activeView()==='week') renderWeek(); if(activeView()==='standings') renderStandings(); if(activeView()==='teams'&&L&&D) renderTeams();
   return true;
 }
+/* Refresh everything (2026-11-01, Tommy): one cloud run (refresh-gameday.yml: ESPN rosters incl. future-day moves, injuries, plan, schedule, lineup preview, odds, scoreboard, news,
+   then the live tracker), then the page reloads those files from the repository. Works with the laptop off; only the PC's daily model refresh is not part of it. */
+async function refreshSide(){
+  const get=f=>ghRaw('dashboard/'+f,'main').catch(()=>null);
+  const [l,o,n]=await Promise.all([get('league_rosters.json'),get('playoff_odds.json'),get('player_news.json')]);
+  if(l&&l.teams){ L=l; OWNER=new Map(); for(const t of L.teams) for(const r of t.roster) if(r.id) OWNER.set(r.id,{abbrev:t.abbrev,name:t.name,team:t.id,slot:r.slot}); if(RD) RD._own=null; }
+  if(o&&o.teams) ODDS=o;
+  if(n){ NEWS=n; NEWS_P=Promise.resolve(n); }
+  if(activeView()&&W) setView(activeView());
+}
 async function planRefresh(){
   if(PR.busy) return;
   if(!slTok()){ PR.msg='Add your GitHub key first: open Set lineup in ESPN at the bottom of Today.'; renderStamp(); return; }
@@ -3578,21 +3587,19 @@ async function planRefresh(){
     let done=false;
     for(let i=0;i<36&&!done;i++){
       await new Promise(res=>setTimeout(res,10000));
-      say(`Rebuilding with your current ESPN roster… ${Math.round((Date.now()-t0)/1000)}s (usually about 2 minutes)`);
+      say(`Re-reading ESPN (rosters, moves on any day, injuries) and rebuilding everything… ${Math.round((Date.now()-t0)/1000)}s (usually about 2 minutes)`);
       const c=await fetch(`https://api.github.com/repos/${SL_REPO}/commits?path=dashboard/week_plan.json&sha=main&per_page=1`,{headers:ghH(),cache:'no-store'}).then(x=>x.ok?x.json():null).catch(()=>null);
       const top=c&&c[0], when=top?Date.parse(top.commit.committer.date):0;
       if(when&&when>t0-15000){
         const [w,sp]=await Promise.all([ghRaw('dashboard/week_plan.json',top.sha),ghRaw('dashboard/schedule_plan.json',top.sha).catch(()=>null)]);
-        applyNewPlan(w,sp); done=true; setTimeout(loadLive,90000);
+        applyNewPlan(w,sp); done=true; refreshSide(); [60000,120000,180000].forEach(ms=>setTimeout(loadLive,ms));
       }
     }
     PR.busy=false; say(done?'<b style="color:var(--good)">Plan updated.</b>':'Still running. The page will pick it up when it lands.');
     if(done) setTimeout(()=>{ if(!PR.busy){ PR.msg=''; renderStamp(); } },15000);
   }catch(e){ PR.busy=false; say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); }
 }
-document.addEventListener('click',e=>{ if(e.target.closest('#planRefresh,#planRefresh2')) planRefresh(); });
-/* Made moves in ESPN (any day's lineup): one tap re-reads ESPN and rebuilds the plan, Do now, lineup and win chance (2026-10-31, Tommy) */
-function doRefreshHtml(){ return `<button type="button" id="planRefresh2" class="stampBtn" ${PR.busy?'disabled':''}>${PR.busy?'Updating…':'Made moves? Update'}</button>${PR.msg?`<span class="stampMsg">${PR.msg}</span>`:''}`; }
+document.addEventListener('click',e=>{ if(e.target.closest('#planRefresh')) planRefresh(); });
 /* Pick up new plans on their own: the plan is rebuilt automatically a few minutes after a roster move, so re-check while the page is open and whenever it comes back into view. */
 async function pollPlan(){
   if(document.visibilityState!=='visible'||PR.busy) return;

@@ -1650,7 +1650,7 @@ IR_OK = ("OUT", "INJURY_RESERVE")     # ASSUMPTION: ESPN only lets players with 
 ROSTER_SPOTS = 15                     # 10 starters + 5 bench; IR slots are extra
 
 
-def plan_ir(r):
+def plan_ir(r, mine=True):
     """Roster and IR housekeeping. Returns (roster used for planning, suggested moves).
     * a player who is OUT (or IR-status) sitting in a bench slot should move to an open IR slot: a free action that frees a roster spot
     * a player who is healthy (ACTIVE) but parked in an IR slot cannot play: activate him; if the roster is full, swap out the least useful
@@ -1668,16 +1668,19 @@ def plan_ir(r):
         moves.append({"id": p["espn_id"], "name": p["name"], "action": "to_ir", "status": p["status"], "level": p["level"]})
     prot = protected_ids(r)
     for p in back:
-        spots = len([q for q in plan.values() if not q["ir"]])
+        spots = len([q for q in plan.values() if not q["ir"] and not q.get("until")])
         if spots < ROSTER_SPOTS:
             plan[p["espn_id"]] = dict(p, ir=False)
             moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate", "status": p["status"], "level": p["level"]})
             continue
-        cands = sorted([q for q in plan.values() if not q["ir"] and q["espn_id"] not in prot and q["espn_id"] != p["espn_id"]], key=lambda q: q["level"])
+        cands = sorted([q for q in plan.values() if not q["ir"] and not q.get("until") and q["espn_id"] not in prot and q["espn_id"] != p["espn_id"]], key=lambda q: q["level"])
         if cands and p["level"] - cands[0]["level"] >= 3.0:
             d = cands[0]
-            del plan[d["espn_id"]]
-            plan[p["espn_id"]] = dict(p, ir=False)
+            # the swap is advice until it is made (2026-11-01: Traore, just added and in tonight's lineup, was projected 0 because the plan had already swapped him for
+            # Jerome): the dropped player keeps today, the activated one counts from tomorrow. An opponent's swap is not assumed at all (Lopez for Ingram).
+            if mine:
+                plan[d["espn_id"]] = dict(d, until=today)
+                plan[p["espn_id"]] = dict(p, ir=False, **{"from": today + timedelta(days=1)})
             moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate_swap", "status": p["status"], "level": p["level"],
                           "drop": {"id": d["espn_id"], "name": d["name"], "level": d["level"], "asset_rank": d["asset_rank"]}})
         else:
@@ -1724,8 +1727,8 @@ try:
     _me_t = next(t for t in lg.teams if t.team_abbrev == MY_ABBREV)
     _op_id = opp.get(_me_t.team_id)
     if _op_id is not None and today in plan_days:
-        _rm, _ = plan_ir(rosters[_me_t.team_id])
-        _ro, _ = plan_ir(rosters[_op_id])
+        _rm, _ = plan_ir(rosters[_me_t.team_id], True)
+        _ro, _ = plan_ir(rosters[_op_id], False)
         _em = plan_team(_rm, so_far[_me_t.team_id]["starts"])
         _eo = plan_team(_ro, so_far[_op_id]["starts"])
         _hr = datetime.now(ET).hour + datetime.now(ET).minute / 60.0
@@ -1763,7 +1766,7 @@ out_teams = []
 plans = {}
 for t in lg.teams:
     r_orig = rosters[t.team_id]
-    r, ir_moves = plan_ir(r_orig)
+    r, ir_moves = plan_ir(r_orig, t.team_abbrev == MY_ABBREV)
     c0 = so_far[t.team_id]["starts"]
     total, rows, naive = plan_team(r, c0, detail=True, lateswap=(t.team_abbrev == MY_ABBREV))
     tc = counters.get(t.team_id, {})
