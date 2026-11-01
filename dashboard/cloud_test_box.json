@@ -1,0 +1,78 @@
+{
+ "date": "2026-11-01",
+ "through": "2026-10-31",
+ "games_nba": 88,
+ "games_espn": 88,
+ "player_games_nba": 1990,
+ "player_games_espn": 1991,
+ "matched": 1990,
+ "only_nba": [],
+ "only_nba_n": 0,
+ "only_espn": [
+  "2026-10-23 Pacome Dadiet NYK (0 min)"
+ ],
+ "only_espn_n": 1,
+ "stat_diffs": {
+  "MIN": 6,
+  "PTS": 0,
+  "REB": 3,
+  "AST": 0,
+  "STL": 2,
+  "BLK": 0,
+  "TOV": 0,
+  "FG3M": 0,
+  "FTM": 0,
+  "FTA": 0,
+  "FGM": 0,
+  "FGA": 0,
+  "OREB": 0,
+  "DREB": 3,
+  "PF": 0
+ },
+ "fp_exact": 0.9975,
+ "fp_within_2": 0.999,
+ "fp_mean_abs": 0.005,
+ "fp_max": 3.0,
+ "fp_worst": [
+  "2026-10-22 Jalen Williams: NBA 42.5, ESPN 39.5",
+  "2026-10-22 Ajay Mitchell: NBA 26.0, ESPN 29.0",
+  "2026-10-22 Jaylin Williams: NBA 19.0, ESPN 20.5",
+  "2026-10-22 Cason Wallace: NBA 29.0, ESPN 27.5",
+  "2026-10-29 Emanuel Sharp: NBA 4.5, ESPN 3.0"
+ ],
+ "reasons": {
+  "coach -> away": 3,
+  "coach -> g_league": 3,
+  "coach -> injury": 10,
+  "coach -> not listed": 8,
+  "coach -> played": 6,
+  "g_league -> coach": 39,
+  "g_league -> not listed": 2,
+  "injury -> away": 1,
+  "injury -> coach": 7,
+  "not listed -> away": 4,
+  "not listed -> coach": 89,
+  "not listed -> g_league": 46,
+  "not listed -> injury": 140
+ },
+ "reasons_same": 2505,
+ "rotation_out_nba": 65,
+ "rotation_out_espn": 74,
+ "rotation_only_nba": [
+  "ernest udeh jr",
+  "pacome dadiet"
+ ],
+ "rotation_only_espn": [
+  "blake hinson",
+  "blake wesley",
+  "chris manon",
+  "dalton knecht",
+  "enrique freeman",
+  "jayson kent",
+  "jr ernest udeh",
+  "kobe bufkin",
+  "kylan boswell",
+  "lawson lovering",
+  "sean pedulla"
+ ]
+}

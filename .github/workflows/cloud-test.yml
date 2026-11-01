@@ -1,0 +1,98 @@
+name: Cloud test (laptop-free trial)
+
+# The laptop-free trial (2026-11-01, Tommy: run it side by side for about a month before deciding). The laptop's 6:47am refresh still feeds the site;
+# this runs the same daily model refresh on GitHub with ESPN box scores (HUB_CLOUD=1, see refresh_all.py), builds the weekly plan both ways, and
+# records the scorecard on the cloud-test branch (cloud_test/). It never pushes to main. The model data (about 1.3 GB, private) lives in Cloudflare
+# R2: seed/ (the laptop's copy on day one) and cloud/data.tar.zst (the cloud's own copy, carried day to day). Started by the Cloudflare timer.
+on:
+  workflow_dispatch:
+    inputs:
+      reseed:
+        description: "Start again from the laptop's copy (seed/)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cloud-test
+  cancel-in-progress: false
+
+env:
+  BUCKET: delegation-hub-data
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  R2: https://1f00ed93c4886579cdff70413c48ead4.r2.cloudflarestorage.com
+
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet espn-api requests python-dotenv nba_api pandas numpy scipy scikit-learn pyarrow lxml beautifulsoup4 pdfplumber
+
+      - name: Get the stored model data
+        run: |
+          set -o pipefail
+          if [ "${{ inputs.reseed }}" != "true" ] && aws s3 ls "s3://$BUCKET/cloud/data.tar.zst" --endpoint-url "$R2" >/dev/null 2>&1; then
+            echo "Using the cloud's own copy"
+            aws s3 cp "s3://$BUCKET/cloud/data.tar.zst" - --endpoint-url "$R2" | zstd -d | tar -x -C ingest/research
+          else
+            echo "Starting from the laptop's copy"
+            mkdir -p seed && aws s3 cp "s3://$BUCKET/seed/" seed --recursive --endpoint-url "$R2" --only-show-errors
+            cat seed/data.tar.gz.part* | gzip -d | tar -x -C ingest/research
+            rm -rf seed
+          fi
+          du -sh ingest/research/data
+
+      - name: Daily model refresh, cloud version
+        id: refresh
+        continue-on-error: true
+        working-directory: ingest
+        env:
+          HUB_CLOUD: "1"
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+        run: python research/refresh_all.py --no-push
+
+      - name: Earlier scorecards
+        run: |
+          mkdir -p "$RUNNER_TEMP/cloud_out"
+          git fetch --depth 1 origin cloud-test 2>/dev/null && git show origin/cloud-test:cloud_test/history.json > "$RUNNER_TEMP/cloud_out/history.json" || rm -f "$RUNNER_TEMP/cloud_out/history.json"
+
+      - name: Scorecard (cloud vs laptop)
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python research/cloud_test.py "$RUNNER_TEMP/cloud_out"
+
+      - name: Keep the cloud's data for tomorrow
+        if: steps.refresh.outcome == 'success'
+        run: |
+          set -o pipefail
+          tar -C ingest/research -cf - data | zstd -T0 -3 -q | aws s3 cp - "s3://$BUCKET/cloud/data.tar.zst" --endpoint-url "$R2" --expected-size 3000000000
+
+      - name: Publish the scorecard (cloud-test branch)
+        run: |
+          cp ingest/logs/refresh_*.log "$RUNNER_TEMP/cloud_out/last_run.log" 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --depth 1 origin cloud-test 2>/dev/null && git worktree add -B cloud-test ../ct origin/cloud-test || { git worktree add --detach ../ct && (cd ../ct && git checkout --orphan cloud-test && git rm -rfq .); }
+          mkdir -p ../ct/cloud_test && cp "$RUNNER_TEMP"/cloud_out/* ../ct/cloud_test/
+          cd ../ct && git add cloud_test && git commit -qm "Cloud test $(date -u +%F)" && for i in 1 2 3; do git push -q origin HEAD:cloud-test && break; sleep 5; done

@@ -749,10 +749,12 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
       <button data-v="keepers" id="keepersBtn">Keepers</button>
       <button data-v="draft" id="draftBtn">Draft</button>
       <button data-v="about">Glossary</button>
+      <button data-v="cloud">Cloud test</button>
     </div>
   </div>
 
   <div id="aboutPane" style="display:none"></div>
+  <div id="cloudPane" style="display:none"></div>
   <div id="standingsPane" style="display:none"></div>
   <div id="teamsPane" style="display:none"></div>
   <div id="weekPane"><div class="hint" style="padding:1rem">Loading this week's plan…</div></div>
@@ -1955,7 +1957,7 @@ function collapseLegends(root){
   });
 }
 const activeView=()=>{const b=document.querySelector('#segView button[aria-pressed="true"]'); return b?b.dataset.v:null;};
-const VIEWS=['week','standings','sched','board','redraft','teams','trades','keepers','draft','about'];
+const VIEWS=['week','standings','sched','board','redraft','teams','trades','keepers','draft','about','cloud'];
 let pendingTeam=null;
 function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
   const h='#'+v+(extra?'/'+extra:'');
@@ -3386,6 +3388,47 @@ function renderStandings(){
     pane.querySelector('#stFullBtn').addEventListener('click',()=>{ stFull=!stFull; try{ localStorage.setItem('stFull',stFull?'1':'0'); }catch(e){} renderStandings(); }); }
   if(!isMobile()) mobileTables(pane);
 }
+// Laptop-free trial scorecard (2026-11-01): the cloud copy of the daily refresh vs the laptop's, one record a day on the cloud-test branch (cloud_test.py)
+let CT=null;
+async function renderCloud(){
+  const pn=document.getElementById('cloudPane');
+  if(!CT){ pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
+    try{ const r=await fetch('https://raw.githubusercontent.com/pitchafwa/delegation-hub/cloud-test/cloud_test/history.json?t='+Date.now(),{cache:'no-store'}); CT=r.ok?await r.json():[]; }catch(e){ CT=[]; } }
+  if(!CT.length){ pn.innerHTML='<h2 class="secT">Cloud test</h2><div class="hint">No results yet.</div>'; return; }
+  const ok=(b,t,f)=>`<b style="color:${b?'var(--good)':'var(--warn)'}">${b?(t||'yes'):(f||'no')}</b>`;
+  const pct=x=>x==null?'–':(x*100).toFixed(x>=0.995&&x<1?1:0)+'%';
+  const L=CT[CT.length-1], M=L.models||{}, P=L.plan||{}, B=L.box, F=L.dff;
+  const MROW=[['delco_season','DELCO this season'],['rest_of_season_ppg','Rest of season'],['next_days','Next few days'],['keeper_value','Keeper value'],['last10','Last 10 games'],['minutes10','Minutes'],['games_left','Games left'],['rank','Rank'],['injury_tier','Injury tier'],['team_matchup','Matchup factors']];
+  const mrow=([k,lab])=>{ const m=M[k]; if(!m||!m.n) return ''; const good=m.within>=0.98;
+    return `<tr><td>${lab}</td><td>${ok(good,pct(m.within),pct(m.within))}</td><td>${m.max}</td><td class="hint">${(m.worst||[]).slice(0,2).map(esc).join('<br>')}</td></tr>`; };
+  const dayChip=d=>`<span class="comp" title="${esc([...d.only_pc.map(n=>'laptop only: '+n),...d.only_cloud.map(n=>'cloud only: '+n)].join(', '))}">${new Date(d.date+'T12:00').toLocaleDateString(undefined,{weekday:'short'})} ${d.same?'✓':'✗'}</span>`;
+  const list=a=>(a&&a.length)?a.map(esc).join(', '):'none';
+  const runOk=h=>h.cloud_run&&h.cloud_run.ok;
+  const planSame=h=>h.plan&&!h.plan.error&&h.plan.moves_same&&h.plan.ir_same&&h.plan.starters_same_days===h.plan.n_days;
+  pn.innerHTML=`<h2 class="secT">Cloud test</h2>
+    <div class="hint" style="margin-bottom:.6rem">Day ${CT.length} · cloud run finished ${CT.filter(runOk).length} of ${CT.length} days · same plan ${CT.filter(planSame).length} of ${CT.length} days · last ${esc(L.at.replace('T',' '))}</div>
+    <div class="profCard"><b>Runs today</b><br>
+      Cloud: ${ok(runOk(L),'finished','failed')}${L.cloud_run&&L.cloud_run.minutes?` in ${L.cloud_run.minutes} min`:''}${L.cloud_run&&L.cloud_run.failed&&L.cloud_run.failed.length?` · failed steps: ${list(L.cloud_run.failed)}`:''}<br>
+      Laptop: ${ok(L.laptop_run&&L.laptop_run.today,'ran today','not today')}</div>
+    <div class="profCard"><b>Plan</b> <span class="hint">same ESPN state, laptop numbers vs cloud numbers</span><br>
+      ${P.error?`<span style="color:var(--warn)">${esc(P.error)}</span>`:`Starters: ${(P.days||[]).map(dayChip).join(' ')}<br>
+      Adds/drops: ${ok(P.moves_same,'same','different')}${P.moves_same?'':` · laptop: ${list(P.moves_pc)} · cloud: ${list(P.moves_cloud)}`}<br>
+      IR moves: ${ok(P.ir_same,'same','different')}${P.ir_same?'':` · laptop: ${list(P.ir_pc)} · cloud: ${list(P.ir_cloud)}`}<br>
+      Tonight's top pickups: ${ok(P.tonight_same,'same','different')}${P.tonight_same?'':` · laptop: ${list(P.tonight_pc)} · cloud: ${list(P.tonight_cloud)}`}<br>
+      Win chance: laptop ${pct(P.win_pc)}, cloud ${pct(P.win_cloud)}`}</div>
+    <div class="profCard"><b>Box scores</b> <span class="hint">ESPN vs NBA site</span><br>
+      ${B&&!B.stale?`${B.games_espn} of ${B.games_nba} games · fantasy points identical for ${pct(B.fp_exact)} of ${B.matched} player-games · biggest gap ${B.fp_max}${(B.fp_worst||[]).length?`<br><span class="hint">${B.fp_worst.slice(0,3).map(esc).join('<br>')}</span>`:''}<br>
+      Out of the rotation: laptop ${B.rotation_out_nba}, cloud ${B.rotation_out_espn}${(B.rotation_only_nba||[]).length?` · laptop only: ${list(B.rotation_only_nba)}`:''}${(B.rotation_only_espn||[]).length?` · cloud only: ${list(B.rotation_only_espn)}`:''}`:'<span class="hint">no check from the laptop today</span>'}</div>
+    <div class="profCard"><b>Model numbers</b> <span class="hint">share of players within 0.5</span>
+      <table class="tbl" style="width:100%;margin-top:.3rem"><tr><th></th><th>Match</th><th>Max gap</th><th>Biggest</th></tr>${MROW.map(mrow).join('')}</table>
+      ${M.rotation?`<div>Out of the rotation: laptop ${M.rotation.out_pc}, cloud ${M.rotation.out_cloud}</div>`:''}</div>
+    <div class="profCard"><b>DFF monitor</b> <span class="hint">yesterday</span><br>
+      ${F&&!F.stale&&!F.error?`Projection changes: laptop ${F.dff.laptop}, cloud ${F.dff.cloud}, both ${F.dff.matched}${F.dff.cloud_minus_laptop_median_min!=null?` · cloud ${F.dff.cloud_minus_laptop_median_min>=0?'later':'earlier'} by ${Math.abs(F.dff.cloud_minus_laptop_median_min)} min (median)`:''}<br>
+      Injury changes: laptop ${F.injuries.laptop}, cloud ${F.injuries.cloud}, both ${F.injuries.matched}`:`<span class="hint">${F&&F.error?esc(F.error):'no check from the laptop today'}</span>`}</div>
+    <div class="profCard"><b>Every day</b>
+      <table class="tbl" style="width:100%;margin-top:.3rem"><tr><th>Day</th><th>Cloud</th><th>Box</th><th>DELCO</th><th>Plan</th><th>Win</th></tr>
+      ${CT.slice().reverse().map(h=>`<tr><td>${new Date(h.date+'T12:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'})}</td><td>${ok(runOk(h),'✓','✗')}</td><td>${h.box&&!h.box.stale?pct(h.box.fp_exact):'–'}</td><td>${h.models&&h.models.delco_season&&h.models.delco_season.n?pct(h.models.delco_season.within):'–'}</td><td>${h.plan&&!h.plan.error?ok(planSame(h),'same','diff'):'–'}</td><td>${h.plan&&h.plan.win_pc!=null?((h.plan.win_cloud-h.plan.win_pc)*100).toFixed(0):'–'}</td></tr>`).join('')}</table></div>`;
+}
 function renderAbout(){
   const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['League',['PO games','Proj','Pts/wk','Opp pts/wk','All-play','Luck','Proj pts/wk','Starts per matchup','PPS','Inj pts/wk','Playoffs','Bye','Title','Title trend']],['Trades',['Acceptance']]];
   document.getElementById('aboutPane').innerHTML=`<h2>Glossary</h2>${groups.map(([g,ks])=>`<h3 class="glH">${g}</h3><dl class="gloss">${ks.map(k=>`<div><dt>${esc(k)}</dt><dd>${esc(GLOSS_MAP[k])}</dd></div>`).join('')}</dl>`).join('')}
@@ -3397,8 +3440,8 @@ function renderAbout(){
 /* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
 const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
 const navGroups=()=>offseason()
-  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['week','Last week']]]]
-  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['keepers','Keepers'],['draft','Draft']]]];
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['week','Last week'],['cloud','Cloud test']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['keepers','Keepers'],['draft','Draft'],['cloud','Cloud test']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
@@ -3424,10 +3467,10 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true};
+    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true};
     if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
-      ['board','redraft','about','standings','teams','week','trades','sched','draft','keepers'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
+      ['board','redraft','about','standings','teams','week','trades','sched','draft','keepers','cloud'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
       const pn=document.getElementById(b.dataset.v+'Pane'); if(pn&&!pn.innerText.trim()) pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
       setHash(b.dataset.v); renderNav(); return;
     }
@@ -3436,6 +3479,8 @@ function wire(){
     document.getElementById('redraftPane').style.display = b.dataset.v==='redraft' ? '' : 'none';
     if(b.dataset.v==='redraft') renderRedraft();
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
+    document.getElementById('cloudPane').style.display = b.dataset.v==='cloud' ? '' : 'none';
+    if(b.dataset.v==='cloud') renderCloud();
     document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
     document.getElementById('standingsPane').style.display = b.dataset.v==='standings' ? '' : 'none';
     if(b.dataset.v==='standings') renderStandings();

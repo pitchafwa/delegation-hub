@@ -13,6 +13,9 @@ const JOBS = [
   ["alerts.yml", { mode: "lineup" }, (h, m) => h >= 10 || h < 2],                           // late-scratch watch + live matchup, every 5 minutes; until 2am for the DFF watch / lock-in alert
   ["refresh-league.yml", null, (h, m) => h === 5 && m === 35],                              // morning: rosters, schedule, plan, odds, team usage
   ["refresh-gameday.yml", null, (h, m) => (h === 0 && m === 10) || ((h === 15 || h === 18 || h === 21) && m === 5)],   // plan rebuilds
+  // laptop-free trial (2026-11-01, until Tommy decides): the cloud copy of the laptop's daily refresh, after the laptop's 6:47am run, and its DFF monitor
+  ["cloud-test.yml", null, (h, m) => h === 8 && m === 15],
+  ["cloud-test-dff.yml", null, (h, m) => m % 10 === 0],
 ];
 
 function nyTime(date) {

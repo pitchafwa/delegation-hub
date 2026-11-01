@@ -429,3 +429,11 @@ Plan (laptop keeps running everything until each stage is proven):
    fall back to yesterday's data, and flag it.
 4. Claude scheduled check-ins -> Claude cloud routines that read the data from R2.
 Cost: none (Actions free for public repos; R2 free tier). Memory notes stay per computer (the _restore kit covers them).
+**Trial built 2026-11-01 (Tommy: run side by side about a month, then decide; the site stays on the laptop until then).**
+- `pull_espn_box.py`: ESPN box scores in the NBA site's two file formats; inactive list from the official injury report + ESPN rosters; new players'
+  NBA ids learned on the laptop (`espn_id_map_learned.json`). First check (88 games): fantasy points identical for 99.75% of player-games.
+- `refresh_all.py` `HUB_CLOUD=1`: ESPN instead of stats.nba.com, no git, no PC heartbeat. Laptop step 4d writes `dashboard/cloud_test_box.json`
+  (`compare_espn_nba.py`) and `cloud_test_dff.json` (`compare_dff.py`, cloud DFF log fetched with wrangler).
+- `cloud-test.yml` (Cloudflare timer 8:15am ET): restores R2 data, runs the cloud refresh, `cloud_test.py` builds the plan both ways and writes the
+  scorecard to the `cloud-test` branch; site page More > Cloud test. `cloud-test-dff.yml` every 10 minutes.
+- Decision write-up due about 2026-12-01.

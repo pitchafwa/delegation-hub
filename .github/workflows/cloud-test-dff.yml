@@ -1,0 +1,55 @@
+name: Cloud test, DFF monitor
+
+# Laptop-free trial (2026-11-01): the laptop's every-10-minutes DailyFantasyFuel / ESPN-injury logger (dfs_monitor.py), run on GitHub instead.
+# Its logs live in Cloudflare R2 (cloud/dfs.tar.gz; first run starts from the laptop's copy in seed/dfs.tar.gz). The laptop compares the two logs
+# each morning (compare_dff.py). Started by the Cloudflare timer.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-test-dff
+  cancel-in-progress: false
+
+env:
+  BUCKET: delegation-hub-data
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  R2: https://1f00ed93c4886579cdff70413c48ead4.r2.cloudflarestorage.com
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: ingest/research
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet requests beautifulsoup4 lxml pandas
+
+      - name: Get the cloud's DFF logs
+        run: |
+          mkdir -p ingest/research/data
+          aws s3 cp "s3://$BUCKET/cloud/dfs.tar.gz" dfs.tar.gz --endpoint-url "$R2" --only-show-errors \
+            || aws s3 cp "s3://$BUCKET/seed/dfs.tar.gz" dfs.tar.gz --endpoint-url "$R2" --only-show-errors
+          tar -xzf dfs.tar.gz -C ingest/research/data
+
+      - name: Check DFF and ESPN injuries
+        working-directory: ingest
+        run: python research/dfs_monitor.py
+
+      - name: Save
+        run: |
+          tar -czf dfs.tar.gz -C ingest/research/data dfs
+          aws s3 cp dfs.tar.gz "s3://$BUCKET/cloud/dfs.tar.gz" --endpoint-url "$R2" --only-show-errors
