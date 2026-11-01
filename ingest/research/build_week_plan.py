@@ -1673,18 +1673,10 @@ def plan_ir(r, mine=True):
             plan[p["espn_id"]] = dict(p, ir=False)
             moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate", "status": p["status"], "level": p["level"]})
             continue
-        cands = sorted([q for q in plan.values() if not q["ir"] and not q.get("until") and q["espn_id"] not in prot and q["espn_id"] != p["espn_id"]], key=lambda q: q["level"])
-        if cands and p["level"] - cands[0]["level"] >= 3.0:
-            d = cands[0]
-            # the swap is advice until it is made (2026-11-01: Traore, just added and in tonight's lineup, was projected 0 because the plan had already swapped him for
-            # Jerome): the dropped player keeps today, the activated one counts from tomorrow. An opponent's swap is not assumed at all (Lopez for Ingram).
-            if mine:
-                plan[d["espn_id"]] = dict(d, until=today)
-                plan[p["espn_id"]] = dict(p, ir=False, **{"from": today + timedelta(days=1)})
-            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate_swap", "status": p["status"], "level": p["level"],
-                          "drop": {"id": d["espn_id"], "name": d["name"], "level": d["level"], "asset_rank": d["asset_rank"]}})
-        else:
-            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate_needs_spot", "status": p["status"], "level": p["level"]})
+        # roster full (2026-11-01, Tommy): a healthy player left on IR is a legal stash. It holds an extra player (Jerome on IR, Traore active), but ESPN blocks every add
+        # while he is there, so activating him costs a drop, and an add after that costs a second drop. Nobody is assumed to activate: for me the unlock check below
+        # decides whether activating (and the adds it unlocks) beats staying put; an opponent is taken to stay put and make no adds.
+        moves.append({"id": p["espn_id"], "name": p["name"], "action": "stay_ir", "status": p["status"], "level": p["level"]})
     return list(plan.values()), moves
 
 
@@ -1772,6 +1764,8 @@ for t in lg.teams:
     tc = counters.get(t.team_id, {})
     adds_left = adds_left_of(t.team_id)
     _stream = opp_stream(t.team_id, t.team_abbrev, adds_left, len(plan_days))
+    if any(m["action"] == "stay_ir" for m in ir_moves):
+        _stream = 0.0                                         # a healthy player kept on IR: ESPN blocks his adds
     plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + _stream + so_far[t.team_id]["pts"]      # realistic total: perfect-lineup projection x the owner's lineup habits, plus his usual streaming
     # NOTE: a suggested drop may be a player the IR advice activates. That is legal and can be right (activate him to free the IR slot, then drop him), so it is not blocked.
     moves, seq = search_moves(r, total, c0, steps=min(adds_left, 8))
@@ -1803,6 +1797,57 @@ for t in lg.teams:
         except Exception as _ex:
             print("stream manager failed, keeping the greedy sequence:", repr(_ex)[:160])
             r_stream = None
+    # IR UNLOCK (2026-11-01, Tommy): with a healthy player stashed on IR and a full roster, every add is blocked. Activating him means dropping X (and any add after
+    # that drops someone else too). Try the cheapest drops and the sensible days (today, his first game, the first day the plan would want an add); keep him on IR
+    # unless activating, plus the adds it unlocks, is worth MIN_NET_GAIN after the cost of losing X.
+    _stash = [m for m in ir_moves if m["action"] == "stay_ir"]
+    if t.team_abbrev == MY_ABBREV and _stash:
+        try:
+            _hold_eval = dict(STREAM_HOLD_EVAL)
+            _sp = next(p for p in r if p["espn_id"] == _stash[0]["id"])
+            _prot = protected_ids(r)
+
+            def _val2(ros):
+                return plan_team(ros, c0), (plan_team(ros, 0.0, days_=LOOK_DAYS, cap_=NEXT_CAP) if LOOK_DAYS else 0.0)
+            _b_this, _b_next = _val2(r)
+            _fl = sorted(long_level(f) for f in fa_players if not f.get("waiver"))
+            _restream = _fl[-3] if len(_fl) >= 3 else REPL_LEVEL
+            _wk_left = min(ROS_WEEKS, weeks_after())
+
+            def _dcost(x):
+                return max(0.0, long_level(x) - _restream) * GAMES_PER_WEEK * _wk_left * reclaim_lose(long_level(x), 2)
+            _xs = sorted([x for x in r if not x["ir"] and not x.get("until") and x["espn_id"] not in _prot and x is not _sp], key=_dcost)[:2]
+            _us = {plan_days[0]}
+            _us |= set([d for d in plan_days if p_play(dict(_sp, ir=False), d) > 0][:1])
+            _us |= set([date.fromisoformat(q["on"]) for q in (seq or []) if q.get("on")][:1])
+            _best = None
+            for _u in sorted(_us):
+                for _x in _xs:
+                    _rX = [dict(q, until=_u - timedelta(days=1)) if q is _x else (dict(q, ir=False, **{"from": _u}) if q is _sp else q) for q in r]
+                    _tX, _nX = _val2(_rX)
+                    _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - _dcost(_x)
+                    _sX, _rsX = stream_search(_rX, _tX, c0, steps=min(adds_left, 8)) if (seq and adds_left > 0) else ([], None)
+                    _v = _act + sum(q["gain"] for q in _sX)
+                    if _best is None or _v > _best[0]:
+                        _best = (_v, _u, _x, _rX, _sX, _rsX, _act, dict(STREAM_HOLD_EVAL))
+            _m = _stash[0]
+            _m["blocked"] = round(sum(q["gain"] for q in (seq or [])), 1)       # what the plan's adds would be worth if adds were not locked
+            if _best and _best[0] >= MIN_NET_GAIN:
+                _v, _u, _x, _rX, _sX, _rsX, _act, _he = _best
+                r = _rX
+                total, rows, naive = plan_team(r, c0, detail=True, lateswap=True)
+                plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + _stream + so_far[t.team_id]["pts"]
+                seq, r_stream = _sX, _rsX
+                pickup_checks = {str(k): v for k, v in _he.items()}
+                _m.update({"action": "activate_swap", "on": _u.isoformat(), "drop": {"id": _x["espn_id"], "name": _x["name"], "level": _x["level"], "asset_rank": _x["asset_rank"]},
+                           "unlock": bool(_sX), "act_gain": round(_act, 1), "unlocks": round(_v, 1)})
+            else:
+                seq, r_stream = [], None
+                pickup_checks = {str(k): v for k, v in _hold_eval.items()}
+                _m["best_unlock"] = round(_best[0], 1) if _best else None
+            print("IR unlock:", _m["name"], _m["action"], _m.get("on"), (_m.get("drop") or {}).get("name"), "value", round(_best[0], 1) if _best else None, "blocked adds worth", _m["blocked"])
+        except Exception as _ex:
+            print("IR unlock check failed:", repr(_ex)[:160])
     _ir_free = max(0, 4 - len([p for p in r if p["ir"]]))
     # IR STASH (study #7): only when it is free -- an open IR slot AND an add that would otherwise go unused (the matchup's last day, a week already decided, or a
     # playoff week without a matchup) -- and the player's Season-tab value is clearly high. Stash candidates come from the last schedule_plan.json build.
@@ -1820,7 +1865,7 @@ for t in lg.teams:
             except Exception as _ex:
                 print("stash check skipped:", repr(_ex)[:80])
     advice = advise_injuries(r, total, c0, lambda n: norm(n).replace(" ", ""), _ir_free)
-    if any(m["action"] in ("to_ir", "activate", "activate_swap") for m in ir_moves):
+    if any(m["action"] in ("to_ir", "activate") for m in ir_moves) and not any(m["action"] in ("stay_ir", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
         _m0, seq0 = search_moves(r_orig, total0, c0, steps=min(adds_left, 8))
         unlock = (total + (seq[-1]["cum"] if seq else 0.0)) - (total0 + (seq0[-1]["cum"] if seq0 else 0.0))

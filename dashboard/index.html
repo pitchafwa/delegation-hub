@@ -1637,6 +1637,7 @@ function renderWeek(){
   const irLine=m=>m.action==='to_ir'?`<b>${pc(m.name)}</b> <span class="liveStatus">${esc(m.status)}</span> → move to an open IR slot <span class="hint">(free, and it frees a roster spot)</span>`
     :m.action==='activate'?`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot, so he can't play → move him to your bench or lineup`
     :m.action==='activate_swap'?`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → activate him and drop <b>${pc(m.drop.name)}</b> <span class="hint">${m.drop.level} pts/g${m.drop.asset_rank?' · keeper rank #'+m.drop.asset_rank:''}</span>`
+    :m.action==='stay_ir'?`<b>${pc(m.name)}</b> is healthy but kept on IR → holds an extra player; adds stay locked while he's there`
     :`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → he can't play until you free a roster spot for him`;
   const unlock=irm.find(m=>m.unlocks!=null);
   const irHtml=irm.length?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Roster and IR moves · ${T.roster_spots.non_ir}/${T.roster_spots.of} roster spots, ${T.roster_spots.ir_used}/${T.roster_spots.ir_of} IR</div>
@@ -1700,7 +1701,10 @@ function renderWeek(){
   // Do now: the same dated steps the phone alerts use
   const doItems=[];
   if(isMe){
-    (T.ir_moves||[]).forEach(m=>doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`,activate_swap:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}));
+    (T.ir_moves||[]).forEach(m=>{
+      if(m.action==='stay_ir'){ doItems.push({when:'Hold',what:`Keep ${m.name} on IR`,sub:`Healthy, so adds stay locked while he's there.${m.blocked>0.5?` Unlocking them costs two drops, which this week's adds aren't worth.`:''}`,gain:''}); return; }
+      if(m.action==='activate_swap'){ doItems.push({when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
+      doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}); });
     if(dayRow&&dayRow.locked) doItems.push({when:'Today',what:'Cap reached: nothing counts today',sub:'',gain:''});
     else if(dayRow&&dayRow.start.length){
       const doubt=dayRow.start.filter(x=>x.p<0.8).map(x=>x.name);
