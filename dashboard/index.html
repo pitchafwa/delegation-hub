@@ -3410,7 +3410,7 @@ async function renderCloud(){
     <div class="profCard"><b>Runs today</b><br>
       Cloud: ${ok(runOk(L),'finished','failed')}${L.cloud_run&&L.cloud_run.minutes?` in ${L.cloud_run.minutes} min`:''}${L.cloud_run&&L.cloud_run.failed&&L.cloud_run.failed.length?` · failed steps: ${list(L.cloud_run.failed)}`:''}<br>
       Laptop: ${ok(L.laptop_run&&L.laptop_run.today,'ran today','not today')}</div>
-    <div class="profCard"><b>Plan</b> <span class="hint">same ESPN state, laptop numbers vs cloud numbers</span><br>
+    <div class="profCard"><b>Plan</b><br>
       ${P.error?`<span style="color:var(--warn)">${esc(P.error)}</span>`:`Starters: ${(P.days||[]).map(dayChip).join(' ')}<br>
       Adds/drops: ${ok(P.moves_same,'same','different')}${P.moves_same?'':` · laptop: ${list(P.moves_pc)} · cloud: ${list(P.moves_cloud)}`}<br>
       IR moves: ${ok(P.ir_same,'same','different')}${P.ir_same?'':` · laptop: ${list(P.ir_pc)} · cloud: ${list(P.ir_cloud)}`}<br>
