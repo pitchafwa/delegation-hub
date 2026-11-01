@@ -1,8 +1,8 @@
 {
  "avail_prev": {
   "3059319": "FREEAGENT",
+  "3978": "WAIVERS",
   "4395626": "FREEAGENT",
-  "4397424": "WAIVERS",
   "5104155": "FREEAGENT"
  },
  "benef_sent": {
@@ -18,100 +18,95 @@
  },
  "last_status": {
   "2530530": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "3135045": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "3978": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "4278580": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "6589": {
-   "date": "2026-10-31",
+   "date": "2026-11-01",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "league_req": "2026-10-26",
- "lu": {
-  "2026-10-31:3907497": 2,
-  "2026-10-31:4065733": 2
- },
+ "lu": {},
  "my_drops": {
   "3059319": "2026-10-30",
-  "4065732": "2026-10-27",
-  "4397136": "2026-10-27",
   "4432241": "2026-10-30",
   "4683678": "2026-10-30"
  },
@@ -145,9 +140,9 @@
   "6589:2026-10-30:4683678:eve": "2026-10-29"
  },
  "plan_rebuild": {
-  "at": "2026-10-31T22:59:09+00:00",
+  "at": "2026-11-01T04:01:31+00:00",
   "sig": "3978,6430,6589,2530530,3135045,3907497,4065648,4065733,4278580,4395724,4431680,4432194,4433134,4684740,5041939,5041955,5105565",
-  "why": "plan target taken: Gui Santos"
+  "why": "new free agent(s) to evaluate: DeMar DeRozan"
  },
  "rosterfix_sent": {
   "3907497:to_ir": "2026-10-31",
