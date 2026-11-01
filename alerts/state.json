@@ -1,8 +1,11 @@
 {
  "avail_prev": {
   "3059319": "FREEAGENT",
+  "3147657": "FREEAGENT",
   "3978": "WAIVERS",
   "4395626": "FREEAGENT",
+  "4397424": "WAIVERS",
+  "4684793": "FREEAGENT",
   "5104155": "FREEAGENT"
  },
  "benef_sent": {
@@ -17,11 +20,6 @@
   "3907497:2026-10-29:DAY_TO_DAY:Out": "2026-10-29"
  },
  "last_status": {
-  "2530530": {
-   "date": "2026-11-01",
-   "espn": "OUT",
-   "official": "Out"
-  },
   "3135045": {
    "date": "2026-11-01",
    "espn": "ACTIVE",
@@ -30,11 +28,6 @@
   "3907497": {
    "date": "2026-11-01",
    "espn": "DAY_TO_DAY",
-   "official": null
-  },
-  "3978": {
-   "date": "2026-11-01",
-   "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
@@ -53,6 +46,11 @@
    "official": null
   },
   "4395724": {
+   "date": "2026-11-01",
+   "espn": "ACTIVE",
+   "official": null
+  },
+  "4397040": {
    "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
@@ -77,6 +75,11 @@
    "espn": "ACTIVE",
    "official": null
   },
+  "4997536": {
+   "date": "2026-11-01",
+   "espn": "DAY_TO_DAY",
+   "official": "Probable"
+  },
   "5041939": {
    "date": "2026-11-01",
    "espn": "ACTIVE",
@@ -88,6 +91,11 @@
    "official": null
   },
   "5105565": {
+   "date": "2026-11-01",
+   "espn": "ACTIVE",
+   "official": null
+  },
+  "5279130": {
    "date": "2026-11-01",
    "espn": "ACTIVE",
    "official": null
@@ -106,7 +114,9 @@
  "league_req": "2026-10-26",
  "lu": {},
  "my_drops": {
+  "2530530": "2026-11-01",
   "3059319": "2026-10-30",
+  "3978": "2026-11-01",
   "4432241": "2026-10-30",
   "4683678": "2026-10-30"
  },
@@ -140,9 +150,9 @@
   "6589:2026-10-30:4683678:eve": "2026-10-29"
  },
  "plan_rebuild": {
-  "at": "2026-11-01T05:40:33+00:00",
+  "at": "2026-11-01T10:37:44+00:00",
   "sig": "3978,6430,6589,2530530,3135045,3907497,4065648,4065733,4278580,4395724,4431680,4432194,4433134,4684740,5041939,5041955,5105565",
-  "why": "scheduled build at 05:07Z did not run (plan from 04:11Z)"
+  "why": "new free agent(s) to evaluate: Mikal Bridges, Neemias Queta, Kyle Filipowski"
  },
  "rosterfix_sent": {
   "3907497:to_ir": "2026-10-31",
