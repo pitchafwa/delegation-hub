@@ -196,7 +196,11 @@ def main():
         sp_keys = sorted(int(k) for k in by_sp[my_id])
         first = SEASON_START + timedelta(days=(sp_keys[0] - 1)) if sp_keys else TODAY
         days = [first + timedelta(days=i) for i in range(7)]
-    cap = W["matchup"]["cap"] if plan_match else round(CAP7 * len(days) / 7.0, 1)
+    if plan_match:
+        cap = W["matchup"]["cap"]
+    else:                                                   # ESPN's rule: per-day limit x days with games, whole number (season_calendar.games_cap)
+        import season_calendar as _SC
+        cap = float(_SC.games_cap(sum(1 for d in days if d.isoformat() in _SC._schedule_days_iso())))
     sp_of = lambda d: (d - SEASON_START).days + 1
     today_sp = sp_of(TODAY)
 
@@ -322,7 +326,7 @@ def main():
         started_today = sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
         cum[tid] = sb[tid] + started_today + (0 if sb[tid] >= cap else (pre_n[tid] if pre_n[tid] is not None else sum(1 for x in left_today[tid] if "live" not in x) * 0.94))   # players already on the floor are counted in started_today
     # LOCKOUT ODDS (2026-10-24): whether tomorrow is still open depends on how many of today's starters actually play. A team at 25 starts with 10 starters today and a
-    # 34.3 cap locks itself out of tomorrow only if all 10 play (about 54%). The day after today is weighted by that chance instead of being treated as all or nothing.
+    # 34 cap locks itself out of tomorrow only if all 10 play (about 54%). The day after today is weighted by that chance instead of being treated as all or nothing.
     def p_open_tomorrow(tid):
         base = sb[tid] + sum(1 for e in (today_box or {}).get(tid, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"])
         if sb[tid] >= cap:

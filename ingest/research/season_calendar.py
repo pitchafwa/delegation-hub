@@ -9,7 +9,8 @@ All-Star matchup Feb 15-28, matchups 19-22 = Mon-Sun weeks with the playoffs = 2
   * after that, Monday-Sunday weeks. ESPN's fantasy season has M matchup periods in total (regular-season count + playoff rounds); M-1 normal weeks after the opener plus ONE extra
     week that is merged into the lightest regular-season week (the All-Star break: fewest NBA games), giving that matchup 14 days. Total scoring periods = opener days + 7 x M.
   * playoff weeks = the last `rounds` periods; rounds come from ESPN's playoffTeamCount (6 teams = 3 rounds);
-  * cap = 40 starts per 7 days, scaled by length (6 days = 34.3, 14 days = 80).
+  * cap (games-played limit) = ESPN's per-scoring-period limit (lineupSlotStatLimits, 40/7) x the matchup's days WITH NBA games, rounded down: the limit is reached at that whole
+    number (2026-11-02, Tommy: week 1's 34.29 behaved as 34, RIP's 34 games were flagged limitExceeded; election-day week 3 has 6 game days = 34, not 40).
 ESPN supplies the counts (matchupPeriodCount, playoffTeamCount, finalScoringPeriod) when a league object is available (refresh(lg), run early in the workflows); the result is
 written to dashboard/season_calendar.json so scripts without ESPN access (schedule plan, draft data, alerts) read the same answer. If that file and ESPN are both unavailable the
 defaults below are used (19 regular matchups + 3 playoff rounds, as this league is set up).
@@ -34,7 +35,7 @@ def rounds_for(teams):
     return 1 if teams <= 2 else (2 if teams <= 4 else 3)
 
 
-def compute(regular=DEFAULT_REGULAR, rounds=DEFAULT_ROUNDS, games_by_day=None):
+def compute(regular=DEFAULT_REGULAR, rounds=DEFAULT_ROUNDS, games_by_day=None, cap_per_day=CAP_PER_7 / 7.0):
     games_by_day = games_by_day or _schedule_days()
     opener = min(games_by_day)
     m_total = regular + rounds
@@ -80,9 +81,20 @@ def compute(regular=DEFAULT_REGULAR, rounds=DEFAULT_ROUNDS, games_by_day=None):
     periods = []
     for k, (a, b) in enumerate(spans, start=1):
         n = (b - a).days + 1
-        periods.append({"id": k, "start": a.isoformat(), "end": b.isoformat(), "days": n, "cap": round(CAP_PER_7 * n / 7.0, 1), "playoff": k > m_total - rounds})
+        gd = sum(1 for i in range(n) if games_by_day.get(a + timedelta(days=i), 0) > 0)
+        periods.append({"id": k, "start": a.isoformat(), "end": b.isoformat(), "days": n, "game_days": gd, "cap": games_cap(gd, cap_per_day),
+                        "cap_exact": round(cap_per_day * gd, 2), "playoff": k > m_total - rounds})
     return {"opener": opener.isoformat(), "periods": periods, "last_week": len(periods), "regular_weeks": regular, "playoff_rounds": rounds,
             "playoff_weeks": [p["id"] for p in periods if p["playoff"]], "final_scoring_period": sum(p["days"] for p in periods)}
+
+
+def _schedule_days_iso():
+    return {d.isoformat() for d, n in _schedule_days().items() if n > 0}
+
+
+def games_cap(game_days, cap_per_day=CAP_PER_7 / 7.0):
+    """ESPN's games-played limit for a matchup: per-day limit x days with NBA games, as the whole number at which it is reached"""
+    return int(math.floor(cap_per_day * game_days + 1e-9))
 
 
 def load():
@@ -124,7 +136,14 @@ def refresh(lg):
         final_sp = (lg.espn_request.league_get(params={"view": ["mStatus"]}).get("status") or {}).get("finalScoringPeriod")
     except Exception as ex:
         print("season_calendar: could not read ESPN's schedule settings, using defaults:", repr(ex)[:80])
-    cal = compute(regular, rounds)
+    cap_per_day = CAP_PER_7 / 7.0
+    try:                                                     # the games-played limit straight from ESPN (statId 42 = games played), so a league change is picked up
+        lim = lg.espn_request.league_get(params={"view": ["mSettings"]})["settings"]["rosterSettings"]["lineupSlotStatLimits"]
+        cap_per_day = float(next(v["limitValue"] for v in lim.values() if int(v.get("statId", -1)) == 42))
+    except Exception as ex:
+        print("season_calendar: could not read ESPN's games-played limit, using 40 per 7 days:", repr(ex)[:80])
+    cal = compute(regular, rounds, cap_per_day=cap_per_day)
+    cal["cap_per_day"] = round(cap_per_day, 6)
     if final_sp and int(final_sp) != cal["final_scoring_period"]:
         print(f"season_calendar WARNING: computed {cal['final_scoring_period']} scoring periods but ESPN says {final_sp}; check the matchup lengths")
         cal["warning"] = f"ESPN final scoring period {final_sp} != computed {cal['final_scoring_period']}"

@@ -153,9 +153,11 @@ plan_days = [d for d in days if d >= today]
 if not plan_days:
     plan_days = days
 n_days = len(days)
-cap = CAP_PER_7 * n_days / 7.0
+_per = next((p_ for p_ in _CAL["periods"] if p_["id"] == mp_id), None)
+# ESPN's games-played limit: its per-day limit x days WITH games, reached at that whole number (season_calendar.games_cap; 2026-11-02: election-day week = 34, not 40)
+cap = float(_per["cap"]) if _per and "game_days" in _per else float(SCAL.games_cap(sum(1 for d in days if d.isoformat() in SCAL._schedule_days_iso())))
 adds_limit = round(ADDS_PER_DAY * n_days)
-print(f"matchup {mp_id}: {mp_start}..{mp_end} ({n_days} days), cap {cap:.1f}, adds limit {adds_limit}; planning {len(plan_days)} days from {plan_days[0]}")
+print(f"matchup {mp_id}: {mp_start}..{mp_end} ({n_days} days, {(_per or {}).get('game_days', '?')} with games), cap {cap:.0f}, adds limit {adds_limit}; planning {len(plan_days)} days from {plan_days[0]}")
 
 # SUNDAY LOOKAHEAD (2026-10-10). Adds are counted per matchup and unspent adds EXPIRE when it ends, so on the last two days of a matchup the stream manager may add players
 # whose value is next matchup's first days (Mon-Wed). Those days are scored with their own fresh start count and cap; nothing changes mid-week.
