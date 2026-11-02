@@ -169,6 +169,14 @@ NEXT4 = [w["id"] for w in CAL if FIRST <= w["id"] < FIRST + 4]
 PLAY = list(PLAYOFF_WEEKS)
 avg_next4 = sum(avg_games[i - 1] for i in NEXT4)
 avg_play = sum(avg_games[i - 1] for i in PLAY)
+# saved start-of-week forecasts and real weekly points (full 7-day weeks only), for the in-season factor below
+SHRINK_K = 5
+FC_PATH = HUB / "week_forecasts.json"
+FCST = {int(w): v for w, v in (json.load(open(FC_PATH, encoding="utf-8"))["weeks"] if FC_PATH.exists() else {}).items()}
+ACT = {t["id"]: {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if int(k) not in SPECIAL_WEEKS and CAL[int(k) - 1]["days"] == 7} for t in wp["teams"]}
+_pairs = [(ACT[int(tid)][w], f) for w, v in FCST.items() for tid, f in v.items() if int(tid) in ACT and w in ACT[int(tid)]]
+LEAGUE_F = sum(a for a, _ in _pairs) / sum(f for _, f in _pairs) if _pairs else None
+NEW_FC = {}
 teams_out = []
 rosters = {}
 for t in wp["teams"]:
@@ -191,15 +199,20 @@ for t in wp["teams"]:
                      "x4": round(n4 - avg_next4, 1), "xp": round(npo - avg_play, 1), "flags": flags})
     active = [p for p in r]
     raw_proj = {w: week_points(active, w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
-    wa = {int(k): v for k, v in (t.get("weekly_actual") or {}).items() if CAL[int(k) - 1]["days"] == 7 and int(k) not in SPECIAL_WEEKS}
-    anchors = sorted(wa)[-3:]
-    if anchors:       # BLEND (backtested: beats the raw solver, MAE 178 vs 207 one week ahead): real scoring in recent full weeks x how much lighter/heavier the target week is
-        ratios = {w: sum(wa[a] * raw_proj[w] / max(week_points(active, a), 1.0) for a in anchors) / len(anchors) for w in raw_proj}
-        proj = {str(w): round(ratios[w], 0) for w in raw_proj}
+    # In season: solver x a "beat-the-model" factor. A team's factor in a past week = its real points / the solver's forecast saved at the start of
+    # that week (week_forecasts.json: the roster it really had, not today's). The league-wide factor fixes the solver's overall bias; the team's own
+    # factor counts only as weeks pile up, weight n / (n + 5). Backtest on 2025-26 (weekly_proj_study.py, 2026-11-02), mean miss per team-week:
+    # this 168, the old blend (last 3 weeks' own factors, unshrunk) 177, solver alone 202; after one week played 156 vs the old blend's 217.
+    wk = [w for w in sorted(FCST) if str(t["id"]) in FCST[w] and w in ACT.get(t["id"], {})]
+    if wk and LEAGUE_F:
+        tf = sum(ACT[t["id"]][w] for w in wk) / sum(FCST[w][str(t["id"])] for w in wk)
+        mult = LEAGUE_F * (tf / LEAGUE_F) ** (len(wk) / (len(wk) + SHRINK_K))
+        proj = {str(w): round(mult * raw_proj[w], 0) for w in raw_proj}
         basis = "blend"
     else:             # preseason: raw solver, scaled by 0.95 (it ran 5-7% high in the 2025-26 backtest)
         proj = {str(w): round(0.95 * raw_proj[w], 0) for w in raw_proj}
         basis = "solver"
+    NEW_FC[str(t["id"])] = round(raw_proj[FIRST], 1) if FIRST in raw_proj else None
     teams_out.append({"id": t["id"], "abbrev": t["abbrev"], "name": t["name"], "players": prow, "proj": proj, "proj_basis": basis})
     print(f"{t['abbrev']:5s} next4 {sum(proj[str(w)] for w in NEXT4):7.0f}  playoffs {sum(proj[str(w)] for w in PLAY):7.0f}", flush=True)
 
@@ -315,3 +328,8 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "calendar_assumed": 
        "stash": keep[:25], "stash_all": {str(e["id"]): [e["gain"], e["dyn_pts"]] for e in stash}, "playoffs": {"base": round(base_po, 0), "fa_adds": adds[:10], "trade_targets": targets[:15], "streamers_next_week": streamers}}
 (HUB / "schedule_plan.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote schedule_plan.json", round((HUB / "schedule_plan.json").stat().st_size / 1024), "KB")
+# this week's start-of-week forecast, kept once (the first run that sees the week) for the in-season factor above
+if FIRST not in SPECIAL_WEEKS and FIRST not in FCST and all(v is not None for v in NEW_FC.values()):
+    FCST[FIRST] = NEW_FC
+    FC_PATH.write_text(json.dumps({"weeks": {str(w): v for w, v in sorted(FCST.items())}}, separators=(",", ":")), encoding="utf-8")
+    print(f"saved week {FIRST}'s start-of-week forecasts")
