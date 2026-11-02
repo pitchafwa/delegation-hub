@@ -92,6 +92,21 @@
   .detailGrid .dr{display:flex;align-items:center}
   .detailGrid .simwrap:first-child{margin-top:0}
   .statline.g4{grid-template-columns:repeat(4,1fr);margin-top:0}
+  .statline.xp3{grid-template-columns:repeat(3,1fr);margin-top:0}
+  .statline .s.up .v{color:var(--good)}.statline .s.down .v{color:var(--warn)}
+  .statline .s .v small{font-size:.7em;color:var(--ink-faint);font-weight:500;margin-left:.15em}
+  .xpFacts{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.6rem}
+  .xpFacts span{font-size:.78rem;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:.18rem .6rem}
+  .xpFacts span b{color:var(--ink)}
+  .xpNews{display:none}.xpNews.on{display:block;border:1px solid var(--line-strong);border-left:3px solid var(--accent);border-radius:8px;padding:.5rem .65rem;margin-bottom:.6rem;background:var(--surface)}
+  .xpSt{font-weight:600;color:var(--warn);font-size:.85rem;margin-bottom:.15rem}
+  .xpNh{font-size:.88rem;color:var(--ink);line-height:1.35}.xpNm{font-size:.72rem;color:var(--ink-faint);margin-top:.2rem}
+  .xpNext{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem}
+  .xpNext div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.35rem .4rem;text-align:center}
+  .xpNext b{display:block;font-family:"Barlow Condensed",monospace;font-size:1.15rem}.xpNext span{font-size:.75rem;color:var(--ink-soft)}.xpNext em{display:block;font-style:normal;font-size:.68rem;color:var(--ink-faint)}
+  .xpForm{font-size:.84rem;margin-top:.45rem}
+  .xpTrend{margin-top:.5rem}.xpTrend svg{width:100%;height:40px}.xpTrL{display:flex;justify-content:space-between;font-size:.68rem;color:var(--ink-faint)}
+  .xpLine{font-size:.84rem;color:var(--ink-soft);margin-top:.35rem}.xpLine b{color:var(--ink)}
   .inputs.g3{display:grid;grid-template-columns:repeat(3,1fr);margin-top:0}
   .comps.g2{display:grid;grid-template-columns:1fr 1fr;padding:0;gap:.3rem}
   .comps.g2 .comp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;padding:.18rem .4rem}
@@ -931,6 +946,25 @@ function trajChart(traj, opp, anchorYear, histYears=[], histValues=[], ceil=null
   </svg>`;
 }
 
+/* expanded-row building blocks (2026-11-02 rework): 3-across tiles that fit a phone, a facts strip, a news/status box filled after render */
+const xpT=(v,l,cls)=>`<div class="s${cls?' '+cls:''}"><div class="v">${v==null||v===''?'—':v}</div><div class="l">${l}</div></div>`;
+const xpFacts=a=>{ a=a.filter(Boolean); return a.length?`<div class="xpFacts">${a.map(x=>`<span>${x}</span>`).join('')}</div>`:''; };
+function xpNewsBox(espnId, status){
+  return `<div class="xpNews" data-espn="${espnId||''}" data-st="${esc(status||'')}"></div>`;
+}
+function fillXpNews(root){
+  const els=[...(root||document).querySelectorAll('.xpNews:not([data-done])')]; if(!els.length) return;
+  loadNews().then(j=>{ for(const el of els){ if(!document.body.contains(el)) continue; el.dataset.done=1;
+    const it=((j&&j.players)||{})[el.dataset.espn]||[], n=it[0], fresh=n&&(Date.now()-new Date(n.t).getTime())<4*864e5;
+    if(!fresh&&!el.dataset.st){ el.remove(); continue; }
+    el.innerHTML=(el.dataset.st?`<div class="xpSt">${el.dataset.st}</div>`:'')+(fresh?`<div class="xpNh">${esc(n.h)}</div><div class="xpNm">${newsAgo(n.t)} · ${esc(n.src)}</div>`:'');
+    el.classList.add('on'); } });
+}
+function injLine(tier, games, tags){
+  if(tier==null) return '';
+  return `<span class="injTier t${tier}">${INJL[tier]}</span>${games!=null?` injury risk · ~${games} games a year`:' injury risk'}${(tags||[]).length?' · '+tags.map(esc).join(' · '):''}`;
+}
+
 function rookieStatLine(proj){
   if(!proj) return '';
   const min=proj.MIN||0;
@@ -1181,7 +1215,7 @@ function render(){
           p.exp!=null?`<div class="i"><b>${p.exp}</b> class</div>`:'',
           p.agility_pctile!=null?`<div class="i"><b>${(p.agility_pctile*100).toFixed(0)}%ile</b> agility</div>`:''].join('');
         const comps=(list,withFant)=>!list||!list.length?'<span class="hint">no comps available</span>':`<div class="comps g2">${list.slice(0,6).map(c=>`<div class="comp"><b>${c.p}</b> '${String(c.y).slice(-2)} · ${c.sim}%${withFant&&c.fant!=null?` · ${(c.fant*100).toFixed(0)}%ile`:''}${c.intl?' 🌐':''}</div>`).join('')}</div>`;
-        const team = tc?`<div class="simwrap"><div class="lbl">Team situation · ${p.team}</div><div class="teambox"><b>${sg2(tc.open_fp).replace(/\.\d/,'')}</b> pts/g of production up for grabs (${sg2(tc.open_z)} sd vs the average team). Effect on his projection: <b>${sg2(tc.adj[0])}</b> pts/g rookie year, ${sg2(tc.adj[1])} year 2, ${sg2(tc.adj[2])} year 3.<div class="note">Production that left the team minus veterans who joined, counting each rotation player at his healthy per-game level. Applied to years 1-3 only (fading), capped at ±2 sd. Past rookies: +1 sd of this ≈ +3.8 pts/g in the rookie year for lottery picks.</div></div></div>`:'';
+        const team = tc?`<div class="simwrap"><div class="lbl">Team situation · ${p.team}</div><div class="teambox"><b>${sg2(tc.open_fp).replace(/\.\d/,'')}</b> pts/g of production up for grabs (${sg2(tc.open_z)} sd vs the average team). Effect on his projection: <b>${sg2(tc.adj[0])}</b> pts/g rookie year, ${sg2(tc.adj[1])} year 2, ${sg2(tc.adj[2])} year 3.</div></div>`:'';
         detail = `<div class="detailGrid" style="--lc:520px">
           <div>
             <div class="simwrap"><div class="lbl">Projected rookie-season line (per game)</div>${rookieStatLine(p.rookie_proj).replace('class="statline"','class="statline g4"')}</div>
@@ -1193,16 +1227,20 @@ function render(){
           <div class="dr">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[], p.ceil_path||null, 600, 520)}</div>
         </div>`;
       } else {
-        const curNote = p.had_output_b_prior
-          ? "Early-career projections use this player's individualized pre-NBA rookie-baseline prior, blended with real game data as it accumulates."
-          : "This player predates the prospect-model data range or has no resolvable pre-draft profile -- projected from real game history alone.";
-        detail = `<div class="detailGrid" style="--lc:340px">
+        const fp=findPlayer(p.player)||{}, rp=fp.redraft, kt=p._kt, mob=isMobile(), es=p.espn_injury_status;
+        const st=es&&es!=='ACTIVE'?esc(es.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','Day-to-day')):'';
+        const own=L?(p._owner?(W&&p._owner.abbrev===W.my_abbrev?'<b>Your team</b>':`Owned by <b>${esc(p._owner.abbrev)}</b>`):'<b>Free agent</b>'):'';
+        detail = `<div class="detailGrid" style="--lc:360px">
           <div>
-            <div class="simwrap"><div class="lbl">Projected ${yearLabel(p.anchor_year,0)} season line (per game)</div>${rookieStatLine(p.next_season_proj).replace('class="statline"','class="statline g4"')}</div>
-            <div class="note" style="margin-top:.6rem">${curNote}</div>
-            ${p.injury_tier!=null?`<div class="simwrap"><div class="lbl">Injury risk</div><div class="note"><span class="injTier t${p.injury_tier}">${INJL[p.injury_tier].toUpperCase()}</span> about <b>${(p.injury_p*100).toFixed(0)}%</b> chance of being listed out with an injury or illness in 20%+ of next season's games (roughly <b>${p.injury_health_missed!=null?p.injury_health_missed:p.injury_missed}</b> games), from the games he was <b>listed out on the official injury report</b> in the last three seasons, age and minutes. Games a player simply did not play (coach's decision, rest, G League) are not counted. Compared with other regulars (24+ minutes a game): <b>${INJL[p.injury_tier].toLowerCase()}</b>.${(function(){const m=D.injury_meta||{}; return m.typical_missed!=null?` <span class="hint">A typical regular (24+ mpg) was listed out with an injury or illness for about ${m.typical_missed} games in ${m.season}, and ${(m.typical_share_25plus*100).toFixed(0)}% for 20%+ of games.</span>`:'';})()}${(p.injury_tags||[]).length?`<div style="margin-top:.35rem">${p.injury_tags.map(t=>`<span class="comp">${esc(t)}</span>`).join(' ')}</div>`:''}</div></div>`:''}
+            ${xpNewsBox(fp.espnId, st)}
+            <div class="simwrap"><div class="lbl">Keeper value</div><div class="statline xp3">${xpT(p._asset!=null?`${p._asset.toFixed(1)}<small>#${p._assetRank}</small>`:'—',`At ${K} keepers`)}${xpT(kt?(kt.delta>=0?'+':'')+kt.delta.toFixed(1):'—','Last 30 days',kt?(kt.delta>0.5?'up':kt.delta<-0.5?'down':''):'')}${xpT(p._market!=null?`#${p._market}${p._mgap!=null?`<small>${p._mgap>0?'+':''}${p._mgap}</small>`:''}`:'—','Market rank')}</div>
+              ${kt?`<div class="xpTrend">${kspark(kt,320,40,true)}<div class="xpTrL"><span>${new Date(kt.pts[0][0]).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span><span>today</span></div></div>`:''}</div>
+            <div class="simwrap"><div class="lbl">Career outlook</div><div class="statline xp3">${xpT(fmt1(p.year0_ppg),'PPG '+yearLabel(p.anchor_year,0))}${xpT(`${fmt1(p.peak_ppg)}<small>${yearLabel(p.anchor_year,p.peak_year_index)}</small>`,'Peak PPG')}${xpT(p._ceilAsset!=null?p._ceilAsset.toFixed(1):'—','Best-case value')}</div>
+              ${rp?`<div class="xpLine">This season: <b>${rp.ppg.toFixed(1)}</b> projected · last 10 <b>${rp.l10!=null?rp.l10.toFixed(1):'—'}</b> · <b>${rp.exp_gp.toFixed(0)}</b> games left</div>`:''}</div>
+            <div class="simwrap"><div class="lbl">Projected ${yearLabel(p.anchor_year,0)} line, per game</div>${rookieStatLine(p.next_season_proj).replace('class="statline"','class="statline g4"')}</div>
+            ${xpFacts([p.injury_tier!=null?injLine(p.injury_tier,p.injury_health_missed!=null?p.injury_health_missed:p.injury_missed,p.injury_tags):'',own])}
           </div>
-          <div class="dr">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[], p.ceil_path||null, 600, 240)}</div>
+          <div class="dr">${trajChart(p.trajectory, opp, p.anchor_year, p.history_years||[], p.history_values||[], p.ceil_path||null, mob?340:600, mob?220:240)}</div>
         </div>`;
       }
       out += `<tr class="detail"><td colspan="${NC}">${detail}</td></tr>`;
@@ -1211,6 +1249,7 @@ function render(){
   }).join('');
   document.getElementById('body').innerHTML = (body ? body + moreRow : '') || `<tr><td colspan="${NC}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>`;
   collapseLegends(document.getElementById('boardPane'));
+  fillXpNews(document.getElementById('boardPane'));
 }
 
 function profileHtml(teamId){
@@ -2170,16 +2209,22 @@ function renderRedraft(){
         key:{v:KEY[0],l:KEY[1],cls:KEY[1]==='Season value'&&p.vor<0?'down':''}})}</td></tr>`;
     }
     if(open){
-      const tile=(v,l)=>`<div class="s"><div class="v">${v}</div><div class="l">${l}</div></div>`;
-      const f=p.form, dm=p.s_min!=null&&p.m10!=null?p.m10-p.s_min:null;
-      const chips=f?(f.chips||[]).filter(c=>Math.abs(c.v)>=1).map(c=>`${esc(c.k)} ${rdSg(c.v,1)} <i>(${esc(c.p)})</i>`).join(' · '):'';
-      row+=`<tr class="detail"><td colspan="${cols.length}"><div class="detailGrid" style="--lc:330px"><div>
-        <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline g4">${tile(p.pts.toLocaleString(),'Projected pts')}${tile(fmtTitle(titleValRD(p))??p.vor.toLocaleString(),'Season value')}${tile(p.pts90.toLocaleString(),'90th pct')}${tile(p.exp_gp.toFixed(0)+'/'+p.g_rem,'Games (exp/left)')}</div>
-          <div class="hint" title="Projection source: ${p.our?'DELCO':'ESPN; not modelled by DELCO'}. Likely range is the 80% band around the projection.">Range ${p.p10.toFixed(0)}–${p.p90.toFixed(0)} a game</div></div>
-        <div class="simwrap"><div class="lbl">Recent play</div><div class="statline g4">${tile(p.l10!=null?p.l10.toFixed(1):'—','Last 10 avg')}${tile(p.m10!=null?p.m10+' min':'—',dm!=null?'Minutes ('+rdSg(dm,1)+' vs season)':'Minutes')}${tile(p.ppm!=null?p.ppm.toFixed(2):'—','Points/min')}${tile(p.sd!=null?p.sd.toFixed(0):'—','Game-to-game spread')}</div>
-          ${f&&Math.abs(f.d)>=3?`<div class="note"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his baseline, about <b>${rdSg(f.keep,1)}</b> should last${chips?': '+chips:''}</span></div>`:f?'<div class="note hint">No notable recent swing (under 3 pts/g vs his baseline).</div>':'<div class="note hint">The reason-for-form split appears once he has 10 games this season.</div>'}</div>
-        <div class="simwrap"><div class="lbl">Schedule and health</div><div class="note">Team games: <b>${p.g7}</b> in the next 7 days · <b>${p.gpo}</b> in the playoff weeks. ${p.status!=='ACTIVE'?`Status <b>${esc(p.status)}</b>${p.games_out?`, about ${p.games_out} games out${p.back?', back about '+p.back.slice(5):''}`:''}.`:'Healthy.'} ${p.inj_missed!=null?`Expected games missed for any reason (injury, rest, coach's decision): about ${p.inj_missed} a year${p.inj_hmissed!=null?`, of which about ${p.inj_hmissed} for injury or illness`:''}.`:''}${p.own!=null?` Owned in ${p.own.toFixed(0)}% of ESPN leagues${p.adp?` · ADP ${p.adp.toFixed(0)}`:''}.`:''}</div></div>
-      </div><div class="dr"><div style="width:100%" title="Bars: last 10 games (green above his projection, red well below). Line: 3-game rolling average. Dashed bars: next 3 games projected, adjusted for that game's opponent, 80% range shaded.">${rdChart(p)}${p.gs&&RD.season_now&&p.gs!==RD.season_now?`<div class="note">These are ${esc(p.gs)} games (last season).</div>`:''}</div></div></div></td></tr>`;
+      const f=p.form, dm=p.s_min!=null&&p.m10!=null?p.m10-p.s_min:null, mob=isMobile();
+      const chips=f?(f.chips||[]).filter(c=>Math.abs(c.v)>=1).map(c=>`${esc(c.k)} ${rdSg(c.v,1)}`).join(' · '):'';
+      const td=new Date(), mmdd=String(td.getMonth()+1).padStart(2,'0')+'-'+String(td.getDate()).padStart(2,'0');
+      const nx=(p.next||[]).map((n,i)=>[n,(p.next_proj||[])[i]]).filter(([n])=>n[0]>=mmdd).slice(0,3);
+      const l10c=p.l10==null?'':(p.l10>=p.ppg*1.07?'up':(p.l10<=p.ppg*0.93?'down':''));
+      const st=p.status&&p.status!=='ACTIVE'?`${esc(p.status.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','Day-to-day'))}${p.games_out?` · about ${Math.round(p.games_out)} games out`:''}${p.back?` · back about ${p.back.slice(5)}`:''}`:'';
+      const o2=p._o, mine=!!(o2&&W&&o2.abbrev===W.my_abbrev);
+      row+=`<tr class="detail"><td colspan="${cols.length}"><div class="detailGrid" style="--lc:360px"><div>
+        ${xpNewsBox(p.id, st)}
+        ${nx.length?`<div class="simwrap"><div class="lbl">Next games</div><div class="xpNext">${nx.map(([n,v])=>`<div><b>${(p.status==='OUT'||p.status==='INJURY_RESERVE'||p.status==='SUSPENSION')&&(!p.back||n[0]<p.back.slice(5))?'<span style="color:var(--warn)">Out</span>':(v!=null?v.toFixed(0):'—')}</b><span>${esc(n[1])}</span><em>${n[0]===mmdd?'today':n[0]}</em></div>`).join('')}</div></div>`:''}
+        <div class="simwrap"><div class="lbl">This season</div><div class="statline xp3">${xpT(p.ppg.toFixed(1),'Projected PPG')}${xpT(p.l10!=null?p.l10.toFixed(1):'—','Last 10',l10c)}${xpT(p.m10!=null?`${p.m10}<small>${dm!=null&&Math.abs(dm)>=1?rdSg(dm,0):''}</small>`:'—','Minutes, last 10')}</div>
+          ${f&&Math.abs(f.d)>=3?`<div class="xpForm"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his usual level, about <b>${rdSg(f.keep,1)}</b> likely to stick${chips?' · '+chips:''}</span></div>`:''}</div>
+        <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline xp3">${xpT(p.pts.toLocaleString(),'Projected pts')}${xpT(`${p.exp_gp.toFixed(0)}<small>/${p.g_rem}</small>`,'Games expected')}${xpT(fmtTitle(titleValRD(p))??p.vor.toLocaleString(),'Season value',p.vor<0?'down':'')}</div>
+          <div class="xpLine">Likely range <b>${p.p10.toFixed(0)}–${p.p90.toFixed(0)}</b> a game${p.espn_ppg?` · ESPN ${p.espn_ppg.toFixed(1)}`:''}${p.mkt!=null?` · market #${p.mkt} (ours #${p.rank})`:` · rank #${p.rank}`}</div></div>
+        ${xpFacts([`<b>${p.g7}</b> games next 7 days`,`<b>${p.gpo}</b> playoff-week games`,p.inj_tier!=null?injLine(p.inj_tier,p.inj_hmissed!=null?p.inj_hmissed:p.inj_missed):'',L?(o2?(mine?'<b>Your team</b>':`Owned by <b>${esc(o2.abbrev)}</b>`):'<b>Free agent</b>'+(p.own!=null?` · ${p.own.toFixed(0)}% owned`:'')):''])}
+      </div><div class="dr"><div style="width:100%">${mob?rdChart(p,340,210):rdChart(p)}${p.gs&&RD.season_now&&p.gs!==RD.season_now?`<div class="note">${esc(p.gs)} games (last season)</div>`:''}</div></div></div></td></tr>`;
     }
     return row;
   }).join('');
@@ -2192,6 +2237,7 @@ function renderRedraft(){
     ${pre?`<div class="note" style="margin-bottom:.6rem">Preseason: the last-10 chart shows each player's final ${RD.season_now} games until the new season starts.</div>`:''}
     <div class="tablewrap"><table id="rdTbl"><thead><tr>${th}</tr></thead><tbody>${body||'<tr><td colspan="14" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>'}${more}</tbody></table></div>
     <div class="legend" style="margin:1rem 0 0"><b>How to read the Redraft board.</b> Everything here covers only the rest of this fantasy season (through ${RD.season_end.slice(5)}, playoffs included), not future years. <b>PPG</b> is DELCO's projection for this season (small grey number: ESPN's). <b>GP left</b> = team games remaining x how often he plays, minus games he is expected to miss right now (the injury advisor's estimate). <b>Proj PTS</b> = PPG x expected games. <b>VOR</b> = points above a replacement-level free agent (${RD.repl_ppg} a game, about the #${RD.repl_rank} player) over those games. <b>MKT</b> = the market's rank of him: ESPN's points-league rankings averaged with ESPN's ADP (FantasyPros' consensus fills in only for players ESPN does not rank, and it will replace ESPN here once its injury and rookie rankings catch up). Players in none of those lists show a dash. The number beside it is the gap to our rank (+ = we like him more than the market does). <b>90PCT PTS</b> = the total if he plays at the 90th-percentile level of his season (projection + 1.28 x the typical forecast error of about ${RD.sigma.late.toFixed(1)}–${RD.sigma.pre.toFixed(1)} a game, measured on 2010-2026). <b>L10</b> = last 10 games' average and minutes (green/red when 7% above/below projection). The small line is the last 10 games (solid), then the projection for the next 3 (dashed) inside the shaded 80% range; click a row for the full chart, the reason for his form, schedule and health. Values change every day as games are played and injuries are reported. Unlike the Dynasty view there is no asset value or keeper count here.</div>`;
+  fillXpNews(pane);
   const q=document.getElementById('rdQ'); if(q){ q.addEventListener('input',e=>{rdQ=e.target.value; rdRefocus=true; renderRedraft();}); if(rdRefocus){ q.focus(); q.setSelectionRange(rdQ.length,rdQ.length); rdRefocus=false; } }
   document.getElementById('rdSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; rdFilter=b.dataset.v; rdLimit=60; renderRedraft(); });
   document.getElementById('rdPos').addEventListener('change',e=>{ rdPos=e.target.value; rdLimit=60; renderRedraft(); });
