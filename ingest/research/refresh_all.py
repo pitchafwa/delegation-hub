@@ -193,7 +193,7 @@ try:
             msg = f"Daily model refresh {now.date().isoformat()}\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
             c = git("commit", "-m", msg)
             say(f"commit: {(c.stdout or c.stderr).strip()[:120]}")
-            pr = git("pull", "--rebase", "-X", "theirs", "--quiet")    # a clash on a file the cloud also writes (player_news.json, 2026-11-01): this run's copy wins
+            pr = git("pull", "--rebase", "--autostash", "-X", "theirs", "--quiet")    # a clash on a file the cloud also writes (player_news.json, 2026-11-01): this run's copy wins
             if pr.returncode != 0:
                 git("rebase", "--abort")
                 say(f"pull before push failed: {(pr.stderr or '').strip()[:200]}")
