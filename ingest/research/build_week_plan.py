@@ -671,9 +671,15 @@ fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(play
 # an add cannot use tonight's game once it has started or is about to (10 minutes to make the move): he joins from tomorrow (2026-10-26: a 7:12pm plan's add for an
 # 8pm game reached the phone after tip-off)
 _now_utc = datetime.now(timezone.utc)
+# ESPN locks ROSTER moves (adds, drops, IR moves) at the day's FIRST tip in this league (rosterLocktimeType FIRSTGAME_SCORINGPERIOD; lineups lock game by game):
+# after that every add, drop or activation takes effect tomorrow (2026-11-02, Tommy; 10-26: "add Jarace Walker" at 8pm, an hour after the 7pm lock)
+_tips_today = [datetime.fromisoformat(v.replace("Z", "+00:00")) for v in games.get(today, {}).values()]
+ROSTER_LOCKED = bool(_tips_today) and min(_tips_today) <= _now_utc + timedelta(minutes=10)
+FIRST_MOVE_DAY = today + timedelta(days=1) if ROSTER_LOCKED else today
+print("roster moves:", "locked for today (first tip passed), moves count from tomorrow" if ROSTER_LOCKED else "open today")
 for _p in fa_players:
     _t = games.get(today, {}).get(canon(_p["team"]))
-    if _t and datetime.fromisoformat(_t.replace("Z", "+00:00")) <= _now_utc + timedelta(minutes=10) and (not _p.get("from") or _p["from"] <= today):
+    if (ROSTER_LOCKED or (_t and datetime.fromisoformat(_t.replace("Z", "+00:00")) <= _now_utc + timedelta(minutes=10))) and (not _p.get("from") or _p["from"] <= today):
         _p["from"] = today + timedelta(days=1)
 # a rostered player whose game today has already tipped with him on ESPN's bench cannot start today (2026-10-31: Peterson sat through his 3pm game, the plan still counted
 # his start and so told Tommy to bench Jerome to stay under the cap)
@@ -1673,8 +1679,8 @@ def plan_ir(r, mine=True):
     for p in back:
         spots = len([q for q in plan.values() if not q["ir"] and not q.get("until")])
         if spots < ROSTER_SPOTS:
-            plan[p["espn_id"]] = dict(p, ir=False)
-            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate", "status": p["status"], "level": p["level"]})
+            plan[p["espn_id"]] = dict(p, ir=False, **({"from": FIRST_MOVE_DAY} if FIRST_MOVE_DAY > today else {}))     # after the day's lock he can only play from tomorrow
+            moves.append({"id": p["espn_id"], "name": p["name"], "action": "activate", "status": p["status"], "level": p["level"], "on": FIRST_MOVE_DAY.isoformat()})
             continue
         # roster full (2026-11-01, Tommy): a healthy player left on IR is a legal stash. It holds an extra player (Jerome on IR, Traore active), but ESPN blocks every add
         # while he is there, so activating him costs a drop, and an add after that costs a second drop. Nobody is assumed to activate: for me the unlock check below
@@ -1820,8 +1826,8 @@ for t in lg.teams:
             def _dcost(x):
                 return max(0.0, long_level(x) - _restream) * GAMES_PER_WEEK * _wk_left * reclaim_lose(long_level(x), 2)
             _xs = sorted([x for x in r if not x["ir"] and not x.get("until") and x["espn_id"] not in _prot and x is not _sp], key=_dcost)[:2]
-            _us = {plan_days[0]}
-            _us |= set([d for d in plan_days if p_play(dict(_sp, ir=False), d) > 0][:1])
+            _us = {max(plan_days[0], FIRST_MOVE_DAY)}
+            _us |= set([d for d in plan_days if d >= FIRST_MOVE_DAY and p_play(dict(_sp, ir=False), d) > 0][:1])
             _us |= set([date.fromisoformat(q["on"]) for q in (seq or []) if q.get("on")][:1])
             _best = None
             for _u in sorted(_us):

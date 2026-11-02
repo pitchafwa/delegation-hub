@@ -130,6 +130,30 @@ def push(title, body, priority=3, tags=None, actions=None):
     return r.status_code == 200
 
 
+STATUS_WORD = {"ACTIVE": "healthy", "DAY_TO_DAY": "day-to-day", "OUT": "out", "INJURY_RESERVE": "on injured reserve", "SUSPENSION": "suspended"}
+
+
+def ruled_out(espn_status, official):
+    """out for today's game: the official report when it lists him (2026-11-02: ESPN kept Curry's one-night rest flagged OUT the next morning), else ESPN"""
+    if official in ("Out", "Doubtful"):
+        return True
+    if official in ("Available", "Probable", "Questionable"):
+        return False
+    return espn_status in ("OUT", "INJURY_RESERVE", "SUSPENSION")
+
+
+def roster_lock():
+    """ESPN locks ROSTER moves (adds, drops, IR moves) at the day's first NBA tip in this league (FIRSTGAME_SCORINGPERIOD); lineups lock game by game.
+    Returns the first tip today (ET) or None when there are no games."""
+    t = team_tips()
+    return min(t.values()) if t else None
+
+
+def locked_now():
+    lk = roster_lock()
+    return lk is not None and NOW >= lk - timedelta(minutes=5)
+
+
 def et_hm(dt):
     return dt.astimezone(ET).strftime("%-I:%M%p").lower() if os.name != "nt" else dt.astimezone(ET).strftime("%I:%M%p").lstrip("0").lower()
 
@@ -153,7 +177,7 @@ def best_moves(T, n=3):
         day = _day(m["on"]).capitalize() if m.get("on") else "Now"
         dr = (m.get("drop") or {}).get("name")
         kind = "long-term" if m.get("keep") else "rental"
-        out.append(f"{day}: add {m['add']['name']}, drop {dr} ({kind}, {m['gain']:+.0f})" if dr else f"{day}: add {m['add']['name']} ({kind}, {m['gain']:+.0f})")
+        out.append(f"{day}: add {m['add']['name']}, drop {dr} ({kind}, {m['gain']:+.0f} pts)" if dr else f"{day}: add {m['add']['name']} ({kind}, {m['gain']:+.0f} pts)")
     return out
 
 
@@ -221,13 +245,15 @@ def digest(kind):
     lines.append(f"Matchup {M['id']} vs {O['abbrev'] if O else '?'}: projected {T.get('proj_final', T['expected_total']):.0f}" + (f" to {T.get('opp_expected', O['expected_total']):.0f}" if O else "") + (f", {wp * 100:.0f}% chance to win." if wp is not None else "."))
     if T.get("ir_moves"):
         for m in T["ir_moves"][:3]:
-            lines.append({"to_ir": f"IR: move {m['name']} ({m['status']}) to an open IR slot", "activate": f"IR: {m['name']} is healthy but stuck in IR, activate him",
+            lines.append({"to_ir": f"IR: move {m['name']} ({STATUS_WORD.get(m['status'], m['status'].lower())}) to an open IR slot", "activate": f"IR: {m['name']} is healthy but stuck in IR, activate him",
                           "activate_swap": f"IR: activate {m['name']} and drop {m.get('drop', {}).get('name', '?')}" + (f" on {date.fromisoformat(m['on']).strftime('%a')}" if m.get("on") and m["on"] > TODAY.isoformat() else "") + (" (unlocks adds)" if m.get("unlock") else ""),
                           "stay_ir": f"IR: keep {m['name']} on IR (healthy, so adds stay locked; no add is worth two drops)"}.get(m["action"], f"IR: {m['name']}: {m['action']}"))
     mv = best_moves(T, 5 if kind == "weekly" else 3)
     adds_left = M["adds_limit"] - T.get("adds_used", 0)
     lines.append(f"Planned moves ({adds_left} of {M['adds_limit']} adds left):" if mv else "No moves planned this week.")
     lines += ["  " + x for x in mv]
+    if kind == "weekly":                                  # trimmed 2026-11-02 (alert audit): matchup, IR moves, planned moves
+        return ("Week ahead: " + (f"{len(T.get('sequence') or [])} planned move{'s' if len(T.get('sequence') or []) != 1 else ''}" if mv else "no moves planned")), chr(10).join(lines)
     d = next((x for x in T["days"] if x["date"] == TODAY.isoformat()), None)
     if d:
         if d.get("locked"):
@@ -562,7 +588,7 @@ def plan_guidance(T, pid):
         P = p_taken(sq["add"].get("ll") or sq["add"].get("level"))
         bk = sq.get("backups") or []
         alt = ""
-        what = f"Plan: add {day}, drop {drop} ({sq['gain']:+.0f})."
+        what = f"Plan: add {day}, drop {drop} ({sq['gain']:+.0f} pts)."
         if now and sq["on"] > TODAY.isoformat():
             ev_wait = (1 - P) * sq["gain"] + P * max(0.0, bk[0]["net"] if bk else 0.0)
             if now["net"] > ev_wait:
@@ -585,7 +611,7 @@ def _mark_announced(T, pid, s):
     ann = s.setdefault("plan_announced", {})
     for m in (T.get("sequence") or []):
         if str(m["add"]["id"]) == str(pid) and 0 <= (date.fromisoformat(m["on"]) - TODAY).days <= 1:
-            base = f"{m['add']['id']}:{m['on']}:{(m.get('drop') or {}).get('id')}"
+            base = f"{m['add']['id']}:{m['on']}:{norm((m.get('drop') or {}).get('name') or '')}"
             ann[base + (":today" if m["on"] == TODAY.isoformat() else ":eve")] = TODAY.isoformat()
             ann.setdefault(base, TODAY.isoformat())
 
@@ -597,6 +623,8 @@ def roster_fix_alert(T, s, mine, can_send):
     sent = s.setdefault("rosterfix_sent", {})
     for k in [k for k, d in sent.items() if (TODAY - date.fromisoformat(d)).days > 3]:
         sent.pop(k)
+    if locked_now():
+        return                                                   # after today's roster lock an IR move only counts tomorrow: tomorrow's check says it
     slot = {int(p.playerId): p.lineupSlot for p in mine.roster}
     for m in (T.get("ir_moves") or []):
         pid = int(m["id"]) if m.get("id") is not None else None
@@ -618,15 +646,18 @@ def roster_fix_alert(T, s, mine, can_send):
         else:
             title, body = f"Activate {m['name']} from IR", ("He's no longer listed out but stuck on IR. Your roster is full: drop someone to activate him." if m["action"] == "activate_needs_spot" else "He's no longer listed out but stuck on IR. Move him to your bench or lineup.")
         if m.get("unlocks") and m["unlocks"] > 0.5:
-            body += f" +{m['unlocks']:.0f} this week."
+            body += f" +{m['unlocks']:.0f} pts this week."
         if push(title, body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
             sent[key] = TODAY.isoformat()
 
 
 def ir_back_alert(T, s, mine, off, can_send):
-    """LIVE check, independent of the plan (2026-10-26: Flagg was upgraded to probable and played while parked on IR; the plan only activated ACTIVE players
-    and nothing alerted). Any player in an IR slot whom ESPN no longer lists as out can play and makes the ESPN lineup illegal: say so at once, with his game
-    time and the drop the plan suggests if the roster is full. Also asks for a plan rebuild so the week plan counts his games. Once per player per status per day."""
+    """A player in an IR slot whom ESPN no longer lists as out. Follows the plan (2026-11-02 alert audit: Murray and Jerome got three alerts each over two days,
+    two after midnight, and Jerome was stashed on purpose):
+      * the plan does not know yet (no IR move for him) -> no message, ask for a rebuild; the rebuilt plan decides activate or keep;
+      * the plan keeps him on IR (stay_ir, or activation on a later day) -> no message;
+      * the plan activates him today -> one message per player per day, before today's roster lock (after it an activation only counts tomorrow: tomorrow's alert),
+        overnight only if his game is within 2 hours."""
     if not can_send:
         return
     sent = s.setdefault("irback_sent", {})
@@ -635,36 +666,39 @@ def ir_back_alert(T, s, mine, off, can_send):
     if off is None:
         off = official_today({norm(p.name).replace(" ", "") for p in mine.roster})
     tips = team_tips()
-    full = len([p for p in mine.roster if p.lineupSlot != "IR"]) >= 15
+    lock = roster_lock()
     for p in mine.roster:
         e = p.injuryStatus or "ACTIVE"
-        o = off.get(norm(p.name).replace(" ", ""))
         if p.lineupSlot != "IR" or e in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
             continue
-        if f"{p.name} off IR from tomorrow" in (T.get("bridge") or []) and not ((tips.get(canon(p.proTeam or "")) or NOW) > NOW):
-            continue                                             # already activated in ESPN for tomorrow (after today's lock) and no game of his left today
+        if f"{p.name} off IR from tomorrow" in (T.get("bridge") or []):
+            continue                                             # already activated in ESPN for tomorrow
         pm = next((m for m in (T.get("ir_moves") or []) if int(m.get("id") or 0) == int(p.playerId)), None)
-        plan_st0 = next((q.get("status") for q in T["roster"] if int(q["id"]) == int(p.playerId)), None)
-        if pm and plan_st0 == e and (pm["action"] == "stay_ir" or (pm.get("on") or "") > TODAY.isoformat()):
-            continue                                             # the plan already knows he's healthy and keeps him on IR for now (2026-11-01: Jerome stash)
-        tip = tips.get(canon(p.proTeam or ""))
-        if in_quiet() and not FORCE and not (tip and tip > NOW):
+        if pm is None:
+            if f"irq:{p.playerId}:{TODAY.isoformat()}" not in sent:
+                sent[f"irq:{p.playerId}:{TODAY.isoformat()}"] = TODAY.isoformat()
+                request_rebuild(s, f"{p.name} back from IR ({e})")
             continue
-        key = f"{p.playerId}:{TODAY.isoformat()}:{e}:{o or ''}"
+        if pm["action"] not in ("activate", "activate_swap") or (pm.get("on") or TODAY.isoformat()) > TODAY.isoformat():
+            continue
+        if lock is not None and NOW >= lock - timedelta(minutes=5):
+            continue
+        tip = tips.get(canon(p.proTeam or ""))
+        if in_quiet() and not FORCE and not (tip and NOW < tip <= NOW + timedelta(hours=2)):
+            continue
+        key = f"{p.playerId}:{TODAY.isoformat()}"
         if key in sent:
             continue
-        st = {"ACTIVE": "healthy", "DAY_TO_DAY": "day-to-day"}.get(e, e.lower().replace("_", " "))
-        body = f"ESPN now lists him {st}" + (f", official report: {o}" if o else "") + ". He can't score from IR."
-        if tip and tip > NOW and o != "Out":
-            body += f" His game tips at {_fmt_t(tip)}: put him in your lineup."
-        mv = next((m for m in (T.get("ir_moves") or []) if int(m.get("id") or 0) == int(p.playerId) and m.get("drop")), None)
-        if full:
-            body += f" Roster is full: activate him and drop {mv['drop']['name']}." if mv else " Roster is full: you'll need to drop someone to activate him."
-        if push(f"Activate {p.name} from IR", body, priority=5 if (tip and tip > NOW) else 4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
+        o = off.get(norm(p.name).replace(" ", ""))
+        body = f"ESPN lists him {STATUS_WORD.get(e, e.lower())}" + (f" (injury report: {o})" if o else "") + ". He can't score from IR."
+        if pm["action"] == "activate_swap" and pm.get("drop"):
+            body += f" Activate him and drop {pm['drop']['name']}."
+        if lock is not None:
+            body += f" Do it before {_fmt_t(lock)}, when roster moves lock for today."
+        if pm.get("unlocks") and pm["unlocks"] > 0.5:
+            body += f" +{pm['unlocks']:.0f} pts this week."
+        if push(f"Activate {p.name} from IR", body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
             sent[key] = TODAY.isoformat()
-            plan_st = next((q.get("status") for q in T["roster"] if int(q["id"]) == int(p.playerId)), None)
-            if plan_st != e or not any(int(m.get("id") or 0) == int(p.playerId) for m in (T.get("ir_moves") or [])):
-                request_rebuild(s, f"{p.name} back from IR ({e})")
 
 
 def plan_move_alert(lg, T, s, mine, can_send):
@@ -685,58 +719,58 @@ def plan_move_alert(lg, T, s, mine, can_send):
     for k in [k for k, d in ann.items() if (TODAY - date.fromisoformat(d)).days > 3]:
         ann.pop(k)
     tips = team_tips()
+    lock = roster_lock()
     for m in (T.get("sequence") or []):
         on = date.fromisoformat(m["on"])
         days_to = (on - TODAY).days
         pid = int(m["add"]["id"])
-        if days_to not in (0, 1) or pid in mine_ids:
-            continue
-        if days_to == 1 and NOW.hour < 18:
-            continue
+        if days_to != 0 or pid in mine_ids:
+            continue                                             # tomorrow's moves: no heads-up (not actionable); the lock-in alert tonight or this alert tomorrow covers them
         w = m["add"].get("waiver")
         if pid not in pool and not w:
             continue
         drop = (m.get("drop") or {})
-        base = f"{pid}:{m['on']}:{drop.get('id')}"
-        stage = "today" if days_to == 0 else "eve"
         a = m["add"]["name"]
         dr = drop.get("name")
-        claim = bool(w) and (pid in on_waivers or pid not in pool)   # on waivers: the claim has to be in BEFORE the 3am run, i.e. tonight
-        kind = "long-term pickup" if m.get("keep") else ("rental" if (m.get("hold_through") or m["on"]) > m["on"] else "one-game rental")
-        bkl = [b for b in (m.get("backups") or []) if b.get("net", 0) > 0]
-        tail = f" If he's gone: {bkl[0]['name']}." if bkl else ""
         if drop.get("id") is not None and int(drop["id"]) not in mine_ids and m.get("chain"):
             dr = m["chain"]                                      # the earlier add in this chain was not made: the player it would have replaced is the drop
-        drop_txt = f"Drop {dr}" if dr else "Open roster spot"
-        tip = tips.get(canon(m["add"]["team"]))
-        if days_to == 0 and not claim and m["on"] in (m["add"].get("games") or []) and (tip is None or tip <= NOW + timedelta(minutes=5)):
-            # his game tonight has started (or is about to): the plan's reason for adding him today is gone. Say nothing; get a plan that knows it
+        base = f"{pid}:{m['on']}:{norm(dr or '')}"               # keyed on what the message says (2026-10-31: two plan versions, same text, two alerts)
+        claim = bool(w) and (pid in on_waivers or pid not in pool)   # on waivers: the claim has to be in BEFORE the 3am run, i.e. tonight
+        if not claim and lock is not None and NOW >= lock - timedelta(minutes=5):
+            # roster moves locked at the day's first tip: an add now only counts from tomorrow, so today's move is gone. Say nothing; get a plan that knows it
             if base + ":late" not in ann:
                 ann[base + ":late"] = TODAY.isoformat()
-                request_rebuild(s, f"{a}: tonight's game has started before the add")
+                request_rebuild(s, f"{a}: today's roster lock passed before the add")
             continue
+        bkl = [b for b in (m.get("backups") or []) if b.get("net", 0) > 0]
+        tail = f" If he's gone: {bkl[0]['name']}." if bkl else ""
+        drop_txt = f"Drop {dr}" if dr else "Open roster spot"
         if claim:
             title = f"Tonight: claim {a}"
-            body = f"{drop_txt} in the claim. Waivers run {WV.when(w)}. {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
+            body = f"{drop_txt} in the claim. Waivers run {WV.when(w)}. {_kind_text(m)} +{m['gain']:.0f} pts.{tail}"
             acts = [btn("Claim in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
-        elif days_to == 0:
-            title = f"Now: add {a}"
-            body = f"{drop_txt}" + (f" before his {_fmt_t(tip)} tip" if tip is not None and m["on"] in (m["add"].get("games") or []) else "") + f". {kind.capitalize()}, +{m['gain']:.0f}.{tail}"
-            acts = [btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
         else:
-            title = f"Tomorrow: add {a}"
-            body = f"{drop_txt}. {kind.capitalize()}, +{m['gain']:.0f}. Nothing to do yet: if DFF's numbers back it tonight, a lock-in alert follows."
-            acts = [btn("Open plan", PLAN_URL)]
-        if (FORCE or not in_quiet()) and base + ":" + stage not in ann and base + ":lock" not in ann and not (days_to == 1 and base + ":today" in ann) and not (days_to == 0 and base + ":eve" in ann):   # told last night: the morning reminder below covers it
+            title = f"Now: add {a}"
+            body = f"{drop_txt}" + (f" before {_fmt_t(lock)}, when today's first game locks roster moves" if lock is not None else "") + f". {_kind_text(m)} +{m['gain']:.0f} pts.{tail}"
+            acts = [btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]
+        if (FORCE or not in_quiet()) and base + ":today" not in ann and base + ":lock" not in ann:
             if push(title, body, priority=4, tags=["arrows_counterclockwise"], actions=acts):
-                ann[base + ":" + stage] = TODAY.isoformat()
+                ann[base + ":today"] = TODAY.isoformat()
                 ann.setdefault(base, TODAY.isoformat())
-        # reminder: today's add still not made and his game is about two hours away
-        if days_to == 0 and pid in pool and tip is not None and base + ":rem" not in ann:
-            mins = (tip - NOW).total_seconds() / 60
-            if 0 < mins <= 120:
-                if push(f"Still to do: add {a}", f"{drop_txt} before his {_fmt_t(tip)} tip ({int(mins)} min).", priority=5, tags=["alarm_clock"], actions=[btn("Add in ESPN", espn_add(pid))]):
+        # reminder: today's add still not made and the day's roster lock is about two hours away
+        if not claim and pid in pool and lock is not None and base + ":rem" not in ann:
+            mins = (lock - NOW).total_seconds() / 60
+            if 5 < mins <= 120:
+                if push(f"Still to do: add {a}", f"{drop_txt} before {_fmt_t(lock)} ({int(mins)} min), when roster moves lock for today.", priority=5, tags=["alarm_clock"], actions=[btn("Add in ESPN", espn_add(pid))]):
                     ann[base + ":rem"] = TODAY.isoformat()
+
+
+def _kind_text(m):
+    """long-term, or a rental with the day to let him go"""
+    if m.get("keep"):
+        return "Long-term pickup,"
+    end = m.get("release") or m.get("hold_through") or m["on"]
+    return f"Rental: drop him after {_after(end)}," if end else "Rental,"
 
 
 # ---------- LOCK IN TONIGHT (2026-10-27, Tommy): ESPN locks roster moves at the day's first NBA tip (league setting rosterLocktimeType FIRSTGAME_SCORINGPERIOD; lineups
@@ -809,16 +843,15 @@ def lock_in_alert(lg, T, s, mine, can_send):
         a = m["add"]
         pid = int(a["id"])
         drop = m.get("drop") or {}
-        base = f"{pid}:{m['on']}:{drop.get('id')}"
+        dr = drop.get("name")
+        if drop.get("id") is not None and int(drop["id"]) not in mine_ids and m.get("chain"):
+            dr = m["chain"]
+        base = f"{pid}:{m['on']}:{norm(dr or '')}"
         if base + ":lock" in ann or pid in mine_ids or pid not in pool or a.get("waiver"):
             continue
         if not a.get("dff_on") or (a.get("dff_tag") or "").upper() in ("Q", "GTD", "D", "O") or (a.get("status") or "ACTIVE") != "ACTIVE" or m["gain"] < LOCK_MIN_GAIN:
             print(f"lock-in: {a['name']} not sent (DFF {'yes' if a.get('dff_on') else 'not posted'}, tag {a.get('dff_tag')}, {a.get('status')}, gain {m['gain']:+.0f})")
             continue
-        dr = drop.get("name")
-        if drop.get("id") is not None and int(drop["id"]) not in mine_ids and m.get("chain"):
-            dr = m["chain"]
-        kind = "long-term pickup" if m.get("keep") else ("rental" if (m.get("hold_through") or m["on"]) > m["on"] else "one-game rental")
         if tonight:
             title = f"Lock in tonight: add {a['name']}"
             body = (f"Drop {dr} now. It takes effect tomorrow; tonight's lineup is unchanged." if dr else "Add him now. It takes effect tomorrow.")
@@ -826,7 +859,7 @@ def lock_in_alert(lg, T, s, mine, can_send):
             title = f"Add {a['name']} now"
             body = f"Drop {dr}." if dr else "Open roster spot."
         pts = a.get("pts_on")
-        body += (f" DFF: {pts:.0f} {'tomorrow' if tonight else 'today'}." if pts else "") + f" {kind.capitalize()}, +{m['gain']:.0f}."
+        body += (f" DFF: {pts:.0f} pts {'tomorrow' if tonight else 'today'}." if pts else "") + f" {_kind_text(m)} +{m['gain']:.0f} pts."
         if push(title, body, priority=4, tags=["lock"], actions=[btn("Add in ESPN", espn_add(pid)), btn("Open plan", PLAN_URL)]):
             ann[base + ":lock"] = TODAY.isoformat()
             ann.setdefault(base, TODAY.isoformat())
@@ -990,18 +1023,12 @@ def first_tip_check(W, T, mine, off, s, can_send):
         today_plan = next((d for d in days_src if d["date"] == TODAY.isoformat()), None)
         probs = []
         tips = team_tips()
-        for p in mine.roster:
-            slot = p.lineupSlot
-            starting = slot not in ("BE", "IR")
-            is_out = (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or off.get(norm(p.name).replace(" ", "")) == "Out"
-            t_ = tips.get(canon(p.proTeam or ""))
-            if starting and is_out and t_ is not None and t_ > NOW:     # only matters if his team plays today and the game has not started (a starter with no game uses no start)
-                probs.append(f"Bench {p.name} ({slot}): out.")
+        # (a ruled-out starter is not listed here: the late-scratch alert covers him, with the swap; 2026-11-02 alert audit: one problem, one alert)
         if today_plan and not today_plan.get("locked") and today_plan.get("nba_teams"):     # a plan built without today's games (a failed schedule fetch, 2026-10-27) says nothing about today's lineup
             benched ={p.playerId: p for p in mine.roster if p.lineupSlot in ("BE", "IR")}
             for x in today_plan["start"]:
                 q = benched.get(x["id"])
-                if q is not None and q.injuryStatus not in ("OUT", "INJURY_RESERVE") and off.get(norm(q.name).replace(" ", "")) != "Out":
+                if q is not None and not ruled_out(q.injuryStatus, off.get(norm(q.name).replace(" ", ""))):
                     probs.append(f"Start {x['name']}: he's on your {'IR' if q.lineupSlot == 'IR' else 'bench'}.")
             # the other direction (2026-10-25): a player in your ESPN lineup whom the plan rests today to save a start under the games cap. Only players the plan knows
             # (someone you just added is not in the plan yet) and only if his game has not started.
@@ -1010,8 +1037,8 @@ def first_tip_check(W, T, mine, off, s, can_send):
             for p in mine.roster:
                 t_ = tips.get(canon(p.proTeam or ""))
                 if (p.lineupSlot not in ("BE", "IR") and int(p.playerId) in known and int(p.playerId) not in plan_ids and t_ is not None and t_ > NOW
-                        and p.injuryStatus not in ("OUT", "INJURY_RESERVE", "SUSPENSION") and off.get(norm(p.name).replace(" ", "")) != "Out"):
-                    probs.append(f"Bench {p.name}: not in today's plan (uses a start the plan saves).")
+                        and not ruled_out(p.injuryStatus, off.get(norm(p.name).replace(" ", "")))):
+                    probs.append(f"Bench {p.name} today: saving the start for a bigger day this week (games cap).")
         if probs:
             h = hashlib.md5("|".join(sorted(probs)).encode()).hexdigest()[:10]
             key = f"{TODAY.isoformat()}:{h}"
@@ -1086,7 +1113,8 @@ def fa_options(out_p, fa_pool, tips, now, n=2):
 
 
 def _fmt_t(dt):
-    return dt.strftime("%I:%M%p").lstrip("0").lower()
+    """7pm, 7:30pm"""
+    return dt.strftime("%I:%M%p").lstrip("0").lower().replace(":00", "")
 
 
 def scratch_message(out_p, tip, now, opts, fas, reason, tips):
@@ -1096,18 +1124,18 @@ def scratch_message(out_p, tip, now, opts, fas, reason, tips):
     if opts:
         val, b, slot, y = opts[0]
         if y is None:
-            lines.append(f"Start {b['name']} at {S} (~{val:.0f}).")
+            lines.append(f"Start {b['name']} at {S} (~{val:.0f} pts).")
         else:
-            lines.append(f"Move {y['name']} to {S}, start {b['name']} at {slot} (~{val:.0f}).")
+            lines.append(f"Move {y['name']} to {S}, start {b['name']} at {slot} (~{val:.0f} pts).")
         more = [b2["name"] for v2, b2, s2, y2 in opts[1:3]]
         if more:
             lines.append("Or: " + ", ".join(more) + ".")
     else:
         if fas:
             f = fas[0]
-            lines.append(f"No bench fit. Free agent: {f[1]['name']} (~{(f[1].get('tonight') or f[1]['level']):.0f}), costs an add.")
+            lines.append(f"No bench fit. Free agent: {f[1]['name']} (~{(f[1].get('tonight') or f[1]['level']):.0f} pts), costs an add. Add him before {_fmt_t(roster_lock())}, when roster moves lock." if roster_lock() else f"No bench fit. Free agent: {f[1]['name']} (~{(f[1].get('tonight') or f[1]['level']):.0f} pts), costs an add.")
         else:
-            lines.append("No bench or free-agent fit: leave it empty.")
+            lines.append("No bench fit" + (" (adds now only count from tomorrow)" if locked_now() else " and no free agent who fits") + ": leave it empty.")
     return "\n".join(lines)
 
 
@@ -1123,7 +1151,7 @@ def late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id):
         o = off.get(k)
         status = o or p.injuryStatus or "ACTIVE"
         pretend = p.name.lower() in PRETEND_OUT
-        out = pretend or (p.injuryStatus in ("OUT", "INJURY_RESERVE", "SUSPENSION")) or o in ("Out", "Doubtful")
+        out = pretend or ruled_out(p.injuryStatus, o)
         reason = "out (test)" if pretend else (f"{o.lower()} (injury report)" if o in ("Out", "Doubtful") else {"OUT": "out", "INJURY_RESERVE": "on IR", "SUSPENSION": "suspended"}.get(p.injuryStatus, "out"))
         roster.append({"id": p.playerId, "name": p.name, "slot": p.lineupSlot, "elig": list(getattr(p, "eligibleSlots", []) or []), "team": canon(p.proTeam or ""),
                        "out": out, "reason": reason if out else "", "p": 0.0 if out else P_STATUS.get(status, 0.94), "level": plan_by_id.get(p.playerId, {}).get("tonight") or plan_by_id.get(p.playerId, {}).get("level", 20.0)})
@@ -1148,11 +1176,11 @@ def late_scratch_watch(W, T, mine, off, s, can_send, plan_by_id):
         if not want:
             continue
         opts = swap_options(q, roster, tips, NOW)
-        fas = [] if opts else fa_options(q, W.get("fa_pool"), tips, NOW)
+        fas = [] if (opts or locked_now()) else fa_options(q, W.get("fa_pool"), tips, NOW)      # after today's roster lock an add only counts tomorrow
         body = scratch_message(q, tip, NOW, opts, fas, q["reason"], tips)
         title = (f"Still starting {q['name']} (out)" if want == 2 else f"Swap out {q['name']} by {_fmt_t(tip)}")
         if push(title, body, priority=5 if mins <= 60 else 4, tags=["rotating_light"], actions=[btn("Open my team", ESPN_TEAM)]):
-            lu[key] = want
+            lu[key] = 2 if mins <= 35 else want                  # first told inside 35 minutes: no second "still starting" right behind it
             _ledger("late_scratch", player=q["name"], stage=want, mins_to_tip=round(mins), swap=(opts[0][1]["name"] if opts else None))
 
 
