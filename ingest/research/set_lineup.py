@@ -62,38 +62,57 @@ def today_locked_teams(today):
 SLOT_CAP = {"PG": 1, "SG": 1, "SF": 1, "PF": 1, "C": 1, "G": 1, "F": 1, "UT": 3}
 
 
+SLOT_LIST = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
+
+
 def minimal_moves(cur, elig, want, plays, is_today, locked_teams, team_of):
-    """fewest moves that put the plan's starters in active slots. cur: pid -> (name, slot) for the day, elig: pid -> set of slot names he may fill,
-    want: pid -> the slot the plan chose (a preference only: a starter already in ANY active slot is fine, since points do not depend on which slot).
-    A player the plan does not start is benched only if he plays that day (the plan saves his game for the cap) or he holds a slot a starter needs; players with no game
-    that day stay put. Locked players (game already tipped today) are never moved. Returns (moves, problems)."""
+    """moves that put the plan's starters in the plan's OWN slots. cur: pid -> (name, slot) for the day, elig: pid -> set of slot names he may fill, want: pid -> the slot
+    the plan chose. The slot matters (2026-11-02, Tommy: the old version took any active slot as fine, so Murray stayed at SG after the plan moved him for late-swap cover,
+    and the preview said "no moves"): the late-swap planner picks slots so a late scratch can be covered. Locked players (game already tipped today) keep their slots; if one
+    holds a slot the plan wanted for someone else, the unlocked starters are re-matched to what is left, keeping as many of the plan's slots as possible. A player the plan
+    does not start is benched if he plays that day or holds a slot a starter needs; players with no game that day otherwise stay put. Returns (moves, problems)."""
     locked = {pid for pid in cur if is_today and team_of.get(pid) in locked_teams}
-    final = {pid: sl for pid, (nm, sl) in cur.items()}
-    for pid, (nm, sl) in cur.items():                          # non-starters who play that day: bench them
-        if pid not in want and sl in SLOT_CAP and pid in plays and pid not in locked:
-            final[pid] = "BE"
+    free = list(SLOT_LIST)
+    for pid in locked:
+        if cur[pid][1] in free:
+            free.remove(cur[pid][1])
+    starters = [pid for pid in want if pid in cur and pid not in locked]
+    match = {}                                                  # slot index in `free` -> starter
+    for pid in starters:                                        # the plan's own slot first
+        i = next((k for k, sl in enumerate(free) if sl == want[pid] and k not in match and sl in elig.get(pid, {sl})), None)
+        if i is not None:
+            match[i] = pid
+
+    def place(pid, seen):
+        for k, sl in enumerate(free):
+            if sl in elig.get(pid, ()) and k not in seen:
+                seen.add(k)
+                if k not in match or place(match[k], seen):
+                    match[k] = pid
+                    return True
+        return False
     problems = []
-    for pid, plan_slot in want.items():
-        if pid not in cur or final[pid] in SLOT_CAP or pid in locked:
-            continue                                           # missing from roster (reported by the caller), already in an active slot, or locked
-        options = [plan_slot] + [s for s in SLOT_CAP if s != plan_slot and s in elig.get(pid, ())]
-        if plan_slot not in elig.get(pid, set(SLOT_CAP)):
-            options = [s for s in SLOT_CAP if s in elig.get(pid, ())]
-        placed = False
-        for sname in options:
-            occ = [q for q, sl in final.items() if sl == sname]
-            if len(occ) < SLOT_CAP[sname]:
-                final[pid] = sname
-                placed = True
-                break
-            evict = [q for q in occ if q not in want and q not in locked]      # a player with no game, or one the plan benches
-            if evict:
-                final[evict[0]] = "BE"
-                final[pid] = sname
-                placed = True
-                break
-        if not placed:
-            problems.append(f"{cur[pid][0]}: no free or evictable slot he is eligible for (needs a swap chain)")
+    placed = set(match.values())
+    for pid in starters:
+        if pid not in placed and not place(pid, set()):
+            problems.append(f"{cur[pid][0]}: no slot he is eligible for is left (locked players hold them)")
+        placed = set(match.values())
+    final = {pid: sl for pid, (nm, sl) in cur.items()}
+    target = {pid: free[k] for k, pid in match.items()}
+    for pid, sl in target.items():
+        final[pid] = sl
+    used = {}
+    for pid in locked:
+        used[cur[pid][1]] = used.get(cur[pid][1], 0) + 1
+    for sl in target.values():
+        used[sl] = used.get(sl, 0) + 1
+    for pid, (nm, sl) in cur.items():                           # everyone else in an active slot: bench him if he plays that day or his slot is now needed
+        if pid in target or pid in locked or sl not in SLOT_CAP:
+            continue
+        if pid in plays or used.get(sl, 0) >= SLOT_CAP[sl]:
+            final[pid] = "BE"
+        else:
+            used[sl] = used.get(sl, 0) + 1
     moves = [{"id": pid, "name": cur[pid][0], "from": cur[pid][1], "to": final[pid]} for pid in cur if final[pid] != cur[pid][1]]
     return moves, problems
 

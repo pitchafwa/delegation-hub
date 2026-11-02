@@ -127,8 +127,24 @@ def best_assignment(starters, bench, current_slots, n=N_SIMS, seed=11):
                 v, f = _simulate(cand, starters, bench, draws)
                 if v > cur_v + 1e-9:
                     cur, cur_v, cur_f, improved = cand, v, f, True
+    # tie-break (2026-11-02, Tommy): when two placements score the same, the less certain player takes the more flexible slot (UT > G/F > a position), so news that comes
+    # earlier or later than the simulation assumes can still be covered by more bench players
+    ids = list(cur)
+    for x in ids:
+        for y in ids:
+            if x == y:
+                continue
+            sx, sy = cur[x], cur[y]
+            if (byid[x]["p"] < byid[y]["p"] - 0.02 and FLEX_RANK[SLOTS[sy]] > FLEX_RANK[SLOTS[sx]]
+                    and SLOTS[sy] in byid[x]["slots"] and SLOTS[sx] in byid[y]["slots"]):
+                cand = dict(cur)
+                cand[x], cand[y] = sy, sx
+                v, f = _simulate(cand, starters, bench, draws)
+                if v >= cur_v - 1e-6:
+                    cur, cur_v, cur_f = cand, max(v, cur_v), f
     gain = cur_v - v0
-    if gain < MIN_GAIN:
+    moved = any(cur[k] != base[k] for k in cur)
+    if gain < MIN_GAIN and not (moved and gain >= -1e-6):
         return current_slots, {"changed": False, "points": round(v0, 1), "filled": round(f0, 2), "no_cover": round(v_nocover, 1), "swap_value": round(v0 - v_nocover, 1), "gain": round(gain, 2),
                                "reason": "the plan's own slots are already as good as any alternative"}
     names = {pid: SLOTS[si] for pid, si in cur.items()}
