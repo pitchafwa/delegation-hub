@@ -2,8 +2,9 @@
 e.g.  python pull_recent_gamelogs.py 2024-25 2025-26.  Past seasons are static, so the daily refresh only re-pulls the current one.
 Writes data/game_logs/nba_api_<season>.csv (build_game_logs.py picks up every such file)."""
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from nba_api.stats.endpoints import leaguegamelog
 
@@ -20,6 +21,7 @@ seasons = sys.argv[1:] or [current_season()]
 for season in seasons:
     resp = leaguegamelog.LeagueGameLog(season=season, season_type_all_star="Regular Season", player_or_team_abbreviation="P", timeout=120)
     df = resp.get_data_frames()[0]
+    df = df[df.GAME_DATE < datetime.now(ZoneInfo("America/New_York")).date().isoformat()]   # tonight's games are still going: a mid-game run saved halftime stats (BOS@ORL, 2026-11-01)
     if len(df) == 0:
         print(season, "no games yet; nothing written")
         continue
