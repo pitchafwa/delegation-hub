@@ -144,5 +144,11 @@ def cover_for(starters, bench, slots_by_id):
             continue
         s = slots_by_id.get(p["i"])
         opts = [b for b in bench if b["tip"] >= p["tip"] and (s in b["slots"])]
+        # a two-step swap counts too (2026-11-02, Tommy: Murray at SG "had no cover", but Quickley, unlocked in UT until his 10pm tip, can slide into SG and Wiggins take UT)
+        for b in bench:
+            if b in opts or b["tip"] < p["tip"]:
+                continue
+            if any(y is not p and y["tip"] >= p["tip"] and s in y["slots"] and slots_by_id.get(y["i"]) in b["slots"] for y in starters):
+                opts.append(b)
         res[p["i"]] = [b["i"] for b in sorted(opts, key=lambda b: -b["p"] * b["pts"])[:2]]
     return res

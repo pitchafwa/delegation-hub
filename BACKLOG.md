@@ -442,6 +442,5 @@ Cost: none (Actions free for public repos; R2 free tier). Memory notes stay per 
 ESPN stores the games-played limit per scoring period (40/7 = 5.714, `lineupSlotStatLimits` statId 42). A matchup's limit = that x the days WITH NBA games, and it is
 reached at the whole number below (week 1: 34.29, RIP's 34 games were flagged `limitExceeded`). Election-day week 3 = 34, not 40. `season_calendar.py` now reads the
 per-day limit from ESPN and counts game days (`game_days`, `cap`, `cap_exact` per period).
-- OPEN: weeks whose exact cap ends in .5 or more (NBA Cup week Dec 7-13: 22.86 on today's incomplete schedule; All-Star matchup: 45.71) would be 23 / 46 if ESPN rounds
-  instead of rounding down. Check the number ESPN shows when those weeks start and set `games_cap` accordingly.
-- OPEN: the adds limit is also per scoring period (1.143 a day, `matchupAcquisitionLimit`); the plan still uses calendar days (8 this week). Confirm against ESPN's number.
+- RESOLVED same day: ESPN rounds to the NEAREST whole number. Tommy's ESPN page for week 3: games 0/34, adds 0/7 (6 game days x 8/7 = 6.86 -> 7). So the NBA Cup week
+  (22.86) is 23 and the All-Star matchup (45.71) is 46. The adds limit is read from ESPN too (`matchupAcquisitionLimit` x game days, `adds` per period).
