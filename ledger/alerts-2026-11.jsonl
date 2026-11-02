@@ -12,3 +12,6 @@
 {"kind":"alert","ts":"2026-11-02T16:04:59-05:00","title":"Now: add DeMar DeRozan","body":"Drop Nolan Traore before 7pm, when today's first game locks roster moves. Long-term pickup, +78 pts. If he's gone: Collin Sexton.","priority":4}
 {"kind":"alert","ts":"2026-11-02T17:30:30-05:00","title":"Swap out Dejounte Murray by 8pm","body":"Dejounte Murray (UT) is out (injury report).\nStart Draymond Green at UT (~36 pts).\nOr: Andrew Wiggins, Day'Ron Sharpe.","priority":4}
 {"kind":"late_scratch","ts":"2026-11-02T17:30:30-05:00","player":"Dejounte Murray","stage":1,"mins_to_tip":150,"swap":"Draymond Green"}
+{"kind":"alert","ts":"2026-11-02T17:44:00-05:00","title":"Still to do: add DeMar DeRozan","body":"Drop Nolan Traore before 7pm (76 min), when roster moves lock for today.","priority":5}
+{"kind":"alert","ts":"2026-11-02T17:44:00-05:00","title":"Now: add Collin Sexton","body":"Open roster spot before 7pm, when today's first game locks roster moves. Rental: drop him after his Sun game, +45 pts. If he's gone: Mitchell Robinson.","priority":4}
+{"kind":"alert","ts":"2026-11-02T17:44:00-05:00","title":"Still to do: add Collin Sexton","body":"Open roster spot before 7pm (76 min), when roster moves lock for today.","priority":5}
