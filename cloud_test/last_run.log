@@ -1,35 +1,35 @@
-[09:47:13] START hashtag_mkt: pull_hashtag_dynasty.py 
-[09:47:14] OK   hashtag_mkt (1s)
-[09:47:14] START espn_adp: pull_espn_adp.py 2027
-[09:47:17] OK   espn_adp (3s)
-[09:47:17] START espn_positions: pull_espn_positions.py 
-[09:47:19] OK   espn_positions (2s)
-[09:47:19] START injury_reports: pull_injury_reports_hourly.py update
-[09:47:20] OK   injury_reports (1s)
-[09:47:20] START espn_box: pull_espn_box.py 2026-27 --prefix 
-[09:47:22] OK   espn_box (2s)
-[09:47:22] START rotation_status: build_rotation_status.py 
-[09:47:23] OK   rotation_status (1s)
-[09:47:23] START gamelogs_unify: build_game_logs.py 
-[09:47:25] OK   gamelogs_unify (3s)
-[09:47:25] START form_split: build_form_split.py 
-[09:47:29] OK   form_split (3s)
-[09:47:29] START matchup_context: build_matchup_context.py 
-[09:47:30] OK   matchup_context (2s)
-[09:47:30] no new games since the last refresh: model chain not rerun
-[09:47:30] START injury_rows: injury_playrate_study.py 
-[09:48:26] OK   injury_rows (55s)
-[09:48:26] START injury_episodes: injury_recurrence_study.py 
-[09:48:54] OK   injury_episodes (29s)
-[09:48:54] START injury_risk: build_injury_risk.py 
-[09:49:06] OK   injury_risk (11s)
-[09:49:06] START build_hub_data: build_hub_data.py 
-[09:49:09] OK   build_hub_data (3s)
-[09:49:09] START build_trades: build_trades.py 
-[09:49:45] OK   build_trades (36s)
-[09:49:45] START build_redraft: build_redraft.py 
-[09:49:52] OK   build_redraft (7s)
-[09:49:52] START pull_player_news: pull_player_news.py 
-[09:49:58] OK   pull_player_news (6s)
-[09:49:58] --no-push: skipping git
-[09:49:58] DONE ok=True 
+[09:53:58] START hashtag_mkt: pull_hashtag_dynasty.py 
+[09:54:00] OK   hashtag_mkt (1s)
+[09:54:00] START espn_adp: pull_espn_adp.py 2027
+[09:54:02] OK   espn_adp (3s)
+[09:54:02] START espn_positions: pull_espn_positions.py 
+[09:54:04] OK   espn_positions (2s)
+[09:54:04] START injury_reports: pull_injury_reports_hourly.py update
+[09:54:05] OK   injury_reports (1s)
+[09:54:05] START espn_box: pull_espn_box.py 2026-27 --prefix 
+[09:54:07] OK   espn_box (2s)
+[09:54:07] START rotation_status: build_rotation_status.py 
+[09:54:08] OK   rotation_status (1s)
+[09:54:08] START gamelogs_unify: build_game_logs.py 
+[09:54:11] OK   gamelogs_unify (3s)
+[09:54:11] START form_split: build_form_split.py 
+[09:54:13] OK   form_split (2s)
+[09:54:13] START matchup_context: build_matchup_context.py 
+[09:54:14] OK   matchup_context (1s)
+[09:54:14] no new games since the last refresh: model chain not rerun
+[09:54:14] START injury_rows: injury_playrate_study.py 
+[09:54:48] OK   injury_rows (34s)
+[09:54:48] START injury_episodes: injury_recurrence_study.py 
+[09:55:06] OK   injury_episodes (18s)
+[09:55:06] START injury_risk: build_injury_risk.py 
+[09:55:14] OK   injury_risk (8s)
+[09:55:14] START build_hub_data: build_hub_data.py 
+[09:55:16] OK   build_hub_data (2s)
+[09:55:16] START build_trades: build_trades.py 
+[09:55:45] OK   build_trades (29s)
+[09:55:45] START build_redraft: build_redraft.py 
+[09:55:51] OK   build_redraft (6s)
+[09:55:51] START pull_player_news: pull_player_news.py 
+[09:55:58] OK   pull_player_news (7s)
+[09:55:58] --no-push: skipping git
+[09:55:58] DONE ok=True 
