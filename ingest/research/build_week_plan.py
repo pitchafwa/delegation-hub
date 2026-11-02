@@ -106,6 +106,7 @@ GAMES_PER_WEEK = 3.3
 RECLAIM_LOSE = float(os.environ.get("RECLAIM_LOSE", "0.15"))       # stream manager: a rostered player you drop for a rental can be re-added when the stream ends (he clears waivers in about 40 hours, then anyone can add him); the chance he is
                            # lost meanwhile (claimed by a team, or picked up as a free agent) is about 18% (waiver_intel.json: a good starter on waivers is claimed ~18% of the time) plus some free-agent exposure
 CHAIN_STEP_MIN = float(os.environ.get("CHAIN_STEP_MIN", "5"))        # inside a stream chain (the slot's future cost is already paid) a further rental that only swaps one streamer for another is worth making from this many points: unspent adds are wasted
+WAIT_TIE = 0.1      # points per day: when adding later is worth the same, add later (2026-11-02, Tommy: an add costs a move, and waiting lets news come in first)
 MIN_NET_GAIN = float(os.environ.get("MIN_NET_GAIN", "6"))         # a move must be worth at least this many points AFTER subtracting the future cost
 SOLID_LEVEL = 28           # drops at/above this projection are flagged 'solid contributor'
 NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / "never_drop.json")).get("names", [])} if (Path(__file__).resolve().parent / "never_drop.json").exists() else set()
@@ -422,6 +423,8 @@ def _p_play0(pl, d):
     if pl.get("from") and d < pl["from"]:         # add-timing what-ifs: he joins the roster on this date
         return 0.0
     if pl.get("until") and d > pl["until"]:       # stream manager: he is dropped after this date (last day he is on the roster)
+        return 0.0
+    if pl.get("_back") and d < pl["_back"]:       # out until ESPN's return date (plan_ir)
         return 0.0
     if d == today and pl.get("sat_today"):        # his game tipped with him on the bench
         return 0.0
@@ -883,6 +886,28 @@ if IA_R is not None and AV is not None:
             _n_ramping += 1
 print(f"post-return ramp: {_n_ramping} player(s) currently ramping up from a long absence")
 
+# ---------- INJURED-PLAYER ADVISOR (injury_advisor.py): how long will he be out, how does he come back, is he worth the roster spot
+try:
+    import injury_advisor as IA
+    ESPN_INJ = IA.espn_injuries()
+except Exception as _ex:
+    IA, ESPN_INJ = None, {}
+    print("injury advisor unavailable:", _ex)
+
+
+def espn_back(espn_id):
+    """ESPN's return date for a player listed out (2026-11-02, Tommy: default to ESPN's date). None when ESPN gives no date or he is not listed out.
+    A date that has already arrived while he is still out today means 'any game now': taken as tomorrow."""
+    info = ESPN_INJ.get(int(espn_id)) if espn_id is not None else None
+    if not info or not info.get("return_date") or (info.get("status") or "").lower() != "out":
+        return None
+    try:
+        rd = date.fromisoformat(info["return_date"][:10])
+    except ValueError:
+        return None
+    return max(rd, today + timedelta(days=1))
+
+
 # ---------- USAGE FLOW: when a rotation player is out, his teammates pick up his production (usage_flow.py; 14 seasons of box scores, tested out of time on 2024-26).
 # Adds a per-day boost to every teammate's level (rostered players and free agents alike), so lineups, adds, drops and timing all see it.
 USAGE = {"enabled": False, "absent": 0, "boosted": 0}
@@ -944,7 +969,9 @@ try:
             if not (_gd and any(v > 0 and (today - date.fromisoformat(g_)).days <= 3 for g_, v in _gd.items())):
                 streak = max(streak, 8)   # ESPN says out and the report does not list him: a long-term absence -- unless he played in the last 3 days
                                           # (ESPN kept Curry's one-night rest flagged OUT the next morning: a full week's boost for his teammates, 2026-11-02)
-        absent.append({"id": k_, "team": tm_, "status0": status0, "streak": streak, "listed": lst, "p_today": 0.5 if today_st == "Questionable" else 0.0})
+        _bk = espn_back(pl_["espn_id"]) if (pl_ and status0 == "Out") else None
+        absent.append({"id": k_, "team": tm_, "status0": status0, "streak": streak, "listed": lst, "p_today": 0.5 if today_st == "Questionable" else 0.0,
+                       "back": _bk.isoformat() if _bk else None})
     tgn = lambda team, d: sum(1 for dd in plan_days if dd < d and plays(team, dd))
     # confirmed tonight's starting lineups (pull_lineups.py -- RotoWire, local daily refresh only, same-day only, UNVALIDATED against a real
     # game as of 2026-09-30, see that file's docstring). Matched by re-normalizing ITS raw names through this file's own norm()/kof(), since
@@ -1429,7 +1456,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                                 h.update({"net": round(float(net), 1), "adj": round(float(adj), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"], "drop_level": tgt["level"], "on": s_.isoformat(), "team": f["team"]})
                             if s_ == plan_days[0] and (h["now"] is None or net > h["now"]["net"]):      # the same, but only 'add him today' (what the pickup alert is asking)
                                 h["now"] = {"net": round(float(net), 1), "wk": round(float(wk), 1), "fut": round(float(fc), 1), "drop": tgt["name"], "drop_level": tgt["level"]}
-                        if best is None or adj > best["adj"]:
+                        if best is None or adj + WAIT_TIE * (s_ - today).days > best["adj"] + WAIT_TIE * (best["s"] - today).days:
                             best = {"net": net, "adj": adj, "risk": risk, "wk": wk, "f": f, "s": s_, "e": e_, "tgt": tgt, "kind": kind, "new": new, "fut": fc, "d_this": d_this, "d_next": d_next}
             if os.environ.get("STREAM_DEBUG"):
                 print("  [stream]", ("chain via " + forced["name"] + " ") if forced is not None else "", "round best:", None if best is None else (best["f"]["name"], "add day", best["s"].isoformat(), "hold to", best["e"].isoformat() if best["e"] else "KEEP", "drop", (best["tgt"] or {}).get("name"), best["kind"], "week", round(best["wk"], 1), "future", round(best["fut"], 1), "net", round(best["net"], 1)))
@@ -1520,13 +1547,6 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     return seq, ros
 
 
-# ---------- INJURED-PLAYER ADVISOR (injury_advisor.py): how long will he be out, how does he come back, is he worth the roster spot
-try:
-    import injury_advisor as IA
-    ESPN_INJ = IA.espn_injuries()
-except Exception as _ex:
-    IA, ESPN_INJ = None, {}
-    print("injury advisor unavailable:", _ex)
 TEAM_DATES = {}
 _sp = HUB / "nba_schedule.json"
 if _sp.exists():
@@ -1571,6 +1591,7 @@ def advise_injuries(r, total, c0, key_of, ir_free):
         if len(f) == 5 and f[0]:
             forced[key_of(f[0])] = dict(status="Out", type=f[1], detail=f[2], side=f[3], return_date=f[4] or None, short="(test)", updated=None)
     for pl in r:
+        pl = dict(pl, ir=pl.get("_ir_now", pl["ir"]), status=pl.get("_status_now", pl["status"]))      # a planned return (plan_ir) is still out today
         info = forced.get(key_of(pl["name"])) or ESPN_INJ.get(int(pl["espn_id"]))
         long_out = pl["status"] in ("OUT", "INJURY_RESERVE") or pl["ir"] or (info and info.get("status") == "Out") or key_of(pl["name"]) in forced
         if not long_out:
@@ -1593,8 +1614,7 @@ def advise_injuries(r, total, c0, key_of, ir_free):
             if rd >= (SEASON_END or "9999"):
                 g_espn = g_season
         ours = med if med is not None else IA.KS[-1] + 10        # beyond the grid: 45+ games
-        # in season take the LATER of our history and ESPN's date (team timelines run optimistic); in the offseason ESPN's date is the better guide
-        plan_games = (g_espn if g_espn is not None else ours) if pre else (max(ours, g_espn) if g_espn is not None else ours)
+        plan_games = g_espn if g_espn is not None else ours      # ESPN's return date when it gives one (2026-11-02, Tommy); our history only fills in when it doesn't
         plan_games = min(plan_games, g_season)
         back_now = bool(pl["ir"] and pl["status"] not in IR_OK + ("SUSPENSION",) and not (info and info.get("status") == "Out"))
         if back_now:
@@ -1688,6 +1708,35 @@ def plan_ir(r, mine=True):
         # while he is there, so activating him costs a drop, and an add after that costs a second drop. Nobody is assumed to activate: for me the unlock check below
         # decides whether activating (and the adds it unlocks) beats staying put; an opponent is taken to stay put and make no adds.
         moves.append({"id": p["espn_id"], "name": p["name"], "action": "stay_ir", "status": p["status"], "level": p["level"]})
+    # RETURNS (2026-11-02, Tommy: default to ESPN's return date). A player listed out with an ESPN return date inside the planning window plays from that date and
+    # needs a roster spot from then. If the roster is full that day, the lowest long-run player who isn't protected is dropped the day he returns. (Before this, everyone
+    # out was out for the whole week: Sexton was suggested into Murray's spot two days before Murray's listed return, which would have made him a wasted add.)
+    horizon = (LOOK_DAYS or plan_days)[-1]
+    rets = []
+    for k, p in plan.items():
+        if not (p["ir"] or p["status"] in IR_OK) or p["status"] == "SUSPENSION":
+            continue
+        bk = espn_back(p["espn_id"])
+        if bk and bk <= horizon:
+            rets.append((bk, k))
+    for bk, k in sorted(rets):
+        p = plan[k]
+        # on IR: off the roster count until he is back. On the bench: already on it, he just doesn't play before then
+        plan[k] = dict(p, ir=False, status="ACTIVE", _ir_now=p["ir"], _status_now=p["status"], _back=bk, **({"from": max(bk, p.get("from") or bk)} if p["ir"] else {}))
+        mv = {"id": p["espn_id"], "name": p["name"], "action": "return", "status": p["status"], "level": p["level"], "on": bk.isoformat(), "drop": None}
+        n = sum(1 for q in plan.values() if not q["ir"] and not (q.get("from") and q["from"] > bk) and not (q.get("until") and q["until"] < bk))
+        if n > ROSTER_SPOTS:
+            cand = [q for q in plan.values() if not q["ir"] and not q.get("_back") and not q.get("until") and q["espn_id"] not in prot]
+            if k not in prot:
+                cand.append(plan[k])                     # the returning player himself, when he is the weakest: he isn't worth a roster spot
+            if cand:
+                x = min(cand, key=long_level)
+                if x["espn_id"] == k:
+                    plan[k] = p                          # never comes back into the plan
+                else:
+                    plan[x["espn_id"]] = dict(x, until=bk - timedelta(days=1))
+                mv["drop"] = {"id": x["espn_id"], "name": x["name"], "level": x["level"], "asset_rank": x["asset_rank"]}
+        moves.append(mv)
     return list(plan.values()), moves
 
 
@@ -1859,7 +1908,7 @@ for t in lg.teams:
             print("IR unlock:", _m["name"], _m["action"], _m.get("on"), (_m.get("drop") or {}).get("name"), "value", round(_best[0], 1) if _best else None, "blocked adds worth", _m["blocked"])
         except Exception as _ex:
             print("IR unlock check failed:", repr(_ex)[:160])
-    _ir_free = max(0, 4 - len([p for p in r if p["ir"]]))
+    _ir_free = max(0, 4 - len([p for p in r if p.get("_ir_now", p["ir"])]))
     # IR STASH (study #7): only when it is free -- an open IR slot AND an add that would otherwise go unused (the matchup's last day, a week already decided, or a
     # playoff week without a matchup) -- and the player's Season-tab value is clearly high. Stash candidates come from the last schedule_plan.json build.
     stash_suggest = None
@@ -1894,9 +1943,9 @@ for t in lg.teams:
                       "starts_so_far": so_far[t.team_id]["starts"], "pts_so_far": round(so_far[t.team_id]["pts"], 1),
                       "adds_used": (tc.get("matchupAcquisitionTotals") or {}).get(str(mp_id), 0),
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1), "stream_exp": round(_stream, 1), "adds_left": adds_left,
-                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "bridge": (BRIDGE if t.team_abbrev == MY_ABBREV else []), "espn_ids": (MY_ESPN_IDS_NOW if t.team_abbrev == MY_ABBREV else None), "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p["ir"]]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p["ir"]]), "ir_of": IR_SLOTS},
-                      "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p["status"], "level": p["level"], "src": p["src"],
-                                  "ir": p["ir"], "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "next": next_pts(p), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))], "ll": round(long_level(p), 1), **last_day(p)}
+                      "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "bridge": (BRIDGE if t.team_abbrev == MY_ABBREV else []), "espn_ids": (MY_ESPN_IDS_NOW if t.team_abbrev == MY_ABBREV else None), "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p.get("_ir_now", p["ir"])]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p.get("_ir_now", p["ir"])]), "ir_of": IR_SLOTS},
+                      "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p.get("_status_now", p["status"]), "level": p["level"], "src": p["src"],
+                                  "ir": p.get("_ir_now", p["ir"]), "back": p["_back"].isoformat() if p.get("_back") else None, "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "next": next_pts(p), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))], "ll": round(long_level(p), 1), **last_day(p)}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 
@@ -1949,8 +1998,7 @@ def build_stash():
                 if rd >= (SEASON_END or "9999"):
                     g_espn = g_season
             ours = med if med is not None else IA.KS[-1] + 10
-            pre_ = today < SEASON_START
-            pg = (g_espn if g_espn is not None else ours) if pre_ else (max(ours, g_espn) if g_espn is not None else ours)
+            pg = g_espn if g_espn is not None else ours
             pg = min(pg, g_season)
             ds_ = sorted(d for d in TEAM_DATES.get(f["team"], ()) if d >= t0)
             i_ = int(round(pg))

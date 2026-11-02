@@ -89,7 +89,8 @@ def plan_boosts(days, team_players, absent, plays, team_game_no, w_recent=0.45, 
     """Expected extra fantasy points per game for every teammate on each day.
        days            list of dates (objects with .isoformat())
        team_players    {team: [dict(id, fp, mpg, pos, name)]} for each NBA team (players who might play)
-       absent          list of dict(id, team, status0 'Out'|'Doubtful'|'Questionable', streak int, listed {date_iso: status}, p_today for Q/D)
+       absent          list of dict(id, team, status0 'Out'|'Doubtful'|'Questionable', streak int, listed {date_iso: status}, p_today for Q/D,
+                        back = ESPN's return date (iso) or None)
        plays(team, d)  whether the team plays that day;  team_game_no(team, d) = games the team plays between today and d (0 = today)
        will_start      optional {id: True/False}, confirmed tonight's starting lineup (see pull_lineups.py) -- only ever known for TODAY
                         (k==0; that source has no visibility into future days), so it's only consulted there.
@@ -117,6 +118,8 @@ def plan_boosts(days, team_players, absent, plays, team_game_no, w_recent=0.45, 
                     p = 0.97
                 elif listed == "Questionable":
                     p = 0.5
+                elif a.get("back"):                     # ESPN's return date (2026-11-02): out until then, back from then
+                    p = 1.0 if ds < a["back"] else 0.0
                 elif a["status0"] == "Out":
                     p = absence_survival(a["streak"], k) if k > 0 else 1.0
                 elif k == 0:

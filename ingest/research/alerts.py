@@ -247,7 +247,8 @@ def digest(kind):
         for m in T["ir_moves"][:3]:
             lines.append({"to_ir": f"IR: move {m['name']} ({STATUS_WORD.get(m['status'], m['status'].lower())}) to an open IR slot", "activate": f"IR: {m['name']} is healthy but stuck in IR, activate him",
                           "activate_swap": f"IR: activate {m['name']} and drop {m.get('drop', {}).get('name', '?')}" + (f" on {date.fromisoformat(m['on']).strftime('%a')}" if m.get("on") and m["on"] > TODAY.isoformat() else "") + (" (unlocks adds)" if m.get("unlock") else ""),
-                          "stay_ir": f"IR: keep {m['name']} on IR (healthy, so adds stay locked; no add is worth two drops)"}.get(m["action"], f"IR: {m['name']}: {m['action']}"))
+                          "stay_ir": f"IR: keep {m['name']} on IR (healthy, so adds stay locked; no add is worth two drops)",
+                          "return": f"IR: {m['name']} back {date.fromisoformat(m['on']).strftime('%a') if m.get('on') else 'soon'} (ESPN's date)" + ((", not worth a spot: drop him then" if m["drop"]["id"] == m["id"] else f", drop {m['drop']['name']} then") if m.get("drop") else "")}.get(m["action"], f"IR: {m['name']}: {m['action']}"))
     mv = best_moves(T, 5 if kind == "weekly" else 3)
     adds_left = M["adds_limit"] - T.get("adds_used", 0)
     lines.append(f"Planned moves ({adds_left} of {M['adds_limit']} adds left):" if mv else "No moves planned this week.")
