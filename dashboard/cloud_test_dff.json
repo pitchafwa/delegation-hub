@@ -1,0 +1,22 @@
+{
+ "date": "2026-11-02",
+ "day": "2026-11-01",
+ "dff": {
+  "laptop": 146,
+  "cloud": 146,
+  "matched": 146,
+  "only_laptop": 0,
+  "only_cloud": 0,
+  "cloud_minus_laptop_median_min": 0.0,
+  "cloud_later_by_15min_plus": 0
+ },
+ "injuries": {
+  "laptop": 65,
+  "cloud": 65,
+  "matched": 65,
+  "only_laptop": 0,
+  "only_cloud": 0,
+  "cloud_minus_laptop_median_min": 0.0,
+  "cloud_later_by_15min_plus": 0
+ }
+}
