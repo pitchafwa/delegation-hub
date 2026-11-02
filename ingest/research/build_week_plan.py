@@ -932,7 +932,10 @@ try:
         if pl_ and pl_["ir"]:
             streak = max(streak, 15)
         elif espn_out and today_st is None:
-            streak = max(streak, 8)       # ESPN says out and the report does not list him: a long-term absence
+            _gd = AV.game_dates(pl_["espn_id"]) if AV and pl_ else None
+            if not (_gd and any(v > 0 and (today - date.fromisoformat(g_)).days <= 3 for g_, v in _gd.items())):
+                streak = max(streak, 8)   # ESPN says out and the report does not list him: a long-term absence -- unless he played in the last 3 days
+                                          # (ESPN kept Curry's one-night rest flagged OUT the next morning: a full week's boost for his teammates, 2026-11-02)
         absent.append({"id": k_, "team": tm_, "status0": status0, "streak": streak, "listed": lst, "p_today": 0.5 if today_st == "Questionable" else 0.0})
     tgn = lambda team, d: sum(1 for dd in plan_days if dd < d and plays(team, dd))
     # confirmed tonight's starting lineups (pull_lineups.py -- RotoWire, local daily refresh only, same-day only, UNVALIDATED against a real
