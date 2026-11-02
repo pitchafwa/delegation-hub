@@ -1,0 +1,360 @@
+{
+ "date": "2026-11-02",
+ "at": "2026-11-02T09:26-05:00",
+ "cloud_run": {
+  "ok": true,
+  "note": "",
+  "failed": [],
+  "minutes": 4.9,
+  "steps": {
+   "hashtag_mkt": 1,
+   "espn_adp": 3,
+   "espn_positions": 2,
+   "injury_reports": 1,
+   "espn_box": 4,
+   "rotation_status": 1,
+   "gamelogs_unify": 2,
+   "form_split": 3,
+   "matchup_context": 1,
+   "kalman_inputs": 3,
+   "kalman_trajectories": 76,
+   "prospect_trajectories": 48,
+   "asset_value": 5,
+   "injury_rows": 34,
+   "injury_episodes": 18,
+   "injury_risk": 8,
+   "build_hub_data": 2,
+   "build_trades": 29,
+   "build_redraft": 6,
+   "pull_player_news": 7,
+   "trade_context": 3,
+   "trade_finder": 37
+  }
+ },
+ "laptop_run": {
+  "finished": "2026-11-01T17:58:40-05:00",
+  "failed": [],
+  "today": false
+ },
+ "box": {
+  "stale": "2026-11-01"
+ },
+ "dff": null,
+ "models": {
+  "keeper_value": {
+   "n": 599,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.9733,
+   "mean_abs": 0.054,
+   "max": 2.5,
+   "worst": [
+    "Yaxel Lendeborg: laptop 14.7, cloud 17.2",
+    "Jayson Tatum: laptop 34.3, cloud 36.8",
+    "Anthony Black: laptop 10.0, cloud 12.3",
+    "Franz Wagner: laptop 21.6, cloud 23.6",
+    "Paul George: laptop 15.2, cloud 16.9"
+   ]
+  },
+  "delco_season": {
+   "n": 757,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.9524,
+   "mean_abs": 0.076,
+   "max": 2.7,
+   "worst": [
+    "Yaxel Lendeborg: laptop 38.3, cloud 41.0",
+    "Jayson Tatum: laptop 56.6, cloud 59.2",
+    "Anthony Black: laptop 32.2, cloud 34.6",
+    "Franz Wagner: laptop 44.2, cloud 46.3",
+    "Paul George: laptop 38.7, cloud 40.5"
+   ]
+  },
+  "kalman_now": {
+   "n": 757,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.9868,
+   "mean_abs": 0.039,
+   "max": 3.3,
+   "worst": [
+    "Yaxel Lendeborg: laptop 41.4, cloud 44.7",
+    "Nick Martinelli: laptop 6.8, cloud 9.9",
+    "Keaton Wagler: laptop 37.2, cloud 35.1",
+    "Allen Graves: laptop 18.3, cloud 16.4",
+    "Jaden Bradley: laptop 7.1, cloud 8.7"
+   ]
+  },
+  "proj_fpg": {
+   "n": 415,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 1.0,
+   "mean_abs": 0.0,
+   "max": 0.0,
+   "worst": []
+  },
+  "injury_tier": {
+   "n": 368,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0,
+   "within": 0.9864,
+   "mean_abs": 0.019,
+   "max": 3.0,
+   "worst": [
+    "Egor Dëmin: laptop 0.0, cloud 3.0",
+    "Donovan Clingan: laptop 1.0, cloud 0.0",
+    "Jaime Jaquez Jr.: laptop 2.0, cloud 1.0",
+    "Patrick Williams: laptop 1.0, cloud 0.0",
+    "Jaxson Hayes: laptop 2.0, cloud 1.0"
+   ]
+  },
+  "rest_of_season_ppg": {
+   "n": 478,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.9289,
+   "mean_abs": 0.115,
+   "max": 2.7,
+   "worst": [
+    "Yaxel Lendeborg: laptop 38.3, cloud 41.0",
+    "Jayson Tatum: laptop 56.6, cloud 59.2",
+    "Anthony Black: laptop 32.2, cloud 34.6",
+    "Franz Wagner: laptop 44.2, cloud 46.3",
+    "Cameron Carr: laptop 14.1, cloud 12.1"
+   ]
+  },
+  "next_days": {
+   "n": 478,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.8285,
+   "mean_abs": 0.329,
+   "max": 6.2,
+   "worst": [
+    "Moussa Cisse: laptop 12.2, cloud 18.4",
+    "Dennis Schroder: laptop 32.5, cloud 38.2",
+    "Nikola Vucevic: laptop 24.7, cloud 19.5",
+    "Jayson Tatum: laptop 55.5, cloud 59.5",
+    "Anthony Black: laptop 30.8, cloud 34.7"
+   ]
+  },
+  "last10": {
+   "n": 468,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.8397,
+   "mean_abs": 0.432,
+   "max": 18.3,
+   "worst": [
+    "Moussa Cisse: laptop 4.4, cloud 22.7",
+    "Terrence Shannon Jr.: laptop 32.5, cloud 19.2",
+    "Nikola Jovic: laptop 9.6, cloud 21.1",
+    "Nikola Vucevic: laptop 15.3, cloud 24.4",
+    "Bogdan Bogdanovic: laptop 13.7, cloud 21.4"
+   ]
+  },
+  "minutes10": {
+   "n": 468,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.8761,
+   "mean_abs": 0.302,
+   "max": 13.0,
+   "worst": [
+    "Moussa Cisse: laptop 3.5, cloud 16.5",
+    "Terrence Shannon Jr.: laptop 24.8, cloud 16.9",
+    "Nikola Jovic: laptop 12.1, cloud 19.6",
+    "Moussa Diabate: laptop 29.0, cloud 21.6",
+    "Nikola Vucevic: laptop 13.2, cloud 20.2"
+   ]
+  },
+  "games_left": {
+   "n": 478,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 0.5,
+   "within": 0.7238,
+   "mean_abs": 0.376,
+   "max": 9.8,
+   "worst": [
+    "Noah Penda: laptop 20.2, cloud 10.4",
+    "Brandon Ingram: laptop 18.2, cloud 9.0",
+    "Dominick Barlow: laptop 8.9, cloud 16.5",
+    "Egor Demin: laptop 14.9, cloud 7.4",
+    "Jonathan Isaac: laptop 54.1, cloud 49.1"
+   ]
+  },
+  "rank": {
+   "n": 478,
+   "only_pc": 1,
+   "only_cloud": 1,
+   "tol": 2,
+   "within": 0.6632,
+   "mean_abs": 3.617,
+   "max": 111.0,
+   "worst": [
+    "Brandon Ingram: laptop 341.0, cloud 452.0",
+    "Kristaps Porzingis: laptop 328.0, cloud 398.0",
+    "Cameron Carr: laptop 305.0, cloud 362.0",
+    "Gui Santos: laptop 200.0, cloud 244.0",
+    "Braden Smith: laptop 352.0, cloud 390.0"
+   ]
+  },
+  "rotation": {
+   "out_pc": 65,
+   "out_cloud": 75,
+   "only_pc": [
+    "bronny james",
+    "gary trent",
+    "justin edwards",
+    "karim lopez",
+    "micah peavy",
+    "oliviermaxence prosper",
+    "pacome dadiet",
+    "terance mann",
+    "trendon watford"
+   ],
+   "only_cloud": [
+    "blake hinson",
+    "chris manon",
+    "chris youngblood",
+    "dalton knecht",
+    "enrique freeman",
+    "hannes steinbach",
+    "jakobi gillespie",
+    "jayson kent",
+    "jericho sims",
+    "khalifa diop",
+    "kobe bufkin",
+    "kylan boswell",
+    "lawson lovering",
+    "liam mcneeley",
+    "pj hall"
+   ]
+  },
+  "form": {
+   "pc": 268,
+   "cloud": 275,
+   "only_pc": [],
+   "only_cloud": [
+    "alijahmartin",
+    "babamiller",
+    "brandinpodziemski",
+    "charlesbassey",
+    "grahamike",
+    "jadenbradley",
+    "ruihachimura"
+   ]
+  },
+  "team_matchup": {
+   "n": 186,
+   "only_pc": 0,
+   "only_cloud": 0,
+   "tol": 0.01,
+   "within": 0.4247,
+   "mean_abs": 0.54,
+   "max": 6.32,
+   "worst": [
+    "ORL.fpG: laptop 129.5, cloud 135.8",
+    "BOS.fpG: laptop 112.1, cloud 116.2",
+    "TOR.fpG: laptop 120.7, cloud 124.8",
+    "LAL.fpG: laptop 133.3, cloud 137.0",
+    "ORL.pace: laptop 109.0, cloud 112.5"
+   ]
+  }
+ },
+ "plan": {
+  "days": [
+   {
+    "date": "2026-11-02",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   },
+   {
+    "date": "2026-11-03",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   },
+   {
+    "date": "2026-11-04",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   },
+   {
+    "date": "2026-11-05",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   },
+   {
+    "date": "2026-11-06",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   },
+   {
+    "date": "2026-11-07",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   },
+   {
+    "date": "2026-11-08",
+    "same": true,
+    "only_pc": [],
+    "only_cloud": []
+   }
+  ],
+  "starters_same_days": 7,
+  "n_days": 7,
+  "moves_pc": [
+   "+DeMar DeRozan -Brandon Williams",
+   "+Noah Clowney -Grayson Allen",
+   "+Andrew Wiggins -Nolan Traore"
+  ],
+  "moves_cloud": [
+   "+DeMar DeRozan -Brandon Williams",
+   "+Noah Clowney -Grayson Allen",
+   "+Andrew Wiggins -Nolan Traore"
+  ],
+  "moves_same": true,
+  "ir_pc": [
+   "to_ir Gui Santos",
+   "activate Draymond Green"
+  ],
+  "ir_cloud": [
+   "to_ir Gui Santos",
+   "activate Draymond Green"
+  ],
+  "ir_same": true,
+  "tonight_pc": [
+   "Andrew Wiggins",
+   "Bilal Coulibaly",
+   "Collin Sexton"
+  ],
+  "tonight_cloud": [
+   "Andrew Wiggins",
+   "Bilal Coulibaly",
+   "Collin Sexton"
+  ],
+  "tonight_same": true,
+  "win_pc": 0.715,
+  "win_cloud": 0.701,
+  "expected_pc": 1665.9,
+  "expected_cloud": 1668.9
+ }
+}

@@ -1,0 +1,46 @@
+[09:21:05] START hashtag_mkt: pull_hashtag_dynasty.py 
+[09:21:07] OK   hashtag_mkt (1s)
+[09:21:07] START espn_adp: pull_espn_adp.py 2027
+[09:21:10] OK   espn_adp (3s)
+[09:21:10] START espn_positions: pull_espn_positions.py 
+[09:21:11] OK   espn_positions (2s)
+[09:21:11] START injury_reports: pull_injury_reports_hourly.py update
+[09:21:13] OK   injury_reports (1s)
+[09:21:13] START espn_box: pull_espn_box.py 2026-27 --prefix 
+[09:21:17] OK   espn_box (4s)
+[09:21:17] START rotation_status: build_rotation_status.py 
+[09:21:17] OK   rotation_status (1s)
+[09:21:17] START gamelogs_unify: build_game_logs.py 
+[09:21:20] OK   gamelogs_unify (2s)
+[09:21:20] START form_split: build_form_split.py 
+[09:21:22] OK   form_split (3s)
+[09:21:22] START matchup_context: build_matchup_context.py 
+[09:21:24] OK   matchup_context (1s)
+[09:21:24] START kalman_inputs: prep_kalman_input.py 
+[09:21:27] OK   kalman_inputs (3s)
+[09:21:27] START kalman_trajectories: kalman_vor.py 
+[09:22:43] OK   kalman_trajectories (76s)
+[09:22:43] START prospect_trajectories: project_prospect_trajectory.py 
+[09:23:31] OK   prospect_trajectories (48s)
+[09:23:31] START asset_value: asset_value_v2.py 
+[09:23:36] OK   asset_value (5s)
+[09:23:36] START injury_rows: injury_playrate_study.py 
+[09:24:10] OK   injury_rows (34s)
+[09:24:10] START injury_episodes: injury_recurrence_study.py 
+[09:24:28] OK   injury_episodes (18s)
+[09:24:28] START injury_risk: build_injury_risk.py 
+[09:24:36] OK   injury_risk (8s)
+[09:24:36] START build_hub_data: build_hub_data.py 
+[09:24:38] OK   build_hub_data (2s)
+[09:24:38] START build_trades: build_trades.py 
+[09:25:07] OK   build_trades (29s)
+[09:25:07] START build_redraft: build_redraft.py 
+[09:25:14] OK   build_redraft (6s)
+[09:25:14] START pull_player_news: pull_player_news.py 
+[09:25:20] OK   pull_player_news (7s)
+[09:25:20] START trade_context: build_trade_context.py 
+[09:25:24] OK   trade_context (3s)
+[09:25:24] START trade_finder: find_trades.py --per-team 5 --n 3000
+[09:26:01] OK   trade_finder (37s)
+[09:26:01] --no-push: skipping git
+[09:26:01] DONE ok=True 
