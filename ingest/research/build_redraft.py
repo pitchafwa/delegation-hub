@@ -158,8 +158,9 @@ if fp_.exists():
 logs = F.load_all(cache=False)
 season_now = logs.loc[logs["date"].idxmax(), "season"]
 by_name = {}
-for name, pl in logs.groupby("name", sort=False):
-    by_name.setdefault(key(name), []).append(pl)
+for _pid, pl in logs.groupby("pid", sort=False):          # by NBA id, reachable under every spelling of his name: grouping by the name split
+    for name in pl["name"].unique():                        # Moussa Cissé from his own last season (Cisse), 2026-11-02 cloud test
+        by_name.setdefault(key(name), []).append(pl)
 print("game logs through", str(logs["date"].max())[:10], "season", season_now, "; form split for", len(form_p), "players")
 # DELCO going into each recent game (kalman_vor.py -> data/delco_pregame.csv): the game-log chart draws it as his trend line
 DPRE, DNOW, DMIN = {}, {}, {}
