@@ -437,3 +437,11 @@ Cost: none (Actions free for public repos; R2 free tier). Memory notes stay per 
 - `cloud-test.yml` (Cloudflare timer 8:15am ET): restores R2 data, runs the cloud refresh, `cloud_test.py` builds the plan both ways and writes the
   scorecard to the `cloud-test` branch; site page More > Cloud test. `cloud-test-dff.yml` every 10 minutes.
 - Decision write-up due about 2026-12-01.
+
+## Games cap tethered to ESPN (fixed 2026-11-02)
+ESPN stores the games-played limit per scoring period (40/7 = 5.714, `lineupSlotStatLimits` statId 42). A matchup's limit = that x the days WITH NBA games, and it is
+reached at the whole number below (week 1: 34.29, RIP's 34 games were flagged `limitExceeded`). Election-day week 3 = 34, not 40. `season_calendar.py` now reads the
+per-day limit from ESPN and counts game days (`game_days`, `cap`, `cap_exact` per period).
+- OPEN: weeks whose exact cap ends in .5 or more (NBA Cup week Dec 7-13: 22.86 on today's incomplete schedule; All-Star matchup: 45.71) would be 23 / 46 if ESPN rounds
+  instead of rounding down. Check the number ESPN shows when those weeks start and set `games_cap` accordingly.
+- OPEN: the adds limit is also per scoring period (1.143 a day, `matchupAcquisitionLimit`); the plan still uses calendar days (8 this week). Confirm against ESPN's number.
