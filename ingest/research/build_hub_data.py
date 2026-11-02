@@ -446,6 +446,24 @@ out = {
 }
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 OUT_PATH.write_text(json.dumps(out, indent=None, allow_nan=False), encoding="utf-8")
+
+# keeper-value trend for the dynasty board's sparkline: today's value at 5 keepers per team, one point per day (backfilled from git 2026-11-02)
+_kh_p = OUT_PATH.parent / "keeper_history.json"
+_kh = json.loads(_kh_p.read_text(encoding="utf-8")) if _kh_p.exists() else {"k": 5, "dates": [], "v": {}}
+_day = _dt.datetime.now(__import__("zoneinfo").ZoneInfo("America/New_York")).date().isoformat()
+if _kh["dates"] and _kh["dates"][-1] == _day:
+    for _v in _kh["v"].values():
+        _v.pop()
+else:
+    _kh["dates"].append(_day)
+_n = len(_kh["dates"])
+for _pl in out["players"]:
+    _a = _pl.get("asset_k")
+    if _a and len(_a) > _kh["k"]:
+        _kh["v"].setdefault(str(_pl["id"]), [None] * (_n - 1)).append(round(_a[_kh["k"]], 1))
+for _v in _kh["v"].values():
+    _v.extend([None] * (_n - len(_v)))
+_kh_p.write_text(json.dumps(_kh, separators=(",", ":")), encoding="utf-8")
 print(f"\nWrote {len(out['players'])} total players to {OUT_PATH}")
 
 # ---------------------------------------------------------------------------

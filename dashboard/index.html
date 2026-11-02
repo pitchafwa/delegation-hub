@@ -72,6 +72,8 @@
   .kind{display:inline-block;min-width:1.4rem;text-align:center;font-family:"Barlow Condensed",monospace;font-weight:600;padding:.05rem .28rem;border-radius:4px;font-size:.68rem}
   .kind.rookie{background:color-mix(in srgb, var(--intl) 18%, transparent);color:var(--intl);letter-spacing:.03em}
   .spark{display:block;vertical-align:middle}
+  .sparkIn{display:inline-block;vertical-align:-1px;margin-right:3px}
+  .ktSub{margin-right:.35rem;white-space:nowrap}.ktSub.up{color:var(--good)}.ktSub.down{color:var(--warn)}
   .sparkCell{display:flex;align-items:center;gap:.4rem;justify-content:flex-end}
   .sparkDelta{font-family:"Barlow Condensed",monospace;font-size:.7rem;min-width:2.2rem;text-align:right}
   .sparkDelta.up{color:var(--good)} .sparkDelta.down{color:var(--warn)} .sparkDelta.flat{color:var(--ink-faint)}
@@ -548,7 +550,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
     #boardPane td[data-label="Pos"]{order:1}#boardPane td[data-label="Team"]{order:2}#boardPane td[data-label="Age"]{order:3}
     #boardPane td[data-label="Keeper value"]{order:4}#boardPane td[data-label="VOR"]{order:5}#boardPane td[data-label="MKT"]{order:6}#boardPane td[data-label="Owner"]{order:7}
     #boardPane td[data-label="Yr-1 PPG"]{order:8}#boardPane td[data-label="Peak PPG"]{order:9}#boardPane td[data-label="90PCT VOR"]{order:10}#boardPane td[data-label="Keeper value, best case"]{order:11}
-    #boardPane td[data-label="Trajectory"]{order:12}
+    #boardPane td[data-label="Keeper trend"]{order:12}#boardPane td[data-label="Trajectory"]{order:13}
     #boardPane td[data-label="Keeper value"] b,#boardPane td[data-label="VOR"] b{font-size:1.2rem}
     #boardPane .moreRow{display:block;background:transparent;border:0;padding:0;margin:.2rem 0 1rem}
     #boardPane .moreRow td{display:block !important}#boardPane .moreRow td::before{content:none}
@@ -799,7 +801,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
 </div>
 
 <script>
-let rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, weekAfter=false, LIVE=null, SP=null, dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
+let KH=null, KT=null, rowLimit=60, lastSig='', D=null, H=null, brkYear='live', kind='all', brkType='all', q='', K=5, PROF=null, DR=null, dq='', dpos='all', dsort={k:'score',asc:false}, weekAfter=false, LIVE=null, SP=null, dHide=true, dShowDrafted=false, dDynPicks=3, dWEarly=0.40, dWLate=0.08, dOpen=null, dLive=false, TR=null, tradeTeam=null, tradeW=0.10, tradeRatio=0.95, tradeS=null, W=null, weekTeam=null, L=null, ownerFilter='all', teamSel=null, sort={k:'asset',asc:false}, open=new Set();
 
 function oppCost(k){ return D.opportunity_cost.floor + D.opportunity_cost.amp * Math.exp(-k/D.opportunity_cost.tau); }
 function computeVOR(traj, k){
@@ -855,6 +857,30 @@ function sparkline(traj, w=56, h=26){
   </svg>`;
   const deltaTxt = (netChange>=0?'+':'') + (netChange*100).toFixed(0) + '%';
   return `<div class="sparkCell">${svg}<span class="sparkDelta ${dir}" title="5-year change">${deltaTxt}</span></div>`;
+}
+
+// keeper value over time (keeper_history.json: one point a day at 5 keepers per team), on a real date axis; change over the last 30 days
+function ktrend(id){
+  if(!KH) return null;
+  if(!KT){ KT=new Map(); const ts=KH.dates.map(d=>Date.parse(d)); const last=ts[ts.length-1];
+    for(const [k,vals] of Object.entries(KH.v)){
+      const pts=vals.map((v,i)=>v==null?null:[ts[i],v]).filter(Boolean);
+      if(pts.length<2) continue;
+      const ref=pts.find(q=>q[0]>=last-30*864e5)||pts[0];
+      KT.set(k,{pts,delta:pts[pts.length-1][1]-ref[1]});
+    } }
+  return KT.get(String(id))||null;
+}
+function kspark(kt, w=56, h=22, bare=false){
+  if(!kt) return '<span class="hint">—</span>';
+  const t0=kt.pts[0][0], t1=kt.pts[kt.pts.length-1][0], vs=kt.pts.map(q=>q[1]);
+  const mn=Math.min(...vs), mx=Math.max(...vs), mid=(mx+mn)/2, span=Math.max(mx-mn,2,0.04*Math.abs(mid));
+  const pts=kt.pts.map(([t,v])=>[((t-t0)/Math.max(t1-t0,1)*(w-3)+1.5).toFixed(1),(h/2-(v-mid)/span*(h-4)).toFixed(1)]);
+  const dir=kt.delta>0.5?'up':kt.delta<-0.5?'down':'flat';
+  const color=dir==='up'?'var(--good)':dir==='down'?'var(--warn)':'var(--ink-faint)';
+  const lp=pts[pts.length-1];
+  if(bare) return `<svg class="sparkIn" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+  return `<div class="sparkCell"><svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${lp[0]}" cy="${lp[1]}" r="2" fill="${color}"/></svg><span class="sparkDelta ${dir}" title="last 30 days">${kt.delta>=0?'+':''}${kt.delta.toFixed(1)}</span></div>`;
 }
 
 // Real trailing seasons + projected future on one continuous timeline, so
@@ -941,7 +967,7 @@ function rowsFiltered(){
       return ownerFilter==='fa' ? !o : ownerFilter==='rostered' ? !!o : (o && 't'+o.team===ownerFilter); });
   }
   const assetRank = assetRanks();
-  r = r.map(p => ({...p, _owner: OWNER.get(p.id)||null, _asset: p.asset_k?p.asset_k[K]:null, _market: p.market_rank!=null?p.market_rank:null, _mgap: (p.market_rank!=null&&assetRank.get(p.id))?p.market_rank-assetRank.get(p.id):null, _ceilVor: p.ceil_path?computeVOR(p.ceil_path, K).vor:null, _ceilAsset: p.ceil_asset_k?p.ceil_asset_k[K]:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory)}));
+  r = r.map(p => ({...p, _owner: OWNER.get(p.id)||null, _asset: p.asset_k?p.asset_k[K]:null, _market: p.market_rank!=null?p.market_rank:null, _mgap: (p.market_rank!=null&&assetRank.get(p.id))?p.market_rank-assetRank.get(p.id):null, _ceilVor: p.ceil_path?computeVOR(p.ceil_path, K).vor:null, _ceilAsset: p.ceil_asset_k?p.ceil_asset_k[K]:null, _assetRank: assetRank.get(p.id), _vor: computeVOR(p.trajectory, K), _vorB: p.trajectory_brk?computeVOR(p.trajectory_brk, K):null, _trajDelta: trajDelta5yr(p.trajectory), _kt: ktrend(p.id)}));
   r.sort((a,b)=>{
     let av,bv;
     if(sort.k==='vor'){av=a._vor.vor;bv=b._vor.vor;}
@@ -952,6 +978,7 @@ function rowsFiltered(){
     else if(sort.k==='ceil_asset'){av=a._ceilAsset;bv=b._ceilAsset;}
     else if(sort.k==='vor_brk'){av=a._vorB?a._vorB.vor:null;bv=b._vorB?b._vorB.vor:null;}
     else if(sort.k==='sparkline'){av=a._trajDelta;bv=b._trajDelta;}
+    else if(sort.k==='ktrend'){av=a._kt?a._kt.delta:null;bv=b._kt?b._kt.delta:null;}
     else if(sort.k==='player'){av=a.player;bv=b.player;}
     else {av=a[sort.k];bv=b[sort.k];}
     if(av==null) av=(sort.k==='adp'&&sort.asc)?Infinity:-Infinity; if(bv==null) bv=(sort.k==='adp'&&sort.asc)?Infinity:-Infinity;
@@ -1059,7 +1086,7 @@ function render(){
   ] : [
     {k:'player',t:'Player'},{k:'pos',t:'Pos'},{k:'team',t:'Team',sortable:false},{k:'age',t:'Age'},
     {k:'year0_ppg',t:'2026 PPG'},{k:'peak_ppg',t:'Peak PPG'},
-    {k:'sparkline',t:'Trajectory (5yr Δ)'},{k:'asset',t:'Keeper value'},{k:'market',t:'MKT'},
+    {k:'sparkline',t:'Trajectory (5yr Δ)'},{k:'asset',t:'Keeper value'},{k:'ktrend',t:'Keeper trend (30d)'},{k:'market',t:'MKT'},
     {k:'ceil_asset',t:'Keeper value, best case'},
     ...(L?[{k:'owner',t:'Owner'}]:[]),
   ];
@@ -1106,6 +1133,7 @@ function render(){
       <td class="num" data-label="Peak PPG">${fmt1(p.peak_ppg)} <span class="hint">${yearLabel(p.anchor_year,p.peak_year_index)}</span></td>
       <td data-label="Trajectory">${sparkline(p.trajectory)}</td>
       <td class="num" data-label="Keeper value">${p._asset!=null?`<b>${p._asset.toFixed(1)}</b> <span class="hint">#${p._assetRank}</span>`:'<span class="hint">—</span>'}</td>
+      <td data-label="Keeper trend">${kspark(p._kt)}</td>
       <td class="num" data-label="MKT">${p._market!=null?`<b>#${p._market}</b>${p._mgap!=null?` <span class="hint" title="market rank minus our asset rank; + means we rank him higher than the market does">${p._mgap>0?'+':''}${p._mgap}</span>`:''}`:'<span class="hint">—</span>'}</td>
       <td class="num" data-label="Keeper value, best case">${p._ceilAsset!=null?p._ceilAsset.toFixed(1):'<span class="hint">—</span>'}</td>
       ${L?`<td data-label="Owner" style="text-align:left">${p._owner?`<span title="${esc(p._owner.name)}">${esc(p._owner.abbrev)}</span>`:'<span class="hint">FA</span>'}</td>`:''}
@@ -1123,8 +1151,8 @@ function render(){
         if(K2) key={v:K2[0],l:K2[1]};
       } else {
         stats=[[fmt1(p.year0_ppg),'PPG'],[fmt1(p.peak_ppg),'peak '+yearLabel(p.anchor_year,p.peak_year_index)],[p._market!=null?'#'+p._market:null,'mkt']];
-        key={v:p._asset!=null?p._asset.toFixed(1):'—',l:'Keeper value',sub:p._assetRank?'#'+p._assetRank:''};
-        const K2={year0_ppg:[fmt1(p.year0_ppg),'PPG '+yearLabel(p.anchor_year,0)],peak_ppg:[fmt1(p.peak_ppg),'Peak PPG'],market:[p._market!=null?'#'+p._market:'—','Market rank'],ceil_asset:[p._ceilAsset!=null?p._ceilAsset.toFixed(1):'—','Best case'],age:[p.age!=null?p.age.toFixed(1):'—','Age']}[sort.k];
+        key={v:p._asset!=null?p._asset.toFixed(1):'—',l:'Keeper value',sub:(p._kt?`<span class="ktSub ${p._kt.delta>0.5?'up':p._kt.delta<-0.5?'down':''}">${kspark(p._kt,32,12,true)}${p._kt.delta>=0?'+':''}${p._kt.delta.toFixed(1)}</span> `:'')+(p._assetRank?'#'+p._assetRank:'')};
+        const K2={year0_ppg:[fmt1(p.year0_ppg),'PPG '+yearLabel(p.anchor_year,0)],peak_ppg:[fmt1(p.peak_ppg),'Peak PPG'],market:[p._market!=null?'#'+p._market:'—','Market rank'],ceil_asset:[p._ceilAsset!=null?p._ceilAsset.toFixed(1):'—','Best case'],age:[p.age!=null?p.age.toFixed(1):'—','Age'],ktrend:[p._kt?(p._kt.delta>=0?'+':'')+p._kt.delta.toFixed(1):'—','Keeper value, 30d']}[sort.k];
         if(K2) key={v:K2[0],l:K2[1]};
       }
       out=`<tr class="plTr" data-id="${id}"><td colspan="${NC}">${plRow({name:p.player,nba:String(id).slice(1),team:p.team,where,pos:p.pos,age:p.age,own,mine,chips,stats,key})}</td></tr>`;
@@ -3690,6 +3718,7 @@ fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; if(activeView()==='draft') setView('draft'); if(activeView()==='keepers') setView('keepers'); pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
   fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; if(activeView()==='trades') setView('trades');} }).catch(()=>{});
+  fetch('keeper_history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(k=>{ if(k&&k.dates){KH=k; KT=null; render();} }).catch(()=>{});
   fetch('breakout_history.json',{cache:'no-cache'}).then(r=>r.json()).then(h=>{H=h; fillYearSelect(); render();}).catch(()=>{});
   render();
 }).catch(err=>{
