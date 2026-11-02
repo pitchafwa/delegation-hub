@@ -1,11 +1,11 @@
 {
  "date": "2026-11-02",
- "at": "2026-11-02T09:40-05:00",
+ "at": "2026-11-02T09:49-05:00",
  "cloud_run": {
   "ok": true,
   "note": "",
   "failed": [],
-  "minutes": 2.0,
+  "minutes": 2.8,
   "steps": {
    "hashtag_mkt": 1,
    "espn_adp": 3,
@@ -14,15 +14,15 @@
    "espn_box": 2,
    "rotation_status": 1,
    "gamelogs_unify": 3,
-   "form_split": 2,
-   "matchup_context": 1,
-   "injury_rows": 34,
-   "injury_episodes": 18,
-   "injury_risk": 8,
-   "build_hub_data": 2,
-   "build_trades": 29,
-   "build_redraft": 6,
-   "pull_player_news": 5
+   "form_split": 3,
+   "matchup_context": 2,
+   "injury_rows": 55,
+   "injury_episodes": 29,
+   "injury_risk": 11,
+   "build_hub_data": 3,
+   "build_trades": 36,
+   "build_redraft": 7,
+   "pull_player_news": 6
   }
  },
  "laptop_run": {
@@ -210,15 +210,15 @@
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.5,
-   "within": 0.9687,
-   "mean_abs": 0.08,
-   "max": 6.2,
+   "within": 0.9708,
+   "mean_abs": 0.067,
+   "max": 5.9,
    "worst": [
-    "Moussa Cisse: laptop 12.2, cloud 18.4",
     "Nikola Vucevic: laptop 25.4, cloud 19.5",
     "Dennis Schroder: laptop 32.5, cloud 38.2",
     "Pacome Dadiet: laptop 7.5, cloud 4.5",
-    "Caleb Love: laptop 17.0, cloud 14.4"
+    "Caleb Love: laptop 17.0, cloud 14.4",
+    "Vit Krejci: laptop 16.7, cloud 14.4"
    ]
   },
   "last10": {
@@ -226,15 +226,15 @@
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.5,
-   "within": 0.9617,
-   "mean_abs": 0.213,
-   "max": 18.3,
+   "within": 0.9638,
+   "mean_abs": 0.174,
+   "max": 13.3,
    "worst": [
-    "Moussa Cisse: laptop 4.4, cloud 22.7",
     "Terrence Shannon Jr.: laptop 32.5, cloud 19.2",
     "Nikola Jovic: laptop 9.6, cloud 21.1",
     "Nikola Vucevic: laptop 15.3, cloud 24.4",
-    "Bogdan Bogdanovic: laptop 13.7, cloud 21.4"
+    "Bogdan Bogdanovic: laptop 13.7, cloud 21.4",
+    "Moussa Diabate: laptop 31.8, cloud 25.9"
    ]
   },
   "minutes10": {
@@ -242,15 +242,15 @@
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.5,
-   "within": 0.9681,
-   "mean_abs": 0.159,
-   "max": 13.0,
+   "within": 0.9702,
+   "mean_abs": 0.131,
+   "max": 7.9,
    "worst": [
-    "Moussa Cisse: laptop 3.5, cloud 16.5",
     "Terrence Shannon Jr.: laptop 24.8, cloud 16.9",
     "Nikola Jovic: laptop 12.1, cloud 19.6",
     "Moussa Diabate: laptop 29.0, cloud 21.6",
-    "Nikola Vucevic: laptop 13.2, cloud 20.2"
+    "Nikola Vucevic: laptop 13.2, cloud 20.2",
+    "Pacome Dadiet: laptop 6.8, cloud 1.0"
    ]
   },
   "games_left": {
@@ -381,14 +381,8 @@
    "+Andrew Wiggins -Nolan Traore"
   ],
   "moves_same": true,
-  "ir_pc": [
-   "to_ir Gui Santos",
-   "activate Draymond Green"
-  ],
-  "ir_cloud": [
-   "to_ir Gui Santos",
-   "activate Draymond Green"
-  ],
+  "ir_pc": [],
+  "ir_cloud": [],
   "ir_same": true,
   "tonight_pc": [
    "Andrew Wiggins",
@@ -401,9 +395,9 @@
    "Collin Sexton"
   ],
   "tonight_same": true,
-  "win_pc": 0.714,
-  "win_cloud": 0.701,
-  "expected_pc": 1684.8,
-  "expected_cloud": 1668.5
+  "win_pc": 0.715,
+  "win_cloud": 0.702,
+  "expected_pc": 1681.1,
+  "expected_cloud": 1664.8
  }
 }
