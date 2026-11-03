@@ -1,11 +1,11 @@
 {
- "date": "2026-11-02",
- "through": "2026-11-01",
- "games_nba": 92,
- "games_espn": 92,
- "player_games_nba": 2079,
- "player_games_espn": 2080,
- "matched": 2079,
+ "date": "2026-11-03",
+ "through": "2026-11-02",
+ "games_nba": 107,
+ "games_espn": 107,
+ "player_games_nba": 2413,
+ "player_games_espn": 2414,
+ "matched": 2413,
  "only_nba": [],
  "only_nba_n": 0,
  "only_espn": [
@@ -13,7 +13,7 @@
  ],
  "only_espn_n": 1,
  "stat_diffs": {
-  "MIN": 7,
+  "MIN": 10,
   "PTS": 0,
   "REB": 3,
   "AST": 0,
@@ -29,9 +29,9 @@
   "DREB": 3,
   "PF": 0
  },
- "fp_exact": 0.9976,
- "fp_within_2": 0.999,
- "fp_mean_abs": 0.005,
+ "fp_exact": 0.9979,
+ "fp_within_2": 0.9992,
+ "fp_mean_abs": 0.004,
  "fp_max": 3.0,
  "fp_worst": [
   "2026-10-22 Jalen Williams: NBA 42.5, ESPN 39.5",
@@ -44,39 +44,38 @@
   "coach -> away": 3,
   "coach -> g_league": 3,
   "coach -> injury": 11,
-  "coach -> not listed": 8,
+  "coach -> not listed": 5,
   "coach -> played": 6,
   "g_league -> coach": 39,
   "g_league -> not listed": 2,
   "injury -> away": 1,
-  "injury -> coach": 9,
-  "not listed -> away": 6,
-  "not listed -> coach": 102,
-  "not listed -> g_league": 69,
-  "not listed -> injury": 201
+  "injury -> coach": 12,
+  "not listed -> away": 8,
+  "not listed -> coach": 126,
+  "not listed -> g_league": 90,
+  "not listed -> injury": 280
  },
- "reasons_same": 2789,
- "rotation_out_nba": 62,
- "rotation_out_espn": 75,
+ "reasons_same": 3183,
+ "rotation_out_nba": 61,
+ "rotation_out_espn": 73,
  "rotation_only_nba": [
   "ernest udeh jr",
-  "pacome dadiet"
+  "simone fontecchio"
  ],
  "rotation_only_espn": [
   "blake hinson",
   "chris manon",
-  "chris youngblood",
   "dalton knecht",
   "enrique freeman",
   "jakobi gillespie",
   "jayson kent",
   "jr ernest udeh",
   "khalifa diop",
-  "kobe bufkin",
   "kylan boswell",
   "lawson lovering",
+  "ryan nembhard",
   "sean pedulla",
   "tyler bilodeau",
-  "zuby ejiofor"
+  "zyon pullin"
  ]
 }
