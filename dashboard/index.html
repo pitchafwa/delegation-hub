@@ -1467,9 +1467,14 @@ function matchupHtml(T,O,M,liveOk){
   const days=M.planned_days||[], today=days[0];
   if(!days.length) return '';
   // overnight (2026-10-29): until 6am ET the live tracker is still on last night's games while the plan has moved to the new day; keep that day first
-  const liveDay=liveOk&&LIVE.date?LIVE.date:today, cdays=days.includes(liveDay)?days:[liveDay,...days];
+  const liveDay=liveOk&&LIVE.date?LIVE.date:today;
+  // earlier days of this matchup (2026-11-03): ESPN's lineups and points against each player's projection that day (live_matchup.json "past"); days without NBA games are skipped
+  const PAST=liveOk&&LIVE.past?LIVE.past:{}, ng=M.nba_games||{};
+  const pastDays=Object.keys(PAST).filter(d=>d<liveDay&&(!ng[d]||ng[d].length)).sort();
+  const cdays=[...pastDays,...(days.includes(liveDay)?days:[liveDay,...days])];
   if(!MU_PICKED||!MU_DAY||!cdays.includes(MU_DAY)) MU_DAY=liveDay;
   const live=liveOk&&LIVE.me&&LIVE.me.lineup&&MU_DAY===liveDay;
+  const past=!live&&PAST[MU_DAY]&&pastDays.includes(MU_DAY)?PAST[MU_DAY]:null;
   const adds=new Map((T.sequence||[]).map(a=>[a.add.name,a]));
   const tipT=iso=>iso?new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(':00','').replace(' ',''):'';
   let mine=[], theirs=[], hm={}, ho={};
@@ -1486,6 +1491,14 @@ function matchupHtml(T,O,M,liveOk){
     const tot=a=>a.reduce((s,x)=>s+(x.pts||0),0);
     hm={big:'+'+tot(mine).toFixed(1),lbl:'today',s0:LIVE.me.starts_before_today,s1:LIVE.me.starts_end_today};
     ho={big:'+'+tot(theirs).toFixed(1),lbl:'today',s0:LIVE.opp.starts_before_today,s1:LIVE.opp.starts_end_today};
+  } else if(past){
+    const vs=x=>{ if(x.proj==null||!x.played) return x.proj!=null?` · proj ${Math.round(x.proj)}`:''; const d=x.pts-x.proj, band=Math.max(3,0.15*x.proj);
+      return ` · <span class="muVs${d>band?' up':(d<-band?' dn':'')}">proj ${Math.round(x.proj)}</span>`; };
+    const conv=x=>({name:x.name,slot:x.slot,st:x.played?'final':'out',pts:x.played?x.pts:null,proj:x.proj,sub:x.played?'Final':'Did not play',vs:vs(x)});
+    mine=past.me.lineup.map(conv); theirs=past.opp.lineup.map(conv);
+    const pj=a=>{ const k=a.filter(x=>x.proj!=null); return k.length?` · proj ${Math.round(k.reduce((s,x)=>s+x.proj,0))}`:''; };
+    hm={big:past.me.pts.toFixed(1),lbl:'scored'+pj(past.me.lineup),s0:past.me.s0,s1:past.me.s1};
+    ho={big:past.opp.pts.toFixed(1),lbl:'scored'+pj(past.opp.lineup),s0:past.opp.s0,s1:past.opp.s1};
   } else {
     const myDays=(T.days_after&&(T.sequence||[]).length)?T.days_after:T.days;
     const dm=myDays.find(d=>d.date===MU_DAY), dop=(O.days||[]).find(d=>d.date===MU_DAY);
@@ -1510,7 +1523,7 @@ function matchupHtml(T,O,M,liveOk){
   const row=x=>x?`<div class="muPl ${x.st}${x.planned?' planned':''}"><span class="muSlot">${esc(x.slot)}</span><span class="muWho"><span class="pName" data-pc="${esc(x.name)}" role="button" tabindex="0">${esc(shortName(x.name))}</span><small>${esc(x.sub||'')}${x.vs||''}</small></span><span class="muPts">${x.pts!=null?x.pts.toFixed(1):(x.st==='out'?'—':(x.st==='live'||x.st==='final'?'0.0':x.proj))}${finTag(x)}</span></div>`
     :`<div class="muPl empty"><span class="muSlot">—</span><span class="muWho">open slot</span><span class="muPts"></span></div>`;
   const colHtml=a=>Array.from({length:n},(_,i)=>row(a[i])).join('');
-  const chips=cdays.map(d=>{ const lbl=d===today?'Today':(d<today?'Last night':shortDay(d)); const isLive=d===liveDay&&liveOk&&LIVE.me&&(LIVE.me.lineup||[]).some(x=>x.st==='live');
+  const chips=cdays.map(d=>{ const lbl=d===today?'Today':(d===liveDay&&d<today?'Last night':shortDay(d)); const isLive=d===liveDay&&liveOk&&LIVE.me&&(LIVE.me.lineup||[]).some(x=>x.st==='live');
     return `<button type="button" class="muChip${d===MU_DAY?' on':''}" data-mud="${d}">${isLive?'<span class="muDot"></span>':''}${lbl}${isLive?' · live':''}</button>`; }).join('');
   const rem=a=>Math.round(a.filter(x=>x.st==='pre').reduce((s,x)=>s+x.proj*0.94,0)+a.filter(x=>x.st==='live').reduce((s,x)=>s+(x.final!=null?Math.max(0,x.final-(x.pts||0)):Math.max(0,x.proj-(x.pts||0))*0.5),0));
   const foot=live?`<div class="muFoot"><div>Still to come <b>~${rem(mine)}</b></div><div>Still to come <b>~${rem(theirs)}</b></div></div>`:'';
@@ -1522,7 +1535,7 @@ function matchupHtml(T,O,M,liveOk){
       <div class="muRows"><div class="muCol">${colHtml(mine)}</div><div class="muCol r">${colHtml(theirs)}</div></div>
       ${foot}
     </div>
-    ${live?'<div class="muLegend"><span class="l1">final</span><span class="l2">live</span><span class="l3">not started (projection)</span></div>':(MU_DAY===today?'':'<div class="muLegend"><span class="l4">+ planned move</span><span class="l3">projected points if he plays</span></div>')}`;
+    ${live?'<div class="muLegend"><span class="l1">final</span><span class="l2">live</span><span class="l3">not started (projection)</span></div>':past?'<div class="muLegend"><span class="l1">final, with his projection that day (green above, red below)</span></div>':(MU_DAY===today?'':'<div class="muLegend"><span class="l4">+ planned move</span><span class="l3">projected points if he plays</span></div>')}`;
 }
 
 /* WHAT CHANGED SINCE YOU LAST LOOKED: the plan rebuilds on its own, so compare it with what you saw last time (kept on this device only) */

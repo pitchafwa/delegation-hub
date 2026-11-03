@@ -227,10 +227,12 @@ def main():
     starts = {my_id: 0, opp_id: 0}
     sb = {my_id: 0, opp_id: 0}                       # starts at the START of today: ESPN checks the games cap at the start of each day
     today_box = None
+    boxes = {}
     for d in days:
         if d > TODAY:
             break
         b = box(sp_of(d))
+        boxes[d] = b
         if d == TODAY:
             today_box = b
         for tid in (my_id, opp_id):
@@ -406,13 +408,48 @@ def main():
     mu = margin + BETA * (exp_rem[my_id] - exp_rem[opp_id])
     wp = Phi(mu / sigma(rem_days)) if rem_days > 0.02 else (1.0 if margin > 0 else 0.0 if margin < 0 else 0.5)
     # ---- history (kept on the live-data branch between runs)
-    hist = []
+    hist, prev_proj = [], {}
     try:
         prev = requests.get(RAW_URL + f"?t={int(NOW.timestamp())}", timeout=20).json()
         if prev.get("matchup") == mp and prev.get("season") == YEAR:
             hist = prev.get("history", [])
+            prev_proj = prev.get("proj_by_day") or {}
     except Exception:
         pass
+    # ---- past days of this matchup (2026-11-03, Tommy): each starter's points against his projection that day. ESPN keeps the lineups and points; the projection
+    # is saved here while his game has not started (the plan's number for tonight), and carried run to run on the live-data branch.
+    proj_by_day = {k: v for k, v in prev_proj.items() if k in {d.isoformat() for d in days}}
+    if plan_match and (W["matchup"].get("planned_days") or [None])[0] == TODAY.isoformat():
+        _pd = proj_by_day.setdefault(TODAY.isoformat(), {})
+        for side, tid in (("me", my_id), ("opp", opp_id)):
+            _ps = _pd.setdefault(side, {})
+            for e in (today_box or {}).get(tid, []):
+                if e["id"] is None:
+                    continue
+                _tc = canon(PRO_TEAM_MAP.get(e["team"]) or "")
+                gi = GAME_INFO.get(_tc)
+                if games_known and _tc not in nba_today:
+                    continue                                 # no game today
+                if gi and gi["state"] != "pre":
+                    continue                                 # tipped: keep the pregame number already saved
+                pr = plan_roster.get(tid, {}).get(e["id"])
+                if pr and (pr.get("tonight") or pr.get("level")):
+                    _ps[str(e["id"])] = round(float(pr.get("tonight") or pr.get("level")), 1)
+    past = {}
+    _cum = {my_id: 0, opp_id: 0}
+    for d in days:
+        if d >= TODAY or d not in boxes:
+            break
+        row = {}
+        for side, tid in (("me", my_id), ("opp", opp_id)):
+            _pp = (proj_by_day.get(d.isoformat()) or {}).get(side) or {}
+            st_ = [e for e in boxes[d][tid] if e["slot"] is not None and e["slot"] <= 11]
+            n_ = sum(1 for e in st_ if e["played"])
+            row[side] = {"lineup": [{"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else None, "played": bool(e["played"]),
+                                     "proj": _pp.get(str(e["id"]))} for e in st_],
+                         "pts": round(sum(e["pts"] for e in st_ if e["played"]), 1), "s0": _cum[tid], "s1": _cum[tid] + n_}
+            _cum[tid] += n_
+        past[d.isoformat()] = row
     hist.append({"t": datetime.now(timezone.utc).isoformat(timespec="minutes"), "wp": round(wp, 3), "margin": round(margin, 1), "me": round(pts[my_id], 1), "opp": round(pts[opp_id], 1)})
     # the whole matchup for the week chart (2026-10-28; it kept only the last ~2.5 days): every point from the last 12 hours, one per 30 minutes before that
     _cut = (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat(timespec="minutes")
@@ -479,7 +516,8 @@ def main():
     out = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "season": YEAR, "matchup": mp, "date": TODAY.isoformat(), "plan_used": bool(plan_match),
            "me": {"abbrev": teams[my_id], "name": names[my_id], "pts": round(pts[my_id], 1), "exp_rem": round(exp_rem[my_id], 1), "exp_final": round(pts[my_id] + exp_rem[my_id], 1), "starts": starts[my_id], "adds_used": adds_used, "left_today": sorted(left_today[my_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[my_id], "starts_before_today": sb[my_id], "starts_end_today": round(cum_end[my_id], 1)},
            "opp": {"abbrev": teams[opp_id], "name": names[opp_id], "pts": round(pts[opp_id], 1), "exp_rem": round(exp_rem[opp_id], 1), "exp_final": round(pts[opp_id] + exp_rem[opp_id], 1), "starts": starts[opp_id], "left_today": sorted(left_today[opp_id], key=lambda x: -x["ef"])[:8], "lineup": lineup[opp_id], "starts_before_today": sb[opp_id], "starts_end_today": round(cum_end[opp_id], 1), "exp_stream": round(stream, 1)},
-           "cap": cap, "days_left": round(rem_days, 2), "win_prob": round(wp, 3), "expected_margin": round(mu, 1), "advice": advice, "history": hist}
+           "cap": cap, "days_left": round(rem_days, 2), "win_prob": round(wp, 3), "expected_margin": round(mu, 1), "advice": advice, "history": hist,
+           "past": past, "proj_by_day": proj_by_day}
     print(json.dumps({k: v for k, v in out.items() if k != "history"}, indent=1)[:40000])
     if DRY:
         return
