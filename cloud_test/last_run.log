@@ -1,35 +1,42 @@
-[09:53:58] START hashtag_mkt: pull_hashtag_dynasty.py 
-[09:54:00] OK   hashtag_mkt (1s)
-[09:54:00] START espn_adp: pull_espn_adp.py 2027
-[09:54:02] OK   espn_adp (3s)
-[09:54:02] START espn_positions: pull_espn_positions.py 
-[09:54:04] OK   espn_positions (2s)
-[09:54:04] START injury_reports: pull_injury_reports_hourly.py update
-[09:54:05] OK   injury_reports (1s)
-[09:54:05] START espn_box: pull_espn_box.py 2026-27 --prefix 
-[09:54:07] OK   espn_box (2s)
-[09:54:07] START rotation_status: build_rotation_status.py 
-[09:54:08] OK   rotation_status (1s)
-[09:54:08] START gamelogs_unify: build_game_logs.py 
-[09:54:11] OK   gamelogs_unify (3s)
-[09:54:11] START form_split: build_form_split.py 
-[09:54:13] OK   form_split (2s)
-[09:54:13] START matchup_context: build_matchup_context.py 
-[09:54:14] OK   matchup_context (1s)
-[09:54:14] no new games since the last refresh: model chain not rerun
-[09:54:14] START injury_rows: injury_playrate_study.py 
-[09:54:48] OK   injury_rows (34s)
-[09:54:48] START injury_episodes: injury_recurrence_study.py 
-[09:55:06] OK   injury_episodes (18s)
-[09:55:06] START injury_risk: build_injury_risk.py 
-[09:55:14] OK   injury_risk (8s)
-[09:55:14] START build_hub_data: build_hub_data.py 
-[09:55:16] OK   build_hub_data (2s)
-[09:55:16] START build_trades: build_trades.py 
-[09:55:45] OK   build_trades (29s)
-[09:55:45] START build_redraft: build_redraft.py 
-[09:55:51] OK   build_redraft (6s)
-[09:55:51] START pull_player_news: pull_player_news.py 
-[09:55:58] OK   pull_player_news (7s)
-[09:55:58] --no-push: skipping git
-[09:55:58] DONE ok=True 
+[08:15:51] START hashtag_mkt: pull_hashtag_dynasty.py 
+[08:15:52] OK   hashtag_mkt (1s)
+[08:15:52] START espn_adp: pull_espn_adp.py 2027
+[08:15:55] OK   espn_adp (3s)
+[08:15:55] START espn_positions: pull_espn_positions.py 
+[08:15:57] OK   espn_positions (2s)
+[08:15:57] START injury_reports: pull_injury_reports_hourly.py update
+[08:16:01] OK   injury_reports (3s)
+[08:16:01] START espn_box: pull_espn_box.py 2026-27 --prefix 
+[08:16:12] OK   espn_box (11s)
+[08:16:12] START rotation_status: build_rotation_status.py 
+[08:16:12] OK   rotation_status (1s)
+[08:16:12] START gamelogs_unify: build_game_logs.py 
+[08:16:15] OK   gamelogs_unify (3s)
+[08:16:15] START form_split: build_form_split.py 
+[08:16:18] OK   form_split (3s)
+[08:16:18] START matchup_context: build_matchup_context.py 
+[08:16:20] OK   matchup_context (2s)
+[08:16:20] START kalman_inputs: prep_kalman_input.py 
+[08:16:24] OK   kalman_inputs (4s)
+[08:16:24] START kalman_trajectories: kalman_vor.py 
+[08:18:06] OK   kalman_trajectories (102s)
+[08:18:06] START prospect_trajectories: project_prospect_trajectory.py 
+[08:19:14] OK   prospect_trajectories (68s)
+[08:19:14] START asset_value: asset_value_v2.py 
+[08:19:21] OK   asset_value (7s)
+[08:19:21] START injury_rows: injury_playrate_study.py 
+[08:20:02] OK   injury_rows (41s)
+[08:20:02] START injury_episodes: injury_recurrence_study.py 
+[08:20:26] OK   injury_episodes (24s)
+[08:20:26] START injury_risk: build_injury_risk.py 
+[08:20:36] OK   injury_risk (10s)
+[08:20:36] START build_hub_data: build_hub_data.py 
+[08:20:39] OK   build_hub_data (3s)
+[08:20:39] START build_trades: build_trades.py 
+[08:21:10] OK   build_trades (31s)
+[08:21:10] START build_redraft: build_redraft.py 
+[08:21:18] OK   build_redraft (8s)
+[08:21:18] START pull_player_news: pull_player_news.py 
+[08:21:51] OK   pull_player_news (33s)
+[08:21:51] --no-push: skipping git
+[08:21:51] DONE ok=True 
