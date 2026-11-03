@@ -1,9 +1,13 @@
 {
  "avail_prev": {
+  "2566769": "FREEAGENT",
   "3147657": "FREEAGENT",
   "3978": "FREEAGENT",
   "4395626": "FREEAGENT",
-  "5104155": "FREEAGENT"
+  "4684793": "FREEAGENT",
+  "4845374": "FREEAGENT",
+  "5104155": "FREEAGENT",
+  "5106060": "WAIVERS"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -145,9 +149,9 @@
   "4997536:2026-11-01:None:eve": "2026-10-31"
  },
  "plan_rebuild": {
-  "at": "2026-11-03T05:12:42+00:00",
+  "at": "2026-11-03T07:50:27+00:00",
   "sig": "6430,6589,3059319,3135045,3907497,4065648,4065733,4395724,4431680,4432194,4433134,4684740,4997536,5041939,5041955,5105565,5279130",
-  "why": "new free agent(s) to evaluate: Mikal Bridges"
+  "why": "new free agent(s) to evaluate: Jarace Walker, Malcolm Brogdon"
  },
  "rosterfix_sent": {
   "3907497:to_ir": "2026-10-31",
