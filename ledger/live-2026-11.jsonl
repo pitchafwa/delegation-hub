@@ -711,3 +711,4 @@
 {"kind":"live","ts":"2026-11-03T02:55:28+00:00","season":2027,"matchup":3,"wp":0.647,"margin":-94.5,"me":201.0,"opp":295.5,"exp_me":1717.0,"exp_opp":1551.4,"days_left":5.45,"opp_abbrev":"CAST"}
 {"kind":"live","ts":"2026-11-03T02:55:59+00:00","season":2027,"matchup":3,"wp":0.65,"margin":-92.5,"me":203.0,"opp":295.5,"exp_me":1718.6,"exp_opp":1550.5,"days_left":5.45,"opp_abbrev":"CAST"}
 {"kind":"live","ts":"2026-11-03T03:00:34+00:00","season":2027,"matchup":3,"wp":0.553,"margin":-95.0,"me":217.0,"opp":312.0,"exp_me":1639.3,"exp_opp":1557.7,"days_left":5.28,"opp_abbrev":"CAST"}
+{"kind":"live","ts":"2026-11-03T03:01:10+00:00","season":2027,"matchup":3,"wp":0.553,"margin":-95.0,"me":217.0,"opp":312.0,"exp_me":1638.1,"exp_opp":1556.6,"days_left":5.28,"opp_abbrev":"CAST"}
