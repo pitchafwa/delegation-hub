@@ -419,6 +419,12 @@ def main():
     # ---- past days of this matchup (2026-11-03, Tommy): each starter's points against his projection that day. ESPN keeps the lineups and points; the projection
     # is saved here while his game has not started (the plan's number for tonight), and carried run to run on the live-data branch.
     proj_by_day = {k: v for k, v in prev_proj.items() if k in {d.isoformat() for d in days}}
+    try:                                                     # days from before projections were saved here (2026-11-02), taken from the plan as it stood before tip-off
+        _bf = json.load(open(Path(__file__).resolve().parent / "data" / "live_proj_backfill.json", encoding="utf-8")).get(str(YEAR), {}).get(str(mp), {})
+        for k, v in _bf.items():
+            proj_by_day.setdefault(k, v)
+    except Exception:
+        pass
     if plan_match and (W["matchup"].get("planned_days") or [None])[0] == TODAY.isoformat():
         _pd = proj_by_day.setdefault(TODAY.isoformat(), {})
         for side, tid in (("me", my_id), ("opp", opp_id)):
