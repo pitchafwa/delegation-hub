@@ -241,7 +241,9 @@ def main():
     # ---- expected points still to come
     plan_team = {t["id"]: t for t in W.get("teams", [])} if plan_match else {}
     plan_roster = {tid: {p["id"]: p for p in plan_team[tid]["roster"]} for tid in plan_team}
-    nba_today = set((W.get("matchup", {}).get("nba_games", {}) or {}).get(TODAY.isoformat(), [])) if plan_match else set()
+    _ng = (W.get("matchup", {}).get("nba_games") or {}) if plan_match else {}
+    games_known = TODAY.isoformat() in _ng                  # the plan lists today's NBA teams (an empty list = no games today, e.g. election day)
+    nba_today = set(_ng.get(TODAY.isoformat(), []))
     rem_today = {my_id: 0.0, opp_id: 0.0}
     left_today = {my_id: [], opp_id: []}
     p_start = {my_id: [], opp_id: []}                       # chance each not-yet-played starter adds a start today (for the cap lockout odds)
@@ -271,7 +273,9 @@ def main():
                                     "left": prog.get(tcanon), "final": round(fin, 1) if fin is not None else None})   # share of his game left; projected final (live_final)
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
             if left is None:
-                if prog or (nba_today and tcanon not in nba_today):   # his team is not on the NBA board (or, without it, not in the plan's games for today): no game today
+                if prog or (games_known and tcanon not in nba_today):   # his team is not on the NBA board (or, without it, not in the plan's games for today): no game today
+                    # (2026-11-03: on election day, with no games and no board, the old check needed a non-empty list, so CAST's whole lineup counted as playing:
+                    # 9.4 phantom starts, a projected cap lockout and his weekend wiped out, 1,480 -> 1,214)
                     continue
                 left = 0.0 if e["played"] else 1.0                   # no board at all: fall back to "to play until ESPN marks him as played"
             p_play = 0.0 if (e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed) else 0.94
