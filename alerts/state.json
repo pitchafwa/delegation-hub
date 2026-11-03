@@ -1,5 +1,6 @@
 {
  "avail_prev": {
+  "3147657": "FREEAGENT",
   "3978": "FREEAGENT",
   "4395626": "FREEAGENT",
   "5104155": "FREEAGENT"
@@ -23,95 +24,93 @@
  },
  "last_status": {
   "3059319": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "4065648": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
-   "official": "Available"
+   "official": null
   },
   "4684740": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "4997536": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "5041939": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "5279130": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "6589": {
-   "date": "2026-11-02",
+   "date": "2026-11-03",
    "espn": "ACTIVE",
    "official": null
   }
  },
  "league_req": "2026-10-26",
- "lu": {
-  "2026-11-02:3907497": 1
- },
+ "lu": {},
  "my_drops": {
   "2530530": "2026-11-01",
   "3978": "2026-11-01",
@@ -146,9 +145,9 @@
   "4997536:2026-11-01:None:eve": "2026-10-31"
  },
  "plan_rebuild": {
-  "at": "2026-11-02T22:40:26+00:00",
+  "at": "2026-11-03T05:12:42+00:00",
   "sig": "6430,6589,3059319,3135045,3907497,4065648,4065733,4395724,4431680,4432194,4433134,4684740,4997536,5041939,5041955,5105565,5279130",
-  "why": "scheduled build at 22:07Z did not run (plan from 21:27Z)"
+  "why": "new free agent(s) to evaluate: Mikal Bridges"
  },
  "rosterfix_sent": {
   "3907497:to_ir": "2026-10-31",
