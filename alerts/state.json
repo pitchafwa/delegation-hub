@@ -1,10 +1,10 @@
 {
  "avail_prev": {
   "2566769": "FREEAGENT",
-  "3147657": "FREEAGENT",
   "3978": "FREEAGENT",
   "4278580": "WAIVERS",
   "4395626": "FREEAGENT",
+  "4683766": "WAIVERS",
   "5104155": "FREEAGENT",
   "5106060": "FREEAGENT",
   "5112087": "FREEAGENT"
@@ -150,9 +150,9 @@
   "4997536:2026-11-01:None:eve": "2026-10-31"
  },
  "plan_rebuild": {
-  "at": "2026-11-03T19:37:07+00:00",
+  "at": "2026-11-03T21:01:25+00:00",
   "sig": "6430,6589,3059319,3135045,3907497,4065648,4065733,4395724,4431680,4432194,4433134,4684740,4997536,5041939,5041955,5105565,5279130",
-  "why": "scheduled build at 19:07Z did not run (plan from 17:18Z)"
+  "why": "new free agent(s) to evaluate: Isaiah Collier"
  },
  "rosterfix_sent": {
   "3907497:to_ir": "2026-10-31",
