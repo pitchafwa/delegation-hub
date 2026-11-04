@@ -1,5 +1,5 @@
 {
- "date": "2026-11-03",
+ "date": "2026-11-04",
  "through": "2026-11-02",
  "games_nba": 107,
  "games_espn": 107,
@@ -19,7 +19,7 @@
   "AST": 0,
   "STL": 2,
   "BLK": 0,
-  "TOV": 0,
+  "TOV": 1,
   "FG3M": 0,
   "FTM": 0,
   "FTA": 0,
@@ -29,9 +29,9 @@
   "DREB": 3,
   "PF": 0
  },
- "fp_exact": 0.9979,
+ "fp_exact": 0.9975,
  "fp_within_2": 0.9992,
- "fp_mean_abs": 0.004,
+ "fp_mean_abs": 0.005,
  "fp_max": 3.0,
  "fp_worst": [
   "2026-10-22 Jalen Williams: NBA 42.5, ESPN 39.5",
