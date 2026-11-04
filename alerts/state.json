@@ -135,9 +135,7 @@
   "why": "scheduled build at 01:07Z did not run (plan from 23:58Z)"
  },
  "rosterfix_sent": {
-  "3907497:to_ir": "2026-10-31",
-  "4997536:to_ir": "2026-11-02",
-  "6589:to_ir": "2026-10-31"
+  "4997536:to_ir": "2026-11-02"
  },
  "sent": {
   "daily": "2026-10-23",
