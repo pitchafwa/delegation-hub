@@ -2496,20 +2496,54 @@ async function slDispatch(mode,hash){
   const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/set-lineup.yml/dispatches`,{method:'POST',headers:{Authorization:'Bearer '+slTok(),Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{mode,hash:hash||''}})});
   if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the token. Check that it has Actions read and write access on this repository, and has not expired.':'GitHub returned status '+r.status);
 }
-async function slRun(mode,hash){
-  const box=document.getElementById('slStatus'), t0=Date.now(), say=m=>{ SL_MSG=m; if(box) box.innerHTML=m; };
-  try{ say('Sending to GitHub...'); await slDispatch(mode,hash); }catch(e){ say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); return; }
-  say('Started. This takes about a minute...');
-  for(let i=0;i<30;i++){
-    await new Promise(r=>setTimeout(r,8000));
-    const res=await slFetch('lineup_result.json');
-    if(res&&Date.parse(res.ts)>t0-8000&&res.mode===mode){
-      say(`<b style="color:${res.ok?'var(--good)':'var(--warn)'}">${res.ok?'Done':'Not applied'}:</b> ${esc(res.message)}${res.run?` <a href="${esc(res.run)}" target="_blank" rel="noopener">run log</a>`:''}`);
-      if(mode!=='apply'||res.ok) fillSetLineup(true);
-      return;
-    }
+/* Button runs (2026-11-04): GitHub's own run status drives the message (waiting to start / running with a clock / finished), the result file gives the outcome, and a
+   crashed run says so instead of waiting out a timer. Past runs: about 25-45 s from tap to finish, rarely 5-6 minutes. The message is written to whatever #slStatus
+   is on the page right now (the panel is redrawn when the live score updates). After a successful apply the preview is refreshed to confirm ESPN matches the plan. */
+let SL_BUSY=false, SL_DONE=null;
+const SL_VERB={preview:'Refreshing the preview',apply:'Setting your lineup in ESPN',undo:'Undoing the last apply',confirm:'Checking ESPN to confirm'};
+function slSay(m){ SL_MSG=m; const b=document.getElementById('slStatus'); if(b) b.innerHTML=m; document.querySelectorAll('#slApply,#slRefresh,#slUndo').forEach(x=>{ x.disabled=SL_BUSY||x.dataset.off==='1'; }); }
+const slClock=ms=>{ const s=Math.max(0,Math.round(ms/1000)); return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s'; };
+const slAt=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+async function slFindRun(t0){
+  try{ const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/set-lineup.yml/runs?event=workflow_dispatch&per_page=5`,{headers:{Authorization:'Bearer '+slTok(),Accept:'application/vnd.github+json'},cache:'no-store'});
+    if(!r.ok) return null; const j=await r.json(); return (j.workflow_runs||[]).filter(x=>Date.parse(x.created_at)>=t0-15000).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at))[0]||null; }catch(e){ return null; }
+}
+async function slRun(mode,hash,step){
+  if(SL_BUSY&&!step) return;
+  SL_BUSY=true;
+  const t0=Date.now(), verb=SL_VERB[step||mode], el=()=>slClock(Date.now()-t0);
+  const fail=(m,link)=>{ SL_BUSY=false; const hd=step==='confirm'?`<b style="color:var(--good)">✓ ${mode==='undo'?'Undone':'Lineup set'}</b>, but the check afterwards failed`:`<b style="color:var(--warn)">✗ ${esc(verb)} failed</b>`;
+    slSay(`${hd} <span class="hint">at ${slAt()}</span><br>${m}${link?` <a href="${esc(link)}" target="_blank" rel="noopener">Open the run log</a>`:''}`); };
+  slSay(`<b>${esc(verb)}…</b> sending the request to GitHub`);
+  try{ await slDispatch(mode,hash); }catch(e){ fail(esc(e.message)+' Nothing was changed.'); return; }
+  let run=null, done=false;
+  for(let i=0;i<150&&!done;i++){                                    // up to ~10 minutes (the workflow's own time limit)
+    await new Promise(r=>setTimeout(r,4000));
+    run=await slFindRun(t0)||run;
+    const st=run?run.status:null, slow=Date.now()-t0>120000;
+    if(!run||st==='queued'||st==='waiting'||st==='pending'||st==='requested') slSay(`<b>${esc(verb)}…</b> waiting for GitHub to start it · ${el()}${slow?' <span class="hint">(GitHub is slow to start it right now; it usually begins within seconds)</span>':''}`);
+    else if(st==='in_progress') slSay(`<b>${esc(verb)}…</b> running · ${el()} <span class="hint">(usually about 30 seconds${slow?'; this one is taking longer than usual, it can take up to 6 minutes':''})</span>`);
+    else if(st==='completed') done=true;
   }
-  say('Still running after 4 minutes. Open GitHub Actions and check the "Set lineup" workflow.');
+  if(!done){ fail(`Still not finished after 10 minutes, which is far longer than usual. It may have stalled.${mode==='apply'?' Check your lineup in ESPN before trying again.':''}`,run&&run.html_url); return; }
+  // the result file can take a few seconds to show up after the run ends
+  let res=null;
+  for(let i=0;i<10;i++){ const r=await slFetch('lineup_result.json'); if(r&&Date.parse(r.ts)>t0-15000&&r.mode===mode){ res=r; break; } await new Promise(r=>setTimeout(r,3000)); }
+  const link=run&&run.html_url;
+  if(!res){ fail(run.conclusion==='success'?'The run finished but its result did not come back. Tap Refresh preview to see where things stand.':`The run crashed before it finished (${esc(run.conclusion||'error')}), so nothing new was saved.${mode==='apply'?' Check your lineup in ESPN, then try again.':' Try again; if it fails twice, send me the run log.'}`,link); return; }
+  if(!res.ok){ fail(`${esc(res.message)}${mode==='apply'&&!(res.applied||[]).length?' Nothing in ESPN was changed.':''}`,link); fillSetLineup(true); return; }
+  if((mode==='apply'||mode==='undo')&&!step){                        // confirm: rebuild the preview from ESPN's lineups now
+    SL_DONE={mode,days:(res.applied||[]).length,t0};
+    await slRun('preview',null,'confirm');
+    return;
+  }
+  SL_BUSY=false;
+  await fillSetLineup(true);
+  const pv=await slFetch('lineup_preview.json'), left=pv?pv.total_moves:null;
+  const tail=left==null?'':(left===0?'ESPN now matches the plan for every remaining day.':`${left} move${left===1?'':'s'} still differ from the plan (shown below).`);
+  if(step==='confirm'&&SL_DONE){ const D=SL_DONE;
+    slSay(`<b style="color:var(--good)">✓ ${D.mode==='undo'?'Undone':'Lineup set'} and checked</b> <span class="hint">at ${slAt()} · ${D.days} day${D.days===1?'':'s'} changed · took ${slClock(Date.now()-D.t0)}</span><br>${D.mode==='undo'?(left===0?'ESPN matches the plan again.':`ESPN is back to your earlier lineup: ${left} move${left===1?'':'s'} differ from the plan.`):tail}`); return; }
+  slSay(`<b style="color:var(--good)">✓ Preview refreshed</b> <span class="hint">at ${slAt()} · took ${el()}</span><br>${tail}`);
 }
 function slRender(pv,isExample){
   const days=pv.days.map(d=>{
@@ -2525,9 +2559,9 @@ function slRender(pv,isExample){
     <div style="margin:.2rem 0 .5rem">${sum} <span class="hint">Preview built ${new Date(pv.generated).toLocaleString()} from the plan of ${new Date(pv.plan_generated).toLocaleString()}; matchup ${pv.matchup} (${pv.start} to ${pv.end}).</span></div>
     <div class="tablewrap"><table><thead><tr><th style="text-align:left">Day</th><th style="text-align:left">Starters the plan wants</th><th style="text-align:left">Moves ESPN needs</th><th>Moves</th></tr></thead><tbody>${days}</tbody></table></div>
     <div class="controls" style="margin-top:.6rem;gap:.6rem;flex-wrap:wrap">
-      <button type="button" id="slApply" ${canApply?'':'disabled'} style="${btn}${canApply?'border-color:var(--accent);cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Set my lineup for the rest of the matchup</button>
-      <button type="button" id="slRefresh" ${tok&&!isExample?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
-      <button type="button" id="slUndo" ${tok&&!isExample?'':'disabled'} title="Puts every player moved by the last apply back where he was" style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Undo last apply</button>
+      <button type="button" id="slApply" data-off="${canApply?0:1}" ${canApply&&!SL_BUSY?'':'disabled'} style="${btn}${canApply?'border-color:var(--accent);cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Set my lineup for the rest of the matchup</button>
+      <button type="button" id="slRefresh" data-off="${tok&&!isExample?0:1}" ${tok&&!isExample&&!SL_BUSY?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
+      <button type="button" id="slUndo" data-off="${tok&&!isExample?0:1}" ${tok&&!isExample&&!SL_BUSY?'':'disabled'} title="Puts every player moved by the last apply back where he was" style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Undo last apply</button>
       <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
     <div id="slStatus" class="note" style="margin-top:.4rem">${SL_MSG||(why?`<span class="hint">${esc(why)}</span>`:'')}${SL_MSG&&why?` <span class="hint">(${esc(why)})</span>`:''}</div>
     <details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">${tok?'GitHub token saved on this device':'One-time setup: add a GitHub token (works on your phone too)'}</summary>
