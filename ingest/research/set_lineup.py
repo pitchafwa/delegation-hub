@@ -65,12 +65,20 @@ SLOT_CAP = {"PG": 1, "SG": 1, "SF": 1, "PF": 1, "C": 1, "G": 1, "F": 1, "UT": 3}
 SLOT_LIST = ["PG", "SG", "SF", "PF", "C", "G", "F", "UT", "UT", "UT"]
 
 
-def minimal_moves(cur, elig, want, plays, is_today, locked_teams, team_of):
+def split_ir(cur, want):
+    """the plan's starters ESPN can actually be asked to place, and the ones it can't: a player on IR. ESPN refuses IR moves on future days (409 'moves not allowed for future
+    lineup transactions', 2026-11-04) and activating him can need a roster spot, so that stays Tommy's move. Returns (want without them, {pid: slot} held out)."""
+    held = {pid: sl for pid, sl in want.items() if pid in cur and cur[pid][1] == "IR"}
+    return {pid: sl for pid, sl in want.items() if pid not in held}, held
+
+
+def minimal_moves(cur, elig, want, plays, is_today, locked_teams, team_of, hold=()):
     """moves that put the plan's starters in the plan's OWN slots. cur: pid -> (name, slot) for the day, elig: pid -> set of slot names he may fill, want: pid -> the slot
     the plan chose. The slot matters (2026-11-02, Tommy: the old version took any active slot as fine, so Murray stayed at SG after the plan moved him for late-swap cover,
     and the preview said "no moves"): the late-swap planner picks slots so a late scratch can be covered. Locked players (game already tipped today) keep their slots; if one
     holds a slot the plan wanted for someone else, the unlocked starters are re-matched to what is left, keeping as many of the plan's slots as possible. A player the plan
-    does not start is benched if he plays that day or holds a slot a starter needs; players with no game that day otherwise stay put. Returns (moves, problems)."""
+    does not start is benched if he plays that day or holds a slot a starter needs; players with no game that day otherwise stay put. hold: slots the plan gives a player
+    still on IR, whose current holder stays there until he is activated. Returns (moves, problems)."""
     locked = {pid for pid in cur if is_today and team_of.get(pid) in locked_teams}
     free = list(SLOT_LIST)
     for pid in locked:
@@ -106,8 +114,13 @@ def minimal_moves(cur, elig, want, plays, is_today, locked_teams, team_of):
         used[cur[pid][1]] = used.get(cur[pid][1], 0) + 1
     for sl in target.values():
         used[sl] = used.get(sl, 0) + 1
+    hold = list(hold)
     for pid, (nm, sl) in cur.items():                           # everyone else in an active slot: bench him if he plays that day or his slot is now needed
         if pid in target or pid in locked or sl not in SLOT_CAP:
+            continue
+        if sl in hold and used.get(sl, 0) < SLOT_CAP[sl]:
+            hold.remove(sl)
+            used[sl] = used.get(sl, 0) + 1
             continue
         if pid in plays or used.get(sl, 0) >= SLOT_CAP[sl]:
             final[pid] = "BE"
@@ -128,7 +141,7 @@ def build_preview(from_scratch=False):
     today = datetime.now(ET).date()
     locked_teams = today_locked_teams(today)
     team_of = {p["id"]: canon(p["team"]) for p in me["roster"]}
-    days_out, total = [], 0
+    days_out, total, held_all = [], 0, []
     for d in me["days"]:
         ds = d["date"]
         dd = date.fromisoformat(ds)
@@ -142,13 +155,17 @@ def build_preview(from_scratch=False):
                 slot = "BE"                                    # example mode: pretend nothing is set yet
             cur[e["playerId"]] = (e["playerPoolEntry"]["player"]["fullName"], slot)
             elig[e["playerId"]] = {SLOT_NAME.get(i) for i in e["playerPoolEntry"]["player"].get("eligibleSlots", [])} & set(SLOT_CAP)
-        want = {x["id"]: x["slot"] for x in d["start"]}
+        want, held = split_ir(cur, {x["id"]: x["slot"] for x in d["start"]})
         plays_today = {r["id"] for r in me["roster"] if ds in r.get("games", [])}
         moves, note = [], ""
         if d.get("locked"):
             note = "Games cap already reached by then: nothing counts, so the lineup is left alone."
         else:
-            moves, probs = minimal_moves(cur, elig, want, plays_today, dd == today, locked_teams, team_of)
+            moves, probs = minimal_moves(cur, elig, want, plays_today, dd == today, locked_teams, team_of, held.values())
+            if held:
+                names = [cur[pid][0] for pid in held]
+                held_all += [{"date": ds, "name": n} for n in names]
+                probs.append(f"{' and '.join(names)} still on IR: activate in ESPN, then set the lineup again")
             if probs:
                 note = "; ".join(probs)
             for pid in want:
@@ -160,7 +177,7 @@ def build_preview(from_scratch=False):
         days_out.append({"date": ds, "sp": sp, "n_nba_games": d.get("nba_teams", 0) // 2, "plan": [{"id": x["id"], "name": x["name"], "slot": x["slot"], "ef": x["ef"]} for x in d["start"]],
                          "moves": moves, "note": note,
                          "current": [{"name": v[0], "slot": v[1]} for pid, v in cur.items() if v[1] not in ("BE", "IR")]})
-    body = {"matchup": W["matchup"]["id"], "start": W["matchup"]["start"], "end": W["matchup"]["end"], "plan_generated": W["generated"], "days": days_out, "total_moves": total}
+    body = {"matchup": W["matchup"]["id"], "start": W["matchup"]["start"], "end": W["matchup"]["end"], "plan_generated": W["generated"], "days": days_out, "total_moves": total, "held": held_all}
     body["hash"] = hashlib.md5(json.dumps(body, sort_keys=True).encode()).hexdigest()[:12]
     body["generated"] = datetime.now(timezone.utc).isoformat()
     body["apply_supported"] = False
@@ -214,7 +231,11 @@ def write_lineup(lg, sp, moves, team_id=None, dry=False):
     r = requests.post(url, json=body, cookies={"espn_s2": config.ESPN_S2, "SWID": config.SWID}, timeout=30,
                       headers={"Accept": "application/json", "X-Fantasy-Source": "kona", "Origin": "https://fantasy.espn.com", "Referer": "https://fantasy.espn.com/", "User-Agent": "Mozilla/5.0"})
     if r.status_code not in (200, 201):
-        raise RuntimeError(f"ESPN answered {r.status_code}: {r.text[:200]}")
+        try:
+            why = "; ".join(r.json().get("messages") or []) or r.text[:200]
+        except ValueError:
+            why = r.text[:200]
+        raise RuntimeError(f"ESPN answered {r.status_code}: {why}")
     try:
         j = r.json()
         if isinstance(j, dict) and str(j.get("status", "")).upper() in ("FAILED", "ERROR", "INVALID"):
@@ -307,9 +328,9 @@ def fresh_day_moves(lg, ds):
     for e in team["roster"]["entries"]:
         cur[e["playerId"]] = (e["playerPoolEntry"]["player"]["fullName"], SLOT_NAME.get(e["lineupSlotId"], str(e["lineupSlotId"])))
         elig[e["playerId"]] = {SLOT_NAME.get(i) for i in e["playerPoolEntry"]["player"].get("eligibleSlots", [])} & set(SLOT_CAP)
-    want = {x["id"]: x["slot"] for x in d["start"]}
+    want, held = split_ir(cur, {x["id"]: x["slot"] for x in d["start"]})
     plays = {r["id"] for r in me["roster"] if ds in r.get("games", [])}
-    moves, _ = minimal_moves(cur, elig, want, plays, dd == today, today_locked_teams(today), {p["id"]: canon(p["team"]) for p in me["roster"]})
+    moves, _ = minimal_moves(cur, elig, want, plays, dd == today, today_locked_teams(today), {p["id"]: canon(p["team"]) for p in me["roster"]}, held.values())
     moves.sort(key=lambda m: (m["to"] != "BE", m["to"]))
     return moves
 
@@ -330,26 +351,29 @@ def do_apply(pv, want_hash, out_dir):
     import config
     from espn_api.basketball import League
     lg = League(league_id=config.LEAGUE_ID, year=load("week_plan.json")["season"], espn_s2=config.ESPN_S2, swid=config.SWID)
-    applied = []
-    for d in pv["days"]:
+    team_id = my_team_id()
+    applied, failed, done = [], [], {}
+    for d in pv["days"]:                                     # one bad day never stops the others
         if not d["moves"]:
             continue
         moves = d["moves"]
-        if applied:
-            # ESPN copies a lineup change forward to every later day, so after the first day is set the later days' lineups have changed:
-            # re-read the day from ESPN and recompute its moves right before writing (2026-10-26: 'Scottie Barnes is already in the BE slot')
-            moves = fresh_day_moves(lg, d["date"])
-            if not moves:
-                applied.append(d["date"])
-                continue
         try:
-            write_lineup(lg, d["sp"], moves, team_id=next(t for t in load("week_plan.json")["teams"] if t["abbrev"] == load("week_plan.json")["my_abbrev"])["id"])
+            if done:
+                # ESPN copies a lineup change forward to every later day, so after the first day is set the later days' lineups have changed:
+                # re-read the day from ESPN and recompute its moves right before writing (2026-10-26: 'Scottie Barnes is already in the BE slot')
+                moves = fresh_day_moves(lg, d["date"])
+            if moves:
+                write_lineup(lg, d["sp"], moves, team_id=team_id)
+                done[d["date"]] = moves
             applied.append(d["date"])
         except Exception as ex:
-            return result_body(False, f"Stopped at {d['date']}: {ex}. Days already set: {', '.join(applied) or 'none'}. The snapshot lineup_snapshot_{pv['hash']}.json can undo them.", "apply", pv, applied)
-    last = {"ts": datetime.now(timezone.utc).isoformat(), "preview_hash": pv["hash"],
-            "days": [{"date": d["date"], "sp": d["sp"], "moves": d["moves"]} for d in pv["days"] if d["date"] in applied]}
-    (out_dir / "lineup_last_apply.json").write_text(json.dumps(last, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            failed.append(f"{d['date']}: {ex}")
+    if done:                                                 # the moves really sent, so Undo also works after a partly set lineup
+        last = {"ts": datetime.now(timezone.utc).isoformat(), "preview_hash": pv["hash"],
+                "days": [{"date": d["date"], "sp": d["sp"], "moves": done[d["date"]]} for d in pv["days"] if d["date"] in done]}
+        (out_dir / "lineup_last_apply.json").write_text(json.dumps(last, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if failed:
+        return result_body(False, f"Could not set {'; '.join(failed)}. Days set: {', '.join(applied) or 'none'}.", "apply", pv, applied)
     return result_body(True, f"Lineup set for {len(applied)} day(s): {', '.join(applied)}. Use Undo if you want it back the way it was.", "apply", pv, applied)
 
 

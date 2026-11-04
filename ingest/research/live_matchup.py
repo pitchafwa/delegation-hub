@@ -408,12 +408,31 @@ def main():
     mu = margin + BETA * (exp_rem[my_id] - exp_rem[opp_id])
     wp = Phi(mu / sigma(rem_days)) if rem_days > 0.02 else (1.0 if margin > 0 else 0.0 if margin < 0 else 0.5)
     # ---- history (kept on the live-data branch between runs)
-    hist, prev_proj = [], {}
-    try:
-        prev = requests.get(RAW_URL + f"?t={int(NOW.timestamp())}", timeout=20).json()
-        if prev.get("matchup") == mp and prev.get("season") == YEAR:
-            hist = prev.get("history", [])
-            prev_proj = prev.get("proj_by_day") or {}
+    # A failed read must not count as "no history yet": that published an empty chart over the good one (2026-11-04 19:55 UTC). Retry, then skip this run and leave the last
+    # published file alone; the next run is 5 minutes away. Only a matchup never published before starts from nothing.
+    hist, prev_proj, prev = [], {}, None
+    for _try in range(4):
+        try:
+            _r = requests.get(RAW_URL + f"?t={int(NOW.timestamp())}{_try}", timeout=20)
+            _r.raise_for_status()
+            prev = _r.json()
+            break
+        except Exception as ex:
+            print("could not read the last published file:", ex)
+            if _try < 3:
+                time.sleep(5 * (_try + 1))
+    if prev is None:
+        _led = ROOT / "ledger" / f"live-{TODAY.strftime('%Y-%m')}.jsonl"
+        if _led.exists() and f'"matchup":{mp},' in _led.read_text(encoding="utf-8"):
+            print("skipping this run so the published history is kept")
+            return
+    elif prev.get("matchup") == mp and prev.get("season") == YEAR:
+        hist = prev.get("history", [])
+        prev_proj = prev.get("proj_by_day") or {}
+    try:                                                     # points put back after that wipe, merged in every run
+        _rs = json.load(open(Path(__file__).resolve().parent / "data" / "live_history_restore.json", encoding="utf-8")).get(str(YEAR), {}).get(str(mp), [])
+        if _rs:
+            hist = sorted({h_["t"]: h_ for h_ in _rs + hist}.values(), key=lambda h_: h_["t"])
     except Exception:
         pass
     # ---- past days of this matchup (2026-11-03, Tommy): each starter's points against his projection that day. ESPN keeps the lineups and points; the projection

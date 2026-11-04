@@ -2504,6 +2504,7 @@ const SL_VERB={preview:'Refreshing the preview',apply:'Setting your lineup in ES
 function slSay(m){ SL_MSG=m; const b=document.getElementById('slStatus'); if(b) b.innerHTML=m; document.querySelectorAll('#slApply,#slRefresh,#slUndo').forEach(x=>{ x.disabled=SL_BUSY||x.dataset.off==='1'; }); }
 const slClock=ms=>{ const s=Math.max(0,Math.round(ms/1000)); return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s'; };
 const slAt=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+const slHeld=pv=>[...new Set(((pv&&pv.held)||[]).map(x=>x.name))].join(' and ');
 async function slFindRun(t0){
   try{ const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/set-lineup.yml/runs?event=workflow_dispatch&per_page=5`,{headers:{Authorization:'Bearer '+slTok(),Accept:'application/vnd.github+json'},cache:'no-store'});
     if(!r.ok) return null; const j=await r.json(); return (j.workflow_runs||[]).filter(x=>Date.parse(x.created_at)>=t0-15000).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at))[0]||null; }catch(e){ return null; }
@@ -2512,7 +2513,7 @@ async function slRun(mode,hash,step){
   if(SL_BUSY&&!step) return;
   SL_BUSY=true;
   const t0=Date.now(), verb=SL_VERB[step||mode], el=()=>slClock(Date.now()-t0);
-  const fail=(m,link)=>{ SL_BUSY=false; const hd=step==='confirm'?`<b style="color:var(--good)">✓ ${mode==='undo'?'Undone':'Lineup set'}</b>, but the check afterwards failed`:`<b style="color:var(--warn)">✗ ${esc(verb)} failed</b>`;
+  const fail=(m,link,part)=>{ SL_BUSY=false; const hd=part?'<b style="color:var(--warn)">⚠ Lineup only partly set</b>':step==='confirm'?`<b style="color:var(--good)">✓ ${mode==='undo'?'Undone':'Lineup set'}</b>, but the check afterwards failed`:`<b style="color:var(--warn)">✗ ${esc(verb)} failed</b>`;
     slSay(`${hd} <span class="hint">at ${slAt()}</span><br>${m}${link?` <a href="${esc(link)}" target="_blank" rel="noopener">Open the run log</a>`:''}`); };
   slSay(`<b>${esc(verb)}…</b> sending the request to GitHub`);
   try{ await slDispatch(mode,hash); }catch(e){ fail(esc(e.message)+' Nothing was changed.'); return; }
@@ -2531,7 +2532,7 @@ async function slRun(mode,hash,step){
   for(let i=0;i<10;i++){ const r=await slFetch('lineup_result.json'); if(r&&Date.parse(r.ts)>t0-15000&&r.mode===mode){ res=r; break; } await new Promise(r=>setTimeout(r,3000)); }
   const link=run&&run.html_url;
   if(!res){ fail(run.conclusion==='success'?'The run finished but its result did not come back. Tap Refresh preview to see where things stand.':`The run crashed before it finished (${esc(run.conclusion||'error')}), so nothing new was saved.${mode==='apply'?' Check your lineup in ESPN, then try again.':' Try again; if it fails twice, send me the run log.'}`,link); return; }
-  if(!res.ok){ fail(`${esc(res.message)}${mode==='apply'&&!(res.applied||[]).length?' Nothing in ESPN was changed.':''}`,link); fillSetLineup(true); return; }
+  if(!res.ok){ const part=mode==='apply'&&(res.applied||[]).length>0; fail(`${esc(res.message)}${part?' Tap Refresh preview to see what is left.':mode==='apply'?' Nothing in ESPN was changed.':''}`,link,part); fillSetLineup(true); return; }
   if((mode==='apply'||mode==='undo')&&!step){                        // confirm: rebuild the preview from ESPN's lineups now
     SL_DONE={mode,days:(res.applied||[]).length,t0};
     await slRun('preview',null,'confirm');
@@ -2540,7 +2541,7 @@ async function slRun(mode,hash,step){
   SL_BUSY=false;
   await fillSetLineup(true);
   const pv=await slFetch('lineup_preview.json'), left=pv?pv.total_moves:null;
-  const tail=left==null?'':(left===0?'ESPN now matches the plan for every remaining day.':`${left} move${left===1?'':'s'} still differ from the plan (shown below).`);
+  const onIr=slHeld(pv), tail=left==null?'':(left===0?(onIr?`ESPN matches the plan, except ${esc(onIr)} (still on IR).`:'ESPN now matches the plan for every remaining day.'):`${left} move${left===1?'':'s'} still differ from the plan (shown below).`);
   if(step==='confirm'&&SL_DONE){ const D=SL_DONE;
     slSay(`<b style="color:var(--good)">✓ ${D.mode==='undo'?'Undone':'Lineup set'} and checked</b> <span class="hint">at ${slAt()} · ${D.days} day${D.days===1?'':'s'} changed · took ${slClock(Date.now()-D.t0)}</span><br>${D.mode==='undo'?(left===0?'ESPN matches the plan again.':`ESPN is back to your earlier lineup: ${left} move${left===1?'':'s'} differ from the plan.`):tail}`); return; }
   slSay(`<b style="color:var(--good)">✓ Preview refreshed</b> <span class="hint">at ${slAt()} · took ${el()}</span><br>${tail}`);
@@ -2551,7 +2552,7 @@ function slRender(pv,isExample){
     return `<tr><td style="text-align:left;white-space:nowrap" data-sort="${d.date}">${fmtDay(d.date)}<div class="hint">${d.n_nba_games} NBA games</div></td><td style="text-align:left;white-space:normal">${d.plan.length?d.plan.map(x=>`<span class="hint">${esc(x.slot)}</span> ${esc(x.name.split(' ').slice(-1)[0])}`).join(' · '):'<span class="hint">nobody on your roster plays</span>'}</td>
       <td style="text-align:left;white-space:normal"><div class="comps" style="padding:0">${mv}</div>${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td><td class="num">${d.moves.length}</td></tr>`; }).join('');
   const nd=pv.days.filter(d=>d.moves.length).length;
-  const sum=pv.total_moves===0?'ESPN already has the lineup from the plan for every remaining day, so there is nothing to change.':`<b>${pv.total_moves} move${pv.total_moves>1?'s':''}</b> across ${nd} day${nd>1?'s':''} would set the planned lineup for the rest of the matchup.`;
+  const onIr=slHeld(pv), sum=pv.total_moves===0?(onIr?`ESPN has the plan's lineup for every remaining day, except ${esc(onIr)} (still on IR).`:'ESPN already has the lineup from the plan for every remaining day, so there is nothing to change.'):`<b>${pv.total_moves} move${pv.total_moves>1?'s':''}</b> across ${nd} day${nd>1?'s':''} would set the planned lineup for the rest of the matchup.`;
   const tok=slTok(), canApply=!!tok&&!isExample&&pv.apply_supported&&pv.total_moves>0;
   const why=isExample?'This is only an example.':(!tok?'Add your GitHub token below to unlock the buttons.':(!pv.apply_supported?'Applying is not switched on yet (waiting on the ESPN lineup request capture). The preview works.':(pv.total_moves===0?'Nothing to apply.':'')));
   const btn='padding:.45rem .9rem;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;';
