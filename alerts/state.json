@@ -27,82 +27,82 @@
  },
  "last_status": {
   "3059319": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "DAY_TO_DAY",
-   "official": null
+   "official": "Questionable"
   },
   "4065733": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "4432194": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "5279130": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "OUT",
    "official": null
   },
   "6589": {
-   "date": "2026-11-03",
+   "date": "2026-11-04",
    "espn": "ACTIVE",
    "official": null
   }
@@ -114,8 +114,6 @@
   "3978": "2026-11-01",
   "4278580": "2026-11-02",
   "4397040": "2026-11-02",
-  "4432241": "2026-10-30",
-  "4683678": "2026-10-30",
   "4997536": "2026-11-03"
  },
  "pickup_sent": {},
@@ -146,8 +144,5 @@
   "lineup": "2026-10-30:0b7d27c39c",
   "weekly": "3"
  },
- "target_gone": {
-  "4997536:2026-11-01": "2026-10-31",
-  "5106060:2026-11-01": "2026-10-31"
- }
+ "target_gone": {}
 }
