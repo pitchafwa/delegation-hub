@@ -2500,7 +2500,7 @@ async function slDispatch(mode,hash){
    crashed run says so instead of waiting out a timer. Past runs: about 25-45 s from tap to finish, rarely 5-6 minutes. The message is written to whatever #slStatus
    is on the page right now (the panel is redrawn when the live score updates). After a successful apply the preview is refreshed to confirm ESPN matches the plan. */
 let SL_BUSY=false, SL_DONE=null;
-const SL_VERB={preview:'Refreshing the preview',apply:'Setting your lineup in ESPN',undo:'Undoing the last apply',confirm:'Checking ESPN to confirm'};
+const SL_VERB={preview:'Refreshing the preview',apply:'Setting your lineup in ESPN',undo:'Undoing the last apply',confirm:'✓ Done in ESPN. Now checking it matches the plan'};
 function slSay(m){ SL_MSG=m; const b=document.getElementById('slStatus'); if(b) b.innerHTML=m; document.querySelectorAll('#slApply,#slRefresh,#slUndo').forEach(x=>{ x.disabled=SL_BUSY||x.dataset.off==='1'; }); }
 const slClock=ms=>{ const s=Math.max(0,Math.round(ms/1000)); return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s'; };
 const slAt=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
@@ -2563,7 +2563,7 @@ function slRender(pv,isExample){
       <button type="button" id="slRefresh" data-off="${tok&&!isExample?0:1}" ${tok&&!isExample&&!SL_BUSY?'':'disabled'} style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Refresh preview</button>
       <button type="button" id="slUndo" data-off="${tok&&!isExample?0:1}" ${tok&&!isExample&&!SL_BUSY?'':'disabled'} title="Puts every player moved by the last apply back where he was" style="${btn}${tok&&!isExample?'cursor:pointer':'color:var(--ink-faint);cursor:not-allowed'}">Undo last apply</button>
       <button type="button" id="slExBtn" style="background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline">${isExample?'Back to my real preview':'Show an example with moves'}</button></div>
-    <div id="slStatus" class="note" style="margin-top:.4rem">${SL_MSG||(why?`<span class="hint">${esc(why)}</span>`:'')}${SL_MSG&&why?` <span class="hint">(${esc(why)})</span>`:''}</div>
+    <div id="slStatus" class="note" style="margin-top:.4rem">${SL_MSG||(why?`<span class="hint">${esc(why)}</span>`:'')}${SL_MSG&&why&&!tok?` <span class="hint">(${esc(why)})</span>`:''}</div>
     <details style="margin-top:.5rem"><summary class="hint" style="cursor:pointer">${tok?'GitHub token saved on this device':'One-time setup: add a GitHub token (works on your phone too)'}</summary>
       <div class="note" style="margin-top:.4rem">${tok?`<button type="button" id="slTokClear" style="${btn}cursor:pointer">Remove token from this device</button>`:`<ol style="margin:.2rem 0 .5rem 1.1rem;padding:0"><li>On GitHub: Settings, Developer settings, Personal access tokens, <b>Fine-grained tokens</b>, Generate new token.</li><li>Repository access: <b>only</b> pitchafwa/delegation-hub. Permissions: <b>Actions: Read and write</b>. Expiration: your choice (90 days is fine).</li><li>Paste it here. It is saved only in this browser on this device. Do this once on each device you want to use (phone and computer).</li></ol>
         <input type="password" id="slTokIn" autocomplete="off" placeholder="github_pat_..." style="padding:.4rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);width:min(22rem,100%)" /> <button type="button" id="slTokSave" style="${btn}cursor:pointer">Save</button>`}
