@@ -178,7 +178,8 @@ def build_preview(from_scratch=False):
                          "moves": moves, "note": note,
                          "current": [{"name": v[0], "slot": v[1]} for pid, v in cur.items() if v[1] not in ("BE", "IR")]})
     body = {"matchup": W["matchup"]["id"], "start": W["matchup"]["start"], "end": W["matchup"]["end"], "plan_generated": W["generated"], "days": days_out, "total_moves": total, "held": held_all}
-    body["hash"] = hashlib.md5(json.dumps(body, sort_keys=True).encode()).hexdigest()[:12]
+    # the hash covers only the moves: a plan rebuild that wants the same moves is not a reason to refuse (2026-11-05)
+    body["hash"] = hashlib.md5(json.dumps([W["matchup"]["id"], [[d["date"], sorted(d["moves"], key=lambda m: m["id"])] for d in days_out if d["moves"]]], sort_keys=True).encode()).hexdigest()[:12]
     body["generated"] = datetime.now(timezone.utc).isoformat()
     body["apply_supported"] = False
     body["example"] = bool(from_scratch)

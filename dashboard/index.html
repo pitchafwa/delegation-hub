@@ -2481,15 +2481,24 @@ function coverStarts(days,plain){ return days.reduce((a,d)=>a+(plain||d.starts_c
    Buttons call GitHub's workflow_dispatch API for .github/workflows/set-lineup.yml with a token Tommy pastes into THIS browser once (kept in this browser's localStorage only,
    never in the page source); that workflow holds the ESPN login as a repository secret, rebuilds the preview, and (when APPLY_READY is on in set_lineup.py) applies exactly the
    preview hash he confirmed. Results are published to the lineup-data branch and read back here. Applying is NOT switched on yet. */
-const SL_BASE='https://raw.githubusercontent.com/pitchafwa/delegation-hub/lineup-data/', SL_REPO='pitchafwa/delegation-hub';
+const SL_REPO='pitchafwa/delegation-hub';
 let SL_EXAMPLE=false, SL_MSG='';
 const slTok=()=>{ try{ return localStorage.getItem('sl_token')||''; }catch(e){ return ''; } };
 function slSetTok(v){ try{ if(v) localStorage.setItem('sl_token',v); else localStorage.removeItem('sl_token'); }catch(e){} }
+// a file a workflow just published: read through GitHub's API. raw.githubusercontent.com served the new file about 5 minutes late (measured 2026-11-05: API 24s, raw 285s),
+// so a finished run looked like a crash and the page sent an old preview's hash. A token without Contents access falls through to the anonymous API, then raw.
+async function ghFile(branch,name){
+  const u=`https://api.github.com/repos/${SL_REPO}/contents/${name}?ref=${branch}&t=${Date.now()}`, tok=slTok();
+  for(const h of tok?[{Authorization:'Bearer '+tok},{}]:[{}]){
+    try{ const r=await fetch(u,{cache:'no-store',headers:{Accept:'application/vnd.github.raw+json',...h}}); if(r.ok) return await r.json(); }catch(e){} }
+  try{ const r=await fetch(`https://raw.githubusercontent.com/${SL_REPO}/${branch}/${name}?t=${Date.now()}`,{cache:'no-store'}); if(r.ok) return await r.json(); }catch(e){}
+  return null;
+}
 async function slFetch(name){
   let best=null;
-  for(const u of [SL_BASE+name+'?t='+Date.now(), name+'?t='+Date.now()]){
-    try{ const r=await fetch(u,{cache:'no-store'}); if(r.ok){ const j=await r.json(); const t=Date.parse(j.generated||j.ts||0)||0; if(!best||t>best.t) best={j,t}; } }catch(e){}
-  }
+  const stamp=j=>Date.parse(j.generated||j.ts||0)||0, a=await ghFile('lineup-data',name);
+  if(a) best={j:a,t:stamp(a)};
+  try{ const r=await fetch(name+'?t='+Date.now(),{cache:'no-store'}); if(r.ok){ const j=await r.json(), t=stamp(j); if(!best||t>best.t) best={j,t}; } }catch(e){}
   return best?best.j:null;
 }
 async function slDispatch(mode,hash){
@@ -2767,7 +2776,6 @@ async function tiInit(){
    top-5 future keeper assets. EXACT analysis through a workflow (research/trade_value.py): rebuilds both teams' lineups for every remaining week, re-runs the playoff simulation,
    charges forced drops, credits free-agent fill, and reports title / playoff odds and next year's keeper strength. The button uses the same GitHub token as the lineup button. */
 const TA={partner:null,give:new Set(),get:new Set(),pm:"auto",pt:"auto",lam:0.15,res:null,status:"",mk:null,ctx:null,rid:null};
-const TA_BASE="https://raw.githubusercontent.com/pitchafwa/delegation-hub/trade-data/";
 const TA_POST={auto:"Auto",rebuild:"Rebuilding",balanced:"Balanced",contend:"Contending"};
 async function taLoad(){
   if(TA.mk) return;
@@ -2885,7 +2893,7 @@ async function taRun(box){
     await new Promise(r=>setTimeout(r,10000));
     if(TA.rid!==rid) return;
     try{
-      const j=await (await fetch(TA_BASE+"trade_result.json?t="+Date.now(),{cache:"no-store"})).json();
+      const j=await ghFile('trade-data','trade_result.json');
       if(j&&j.rid===rid){ TA.res=j; say(""); const o2=box.querySelector("#taResult"); if(o2) o2.innerHTML=taResultHtml(j); return; }
     }catch(e){}
   }
@@ -3721,7 +3729,6 @@ function renderStamp(){
 const PR={busy:false,msg:''};
 /* ONE-TAP MOVES (2026-10-25): a Do now move due today gets a button that makes it in ESPN through the roster-move workflow (same GitHub token as Set lineup).
    The workflow re-checks the move against the newest plan and ESPN, sends one transaction (add + drop together), verifies it, and starts a plan rebuild. */
-const MV_BASE='https://raw.githubusercontent.com/pitchafwa/delegation-hub/move-data/';
 const MV={};   // key -> {busy, msg, ok}
 const mvKey=m=>`${m.add}:${m.drop}:${m.kind}`;
 function mvButton(m){
@@ -3743,7 +3750,7 @@ async function mvRun(m){
   set({msg:'Checking the move and sending it to ESPN (about a minute)…'});
   for(let i=0;i<36;i++){
     await new Promise(res=>setTimeout(res,5000));
-    try{ const j=await (await fetch(MV_BASE+'move_result.json?t='+Date.now(),{cache:'no-store'})).json();
+    try{ const j=await ghFile('move-data','move_result.json');
       if(j&&j.rid===rid){ set({busy:false,ok:!!j.ok,msg:esc(j.message)+(j.run?` <a href="${esc(j.run)}" target="_blank" rel="noopener">log</a>`:'')}); return; } }catch(e){}
   }
   set({busy:false,ok:false,msg:'No answer after 3 minutes. Check the ESPN app before trying again.'});
