@@ -2,6 +2,35 @@
 
 Pending features/improvements, not yet built. Approve one at a time.
 
+## CURRENT STATUS (audited against the code, commits and studies 2026-11-05; this section is the source of truth, older sections below are history)
+Keep this list current in the same session as any build or study.
+
+**Open**
+1. Usage-flow boost on top of next-few-days DELCO: retest. The long-absence discount (`w = 1 - 0.45 x min(1, streak/15)` in `usage_flow.plan_boosts`) was borrowed from the old last-15 blend weight, and that base was replaced by model A on 2026-10-26. Tests 6+7 found the teammate-out effect small and gone by game 4, so the boost may overshoot, most for season-long absences (Butler). Historical data is enough; no need to wait.
+2. Season review page (better with 4-6 weeks of results).
+3. Trade deadline calendar + injured-star buy list.
+4. Road ahead: next 4 opponents with win chance; remaining strength of schedule.
+5. Position-eligibility gain tracker.
+6. Two-way / call-up tag on free agents (the rotation status already treats unused players as not playing).
+7. Offseason: grade the draft simulator on the 2026 draft; league draft history as a second market price; breakout extras (playstyle, role competition, news signals).
+
+**Waiting on a date**
+Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12-01; blend study 12-14; opponent streaming refresh after ~10 matchups; tanking overrides in February; first real waiver claim through the Do now button.
+
+**Partly covered, no separate build planned unless Tommy asks**
+- Buy-low/sell-high: panel on the Trades tab from `regression_study.py`, season level, mild evidence (big jumps fall back about 2 pts/g; slumps do not reliably rebound). No dedicated tab on recent form.
+- Just-dropped watch: pickup alert plus waiver tags. Opponent scouting: Matchups pages, owner habits and streaming.
+
+**Done, older sections may still read as open**
+- Reclaim table: built 2026-10-25.
+- "Why is he hot": study and Form column built 2026-09-26 (RESEARCH_form.md).
+- Trade analyzer validation: `trade_replay.py` 2026-10-11 (right direction 86% vs 65%); acceptance fit 2026-10-23.
+- Trade analyzer polish: search, chips, before/after built 2026-10-25.
+- DELCO after a team change: tested three ways, nothing left to test. `team_change_*.py` (September); extra room for movers no gain (`delco_inseason_study.py`, 10-24); in-season trades in the first 10 games, built into model A (`post`, `post_x_newgap`, test 8, 10-26).
+
+**Dropped**
+Win-probability alerts at 25%/75% (conflicts with actionable-only alerts); power rankings chart.
+
 ## Automated daily refresh (DARKO-style)
 
 Right now the whole pipeline is manual — nothing updates on its own as new
