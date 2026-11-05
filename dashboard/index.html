@@ -3513,15 +3513,20 @@ function renderStandings(){
   if(!isMobile()) mobileTables(pane);
 }
 // Laptop-free trial scorecard (2026-11-01): the cloud copy of the daily refresh vs the laptop's, one record a day on the cloud-test branch (cloud_test.py)
-let CT=null;
+let CT=null, CTL=null;
 async function renderCloud(){
   const pn=document.getElementById('cloudPane');
   if(!CT){ pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
     try{ const r=await fetch('https://raw.githubusercontent.com/pitchafwa/delegation-hub/cloud-test/cloud_test/history.json?t='+Date.now(),{cache:'no-store'}); CT=r.ok?await r.json():[]; }catch(e){ CT=[]; } }
   if(!CT.length){ pn.innerHTML='<h2 class="secT">Cloud test</h2><div class="hint">No results yet.</div>'; return; }
+  // the scorecard is written once, at the cloud run; the laptop can finish hours later, so its status and checks are read live
+  if(!CTL){ CTL={}; await Promise.all([['lr','local_refresh_status.json'],['box','cloud_test_box.json'],['dff','cloud_test_dff.json']].map(async([k,f])=>{ try{ const r=await fetch(f+'?t='+Date.now(),{cache:'no-store'}); if(r.ok) CTL[k]=await r.json(); }catch(e){} })); }
   const ok=(b,t,f)=>`<b style="color:${b?'var(--good)':'var(--warn)'}">${b?(t||'yes'):(f||'no')}</b>`;
   const pct=x=>x==null?'–':(x*100).toFixed(x>=0.995&&x<1?1:0)+'%';
-  const L=CT[CT.length-1], M=L.models||{}, P=L.plan||{}, B=L.box, F=L.dff;
+  const L=CT[CT.length-1], M=L.models||{}, P=L.plan||{};
+  const B=L.box&&!L.box.stale?L.box:(CTL.box&&CTL.box.date===L.date?CTL.box:L.box), F=L.dff&&!L.dff.stale?L.dff:(CTL.dff&&CTL.dff.date===L.date?CTL.dff:L.dff);
+  const fair=h=>!!(h.laptop_run&&h.laptop_run.today), clock=s=>new Date(s).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  const lapFin=(CTL.lr&&CTL.lr.finished)||(L.laptop_run&&L.laptop_run.finished), lapToday=!!lapFin&&lapFin.slice(0,10)===L.date;
   const MROW=[['delco_season','DELCO this season'],['rest_of_season_ppg','Rest of season'],['next_days','Next few days'],['keeper_value','Keeper value'],['last10','Last 10 games'],['minutes10','Minutes'],['games_left','Games left'],['rank','Rank'],['injury_tier','Injury tier'],['team_matchup','Matchup factors']];
   const mrow=([k,lab])=>{ const m=M[k]; if(!m||!m.n) return ''; const good=m.within>=0.98;
     return `<tr><td>${lab}</td><td>${ok(good,pct(m.within),pct(m.within))}</td><td>${m.max}</td><td class="hint">${(m.worst||[]).slice(0,2).map(esc).join('<br>')}</td></tr>`; };
@@ -3530,10 +3535,11 @@ async function renderCloud(){
   const runOk=h=>h.cloud_run&&h.cloud_run.ok;
   const planSame=h=>h.plan&&!h.plan.error&&h.plan.moves_same&&h.plan.ir_same&&h.plan.starters_same_days===h.plan.n_days;
   pn.innerHTML=`<h2 class="secT">Cloud test</h2>
-    <div class="hint" style="margin-bottom:.6rem">Day ${CT.length} · cloud run finished ${CT.filter(runOk).length} of ${CT.length} days · same plan ${CT.filter(planSame).length} of ${CT.length} days · last ${esc(L.at.replace('T',' '))}</div>
+    <div class="hint" style="margin-bottom:.6rem">Day ${CT.length} · cloud run finished ${CT.filter(runOk).length} of ${CT.length} days · same plan ${CT.filter(h=>fair(h)&&planSame(h)).length} of ${CT.filter(fair).length} days the laptop ran first · last ${esc(L.at.replace('T',' '))}</div>
     <div class="profCard"><b>Runs today</b><br>
       Cloud: ${ok(runOk(L),'finished','failed')}${L.cloud_run&&L.cloud_run.minutes?` in ${L.cloud_run.minutes} min`:''}${L.cloud_run&&L.cloud_run.failed&&L.cloud_run.failed.length?` · failed steps: ${list(L.cloud_run.failed)}`:''}<br>
-      Laptop: ${ok(L.laptop_run&&L.laptop_run.today,'ran today','not today')}</div>
+      Laptop: ${ok(lapToday,`ran today, finished ${lapToday?clock(lapFin):''}`,'not yet today')}</div>
+    ${fair(L)?'':`<div class="note" style="margin:.4rem 0">The laptop hadn't run when the cloud check finished at ${clock(L.at)}, so the plan and model gaps below are against its previous run.</div>`}
     <div class="profCard"><b>Plan</b><br>
       ${P.error?`<span style="color:var(--warn)">${esc(P.error)}</span>`:`Starters: ${(P.days||[]).map(dayChip).join(' ')}<br>
       Adds/drops: ${ok(P.moves_same,'same','different')}${P.moves_same?'':` · laptop: ${list(P.moves_pc)} · cloud: ${list(P.moves_cloud)}`}<br>
@@ -3551,7 +3557,7 @@ async function renderCloud(){
       Injury changes: laptop ${F.injuries.laptop}, cloud ${F.injuries.cloud}, both ${F.injuries.matched}`:`<span class="hint">${F&&F.error?esc(F.error):'no check from the laptop today'}</span>`}</div>
     <div class="profCard"><b>Every day</b>
       <table class="tbl" style="width:100%;margin-top:.3rem"><tr><th>Day</th><th>Cloud</th><th>Box</th><th>DELCO</th><th>Plan</th><th>Win</th></tr>
-      ${CT.slice().reverse().map(h=>`<tr><td>${new Date(h.date+'T12:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'})}</td><td>${ok(runOk(h),'✓','✗')}</td><td>${h.box&&!h.box.stale?pct(h.box.fp_exact):'–'}</td><td>${h.models&&h.models.delco_season&&h.models.delco_season.n?pct(h.models.delco_season.within):'–'}</td><td>${h.plan&&!h.plan.error?ok(planSame(h),'same','diff'):'–'}</td><td>${h.plan&&h.plan.win_pc!=null?((h.plan.win_cloud-h.plan.win_pc)*100).toFixed(0):'–'}</td></tr>`).join('')}</table></div>`;
+      ${CT.slice().reverse().map(h=>`<tr><td>${new Date(h.date+'T12:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'})}</td><td>${ok(runOk(h),'✓','✗')}</td><td>${h.box&&!h.box.stale?pct(h.box.fp_exact):'–'}</td><td>${fair(h)&&h.models&&h.models.delco_season&&h.models.delco_season.n?pct(h.models.delco_season.within):'–'}</td><td>${fair(h)&&h.plan&&!h.plan.error?ok(planSame(h),'same','diff'):'–'}</td><td>${fair(h)&&h.plan&&h.plan.win_pc!=null?((h.plan.win_cloud-h.plan.win_pc)*100).toFixed(0):'–'}</td></tr>`).join('')}</table></div>`;
 }
 function renderAbout(){
   const groups=[['This week',['Projected','Expected','Chance to play','Cap','Starts','Win chance','Net gain','Waivers']],['Player value',['Season value','Keeper value','Keeper rank','Keeper value, best case']],['League',['PO games','Proj','Pts/wk','Opp pts/wk','All-play','Luck','Proj pts/wk','Starts per matchup','PPS','Inj pts/wk','Playoffs','Bye','Title','Title trend']],['Trades',['Acceptance']]];
