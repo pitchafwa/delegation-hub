@@ -4,8 +4,7 @@
   "3978": "FREEAGENT",
   "4395626": "FREEAGENT",
   "4683766": "FREEAGENT",
-  "5104155": "FREEAGENT",
-  "5106060": "FREEAGENT"
+  "5104155": "FREEAGENT"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -40,7 +39,7 @@
   },
   "4065648": {
    "date": "2026-11-05",
-   "espn": "OUT",
+   "espn": "DAY_TO_DAY",
    "official": null
   },
   "4065733": {
