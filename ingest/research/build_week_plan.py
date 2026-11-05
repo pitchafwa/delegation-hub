@@ -1356,7 +1356,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     wk_left = min(ROS_WEEKS, weeks_after())
 
     def lose_p(dr, wait_days=2):
-        """chance the player you drop is gone before you can re-add him: about 15% for the usual two days on waivers, more the longer he sits (same per-2-day rate as p_taken)"""
+        """chance the player you drop is gone before you can re-add him: the measured table (reclaim_lose), by his level and how long he sits"""
         return reclaim_lose(LL(dr), max(2, wait_days))
 
     def fut(dr, wait_days=2):
