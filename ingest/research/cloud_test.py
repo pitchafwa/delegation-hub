@@ -5,7 +5,8 @@ checkout. Nothing here touches main or the site: the record goes to the cloud-te
   2. the weekly plan built twice, back to back, from the same ESPN league state: on the laptop's files, then on the cloud's -> compare_cloud_pc.plans
   3. what the laptop checked this morning (on main): box scores ESPN vs the NBA site (cloud_test_box.json), DFF monitor logs (cloud_test_dff.json)
   4. how the cloud run itself went (refresh_status.json: finished?, failed steps, minutes)
-Run from ingest/:  python research/cloud_test.py OUT_DIR
+Run from ingest/:  python research/cloud_test.py OUT_DIR [--recheck]
+--recheck (cloud-test-recheck.yml): the same comparison again after the laptop finishes, on this morning's cloud files, replacing today's record.
 """
 import json
 import shutil
@@ -48,7 +49,7 @@ for f in MODEL_FILES:
     if (DASH / f).exists() and f not in PC_ONLY:
         shutil.copy(DASH / f, cl / f)
 
-rec = {"date": datetime.now(ET).date().isoformat(), "at": datetime.now(ET).isoformat(timespec="minutes")}
+rec = {"date": datetime.now(ET).date().isoformat(), "at": datetime.now(ET).isoformat(timespec="minutes"), "recheck": "--recheck" in sys.argv}
 st = json.loads((R / "data" / "refresh_status.json").read_text(encoding="utf-8")) if (R / "data" / "refresh_status.json").exists() else {}
 if (st.get("started") or "")[:10] != rec["date"]:              # the run died before writing its status: the file is an older run's
     st = {"ok": False, "note": "the cloud run stopped before it finished"}
@@ -91,6 +92,7 @@ hist = json.loads(hist_p.read_text(encoding="utf-8")) if hist_p.exists() else []
 hist = [h for h in hist if h.get("date") != rec["date"]] + [rec]
 hist_p.write_text(json.dumps(hist, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 (OUT / "latest.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
+shutil.copytree(cl, OUT.parent / "cloud_dash", dirs_exist_ok=True)                # the cloud's model files, kept in R2 for the recheck
 for f in ("hub_data.json", "redraft_data.json", "rotation_status.json"):          # the cloud's own copies, for a closer look when something differs
     if (cl / f).exists():
         shutil.copy(cl / f, OUT / f"cloud_{f}")

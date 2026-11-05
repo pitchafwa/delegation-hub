@@ -466,6 +466,7 @@ Cost: none (Actions free for public repos; R2 free tier). Memory notes stay per 
 - `cloud-test.yml` (Cloudflare timer 8:15am ET): restores R2 data, runs the cloud refresh, `cloud_test.py` builds the plan both ways and writes the
   scorecard to the `cloud-test` branch; site page More > Cloud test. `cloud-test-dff.yml` every 10 minutes.
 - Decision write-up due about 2026-12-01.
+- Recheck (2026-11-05): when the laptop runs after the 8:15am cloud check, `cloud-test-recheck.yml` redoes today's comparison as soon as its status file lands on main (cloud model files kept in R2 as `cloud/dash.tar.zst`). Days before this with `laptop_run.today` false are not fair comparisons and do not count.
 
 ## Games cap tethered to ESPN (fixed 2026-11-02)
 ESPN stores the games-played limit per scoring period (40/7 = 5.714, `lineupSlotStatLimits` statId 42). A matchup's limit = that x the days WITH NBA games, and it is

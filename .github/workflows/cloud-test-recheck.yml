@@ -1,0 +1,92 @@
+name: Cloud test recheck (after the laptop finishes)
+
+# The morning scorecard (cloud-test.yml, about 8:15am) compares with whatever the laptop last published. When the laptop runs later than that, today's comparison is against
+# its previous run and means nothing (2026-11-05). This redoes today's comparison as soon as the laptop's refresh lands on main: same cloud files from this morning, the laptop's
+# fresh files, the plan built both ways back to back. It replaces today's scorecard on the cloud-test branch and never touches main. Skips if today is already a fair comparison.
+on:
+  push:
+    branches: [main]
+    paths: [dashboard/local_refresh_status.json]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Recheck even if today's scorecard already counts"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cloud-test
+  cancel-in-progress: false
+
+env:
+  BUCKET: delegation-hub-data
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  R2: https://1f00ed93c4886579cdff70413c48ead4.r2.cloudflarestorage.com
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Does today need a recheck?
+        id: gate
+        run: |
+          mkdir -p "$RUNNER_TEMP/cloud_out"
+          git fetch --depth 1 origin cloud-test
+          git show origin/cloud-test:cloud_test/history.json > "$RUNNER_TEMP/cloud_out/history.json"
+          python3 - "$RUNNER_TEMP/cloud_out/history.json" "${{ inputs.force }}" <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, sys
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          today = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+          rec = next((h for h in json.load(open(sys.argv[1], encoding="utf-8")) if h.get("date") == today), None)
+          fair = bool(rec and (rec.get("laptop_run") or {}).get("today"))
+          ok = bool(rec and (rec.get("cloud_run") or {}).get("ok"))
+          print("go=" + ("true" if ok and (not fair or sys.argv[2] == "true") else "false"))
+          EOF
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.go == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: steps.gate.outputs.go == 'true'
+        run: pip install --quiet espn-api requests python-dotenv nba_api pandas numpy scipy scikit-learn pyarrow lxml beautifulsoup4 pdfplumber
+
+      - name: Get the cloud's model data and this morning's files
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          set -o pipefail
+          aws s3 cp "s3://$BUCKET/cloud/data.tar.zst" - --endpoint-url "$R2" | zstd -d | tar -x -C ingest/research
+          aws s3 cp "s3://$BUCKET/cloud/dash.tar.zst" - --endpoint-url "$R2" | zstd -d | tar -x -C dashboard
+
+      - name: Scorecard (cloud vs laptop)
+        if: steps.gate.outputs.go == 'true'
+        working-directory: ingest
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python research/cloud_test.py "$RUNNER_TEMP/cloud_out" --recheck
+
+      - name: Publish the scorecard (cloud-test branch)
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git worktree add -B cloud-test ../ct origin/cloud-test
+          cp "$RUNNER_TEMP"/cloud_out/* ../ct/cloud_test/
+          cd ../ct && git add cloud_test && git commit -qm "Cloud test recheck $(date -u +%F)" && for i in 1 2 3; do git push -q origin HEAD:cloud-test && break; sleep 5; done

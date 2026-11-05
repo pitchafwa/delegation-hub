@@ -87,6 +87,7 @@ jobs:
         run: |
           set -o pipefail
           tar -C ingest/research -cf - data | zstd -T0 -3 -q | aws s3 cp - "s3://$BUCKET/cloud/data.tar.zst" --endpoint-url "$R2" --expected-size 3000000000
+          tar -C "$RUNNER_TEMP/cloud_dash" -cf - . | zstd -T0 -3 -q | aws s3 cp - "s3://$BUCKET/cloud/dash.tar.zst" --endpoint-url "$R2"
 
       - name: Publish the scorecard (cloud-test branch)
         run: |
