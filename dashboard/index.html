@@ -3525,6 +3525,7 @@ async function renderCloud(){
   const pct=x=>x==null?'–':(x*100).toFixed(x>=0.995&&x<1?1:0)+'%';
   const L=CT[CT.length-1], M=L.models||{}, P=L.plan||{};
   const B=L.box&&!L.box.stale?L.box:(CTL.box&&CTL.box.date===L.date?CTL.box:L.box), F=L.dff&&!L.dff.stale?L.dff:(CTL.dff&&CTL.dff.date===L.date?CTL.dff:L.dff);
+  const pickSame=[...(P.tonight_pc||[])].sort().join()===[...(P.tonight_cloud||[])].sort().join();
   const fair=h=>!!(h.laptop_run&&h.laptop_run.today), clock=s=>new Date(s).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   const lapFin=(CTL.lr&&CTL.lr.finished)||(L.laptop_run&&L.laptop_run.finished), lapToday=!!lapFin&&lapFin.slice(0,10)===L.date;
   const MROW=[['delco_season','DELCO this season'],['rest_of_season_ppg','Rest of season'],['next_days','Next few days'],['keeper_value','Keeper value'],['last10','Last 10 games'],['minutes10','Minutes'],['games_left','Games left'],['rank','Rank'],['injury_tier','Injury tier'],['team_matchup','Matchup factors']];
@@ -3544,7 +3545,7 @@ async function renderCloud(){
       ${P.error?`<span style="color:var(--warn)">${esc(P.error)}</span>`:`Starters: ${(P.days||[]).map(dayChip).join(' ')}<br>
       Adds/drops: ${ok(P.moves_same,'same','different')}${P.moves_same?'':` · laptop: ${list(P.moves_pc)} · cloud: ${list(P.moves_cloud)}`}<br>
       IR moves: ${ok(P.ir_same,'same','different')}${P.ir_same?'':` · laptop: ${list(P.ir_pc)} · cloud: ${list(P.ir_cloud)}`}<br>
-      Tonight's top pickups: ${ok(P.tonight_same,'same','different')}${P.tonight_same?'':` · laptop: ${list(P.tonight_pc)} · cloud: ${list(P.tonight_cloud)}`}<br>
+      Tonight's top pickups: ${ok(pickSame,'same','different')}${pickSame?'':` · laptop: ${list(P.tonight_pc)} · cloud: ${list(P.tonight_cloud)}`}<br>
       Win chance: laptop ${pct(P.win_pc)}, cloud ${pct(P.win_cloud)}`}</div>
     <div class="profCard"><b>Box scores</b> <span class="hint">ESPN vs NBA site</span><br>
       ${B&&!B.stale?`${B.games_espn} of ${B.games_nba} games · fantasy points identical for ${pct(B.fp_exact)} of ${B.matched} player-games · biggest gap ${B.fp_max}${(B.fp_worst||[]).length?`<br><span class="hint">${B.fp_worst.slice(0,3).map(esc).join('<br>')}</span>`:''}<br>

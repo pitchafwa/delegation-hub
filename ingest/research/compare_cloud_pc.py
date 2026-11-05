@@ -87,7 +87,7 @@ def plans(pc, cloud):
     return {"days": days, "starters_same_days": sum(d["same"] for d in days), "n_days": len(days),
             "moves_pc": mv(ta), "moves_cloud": mv(tb), "moves_same": mv(ta) == mv(tb),
             "ir_pc": ir(ta), "ir_cloud": ir(tb), "ir_same": ir(ta) == ir(tb),
-            "tonight_pc": tn(ta), "tonight_cloud": tn(tb), "tonight_same": tn(ta) == tn(tb),
+            "tonight_pc": tn(ta), "tonight_cloud": tn(tb), "tonight_same": set(tn(ta)) == set(tn(tb)),
             "win_pc": ta.get("win_prob"), "win_cloud": tb.get("win_prob"),
             "expected_pc": ta.get("expected_total"), "expected_cloud": tb.get("expected_total")}
 
