@@ -18,3 +18,4 @@
 {"kind":"alert","ts":"2026-11-03T08:00:38-05:00","title":"Activate Gui Santos from IR","body":"ESPN lists him day-to-day. He can't score from IR. +49 pts this week.","priority":4}
 {"kind":"alert","ts":"2026-11-03T18:09:35-05:00","title":"Activate Dejounte Murray from IR","body":"ESPN lists him healthy. He can't score from IR. Activate him and drop Nolan Traore. +196 pts this week.","priority":4}
 {"kind":"alert","ts":"2026-11-05T12:38:36-05:00","title":"Activate Jayson Tatum from IR","body":"ESPN lists him day-to-day. He can't score from IR. Do it before 9pm, when roster moves lock for today. +60 pts this week.","priority":4}
+{"kind":"alert","ts":"2026-11-05T20:42:52-05:00","title":"Fix lineup by 10pm","body":"Bench Andrew Wiggins today: saving the start for a bigger day this week (games cap).","priority":4}

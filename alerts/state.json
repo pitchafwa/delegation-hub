@@ -64,7 +64,7 @@
   },
   "4433134": {
    "date": "2026-11-05",
-   "espn": "ACTIVE",
+   "espn": "DAY_TO_DAY",
    "official": null
   },
   "4684740": {
@@ -135,7 +135,7 @@
  },
  "sent": {
   "daily": "2026-10-23",
-  "lineup": "2026-10-30:0b7d27c39c",
+  "lineup": "2026-11-05:57569fa1b4",
   "weekly": "3"
  },
  "target_gone": {}
