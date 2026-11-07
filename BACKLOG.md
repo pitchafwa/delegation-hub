@@ -28,6 +28,8 @@ Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12
 - Trade analyzer polish: search, chips, before/after built 2026-10-25.
 - DELCO after a team change: tested three ways, nothing left to test. `team_change_*.py` (September); extra room for movers no gain (`delco_inseason_study.py`, 10-24); in-season trades in the first 10 games, built into model A (`post`, `post_x_newgap`, test 8, 10-26).
 
+- Lineup slots for late news: questionable starters go to UTIL on a tie when the lineup is full; on lighter days they stay in their position slot and UTIL stays open (late_swap.py now allows for a scratch caught only after tip, and a swap only replaces, 2026-11-07).
+
 **Dropped**
 Win-probability alerts at 25%/75% (conflicts with actionable-only alerts); power rankings chart.
 
