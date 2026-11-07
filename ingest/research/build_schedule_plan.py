@@ -24,6 +24,9 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
+import os
+if os.environ.get("SP_HUB"):                       # replaying an old snapshot (rebuild_odds_history.py): read and write that folder instead
+    HUB = Path(os.environ["SP_HUB"])
 import season_calendar as SCAL
 _CAL = SCAL.load()
 SEASON_START = SCAL.opener(_CAL)
@@ -51,7 +54,7 @@ for ds, gl in sched["games"].items():
     GAMES[date.fromisoformat(ds)] = {canon(t) for g in gl for t in g[:2] if t != "TBD"}
 wp = json.load(open(HUB / "week_plan.json", encoding="utf-8"))
 from zoneinfo import ZoneInfo
-today = datetime.now(ZoneInfo("America/New_York")).date()
+today = date.fromisoformat(os.environ["SP_TODAY"]) if os.environ.get("SP_TODAY") else datetime.now(ZoneInfo("America/New_York")).date()
 cur = next((w for w in CAL if w["start"] <= max(today, SEASON_START) <= w["end"]), CAL[0])
 FIRST = cur["id"]
 
@@ -98,6 +101,25 @@ def team_games_upto(team, d):
     return _tg_cache[k]
 
 
+# LATER-WEEK DECAY (horizon_decay_study.py, 2026-11-07): a player healthy today plays fewer of his games, and scores a little less, the further out the week:
+# 97% of this week's rate 1 week ahead, 93% at 4, 90% at 8, 85% at 16+ (box scores 2010-24; about the same at every level). Without it, forecasts for later
+# weeks ran 75-183 points a week high on the 2025-26 replay; with it, 10-28. The current week is not touched (the in-season factor calibrates it).
+_DEC = json.load(open(Path(__file__).resolve().parent / "horizon_decay.json"))
+_DEC_FROM = None
+
+
+def decay(d, level):
+    global _DEC_FROM
+    if _DEC_FROM is None:
+        _DEC_FROM = max(today, SEASON_START)
+        _DEC_FROM = next((w["start"] for w in CAL if w["start"] <= _DEC_FROM <= w["end"]), _DEC_FROM)     # weeks ahead counted from this matchup's start
+    h = min(max(0, (d - _DEC_FROM).days // 7), _DEC["hmax"])
+    if h == 0:
+        return 1.0
+    b = next((i for i, (lo, hi) in enumerate(_DEC["bands"]) if lo <= level < hi), 0)
+    return _DEC["f"][h][b]
+
+
 def p_play(pl, d, wid):
     if pl["team"] and not plays(pl["team"], d):
         return 0.0
@@ -124,7 +146,7 @@ def p_play(pl, d, wid):
         p *= RETURN_FACTOR
     elif b2b(pl["team"], d):
         p *= 0.89 / 0.94
-    return p
+    return p * decay(d, pl["level"])
 
 
 def slot_matcher(cands):
