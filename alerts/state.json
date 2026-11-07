@@ -1,9 +1,7 @@
 {
  "avail_prev": {
-  "3032979": "FREEAGENT",
   "3978": "FREEAGENT",
   "4437244": "WAIVERS",
-  "4683766": "FREEAGENT",
   "5104155": "FREEAGENT"
  },
  "benef_sent": {
@@ -50,7 +48,7 @@
   },
   "4395724": {
    "date": "2026-11-07",
-   "espn": "OUT",
+   "espn": "DAY_TO_DAY",
    "official": null
   },
   "4431680": {
@@ -70,7 +68,7 @@
   },
   "4433134": {
    "date": "2026-11-07",
-   "espn": "OUT",
+   "espn": "DAY_TO_DAY",
    "official": null
   },
   "4684740": {
