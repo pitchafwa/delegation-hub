@@ -1,1 +1,1 @@
-{"tau": 100.0, "sigma_e": 175.0, "bias_preseason": 25.0, "bias_blend": 0.0}
+{"tau": 100.0, "sigma_e": 185.0, "bias_preseason": 25.0, "bias_blend": 0.0, "tau_early": 165.0, "tau_late": 105.0, "early_until": 6, "late_from": 9, "note": "title_odds_study.py 2026-11-07: season-long drift measured on the 2025-26 replay, 165/7 days from checkpoints in weeks 2-6, 105 from week 7 on; weekly noise 185"}

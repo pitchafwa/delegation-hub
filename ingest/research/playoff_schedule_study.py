@@ -34,7 +34,7 @@ mu = {(t["id"], int(w)): float(v) for t in sp["teams"] for w, v in t["proj"].ite
 pairs = [(g["week"], g["a"], g["b"]) for g in games if not g["done"]]
 my = next(t["id"] for t in sp["teams"] if t["abbrev"] == sp["my_abbrev"])
 basis = sp["teams"][0].get("proj_basis")
-PR = {"tau": B.PARAMS["tau"], "sigma_e": B.PARAMS["sigma_e"], "bias": B.PARAMS["bias_blend"] if basis == "blend" else B.PARAMS["bias_preseason"]}
+PR = {"tau": B.season_tau(B.PARAMS, min((w for w, _, _ in pairs), default=20)), "sigma_e": B.PARAMS["sigma_e"], "bias": B.PARAMS["bias_blend"] if basis == "blend" else B.PARAMS["bias_preseason"]}
 mi = ids.index(my)
 base = simulate(ids, wins, pf, pairs, mu, lens, B.REG_LAST, n=N, seed=5, **PR)
 t0 = float(base["title"][mi])

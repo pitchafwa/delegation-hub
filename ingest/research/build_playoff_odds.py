@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
 from espn_api.basketball import League
-from playoff_sim import simulate
+from playoff_sim import season_tau, simulate
 
 sys.stdout.reconfigure(encoding="utf-8")
 DASH = Path(__file__).resolve().parent.parent.parent / "dashboard"
@@ -115,7 +115,7 @@ def live():
     cur = min((w for w, _, _ in pairs), default=REG_LAST + 1)
     my = next(t["id"] for t in sp["teams"] if t["abbrev"] == sp["my_abbrev"])
     basis = sp["teams"][0].get("proj_basis")
-    PR = {"tau": PARAMS["tau"], "sigma_e": PARAMS["sigma_e"], "bias": PARAMS["bias_blend"] if basis == "blend" else PARAMS["bias_preseason"]}
+    PR = {"tau": season_tau(PARAMS, cur), "sigma_e": PARAMS["sigma_e"], "bias": PARAMS["bias_blend"] if basis == "blend" else PARAMS["bias_preseason"]}
     res = simulate(ids, wins, pf, pairs, mu, lens, REG_LAST, focus=my, focus_week=cur, **PR)
     # what-if: +25 points a week for my team from now on
     up = simulate(ids, wins, pf, pairs, mu, lens, REG_LAST, shift={my: 25.0}, **PR)

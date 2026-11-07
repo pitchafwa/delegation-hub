@@ -1578,6 +1578,24 @@ def dyn_pts(asset, a5):
     return round(DYN_W * 73 * (max(0.0, asset - a5) + 0.1 * asset))
 
 
+def inj_meta(pl):
+    """for the season forecast (build_schedule_plan.py): injury group, tier, games out so far and ESPN's return date for a player out now, the same inputs
+    advise_injuries uses. title_odds_study.py (2026-11-07): the measured return curve tracks team strength better than the old flat rule (out 2 weeks, then 60%)."""
+    ir_ = pl.get("_ir_now", pl["ir"])
+    st_ = pl.get("_status_now", pl["status"])
+    info = ESPN_INJ.get(int(pl["espn_id"])) if pl.get("espn_id") is not None else None
+    if not (ir_ or st_ in ("OUT", "INJURY_RESERVE") or (info and info.get("status") == "Out")) or st_ == "SUSPENSION":
+        return None
+    try:
+        group, tier = IA.classify(info) if info else ("other", "moderate")
+        s = AV.out_streak(norm(pl["name"]).replace(" ", ""), today) if AV else 1
+        s = 1 if today < SEASON_START else (max(s, 8) if ir_ else s)
+    except Exception:
+        group, tier, s = "other", "moderate", 8 if ir_ else 1
+    rd = (info or {}).get("return_date")
+    return {"g": group, "t": tier, "s": int(s), "rd": rd[:10] if rd and (info.get("status") or "").lower() == "out" else None}
+
+
 def advise_injuries(r, total, c0, key_of, ir_free):
     """one entry per injured player on the roster (out / IR / ESPN-listed out); the lists stay short"""
     if IA is None:
@@ -1945,7 +1963,7 @@ for t in lg.teams:
                       "expected": round(total, 1), "expected_total": round(total + so_far[t.team_id]["pts"], 1), "start_everyone": round(naive, 1), "stream_exp": round(_stream, 1), "adds_left": adds_left,
                       "days": rows, "adds": moves[:10], "sequence": seq, "ir_moves": ir_moves, "bridge": (BRIDGE if t.team_abbrev == MY_ABBREV else []), "espn_ids": (MY_ESPN_IDS_NOW if t.team_abbrev == MY_ABBREV else None), "stash_suggest": stash_suggest, "roster_spots": {"non_ir": len([p for p in r if not p.get("_ir_now", p["ir"])]), "of": ROSTER_SPOTS, "ir_used": len([p for p in r if p.get("_ir_now", p["ir"])]), "ir_of": IR_SLOTS},
                       "roster": [{"id": p["espn_id"], "name": p["name"], "team": p["team"], "slots": p["slots"], "status": p.get("_status_now", p["status"]), "level": p["level"], "src": p["src"],
-                                  "ir": p.get("_ir_now", p["ir"]), "back": p["_back"].isoformat() if p.get("_back") else None, "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "next": next_pts(p), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))], "ll": round(long_level(p), 1), **last_day(p)}
+                                  "ir": p.get("_ir_now", p["ir"]), "back": p["_back"].isoformat() if p.get("_back") else None, "inj": inj_meta(p), "hub_id": p["hub_id"], "tonight": round(level_on(p, today), 1), "next": next_pts(p), "official": p["official"].get(today.isoformat()), "avail_state": p.get("avail_state"), "boost": p.get("boost", {}), "boost_why": sorted(p.get("boost_why", [])), "asset_rank": p["asset_rank"], "protected": p["espn_id"] in protected_ids(r), "model_level": p["model_level"], "espn_level": p["espn_level"], "ramp": p.get("ramp_note"), "matchup": p.get("matchup_by_date", {}).get(today.isoformat()), "form": p.get("form"), "level_pre": p.get("level_pre"), "has_props": bool(p.get("lvl_by_date")), "games": [d.isoformat() for d in plan_days if p_play(p, d) > 0 or (plays(p["team"], d))], "ll": round(long_level(p), 1), **last_day(p)}
                                  for p in r]})
     print(f"{t.team_abbrev:5s} expected {total:7.1f}  (start-everyone {naive:7.1f})  best add gain {moves[0]['gain'] if moves else 0}", flush=True)
 

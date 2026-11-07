@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 import season_calendar as SCAL
-from playoff_sim import simulate
+from playoff_sim import season_tau, simulate
 from season import current_season_id
 from team_abbr import canon
 
@@ -331,16 +331,17 @@ def sim_inputs(world):
     return sorted(teams), wins, pf, pairs
 
 
-def params(world):
+def params(world, week=None):
     pp = ROOT / "playoff_odds_params.json"
     P = json.load(open(pp)) if pp.exists() else {"tau": 100.0, "sigma_e": 175.0, "bias_preseason": 25.0, "bias_blend": 0.0}
-    return {"tau": P["tau"], "sigma_e": P["sigma_e"], "bias": P["bias_blend"] if world.proj_basis == "blend" else P["bias_preseason"]}
+    return {"tau": season_tau(P, week) if week is not None else P["tau"], "sigma_e": P["sigma_e"], "bias": P["bias_blend"] if world.proj_basis == "blend" else P["bias_preseason"]}
 
 
 def run_odds(world, inp, mu, n=20000):
     ids, wins, pf, pairs = inp
     lens = {w["id"]: w["days"] for w in world.cal["periods"]}
-    return simulate(ids, wins, pf, pairs, mu, lens, world.reg_last, playoff_weeks=world.playoff_weeks, n=n, **params(world))
+    cur = min((w for w, _, _ in pairs), default=world.reg_last + 1)          # same week-dependent drift as the Standings odds
+    return simulate(ids, wins, pf, pairs, mu, lens, world.reg_last, playoff_weeks=world.playoff_weeks, n=n, **params(world, cur))
 
 
 def posture_auto(made, title):

@@ -32,8 +32,14 @@ CAP_PER_7 = 40.0
 PLAYOFF_WEEKS = tuple(_CAL["playoff_weeks"])
 from team_abbr import canon
 OUT_STATUS = ("OUT", "INJURY_RESERVE", "SUSPENSION")
-RETURN_FACTOR = 0.6      # ASSUMPTION: a player who is OUT now is back for weeks 3+ at 60% of the normal play rate (unknown return dates)
+RETURN_FACTOR = 0.6      # FALLBACK ONLY (no injury details in week_plan.json): a player who is OUT now is back for weeks 3+ at 60% of the normal play rate
 NEAR_WEEKS = 2           # ...and counts as absent for this many upcoming weeks
+RAMP_BACK = 0.9          # first weeks back below his normal level (injury_return_model.json ramp)
+try:
+    import injury_advisor as IA   # measured return curves (title_odds_study.py, 2026-11-07: better than the flat rule above at telling teams apart)
+except Exception as _ex:
+    IA = None
+    print("injury return curves unavailable, using the flat rule:", _ex)
 FA_ANCHOR, FA_SHRINK = 22.0, 0.6   # (fa_pool levels in week_plan.json are already shrunk)
 
 CAL = [{"id": p["id"], "start": date.fromisoformat(p["start"]), "end": date.fromisoformat(p["end"]), "days": p["days"], "cap": p["cap"], "playoff": p["playoff"]} for p in _CAL["periods"]]
@@ -81,6 +87,17 @@ def p_future(level):
     return 0.61 if level < 15 else (0.81 if level < 20 else 0.85)
 
 
+_tg_cache = {}
+
+
+def team_games_upto(team, d):
+    """his team's games from today through d"""
+    k = (team, d)
+    if k not in _tg_cache:
+        _tg_cache[k] = sum(1 for i in range((d - today).days + 1) if plays(team, today + timedelta(days=i)))
+    return _tg_cache[k]
+
+
 def p_play(pl, d, wid):
     if pl["team"] and not plays(pl["team"], d):
         return 0.0
@@ -91,6 +108,16 @@ def p_play(pl, d, wid):
         if d.isoformat() < pl["back"]:
             return 0.0
         p *= 0.85
+    elif pl.get("inj") and IA is not None:
+        # out now: ESPN's return date when it gives one, else the chance he is back by this game from the measured return curve (injury type, games missed so far)
+        j = pl["inj"]
+        if j.get("rd"):
+            if d.isoformat() < j["rd"]:
+                return 0.0
+            p *= RAMP_BACK
+        else:
+            curve = IA.out_curve(j["g"], j["t"], j["s"])[0]
+            p *= IA.p_back_within(curve, team_games_upto(pl["team"], d) - 0.5) * RAMP_BACK
     elif pl["ir"] or pl["status"] in OUT_STATUS:
         if wid < FIRST + NEAR_WEEKS:
             return 0.0
@@ -158,7 +185,8 @@ def points_over(roster, weeks):
 # ---------------- players
 def mk(p):
     return {"id": p["id"], "name": p["name"], "team": canon(p.get("team") or ""), "slots": [s for s in p.get("slots", []) if s in set(SLOTS)] or ["UT"],
-            "status": p.get("status", "ACTIVE"), "level": p.get("level") or 0.0, "ir": bool(p.get("ir")), "asset_rank": p.get("asset_rank"), "protected": bool(p.get("protected"))}
+            "status": p.get("status", "ACTIVE"), "level": p.get("level") or 0.0, "ir": bool(p.get("ir")), "asset_rank": p.get("asset_rank"), "protected": bool(p.get("protected")),
+            "inj": p.get("inj")}
 
 
 def games_row(pl):

@@ -14,6 +14,19 @@ BYE = 2                   # seeds 1-2
 QUAL = 6
 
 
+def season_tau(params, week):
+    """season-long drift (SD per 7 days) for odds computed in this matchup week: larger early, when more of the season is left to change a team
+    (title_odds_study.py, 2026-11-07: 165 from weeks 2-6, 105 from week 7 on; eased in linearly between early_until and late_from)"""
+    if "tau_early" not in params:
+        return params["tau"]
+    a, b = params["early_until"], params["late_from"]
+    if week <= a:
+        return params["tau_early"]
+    if week >= b:
+        return params["tau_late"]
+    return params["tau_early"] + (params["tau_late"] - params["tau_early"]) * (week - a) / (b - a)
+
+
 def simulate(team_ids, wins, pf, pairs, mu, lens, reg_weeks, playoff_weeks=(20, 21, 22), tau=150.0, sigma_e=175.0, bias=25.0, n=N_DEFAULT, seed=7, focus=None, focus_week=None, shift=None):
     """team_ids: list; wins, pf: dicts id -> current wins / points for; pairs: list of (week, a, b) still to play in the regular season;
        mu: dict (id, week) -> forecast points; lens: dict week -> days in the matchup; reg_weeks: last regular-season week.
