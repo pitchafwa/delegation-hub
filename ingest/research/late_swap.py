@@ -22,10 +22,15 @@ FLEX_RANK = {"PG": 0, "SG": 0, "SF": 0, "PF": 0, "C": 0, "G": 1, "F": 1, "UT": 2
 N_SIMS = 150
 MIN_GAIN = 0.25            # points per night an assignment must add before the plan changes
 SCRATCH_ONLY_AT_TIP = True  # news arrives before the player's own tip-off (the late-swap window); earlier news is handled by the normal daily plan
+# chance a scratch is NOT caught before his tip (2026-11-07, Tommy): he stays in his slot, it locks at tip with 0 points (a scratch does not use a start), and only players whose
+# games start later can be moved in, to the slots still open. Assumption, not measured: the ruled-out alert and its 35-minute reminder make a miss rare. On a full lineup a miss
+# costs the same in any slot; on a part-full night a miss in UT can leave a late replacement with no slot he fits, which is when a position slot is the better place for him.
+MISS_P = 0.10
 
 
-def _match(players, free):
-    """greedy transversal-matroid matching: players sorted by expected points; returns {slot index: player}. `free` = list of free slot indices."""
+def _match(players, free, limit=None):
+    """greedy transversal-matroid matching: players sorted by expected points; returns {slot index: player}. `free` = list of free slot indices.
+    limit: at most this many players placed (a swap REPLACES a scratched starter; it does not start extra bench players the plan is resting to save starts)."""
     match = {}
 
     def go(pl, seen):
@@ -37,6 +42,8 @@ def _match(players, free):
                     return True
         return False
     for pl in sorted(players, key=lambda x: -x["p"] * x["pts"]):
+        if limit is not None and len(match) >= limit:
+            break
         go(pl, set())
     return match
 
@@ -46,30 +53,44 @@ def _simulate(assign, starters, bench, draws):
     allp = {p["i"]: p for p in starters + bench}
     tips = sorted({p["tip"] for p in allp.values()})
     tot, filled = 0.0, 0
-    for out in draws:
+    for out_ in draws:
+        out, miss = out_["play"], out_["miss"]
         slot_of = dict(assign)                         # id -> slot index, everyone currently placed in a starting slot (not yet frozen)
         locked = set()                                 # slot indices frozen by a player whose game started
         pts, nf = 0.0, 0
         for t in tips:
             grp = [pid for pid, p in allp.items() if p["tip"] == t]
             scratched = [pid for pid in grp if not out[pid] and pid in slot_of]
-            for pid in scratched:
-                slot_of.pop(pid)
-            if scratched:
-                # news before this tip-off: everyone whose game has not started (this group's players who play, and all later players) can be re-matched to the unfrozen slots
+            caught = [pid for pid in scratched if not miss[pid]]
+            missed = [pid for pid in scratched if miss[pid]]
+            if caught:
+                # news before this tip-off: everyone whose game has not started (this group's players who play, and all later players) can be re-matched to the unfrozen slots;
+                # as many players as were placed before (replacements only). A missed scratch keeps his slot.
+                n_placed = len(slot_of) - len(missed)
+                for pid in caught:
+                    slot_of.pop(pid)
+                held = {slot_of[pid] for pid in missed}
                 pool = []
                 for p in allp.values():
                     if p["tip"] == t and out[p["i"]]:
                         pool.append(dict(p, p=1.0))
                     elif p["tip"] > t:
                         pool.append(p)
-                m = _match(pool, [si for si in range(len(SLOTS)) if si not in locked])
-                slot_of = {pl["i"]: si for si, pl in m.items()}
+                m = _match(pool, [si for si in range(len(SLOTS)) if si not in locked and si not in held], limit=n_placed)
+                slot_of = {**{pid: slot_of[pid] for pid in missed}, **{pl["i"]: si for si, pl in m.items()}}
             for pid in grp:
                 if pid in slot_of and out[pid]:
                     locked.add(slot_of.pop(pid))
                     pts += allp[pid]["pts"]
                     nf += 1
+            if missed:
+                # noticed only after his tip: his slot is frozen with 0; later-tipping players can still be moved, one replacement per missed scratch, into the slots still open
+                for pid in missed:
+                    locked.add(slot_of.pop(pid))
+                later = [p for p in allp.values() if p["tip"] > t]
+                n_placed = sum(1 for pid in slot_of if allp[pid]["tip"] > t) + len(missed)
+                m = _match(later, [si for si in range(len(SLOTS)) if si not in locked], limit=n_placed)
+                slot_of = {pl["i"]: si for si, pl in m.items()}
         tot += pts
         filled += nf
     n = len(draws)
@@ -80,7 +101,11 @@ def _draws(starters, bench, n, seed):
     rng = random.Random(seed)
     ids = [p["i"] for p in starters + bench]
     ps = {p["i"]: p["p"] for p in starters + bench}
-    return [{i: rng.random() < ps[i] for i in ids} for _ in range(n)]
+    out = []
+    for _ in range(n):
+        play = {i: rng.random() < ps[i] for i in ids}
+        out.append({"play": play, "miss": {i: rng.random() < MISS_P for i in ids}})
+    return out
 
 
 def _from_names(starters, slots_by_id):
