@@ -30,6 +30,7 @@ ET = ZoneInfo("America/New_York")
 ROOT = Path(__file__).resolve().parent.parent.parent
 DASH = ROOT / "dashboard"
 RAW_URL = "https://raw.githubusercontent.com/pitchafwa/delegation-hub/live-data/live_matchup.json"
+API_URL = "https://api.github.com/repos/pitchafwa/delegation-hub/contents/live_matchup.json?ref=live-data"
 from season import current_season_id
 YEAR = int(os.environ.get("LIVE_YEAR", current_season_id()))
 import season_calendar as SCAL
@@ -289,25 +290,40 @@ def main():
                 left_today[tid].append({"name": e["name"], "ef": round(ef, 1), "live": round(e["pts"], 1)})
             else:
                 ef = (lvl + boost) * p_play * left                   # not in yet: late in a game he is likely sitting, so scale by what is left
-                left_today[tid].append({"name": e["name"], "ef": round(ef, 1)})
-                p_start[tid].append(p_play * (1.0 if left >= 1.0 else left))
+                q_ = p_play * (1.0 if left >= 1.0 else left)
+                left_today[tid].append({"name": e["name"], "ef": round(ef, 1), "pre": not started, "q": round(q_, 3)})
+                p_start[tid].append(q_)
             rem_today[tid] += ef
     # OPPONENT'S UNSET LINEUP (2026-10-30): before his games tip, the opponent's ESPN lineup may not be set yet (in the morning it had 4 of his players with games
     # in it; the plan expects ~8 and already scales for how well he usually sets lineups, eff). Until a game starts, his expected points and starts from games
     # not yet started are at least the plan's. Once a game tips, its lineup is locked and the real lineup counts.
     pre_n = {my_id: None, opp_id: None}
+    _played = {tid: {e["id"] for e in (today_box or {}).get(tid, []) if e["played"]} for tid in (my_id, opp_id)}
+
+    def not_begun(x, tid):
+        """has this planned starter's game not begun? Goes by the NBA board, not the scheduled time (2026-11-06): games tip 10-15 minutes after their listed time, and ESPN
+        marks a player as played a few minutes after that. Going by the clock dropped everyone in that game from both lists for those minutes: 100-170 points gone on the
+        hour, back 15 minutes later. Without the board (or for a planned add the roster does not list yet) the listed time plus 20 minutes stands in."""
+        if x["id"] in _played[tid]:
+            return False
+        tm_ = (plan_roster.get(tid, {}).get(x["id"]) or {}).get("team")
+        gi_ = GAME_INFO.get(canon(tm_)) if tm_ else None
+        if gi_:
+            return gi_["state"] == "pre"
+        return bool(x.get("tip")) and datetime.fromisoformat(x["tip"].replace("Z", "+00:00")) + timedelta(minutes=20) > datetime.now(timezone.utc)
     _ot = plan_team.get(opp_id) or {}
     _orow = next((x for x in _ot.get("days", []) if x["date"] == TODAY.isoformat()), None)
     if _orow and sb[opp_id] < cap:
-        _now = datetime.now(timezone.utc)
-        _pre = [x for x in _orow.get("start", []) if x.get("tip") and datetime.fromisoformat(x["tip"].replace("Z", "+00:00")) > _now]
+        _pre = [x for x in _orow.get("start", []) if not_begun(x, opp_id)]
         _plan_pts = sum(x.get("ef", 0.0) for x in _pre) * float(_ot.get("eff") or 1.0)
-        _act_pre = [x for x in left_today[opp_id] if "live" not in x]
+        _act_pre = [x for x in left_today[opp_id] if x.get("pre")]
+        _begun = [x for x in left_today[opp_id] if "live" not in x and not x.get("pre")]      # game under way, not marked as played yet: they stay as they are
         _act_pts = sum(x["ef"] for x in _act_pre)
         if _plan_pts > _act_pts:
             rem_today[opp_id] += _plan_pts - _act_pts
-            pre_n[opp_id] = max(len(_act_pre) * 0.94, sum(x.get("p", 0.94) for x in _pre))
-            p_start[opp_id] = [x.get("p", 0.94) for x in _pre] if sum(x.get("p", 0.94) for x in _pre) >= len(_act_pre) * 0.94 else p_start[opp_id]
+            pre_n[opp_id] = max(len(_act_pre) * 0.94, sum(x.get("p", 0.94) for x in _pre)) + sum(x["q"] for x in _begun)
+            if sum(x.get("p", 0.94) for x in _pre) >= len(_act_pre) * 0.94:
+                p_start[opp_id] = [x.get("p", 0.94) for x in _pre] + [x["q"] for x in _begun]
             print(f"opponent lineup not set yet: {len(_act_pre)} starters still to play vs {len(_pre)} in his plan; using the plan's {_plan_pts:.0f} (lineup {_act_pts:.0f})")
     # MY UNLOCKED LINEUP (2026-10-31, Tommy): until a game tips I can still change who starts in it, and I follow the plan. My ESPN lineup at 6am had one
     # start too many for the cap (the plan benches someone), which counted Sunday as lost (81% -> 63%) until Tommy fixed the lineup. So for my games not
@@ -315,12 +331,12 @@ def main():
     _mt = plan_team.get(my_id) or {}
     _mrow = next((x for x in (_mt.get("days_after") or _mt.get("days") or []) if x["date"] == TODAY.isoformat()), None)
     if _mrow and sb[my_id] < cap:
-        _now = datetime.now(timezone.utc)
-        _pre = [x for x in _mrow.get("start", []) if x.get("tip") and datetime.fromisoformat(x["tip"].replace("Z", "+00:00")) > _now]
-        _act_pre = [x for x in left_today[my_id] if "live" not in x]
+        _pre = [x for x in _mrow.get("start", []) if not_begun(x, my_id)]
+        _act_pre = [x for x in left_today[my_id] if x.get("pre")]
+        _begun = [x for x in left_today[my_id] if "live" not in x and not x.get("pre")]       # game under way, not marked as played yet: they stay as they are
         rem_today[my_id] += sum(x.get("ef", 0.0) for x in _pre) - sum(x["ef"] for x in _act_pre)
-        pre_n[my_id] = sum(x.get("p", 0.94) for x in _pre)
-        p_start[my_id] = [x.get("p", 0.94) for x in _pre]
+        pre_n[my_id] = sum(x.get("p", 0.94) for x in _pre) + sum(x["q"] for x in _begun)
+        p_start[my_id] = [x.get("p", 0.94) for x in _pre] + [x["q"] for x in _begun]
     # GAMES CAP, for BOTH teams: a team that began today at or over the cap cannot start anyone today or later (nothing more counts), and a team projected to cross it by the end of
     # today loses the days after. The plan assumes every team uses the cap perfectly and is only refreshed a few times a day, so without this a locked opponent still "scores" in the forecast.
     lock_note = {}
@@ -374,7 +390,9 @@ def main():
             dd = next((x for x in (t or {}).get("days_after" if tid == my_id and (t or {}).get("days_after") else "days", []) if x["date"] == d.isoformat()), None)
             w_open = p_open[tid] if d == next_day else (1.0 if cum[tid] < cap else 0.0)
             if replan[tid] and dd and d != next_day:
-                w_open = 1.0 if dd.get("starts_before", 0) + extra[tid] < cap + 1.0 else 0.0      # only a clear overshoot (a full start beyond what benching can absorb) locks
+                # any later day stays open as long as tonight does not lock him: he benches starts in between, and `extra` below charges for that. Treating a big overshoot as
+                # a lost day wiped out CAST's Sunday for half an hour after his two adds filled tonight's lineup (-212, 95% -> 99.5%, 2026-11-06); the rebuilt plan kept Sunday.
+                w_open = p_open[tid]
             if w_open <= 0.0:                                     # certainly at the cap when this day begins: the day is locked
                 lock_note.setdefault(tid, "locks after today" if d == next_day else "locked from " + d.strftime("%a"))
                 continue
@@ -413,7 +431,10 @@ def main():
     hist, prev_proj, prev = [], {}, None
     for _try in range(4):
         try:
-            _r = requests.get(RAW_URL + f"?t={int(NOW.timestamp())}{_try}", timeout=20)
+            # GitHub's API first: the raw address serves a newly published file about 5 minutes late (measured 2026-11-05), so each run built on an old copy and lost readings
+            _tok = os.environ.get("GITHUB_TOKEN")
+            _r = requests.get(API_URL + f"&t={int(NOW.timestamp())}{_try}", timeout=20, headers={"Accept": "application/vnd.github.raw+json", **({"Authorization": f"Bearer {_tok}"} if _tok else {})}) if _try < 3 \
+                else requests.get(RAW_URL + f"?t={int(NOW.timestamp())}{_try}", timeout=20)
             _r.raise_for_status()
             prev = _r.json()
             break
@@ -484,16 +505,21 @@ def main():
         if h_["t"] >= _cut or b_ not in _seen:
             _thin.append(h_)
         _seen.add(b_)
-    # drop blips: a run of 1-4 readings (up to ~20 minutes) whose win chance sits ~10+ points off the readings on BOTH sides, in the same direction, while
+    # drop blips: a run of 1-12 readings (up to ~30 minutes) whose win chance sits ~10+ points off the readings on BOTH sides, in the same direction, while
     # the readings on either side agree with each other and the score margin moved under 25 (worth only a few points of win chance). Bad reads (a failed scoreboard fetch, 2026-10-27/28; the
     # midnight day switch, 2026-10-29) look like that; real news (injury, plan rebuild) does not snap straight back. Re-checked every run, so it heals itself.
     drop_ = set()
     # known-bad stretches too long for the blip rule: 2026-10-30 02:41-03:45 UTC, my last day wrongly counted as locked out (see "MY team re-plans" above)
+    # and the morning the opponent's unset lineup counted as final; the tip-off gaps and the false Sunday lockout of matchup 3 (see not_begun, w_open)
+    _bad = [("2026-10-30T02:41", "2026-10-30T03:45"), ("2026-10-30T09:39", "2026-10-30T14:15"), ("2026-10-31T09:39", "2026-10-31T13:59"),
+            ("2026-11-03T01:00", "2026-11-03T01:14"), ("2026-11-03T01:30", "2026-11-03T01:44"), ("2026-11-03T03:00", "2026-11-03T03:14"),
+            ("2026-11-05T01:00", "2026-11-05T01:14"), ("2026-11-05T02:00", "2026-11-05T02:14"),
+            ("2026-11-06T23:15", "2026-11-06T23:48"), ("2026-11-07T00:00", "2026-11-07T00:14"), ("2026-11-07T01:00", "2026-11-07T01:14")]
     for i_, h_ in enumerate(_thin):
-        if "2026-10-30T02:41" <= h_["t"] <= "2026-10-30T03:45" or "2026-10-30T09:39" <= h_["t"] <= "2026-10-30T14:15" or "2026-10-31T09:39" <= h_["t"] <= "2026-10-31T13:59":     # and the morning the opponent's unset lineup counted as final
+        if any(a_ <= h_["t"][:16] <= b_ for a_, b_ in _bad):
             drop_.add(i_)
     for i_ in range(1, len(_thin) - 1):
-        for k_ in range(1, 5):
+        for k_ in range(1, 13):                              # two runs every 5 minutes: 12 readings is about half an hour
             if i_ + k_ >= len(_thin):
                 break
             a_, z_, seg_ = _thin[i_ - 1], _thin[i_ + k_], _thin[i_:i_ + k_]
@@ -553,7 +579,9 @@ def main():
         led.mkdir(exist_ok=True)
         with open(led / f"live-{TODAY.strftime('%Y-%m')}.jsonl", "a", encoding="utf-8") as fh:
             fh.write(json.dumps({"kind": "live", "ts": out["generated"], "season": YEAR, "matchup": mp, "wp": out["win_prob"], "margin": round(margin, 1), "me": out["me"]["pts"], "opp": out["opp"]["pts"],
-                                 "exp_me": out["me"]["exp_final"], "exp_opp": out["opp"]["exp_final"], "days_left": out["days_left"], "opp_abbrev": out["opp"]["abbrev"]}, separators=(",", ":")) + chr(10))
+                                 "exp_me": out["me"]["exp_final"], "exp_opp": out["opp"]["exp_final"], "days_left": out["days_left"], "opp_abbrev": out["opp"]["abbrev"],
+                                 "parts": {"today": [round(rem_today[my_id], 1), round(rem_today[opp_id], 1)], "later": [round(fut[my_id], 1), round(fut[opp_id], 1)],
+                                           "extra": [round(extra[my_id], 1), round(extra[opp_id], 1)], "open": [round(p_open[my_id], 2), round(p_open[opp_id], 2)], "lock": lock_note.get(opp_id)}}, separators=(",", ":")) + chr(10))
     except Exception:
         pass
     print("wrote", OUT)

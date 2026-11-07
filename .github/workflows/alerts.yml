@@ -78,6 +78,7 @@ jobs:
         env:
           ESPN_S2: ${{ secrets.ESPN_S2 }}
           SWID: ${{ secrets.SWID }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: python research/live_matchup.py || true
 
       - name: Publish live data
