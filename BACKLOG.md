@@ -14,6 +14,8 @@ Keep this list current in the same session as any build or study.
 6. Two-way / call-up tag on free agents (the rotation status already treats unused players as not playing).
 7. Offseason: grade the draft simulator on the 2026 draft; league draft history as a second market price; breakout extras (playstyle, role competition, news signals).
 
+8. Forecasts for later weeks run high (forecast_horizon_study.py, 2026-11-07): healthy players play 89% of games the same week but 75-79% several weeks out (the solver assumes a flat 85%), and stars (level 50+) slip most (real/assumed 0.84). Fix to test: play rate by weeks ahead and by level. It hits star-heavy teams hardest, so it moves title odds, not just the totals.
+
 **Waiting on a date**
 Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12-01; blend study 12-14; opponent streaming refresh after ~10 matchups; tanking overrides in February; first real waiver claim through the Do now button.
 
@@ -29,6 +31,8 @@ Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12
 - DELCO after a team change: tested three ways, nothing left to test. `team_change_*.py` (September); extra room for movers no gain (`delco_inseason_study.py`, 10-24); in-season trades in the first 10 games, built into model A (`post`, `post_x_newgap`, test 8, 10-26).
 
 - Lineup slots for late news: questionable starters go to UTIL on a tie when the lineup is full; on lighter days they stay in their position slot and UTIL stays open (late_swap.py now allows for a scratch caught only after tip, and a swap only replaces, 2026-11-07).
+
+- Title odds retuned (title_odds_study.py, 2026-11-07): season-long drift 165 through week 6 easing to 105 by week 9, weekly noise 185; injured players use ESPN's return date or the measured return curve instead of out-2-weeks-then-60%. DRNK title 51% -> 32%.
 
 **Dropped**
 Win-probability alerts at 25%/75% (conflicts with actionable-only alerts); power rankings chart.
