@@ -1801,8 +1801,8 @@ function renderWeek(){
   if(isMe){
     (T.ir_moves||[]).forEach(m=>{
       if(m.action==='stay_ir'){ doItems.push({when:'Hold',what:`Keep ${m.name} on IR`,sub:`Healthy, so adds stay locked while he's there.${m.blocked>0.5?` Unlocking them costs two drops, which this week's adds aren't worth.`:''}`,gain:''}); return; }
-      if(m.action==='return'){ if(m.drop) doItems.push({when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:(PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${m.drop.name}`),sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
-            if(m.action==='activate_swap'){ doItems.push({when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
+      if(m.action==='return'){ if(m.drop) doItems.push({at:m.on,when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:(PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${m.drop.name}`),sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
+            if(m.action==='activate_swap'){ doItems.push({at:m.on&&m.on>todayIso?m.on:todayIso,when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
       doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}); });
     if(dayRow&&dayRow.locked) doItems.push({when:'Today',what:'Cap reached: nothing counts today',sub:'',gain:''});
     else if(dayRow&&dayRow.start.length){
@@ -1834,11 +1834,13 @@ function renderWeek(){
       const what=pairedA?`${claim?'Claim':'Add'} ${a.add.name} (no drop: spot opened by the IR stash)`:(claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`);
       const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when}${pairedA?'':' (the drop happens then)'}. `:(a.add.waiver?`On waivers until ${a.add.waiver.when}; a free agent by ${dShort(d)}, so no claim needed. `:'');
       const mv=d===todayIso?{add:a.add.id,drop:a.drop&&!pairedA?a.drop.id:'',kind:claim?'waiver':'fa',name:a.add.name,dropName:a.drop&&!pairedA?a.drop.name:''}:null;      // one-tap: only moves due today
-      doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
+      doItems.push({at:d,when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
     if(!seq.length) doItems.push(M.adds_limit-T.adds_used<=0?{when:'Week',what:`All ${M.adds_limit} adds used`,sub:'No more pickups until the next matchup starts. Just set your lineup.',gain:''}:{when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
   const chg=isMe?planChanges(T,sb):null;
   const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
+  // in the order they should be done (2026-11-08): free moves and holds first, then by day (today's steps before tonight's claims), week notes last; same-day items keep their order
+  { const ord=t=>(t.when==='Now'||t.when==='Hold')?'0':(t.when==='Week'?'9':(t.at||todayIso)+(t.when==='Tonight'?'b':'a')); doItems.forEach((t,i)=>t._i=i); doItems.sort((x,y)=>ord(x)<ord(y)?-1:ord(x)>ord(y)?1:x._i-y._i); }
   const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
   // tonight's lineup in ESPN slot order, points if he plays
   const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
@@ -2128,6 +2130,16 @@ function rdTipData(p,i){ const x=p.gx&&p.gx[i]; if(!x) return ''; return esc(JSO
   document.addEventListener('click',e=>{ const el=e.target.closest&&e.target.closest('.rdBar[data-tip]'); if(el&&el.dataset.tip) show(el,e); else hide(); });
   document.addEventListener('scroll',hide,true);
 })();
+// smooth curve through points (monotone cubic: bends smoothly but never overshoots past a real value) -- the game-log chart's lines, 2026-11-08
+function smoothPath(pts){
+  const n=pts.length; if(n<2) return ''; const f=v=>v.toFixed(1);
+  if(n===2) return `M${f(pts[0][0])},${f(pts[0][1])}L${f(pts[1][0])},${f(pts[1][1])}`;
+  const dx=[],sl=[]; for(let i=0;i<n-1;i++){ dx[i]=pts[i+1][0]-pts[i][0]; sl[i]=dx[i]?(pts[i+1][1]-pts[i][1])/dx[i]:0; }
+  const m=[sl[0]]; for(let i=1;i<n-1;i++) m[i]=sl[i-1]*sl[i]<=0?0:3*(dx[i-1]+dx[i])/((2*dx[i]+dx[i-1])/sl[i-1]+(dx[i]+2*dx[i-1])/sl[i]); m[n-1]=sl[n-2];
+  let d=`M${f(pts[0][0])},${f(pts[0][1])}`;
+  for(let i=0;i<n-1;i++){ const h=dx[i]/3; d+=`C${f(pts[i][0]+h)},${f(pts[i][1]+m[i]*h)} ${f(pts[i+1][0]-h)},${f(pts[i+1][1]-m[i+1]*h)} ${f(pts[i+1][0])},${f(pts[i+1][1])}`; }
+  return d;
+}
 function rdChart(p,W2=620,H2=250){
   const g=p.g||[]; if(!g.length) return '<div class="hint">No game log yet.</div>';
   const fwd=(p.next||[]).slice(0,3), n=g.length+fwd.length, padL=34, padB=34, padT=14, plotW=W2-padL-8, plotH=H2-padB-padT;
@@ -2140,13 +2152,13 @@ function rdChart(p,W2=620,H2=250){
   const gk=(p.gk||[]).length===g.length?p.gk:null;
   if(gk&&gk.some(v=>v!=null)){
     const pts=gk.map((v,i)=>v==null?null:[X(i),Y(v)]).filter(Boolean).concat([[X(g.length-0.5),Y(p.ppg)]]);
-    s+=`<polyline points="${pts.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+    s+=`<path d="${smoothPath(pts)}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
     if(fwd.length) s+=`<line x1="${X(g.length-0.5).toFixed(1)}" x2="${(W2-8).toFixed(1)}" y1="${Y(p.ppg).toFixed(1)}" y2="${Y(p.ppg).toFixed(1)}" stroke="var(--accent)" stroke-dasharray="4 3"/>`;
     s+=`<text x="${padL+2}" y="${(Y(gk.find(v=>v!=null)??p.ppg)-5).toFixed(1)}" text-anchor="start" font-size="9" fill="var(--accent)">DELCO ${(gk.find(v=>v!=null)??p.ppg).toFixed(0)} → ${p.ppg}</text>`;
   } else s+=`<line x1="${padL}" x2="${W2-8}" y1="${Y(p.ppg).toFixed(1)}" y2="${Y(p.ppg).toFixed(1)}" stroke="var(--accent)" stroke-dasharray="4 3"/><text x="${padL+2}" y="${(Y(p.ppg)-3).toFixed(1)}" text-anchor="start" font-size="9" fill="var(--accent)">projection ${p.ppg}</text>`;
   g.forEach((v,i)=>{ const ref=(gk&&gk[i]!=null)?gk[i]:p.ppg, c=v>=ref*1.15?'var(--good)':(v<=ref*0.7?'var(--warn)':'var(--ink-soft)');
     s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Math.min(Y(v),Y(0)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0.5,Math.abs(Y(0)-Y(v))).toFixed(1)}" fill="${c}" opacity=".75" class="rdBar" data-tip="${rdTipData(p,i)}"><title>${p.gd[i]}: ${v} fantasy pts in ${p.gm[i]} min</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--ink)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">${p.gd[i]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--ink-faint)">${p.gm[i]}m</text>`; });
-  s+=`<polyline points="${roll.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+  s+=`<path d="${smoothPath(roll.map((v,i)=>[X(i),Y(v)]))}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
   fwd.forEach((f,k)=>{ const i=g.length+k, v=(p.next_proj&&p.next_proj[k]!=null)?p.next_proj[k]:p.ppg, stv=(p.next_st&&p.next_st[k]!=null)?p.next_st[k]:0, adj=v-p.ppg-stv, sgn=x=>(x>0?'+':'')+x.toFixed(1), parts=[Math.abs(stv)>=0.15?`${sgn(stv)} recent role`:'',Math.abs(adj)>=0.15?`${sgn(adj)} matchup`:''].filter(Boolean).join(', ');
     s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-Y(v)).toFixed(1)}" fill="none" stroke="var(--accent)" stroke-dasharray="3 2"><title>${f[0]} ${esc(f[1])}: ${v.toFixed(1)} pts projected${parts?` (${parts})`:''}</title></rect><text x="${X(i).toFixed(1)}" y="${(Y(v)-3).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--accent)">${v.toFixed(0)}</text><text x="${X(i).toFixed(1)}" y="${H2-20}" text-anchor="middle" font-size="8" fill="var(--accent)">${f[0]}</text><text x="${X(i).toFixed(1)}" y="${H2-10}" text-anchor="middle" font-size="7.5" fill="var(--accent)">${esc(f[1])}</text>`; });
   return s+'</svg>';
