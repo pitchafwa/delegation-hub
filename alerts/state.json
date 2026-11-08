@@ -1,8 +1,11 @@
 {
  "avail_prev": {
   "3978": "FREEAGENT",
+  "4397424": "WAIVERS",
   "4437244": "WAIVERS",
-  "5104155": "FREEAGENT"
+  "4683766": "FREEAGENT",
+  "5104155": "FREEAGENT",
+  "5106060": "FREEAGENT"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -19,101 +22,99 @@
  },
  "last_status": {
   "3059319": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "4277811": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "DAY_TO_DAY",
    "official": null
   },
   "4431680": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "4431785": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "OUT",
    "official": null
   },
   "4432194": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "DAY_TO_DAY",
    "official": null
   },
   "4684740": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "5279130": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "6589": {
-   "date": "2026-11-07",
+   "date": "2026-11-08",
    "espn": "ACTIVE",
-   "official": "Available"
+   "official": null
   }
  },
  "league_req": "2026-10-26",
  "lu": {},
- "my_drops": {
-  "4997536": "2026-11-03"
- },
+ "my_drops": {},
  "pickup_sent": {},
  "plan_announced": {
   "4277811:2026-11-06:nolan traore": "2026-11-06",
@@ -127,9 +128,9 @@
   "4433174:2026-11-06::today": "2026-11-06"
  },
  "plan_rebuild": {
-  "at": "2026-11-08T04:55:23+00:00",
+  "at": "2026-11-08T05:12:44+00:00",
   "sig": "6430,6589,3059319,3135045,3907497,4065648,4065733,4277811,4395724,4431680,4431785,4432194,4433134,4684740,5041939,5041955,5105565,5279130",
-  "why": "DFF posted 2026-11-08 numbers (167 players)"
+  "why": "new free agent(s) to evaluate: Neemias Queta"
  },
  "rosterfix_sent": {},
  "sent": {
