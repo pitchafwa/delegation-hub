@@ -744,6 +744,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
     #navTop button[aria-pressed="true"]{background:transparent;color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
     .scoreBig{font-size:2.8rem}
   }
+sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;cursor:help}
 </style>
 </head>
 <body>
@@ -828,6 +829,7 @@ function computeVOR(traj, k){
 }
 const fmt1=v=>v==null?'—':v.toFixed(1);
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const OURS='<sup class="ours" title="Our projection: DailyFantasyFuel hasn&#39;t posted this game yet">*</sup>';   // marks a game number that isn't DFF's yet (2026-11-08)
 const norm=n=>String(n||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ jr\.?$| sr\.?$| iii$| ii$| iv$/,'').replace(/[^a-z]/g,'');
 let OWNER=new Map();  // hub player id -> {abbrev,name,team,slot}
 function initLeague(){
@@ -1628,7 +1630,7 @@ function renderWeek(){
     else if(d.date===M.days[M.days.length-1] && d.starts_before<M.cap) note='<span class="hint">final day: may go over the cap</span>';
     const SLOT_ORDER={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};   // ESPN's starting-lineup order
     const ordered=d.start.slice().sort((a,b)=>(SLOT_ORDER[a.slot]??9)-(SLOT_ORDER[b.slot]??9)||b.ef-a.ef);
-    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.tip?' · tips off '+new Date(x.tip).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.props?' · props':''}</span></span>`).join(' ');
+    const chips=ordered.map(x=>`<span class="comp" title="expected points ${x.ef}, chance of playing ${(x.p*100).toFixed(0)}%${x.tip?' · tips off '+new Date(x.tip).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}${x.boost>=0.5?` · includes +${x.boost} from a teammate being out`:''}"><b>${esc(x.slot)}</b> <span class="nm">${pc(x.name)}</span> <span class="hint">${x.ef}${x.tonight?'':OURS}${x.props?' · props':''}</span></span>`).join(' ');
     let lsNote='';
     if(d.late_swap&&!d.locked){ const L=d.late_swap, dbt=d.start.filter(x=>x.p<0.8&&L.cover&&L.cover[String(x.id)]!==undefined);
       const cov=dbt.map(x=>{ const c=L.cover[String(x.id)]||[]; return `${pc(x.name)} (${esc(x.slot)}): ${c.length?'if he is scratched, '+c.map(esc).join(' or ')+' can take the slot':'<b style="color:var(--warn)">no bench player can replace him after the earlier games lock</b>'}`; });
@@ -1645,7 +1647,7 @@ function renderWeek(){
   const fmtDow=iso=>new Date(iso+'T12:00:00').toLocaleDateString(undefined,{weekday:'short'});
     const addsLeft=M.adds_limit-T.adds_used;
   const tonightHtml=(T.tonight_picks&&T.tonight_picks.length)?`<div style="font-family:'Barlow Condensed',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Single-day pickups for tonight, by the day-specific projection</div>
-    <div class="tablewrap" style="margin-bottom:1rem"><table><thead><tr><th style="text-align:left">Add</th><th>Projected tonight</th><th>Adds to your lineup</th><th style="text-align:left">His games this matchup</th></tr></thead><tbody>${T.tonight_picks.map(x=>`<tr><td style="text-align:left"><b>${pc(x.name)}</b> <span class="hint">${esc(x.team)} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${x.status!=='ACTIVE'?' · '+esc(x.status):''}</span></td><td class="num">${x.tonight.toFixed(1)}${x.dfs?'':' <span class="hint">(season level)</span>'}</td><td class="num"><b>+${x.gain.toFixed(0)}</b></td><td style="text-align:left">${x.games.map(shortDay).join(' ')}</td></tr>`).join('')}</tbody></table></div><div class="note" style="margin:-.5rem 0 1rem">Points each adds to tonight alone; every add needs a drop.</div>`:'';
+    <div class="tablewrap" style="margin-bottom:1rem"><table><thead><tr><th style="text-align:left">Add</th><th>Projected tonight</th><th>Adds to your lineup</th><th style="text-align:left">His games this matchup</th></tr></thead><tbody>${T.tonight_picks.map(x=>`<tr><td style="text-align:left"><b>${pc(x.name)}</b> <span class="hint">${esc(x.team)} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${x.status!=='ACTIVE'?' · '+esc(x.status):''}</span></td><td class="num">${x.tonight.toFixed(1)}${x.dfs?'':OURS}</td><td class="num"><b>+${x.gain.toFixed(0)}</b></td><td style="text-align:left">${x.games.map(shortDay).join(' ')}</td></tr>`).join('')}</tbody></table></div><div class="note" style="margin:-.5rem 0 1rem">Points each adds to tonight alone; every add needs a drop.</div>`:'';
   const otherFaHtml=(()=>{   // same engine as Suggested moves: each free agent's best rental or keep, with the day, the drop, and the risk he is taken before then
     const PCK=T.pickup_checks; if(!PCK) return '';
     const inPlan=new Set((T.sequence||[]).map(a=>a.add.id));
@@ -1844,7 +1846,7 @@ function renderWeek(){
   // one free-agent list, three horizons
   const faRow=(name,team,tags,sub,gain)=>`<div class="faRow"><span class="faName"><span>${pc(name)}${team?` <span class="hint">${esc(team)}</span>`:''}${tags||''}</span>${sub?`<span class="faSub">${sub}</span>`:''}</span><span class="faGain num">${gain}</span></div>`;
   const inPlan=new Set((T.sequence||[]).map(a=>a.add.id));
-  const faTonight=(T.tonight_picks||[]).filter(x=>x.gain>=1).slice(0,8).map(x=>faRow(x.name,x.team,x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',`${x.tonight.toFixed(0)} projected tonight${x.dfs?'':' (season level)'} · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${inPlan.has(x.id)?' · in your plan':''}`,sgn0(x.gain))).join('');
+  const faTonight=(T.tonight_picks||[]).filter(x=>x.gain>=1).slice(0,8).map(x=>faRow(x.name,x.team,x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',`${x.tonight.toFixed(0)}${x.dfs?'':OURS} projected tonight · ${x.slots.filter(q=>q!=='UT').join('/')||'UT'}${inPlan.has(x.id)?' · in your plan':''}`,sgn0(x.gain))).join('');
   const faWeek=(()=>{ const PCK=T.pickup_checks; if(!PCK) return '';
     return Object.entries(PCK).map(([id,v])=>{ const keep=(v.net>-1e8&&v.drop)?{kind:'keep',net:v.net,adj:(v.adj!=null?v.adj:v.net),drop:v.drop,on:v.on}:null; const rent=v.rent?Object.assign({kind:'rent'},v.rent):null;
         const opt=(rent&&(!keep||rent.adj>=keep.adj))?rent:keep; return {id:+id,v,opt}; })
@@ -2430,10 +2432,11 @@ function pcHtml(P){
   // ---- projections
   const playsToday=wk&&(wk.games||[]).includes(todayIso);
   const nextVal=wk?(playsToday?wk.tonight:(wk.next??wk.level)):null;
+  const nextOurs=wk&&nextVal!=null&&(playsToday?wk.dfs===false:(wk.next!=null&&wk.next_dfs===false));   // DFF hasn't posted that game: our number
   const seasonD=h?(h.season_ppg??h.year0_ppg):(rd?rd.ppg:null);
   const tile=(v,l,cls)=>`<div class="${cls||''}"><b>${v!=null&&v!==''?(typeof v==='number'?v.toFixed(v>=10?0:1).replace(/\.0$/,''):v):'—'}</b><span>${l}</span></div>`;
   const prj=`<div class="pc2Sec"><div class="pc2St">Projected points a game ${ib('Projected')}</div><div class="pc2Prj">
-    ${tile(nextVal!=null?Math.round(nextVal):null,playsToday?'Tonight':'Next game','hi')}${tile(seasonD!=null?seasonD.toFixed(1):null,'Season<br>DELCO')}${tile(rd&&rd.espn_ppg?rd.espn_ppg.toFixed(1):null,'Season<br>ESPN')}${tile(rd&&rd.l10!=null?rd.l10.toFixed(1):null,'Last 10<br>avg')}</div></div>`;
+    ${tile(nextVal!=null?Math.round(nextVal)+(nextOurs?OURS:''):null,playsToday?'Tonight':'Next game','hi')}${tile(seasonD!=null?seasonD.toFixed(1):null,'Season<br>DELCO')}${tile(rd&&rd.espn_ppg?rd.espn_ppg.toFixed(1):null,'Season<br>ESPN')}${tile(rd&&rd.l10!=null?rd.l10.toFixed(1):null,'Last 10<br>avg')}</div></div>`;
   // ---- next 7 days + playoff games
   let strip='';
   if(team&&NSCH&&NSCH.games){
