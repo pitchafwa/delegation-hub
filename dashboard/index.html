@@ -2432,7 +2432,7 @@ function pcHtml(P){
   }
   const planHtml=plan?`<div class="pc2Plan${inPlan?'':' off'}"><div class="k">${inPlan?'In your plan':'Plan'}</div><div class="v">${plan}</div></div>`:'';
   // ---- projections
-  const playsToday=wk&&(wk.games||[]).includes(todayIso);
+  const playsToday=wk&&(wk.games?wk.games.includes(todayIso):!!wk.plays_today);   // free agents: plays_today (2026-11-08: Daniss Jenkins' card showed his next game while he played tonight)
   const nextVal=wk?(playsToday?wk.tonight:(wk.next??wk.level)):null;
   const nextOurs=wk&&nextVal!=null&&(playsToday?wk.dfs===false:(wk.next!=null&&wk.next_dfs===false));   // DFF hasn't posted that game: our number
   const seasonD=h?(h.season_ppg??h.year0_ppg):(rd?rd.ppg:null);
