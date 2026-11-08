@@ -1701,7 +1701,7 @@ function renderWeek(){
     const fit=[];
     if(S){ fit.push(`<b>+${S.gain}</b> points over the rest of the season <span class="hint">(${S.reg} regular season, ${S.po} playoffs)</span>`);
       if(S.out_now) fit.push(`<span class="hint">${esc(S.injury||'out')} · ${S.games_out!=null?'about '+S.games_out+' games out':''}${S.back_date?' · back about '+dfmt(S.back_date):''}${S.p_back_playoffs!=null?' · '+Math.round(S.p_back_playoffs*100)+'% back for the playoffs':''}</span>`);
-      fit.push(S.to_ir?'<span class="hint">goes straight into a free IR slot</span>':(S.drop?`<span class="hint">drop ${esc(S.drop)}</span>`:'<span class="hint">open roster spot</span>')); }
+      fit.push(S.to_ir?'<span class="hint">add, then move to a free IR slot</span>':(S.drop?`<span class="hint">drop ${esc(S.drop)}</span>`:'<span class="hint">open roster spot</span>')); }
     if(!S&&e.pr.ros>0) fit.push(`<b>+${e.pr.ros}</b> points over the rest of the season`);
     const PR=e.pr;
     return `<tr><td class="num" title="Points he adds to your team over the rest of this season, against streaming a free agent into the same slot"><b>${PR.ros}</b></td><td style="text-align:left"><b>${pc(x.name)}</b> ${tags}${D&&D.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${D&&D.new?' <span class="liveStatus" title="first available in the last 7 days (dropped or released)">NEW</span>':''}${x.status&&x.status!=='ACTIVE'?' <span class="liveStatus">'+esc(x.status)+'</span>':''} <span class="hint">${esc(x.team)} · ${(x.pos||x.slots||[]).filter(q=>q!=='UT').join('/')}</span>${formTag((S&&S.form)||(D&&D.form))}</td>
@@ -1797,18 +1797,19 @@ function renderWeek(){
   </div>`;
   // Do now: the same dated steps the phone alerts use
   const doItems=[];
+  const PAIRED=id=>{ const p=T.stash_suggest&&T.stash_suggest.pair; return !!(p&&Number(p.id)===Number(id)); };   // this move's drop already went to the IR stash
   if(isMe){
     (T.ir_moves||[]).forEach(m=>{
       if(m.action==='stay_ir'){ doItems.push({when:'Hold',what:`Keep ${m.name} on IR`,sub:`Healthy, so adds stay locked while he's there.${m.blocked>0.5?` Unlocking them costs two drops, which this week's adds aren't worth.`:''}`,gain:''}); return; }
-      if(m.action==='return'){ if(m.drop) doItems.push({when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:`Activate ${m.name}, drop ${m.drop.name}`,sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
-            if(m.action==='activate_swap'){ doItems.push({when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
+      if(m.action==='return'){ if(m.drop) doItems.push({when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:(PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${m.drop.name}`),sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
+            if(m.action==='activate_swap'){ doItems.push({when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
       doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}); });
     if(dayRow&&dayRow.locked) doItems.push({when:'Today',what:'Cap reached: nothing counts today',sub:'',gain:''});
     else if(dayRow&&dayRow.start.length){
       const doubt=dayRow.start.filter(x=>x.p<0.8).map(x=>x.name);
       doItems.push({when:'Today',what:`Start ${dayRow.start.length} tonight`,sub:(dayRow.sat>0?`Bench ${dayRow.sat} who play, to save starts for later. `:'')+(doubt.length?`At risk: ${doubt.join(', ')}. `:'')+'Lineup below; set it in one click under Set lineup in ESPN.',gain:''});
     }
-    if(T.stash_suggest){ const s=T.stash_suggest; doItems.push({when:'Today',what:`Add ${s.name} and move him to IR`,sub:`A free IR slot and an add that would go unused (${s.why}). ${s.injury?esc(s.injury)+', ':''}${s.back_date?'back about '+new Date(s.back_date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})+'. ':''}About +${s.gain} over the rest of the season.`,gain:''}); }
+    if(T.stash_suggest){ const s=T.stash_suggest, pr=s.pair; doItems.push({when:'Today',what:`Add ${s.name}${s.drop?', drop '+s.drop.name:''}, then move him to IR`,sub:`${pr?`Then ${pr.kind==='add'?'add '+pr.name:'activate '+pr.name}${pr.on>todayIso?' '+dShort(pr.on):''} with no drop: ${s.drop.name.split(' ').slice(-1)[0]}'s spot is the one that opens. `:(s.drop?'Refill the open spot later. ':'')}A free IR slot and an add that would go unused (${s.why}). ${s.injury?esc(s.injury)+', ':''}${s.back_date?'back about '+new Date(s.back_date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})+'. ':''}About +${s.gain} over the rest of the season.`,gain:''}); }
     const seq=(T.sequence||[]).map(a=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); let d=a.on||(g.length?a.by_day[bi].date:todayIso);
       // a waiver player the plan wants ON the day he clears must be claimed the night before (the claim runs at 3am); if the plan wants him later, he is a free agent by then: add him on the plan's day
       const claimNow=!!(a.add.waiver&&a.add.waiver.date&&a.on&&a.on<=a.add.waiver.date);
@@ -1829,9 +1830,10 @@ function renderWeek(){
         pts=bits.length?' · '+bits.join(', '):''; }
       const claim=claimNow;
       const whenLbl=claim&&d===todayIso?'Tonight':dShort(d);
-      const what=claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`;
-      const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when} (the drop happens then). `:(a.add.waiver?`On waivers until ${a.add.waiver.when}; a free agent by ${dShort(d)}, so no claim needed. `:'');
-      const mv=d===todayIso?{add:a.add.id,drop:a.drop?a.drop.id:'',kind:claim?'waiver':'fa',name:a.add.name,dropName:a.drop?a.drop.name:''}:null;      // one-tap: only moves due today
+      const pairedA=PAIRED(a.add.id)&&T.stash_suggest.pair.kind==='add';
+      const what=pairedA?`${claim?'Claim':'Add'} ${a.add.name} (no drop: spot opened by the IR stash)`:(claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`);
+      const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when}${pairedA?'':' (the drop happens then)'}. `:(a.add.waiver?`On waivers until ${a.add.waiver.when}; a free agent by ${dShort(d)}, so no claim needed. `:'');
+      const mv=d===todayIso?{add:a.add.id,drop:a.drop&&!pairedA?a.drop.id:'',kind:claim?'waiver':'fa',name:a.add.name,dropName:a.drop&&!pairedA?a.drop.name:''}:null;      // one-tap: only moves due today
       doItems.push({when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
     if(!seq.length) doItems.push(M.adds_limit-T.adds_used<=0?{when:'Week',what:`All ${M.adds_limit} adds used`,sub:'No more pickups until the next matchup starts. Just set your lineup.',gain:''}:{when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
@@ -1858,7 +1860,7 @@ function renderWeek(){
     const bits=[`${x.level} a game`];
     const pg=poG(x.team); if(pg!=null) bits.push(`${pg} playoff games`);
     if(S&&S.out_now) bits.push(`${esc(S.injury||'out')}${S.back_date?', back about '+dfmt(S.back_date):''}`);
-    if(S) bits.push(S.to_ir?'goes into a free IR slot':(S.drop?'drop '+esc(S.drop):'open roster spot'));
+    if(S) bits.push(S.to_ir?'add, then move to a free IR slot':(S.drop?'drop '+esc(S.drop):'open roster spot'));
     return faRow(x.name,x.team,x.status&&x.status!=='ACTIVE'?` <span class="liveStatus">${esc(x.status)}</span>`:'',bits.join(' · '),fmtTitle(e.pr.tv)??('+'+e.pr.ros)); }).join('');
   const faPanels=[['tonight','Tonight',faTonight,'Points each adds to tonight alone','No pickup adds to tonight: your best lineup is already full.'],['week','This week',faWeek,'Best single move for each, judged one at a time (they overlap)','Nobody beyond the plan is worth an add this week.'],['season','Season',faSeason,'What each adds to your title odds over the rest of the season (playoff weeks weighted by how much they decide titles)','No free agent beats streaming over the rest of the season.']];
   const faFirst=Math.max(0,faPanels.findIndex(x=>x[2]));   // open on the first horizon that has someone in it
@@ -2422,7 +2424,7 @@ function pcHtml(P){
     inPlan=!!(a||d||(T.stash_suggest&&Number(T.stash_suggest.id)===pid)||(isMine&&nextStart));
     if(a){ const claim=!!a.add.waiver; plan=`${claim?'Claim '+(waiver&&waiver.date&&new Date(waiver.date+'T12:00:00')-new Date(todayIso+'T12:00:00')<=864e5?'tonight':'before '+esc(waiver.when)):'Add '+dayLbl(a.on)}, drop ${esc(a.drop?a.drop.name:'nobody')} · <b>${a.gain>=0?'+':''}${a.gain.toFixed(0)}</b>`; }
     else if(d) plan=`Dropped ${dayLbl(d.on)} for ${esc(d.add.name)}`;
-    else if(T.stash_suggest&&Number(T.stash_suggest.id)===pid) plan='Stash him on IR (free right now)';
+    else if(T.stash_suggest&&Number(T.stash_suggest.id)===pid) plan=`Add him${T.stash_suggest.drop?', drop '+esc(T.stash_suggest.drop.name):''}, then move him to IR`;
     else if(isMine&&slot) plan=`Starting tonight at ${esc(slot.slot)} · projected <b>${(slot.p>0?slot.ef/slot.p:slot.ef).toFixed(0)}</b>`;
     else if(isMine&&nextStart) plan=`${(wk&&(wk.games||[]).includes(todayIso))?'Bench tonight. ':''}Starts ${dayLbl(nextStart.dd.date)} at ${esc(nextStart.x.slot)} · projected <b>${(nextStart.x.p>0?nextStart.x.ef/nextStart.x.p:nextStart.x.ef).toFixed(0)}</b>`;
     else if(isMine) plan=(wk&&(wk.games||[]).includes(todayIso))?'On your bench tonight':'Not starting this week';

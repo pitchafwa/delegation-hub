@@ -669,6 +669,31 @@ def _tag_waivers(players):
     return players
 
 
+# NOT ON AN NBA ROSTER (2026-11-08, Tommy: the plan wanted Malcolm Brogdon, retired after last season, still listed by ESPN fantasy as an active Knick):
+# a free agent must be on a real NBA roster (ESPN's team rosters, two-way players included) or have played this season (rotation_status.json). When the
+# roster pull fails or looks short, nobody is removed.
+_rk = lambda n: norm(n).replace(" ", "")
+NBA_ROSTER = {}
+try:
+    _tj = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams", timeout=30).json()
+    for _t in [x["team"] for x in _tj["sports"][0]["leagues"][0]["teams"]]:
+        _rj = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{_t['id']}/roster", timeout=30).json()
+        for _a in _rj.get("athletes", []):
+            NBA_ROSTER[_rk(_a["fullName"])] = canon(_t["abbreviation"])
+except Exception as _ex:
+    print("ESPN NBA rosters unavailable:", _ex)
+NBA_ROSTER_OK = len(NBA_ROSTER) >= 350
+_played = {_rk(k) for k in ROT}
+
+
+def on_nba_roster(name):
+    return not NBA_ROSTER_OK or _rk(name) in NBA_ROSTER or _rk(name) in _played
+
+
+_gone = sorted({_p.name for _p in lg.free_agents(size=400) if not on_nba_roster(_p.name)}) if NBA_ROSTER_OK else []
+print(f"not on an NBA roster ({len(NBA_ROSTER)} rostered players found): {len(_gone)} free agents left out:", _gone[:25])
+
+
 fa_players = _tag_waivers([make_player(p) for p in lg.free_agents(size=400)])   # matches stash_pool/dyn_pool's pull size (was 150: a real, valuable, healthy
 # free agent could rank outside ESPN's global top-150-by-default-relevance in this specific league and so never surface here at all -- found
 # 2026-09-27 via Jalen Green missing "This week" info on his player card entirely. The later sort-and-trim (see below) also had to widen for the
@@ -678,7 +703,7 @@ for _p in fa_players:
     _p["level_raw"] = _p["level"]                                             # true level, before the weekly-decision shrink below
     _p["level"] = round(fa_mark(_p["level"]), 1)  # shrink toward replacement for THIS WEEK's add decision only (see FA_SHRINK's comment) -- a
                                                                                 # long-horizon evaluation (Long-term adds) should use level_raw instead; see build_schedule_plan.py
-fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and any(plays(p["team"], d) for d in plan_days + LOOK_DAYS)]
+fa_players = [p for p in fa_players if p["level"] > 0 and p["team"] and on_nba_roster(p["name"]) and any(plays(p["team"], d) for d in plan_days + LOOK_DAYS)]
 # an add cannot use tonight's game once it has started or is about to (10 minutes to make the move): he joins from tomorrow (2026-10-26: a 7:12pm plan's add for an
 # 8pm game reached the phone after tip-off)
 _now_utc = datetime.now(timezone.utc)
@@ -774,7 +799,7 @@ dyn_pool = []
 for _p in lg.free_agents(size=400):
     _hp = hub_player(_p.playerId, _p.name)
     _a = asset5(_hp)
-    if _hp and _a >= DYN_MIN_ASSET:
+    if _hp and _a >= DYN_MIN_ASSET and on_nba_roster(_p.name):
         dyn_pool.append({"id": _p.playerId, "name": _p.name, "team": canon(_p.proTeam or ""), "pos": [x for x in _p.eligibleSlots if x in ("PG", "SG", "SF", "PF", "C")],
                          "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
                          "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("season_ppg") or _hp.get("year0_ppg") or 0, 1), "level_raw": round(_hp.get("season_ppg") or _hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
@@ -924,15 +949,7 @@ try:
     kof = lambda name: norm(name).replace(" ", "")
     espn_by_key = {kof(pl["name"]): pl for pl in all_pl}
     # real NBA rosters from ESPN (the hub still lists retired players), matched by name to the hub's per-player projections
-    nba_roster = {}
-    try:
-        _tj = requests.get("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams", timeout=30).json()
-        for _t in [x["team"] for x in _tj["sports"][0]["leagues"][0]["teams"]]:
-            _rj = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{_t['id']}/roster", timeout=30).json()
-            for _a in _rj.get("athletes", []):
-                nba_roster[kof(_a["fullName"])] = canon(_t["abbreviation"])
-    except Exception as _ex:
-        print("ESPN NBA rosters unavailable, using the hub's teams:", _ex)
+    nba_roster = dict(NBA_ROSTER)        # pulled once, above (free-agent check)
     team_players = {}
     for hp in hub["players"]:
         nsp = hp.get("next_season_proj") if hp.get("kind") == "current" else hp.get("rookie_proj")
@@ -1948,6 +1965,36 @@ for t in lg.teams:
                                      "why": "last day of the matchup" if today == mp_end else ("no matchup this week" if not THIS_WEEK_COUNTS else "this matchup looks decided")}
             except Exception as _ex:
                 print("stash check skipped:", repr(_ex)[:80])
+    # ESPN has no add-straight-to-IR: he joins the active roster first, so a full active roster needs a drop (2026-11-08, Tommy). Best pairing, his method:
+    # take the drop from another move the plan already has (an add-drop today, else an activation or add-drop coming up whose dropped player isn't in
+    # tonight's lineup) -- drop that player for the stash, move the stash to IR, then make the other move with no drop. With nothing to pair, drop the
+    # weakest unprotected player not starting tonight; the spot can be refilled later.
+    if stash_suggest and len([p for p in r if not p.get("_ir_now", p["ir"])]) >= ROSTER_SPOTS:
+        try:
+            _today_iso = today.isoformat()
+            _start_ids = {int(x["id"]) for d_ in rows if d_["date"] == _today_iso for x in d_["start"]}
+            _cands = []
+            for m_ in seq or []:
+                if m_.get("drop"):
+                    _cands.append((m_.get("on") or _today_iso, "add", m_["add"]["id"], m_["add"]["name"], m_["drop"]))
+            for m_ in ir_moves:
+                if m_["action"] in ("return", "activate_swap") and m_.get("drop") and int(m_["drop"]["id"]) != int(m_["id"]):
+                    _cands.append((m_.get("on") or _today_iso, "activate", m_["id"], m_["name"], m_["drop"]))
+            _cands.sort(key=lambda c: c[0])
+            _pair = next((c for c in _cands if c[0] <= _today_iso), None) or next((c for c in _cands if int(c[4]["id"]) not in _start_ids), None)
+            if _pair:
+                stash_suggest["drop"] = {"id": _pair[4]["id"], "name": _pair[4]["name"]}
+                stash_suggest["pair"] = {"kind": _pair[1], "id": _pair[2], "name": _pair[3], "on": _pair[0]}
+            else:
+                _prot = protected_ids(r)
+                _pool = [p for p in r if not p.get("_ir_now", p["ir"]) and p["espn_id"] not in _prot and int(p["espn_id"]) not in _start_ids]
+                if _pool:
+                    _w = min(_pool, key=long_level)
+                    stash_suggest["drop"] = {"id": _w["espn_id"], "name": _w["name"]}
+                else:
+                    stash_suggest = None                # nobody sensible to drop: no stash
+        except Exception as _ex:
+            print("stash pairing skipped:", repr(_ex)[:120])
     advice = advise_injuries(r, total, c0, lambda n: norm(n).replace(" ", ""), _ir_free)
     if any(m["action"] in ("to_ir", "activate") for m in ir_moves) and not any(m["action"] in ("stay_ir", "activate_swap") for m in ir_moves):
         total0 = plan_team(r_orig, c0)
@@ -1998,7 +2045,7 @@ def build_stash():
         info = ESPN_INJ.get(int(_p.playerId))
         out_now = (_p.injuryStatus in IR_OK) or (info and info.get("status") == "Out")
         idle = canon(_p.proTeam or "") in TEAM_DATES and not any(plays(canon(_p.proTeam), d) for d in plan_days)
-        if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES:
+        if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES or not on_nba_roster(_p.name):
             continue
         f = make_player(_p)
         f["is_fa"] = True

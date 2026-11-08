@@ -876,8 +876,11 @@ def stash_alert(T, s, mine, can_send):
     if key in sent:
         return
     back = f" Expected back about {datetime.fromisoformat(st['back_date']).strftime('%b %d').replace(' 0', ' ')}." if st.get("back_date") else ""
+    dr = (st.get("drop") or {}).get("name")
+    pr = st.get("pair")
+    how = (f" Add him, drop {dr}, move him to IR." if dr else " Add him, move him to IR.") + (f" Then {'add' if pr['kind'] == 'add' else 'activate'} {pr['name']} with no drop." if pr else "")
     if push(f"Stash {st['name']} on IR",
-            f"Injured{(', ' + st['injury']) if st.get('injury') else ''}.{back} Free IR slot and an add that would go unused. +{st['gain']} rest of season.",
+            f"Injured{(', ' + st['injury']) if st.get('injury') else ''}.{back}{how} +{st['gain']} rest of season.",
             priority=3, tags=["hospital"], actions=[btn("Add in ESPN", espn_add(st["id"]))]):
         sent[key] = TODAY.isoformat()
 

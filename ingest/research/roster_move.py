@@ -51,12 +51,14 @@ def my_roster(lg, team_id):
 
 
 def in_plan(T, add, drop):
-    for m in T.get("sequence") or []:
-        if int(m["add"]["id"]) == add and int((m.get("drop") or {}).get("id") or 0) == (drop or 0):
-            return m
     st = T.get("stash_suggest")
-    if st and int(st["id"]) == add:
-        return {"add": {"id": add, "name": st["name"]}, "drop": None, "stash": True}
+    pr = (st or {}).get("pair") or {}
+    for m in T.get("sequence") or []:
+        paired = pr.get("kind") == "add" and int(pr.get("id") or 0) == int(m["add"]["id"])      # its drop went to the IR stash: added with no drop
+        if int(m["add"]["id"]) == add and int((m.get("drop") or {}).get("id") or 0) == (drop or 0) or (paired and int(m["add"]["id"]) == add and not drop):
+            return m
+    if st and int(st["id"]) == add and int((st.get("drop") or {}).get("id") or 0) == (drop or 0):
+        return {"add": {"id": add, "name": st["name"]}, "drop": st.get("drop"), "stash": True}
     return None
 
 
