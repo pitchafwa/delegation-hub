@@ -107,18 +107,17 @@
    "date": "2026-11-08",
    "espn": "OUT",
    "official": null
-  },
-  "6589": {
-   "date": "2026-11-08",
-   "espn": "ACTIVE",
-   "official": null
   }
  },
  "league_req": "2026-10-26",
  "lu": {},
- "my_drops": {},
+ "my_drops": {
+  "6589": "2026-11-08"
+ },
  "pickup_sent": {},
  "plan_announced": {
+  "2566769:2026-11-08:dayron sharpe": "2026-11-08",
+  "2566769:2026-11-08:dayron sharpe:today": "2026-11-08",
   "4277811:2026-11-06:nolan traore": "2026-11-06",
   "4277811:2026-11-06:nolan traore:rem": "2026-11-06",
   "4277811:2026-11-06:nolan traore:today": "2026-11-06",
