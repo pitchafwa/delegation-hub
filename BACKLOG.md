@@ -34,6 +34,7 @@ Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12
 - Title odds retuned (title_odds_study.py, 2026-11-07): season-long drift 165 through week 6 easing to 105 by week 9, weekly noise 185; injured players use ESPN's return date or the measured return curve instead of out-2-weeks-then-60%. DRNK title 51% -> 32%.
 
 - Later-week decay built 2026-11-07 (horizon_decay_study.py: fit on 2010-24 box scores, tested on 2025-26; no extra slide for stars). Odds history rebuilt with the current model on each day's own inputs (rebuild_odds_history.py). RULE: after any change to the season forecast or the playoff simulation, rerun rebuild_odds_history.py so the trend lines stay comparable.
+- 2026-11-08: projections not from DFF yet carry an asterisk (player card, lineup chips, tonight's free agents). Free agents not on an NBA roster and with no games this season are left out of every pool (Brogdon, retired). IR stashes: ESPN has no add-to-IR, so a full active roster needs a drop; the plan pairs it with another planned move's drop (Tommy's method: drop that player for the stash, IR him, then make the other move with no drop), else drops the weakest unprotected non-starter.
 
 **Dropped**
 Win-probability alerts at 25%/75% (conflicts with actionable-only alerts); power rankings chart.
