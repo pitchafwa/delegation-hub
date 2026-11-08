@@ -1,11 +1,7 @@
 {
  "avail_prev": {
   "3978": "FREEAGENT",
-  "4397424": "WAIVERS",
-  "4437244": "WAIVERS",
-  "4683766": "FREEAGENT",
-  "5104155": "FREEAGENT",
-  "5106060": "FREEAGENT"
+  "4437244": "WAIVERS"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -48,11 +44,6 @@
    "espn": "ACTIVE",
    "official": null
   },
-  "4277811": {
-   "date": "2026-11-08",
-   "espn": "ACTIVE",
-   "official": null
-  },
   "4395724": {
    "date": "2026-11-08",
    "espn": "DAY_TO_DAY",
@@ -77,6 +68,11 @@
    "date": "2026-11-08",
    "espn": "DAY_TO_DAY",
    "official": null
+  },
+  "4594327": {
+   "date": "2026-11-08",
+   "espn": "OUT",
+   "official": "Questionable"
   },
   "4684740": {
    "date": "2026-11-08",
@@ -112,6 +108,7 @@
  "league_req": "2026-10-26",
  "lu": {},
  "my_drops": {
+  "4277811": "2026-11-08",
   "6589": "2026-11-08"
  },
  "pickup_sent": {},
@@ -128,7 +125,9 @@
   "4433174:2026-11-06::rem": "2026-11-06",
   "4433174:2026-11-06::today": "2026-11-06",
   "4437244:2026-11-08:collin sexton": "2026-11-08",
-  "4437244:2026-11-08:collin sexton:today": "2026-11-08"
+  "4437244:2026-11-08:collin sexton:today": "2026-11-08",
+  "4437244:2026-11-08:dayron sharpe": "2026-11-08",
+  "4437244:2026-11-08:dayron sharpe:today": "2026-11-08"
  },
  "plan_rebuild": {
   "at": "2026-11-08T17:05:23+00:00",
