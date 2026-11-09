@@ -28,7 +28,7 @@ OUT = Path(sys.argv[1])
 OUT.mkdir(parents=True, exist_ok=True)
 ET = ZoneInfo("America/New_York")
 MODEL_FILES = ["hub_data.json", "redraft_data.json", "rotation_status.json", "form_split.json", "team_matchup.json", "trade_ideas.json",
-               "trade_context.json", "trade_market.json", "trade_ideas_v2.json", "player_news.json", "local_refresh_status.json", "cloud_test_box.json", "cloud_test_dff.json"]
+               "trade_context.json", "trade_market.json", "trade_ideas_v2.json", "trade_board.json", "player_news.json", "local_refresh_status.json", "cloud_test_box.json", "cloud_test_dff.json"]
 PC_ONLY = ("local_refresh_status.json", "cloud_test_box.json", "cloud_test_dff.json")
 
 

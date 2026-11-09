@@ -19,7 +19,7 @@ Keep this list current in the same session as any build or study.
 Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12-01; blend study 12-14; opponent streaming refresh after ~10 matchups; tanking overrides in February; first real waiver claim through the Do now button.
 
 **Partly covered, no separate build planned unless Tommy asks**
-- Buy-low/sell-high: panel on the Trades tab from `regression_study.py`, season level, mild evidence (big jumps fall back about 2 pts/g; slumps do not reliably rebound). No dedicated tab on recent form.
+- Buy-low/sell-high: now tags on the Trades Command Center (see Done, 2026-11-09); the old `regression_study.py` panel is gone.
 - Just-dropped watch: pickup alert plus waiver tags. Opponent scouting: Matchups pages, owner habits and streaming.
 
 **Done, older sections may still read as open**
@@ -39,6 +39,11 @@ Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12
 - 2026-11-09 age fall-off study (age_falloff_study.py): faster DELCO drops for older fallers NOT supported. Fallers 33+ kept 12% of the gap over the next 20 games vs 23% under 30; out of sample no improvement; drop-out rates similar. No change made.
 - 2026-11-09 DONE (Tommy approved): long_level uses DELCO alone, ESPN only when DELCO has none (DeRozan 33.2 -> 31.5). Title odds unchanged (the season forecast uses day levels for rosters), so no history rebuild.
 - DONE 2026-11-09 (Tommy approved): chain fix on by default (CHAIN_OLD=1 restores old total). Test (every team's roster, Nov 9/11/13, 36 team-days): picks changed in 6, never for DRNK; old chain totals left out tens to hundreds of points of roster-upgrade value the one-at-a-time total counted. Plan-model check only, no outcome replay exists for chains.
+- 2026-11-09 Trades Command Center built (Tommy approved the mockup; picks in, 3-for-2 in, daily Keep/Pass does not carry into trades). Trades tab = Targets · My roster · Ideas · Analyzer. `build_trade_board.py` -> `dashboard/trade_board.json`, daily in refresh_all.py (laptop and cloud test; ~2.5 min), replaces the weekly find_trades.py ideas. Cloud scorecard compares Target scores, tags and the fit (compare_cloud_pc.py).
+  - Quick estimate (`trade_proxy_study.py`, 1,450 packages / 66 targets vs the full analyzer): playoff-weighted points put the true best in the top 5 for 66/66 targets, mean loss 0.5 vs a spread of 24; flat-weighted (old finder screen) 86% / 1.9. Built version uses each roster rank's measured share of lineup points (analyzer lineup solver, re-measured daily) because flat per-player points over-credited depth deals in playoff weeks (IR returns); weights a/b re-fit daily on ~145 full checks (11-09: holdout rank correlation 0.976). Page runs the same function (shared mulberry32 draws); Jokic target +13.1 on both.
+  - Tags (`trade_tag_study.py`, 12,645 checkpoints 2011-26): 5+ under DELCO -> next 20 games about 0.83 x the gap above his average (buy low holds); 7+ over -> gives back about 0.42 x the gap but stays ABOVE DELCO (sell high only vs his average); minute jumps of 4+ keep about a third. Cutoffs in build_trade_board.py.
+  - Draft picks: curve refit on keeper drafts only by talent rank (keeper rounds x 12 + pick), incl. this season's 3-keeper draft: next year's pick 1/12/24 = 41.3/38.7/36.2 points a game (old curve 56.5/41.5/36.7; it pooled no-keeper drafts). Picks' league price fell to match (1st-rounder ~20-23 vs ~34).
+  - OPEN finding for Tommy: players running 5+ OVER DELCO kept +3.5 to +6.5 over DELCO in their next 20 games (risers, all ages, `age_falloff_study` and `trade_tag_study`). DELCO looks slow on risers; it affects every value that uses DELCO. Needs its own study and approval before any model change.
 
 **Dropped**
 Win-probability alerts at 25%/75% (conflicts with actionable-only alerts); power rankings chart.

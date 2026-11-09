@@ -64,6 +64,19 @@ def models(pc, cloud):
     if fp and fc:
         out["form"] = {"pc": len(fp["players"]), "cloud": len(fc["players"]), "only_pc": sorted(set(fp["players"]) - set(fc["players"]))[:10],
                        "only_cloud": sorted(set(fc["players"]) - set(fp["players"]))[:10]}
+    bp, bc = _load(pc / "trade_board.json"), _load(cloud / "trade_board.json")          # Trades Command Center (2026-11-09): Target scores and tags
+    if bp and bc:
+        P = {p["id"]: p for p in bp["players"]}
+        C = {p["id"]: p for p in bc["players"]}
+        nm = {k: v["n"] for k, v in P.items()}
+        sc = lambda d: {i: (p.get("best") or {}).get("v") for i, p in d.items()}
+        tg = lambda p: {t[0] for t in p.get("tags") or []}
+        both = [i for i in P if i in C]
+        diff = [i for i in both if tg(P[i]) != tg(C[i])]
+        out["trade_target_score"] = _num(sc(P), sc(C), nm, 0.3)
+        out["trade_tags"] = {"n": len(both), "same": round(1 - len(diff) / len(both), 4) if both else None,
+                             "worst": [f"{nm[i]}: laptop {sorted(tg(P[i]))}, cloud {sorted(tg(C[i]))}" for i in diff[:5]]}
+        out["trade_fit"] = {"pc": bp.get("fit"), "cloud": bc.get("fit")}
     tp, tc = _load(pc / "team_matchup.json"), _load(cloud / "team_matchup.json")
     if tp and tc:
         flat = lambda d: {f"{t}.{k}": v for t, x in d["teams"].items() if isinstance(x, dict) for k, v in x.items() if isinstance(v, (int, float))}

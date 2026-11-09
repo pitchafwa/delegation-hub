@@ -452,6 +452,67 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   .dbtn{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:8px;padding:.4rem .7rem;font:inherit;font-size:.8rem;cursor:pointer;min-height:38px}
   #draftTbl th{white-space:normal}#draftTbl td{padding:.4rem .4rem}
   @media(max-width:900px){.dTop{grid-template-columns:1fr}.dSide{position:static;order:-1}}
+  /* Trades Command Center */
+  .tcTabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;margin:0 0 .8rem}
+  .tcTabs button{border:0;min-height:44px;background:var(--surface);color:var(--ink-soft);font:inherit;font-size:.9rem;cursor:pointer}
+  .tcTabs button+button{border-left:1px solid var(--line)}
+  .tcTabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
+  .tcCtl{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.7rem}
+  .tcCtl input[type=search]{min-height:44px;font-size:.95rem}
+  .tcChips{display:flex;flex-wrap:wrap;gap:.35rem}
+  .tcF,.tcM{min-height:36px;padding:0 .75rem;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;font-weight:600;cursor:pointer}
+  .tcF[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .tcM.must{background:var(--current);border-color:var(--current);color:var(--on-accent)}
+  .tcM.never{background:transparent;color:var(--ink-faint);border-style:dashed;text-decoration:line-through}
+  .tcSort{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+  .tcSort>span{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);font-weight:600}
+  .tcSort button{min-height:36px;padding:0 .65rem;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);font:inherit;font-size:.86rem;cursor:pointer}
+  .tcSort button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--surface-2);font-weight:600}
+  .tcSel{display:flex;flex-wrap:wrap;gap:.4rem}
+  .tcSel select,#tcGet{min-height:40px;padding:0 .6rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.88rem}
+  #tcGet[aria-pressed="true"]{border-color:var(--good);color:var(--good);font-weight:600;background:color-mix(in srgb,var(--good) 12%,transparent)}
+  .tcList{display:flex;flex-direction:column;gap:.5rem}
+  .tcRow{display:flex;flex-direction:column;gap:.35rem;width:100%;text-align:left;padding:.7rem .85rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--ink);font:inherit;cursor:pointer}
+  .tcRow:hover{border-color:var(--line-strong)}
+  .tcRowTop{display:flex;align-items:flex-start;gap:.6rem}
+  .tcNm{display:flex;flex-direction:column;flex:1;min-width:0}.tcNm b{font-size:1rem}.tcNm small{color:var(--ink-soft);font-size:.8rem}
+  .tcSc{display:flex;flex-direction:column;align-items:flex-end;font:700 1.35rem/1 "Barlow Condensed",sans-serif;color:var(--ink-soft)}
+  .tcSc small{font:600 .66rem "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
+  .tcSc.hi{color:var(--good)}.tcSc.mid{color:var(--ink)}
+  .tcStats{display:flex;flex-wrap:wrap;gap:.2rem .8rem;font-size:.8rem;color:var(--ink-soft)}.tcStats b{color:var(--ink)}
+  .tcTags{display:flex;flex-wrap:wrap;gap:.3rem}
+  .tcTag{display:inline-block;padding:1px 8px;border-radius:999px;font:600 .74rem "Barlow Condensed",sans-serif;letter-spacing:.02em;background:var(--surface-2);color:var(--ink-soft);border:1px solid transparent}
+  .tcTag.buy,.tcF.buy:not([aria-pressed="true"]){color:var(--good)}.tcTag.buy{background:color-mix(in srgb,var(--good) 15%,transparent)}
+  .tcTag.sell{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+  .tcTag.over{color:#b26b00;background:color-mix(in srgb,#f2b45c 22%,transparent)}
+  .tcTag.po{color:var(--current);background:color-mix(in srgb,var(--current) 15%,transparent)}
+  .tcTag.inj{color:var(--intl);background:color-mix(in srgb,var(--intl) 15%,transparent)}
+  .tcTag.role{color:var(--good);background:transparent;border-color:color-mix(in srgb,var(--good) 45%,transparent)}
+  .tcTag.kp{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+  .tcTag.tk,.tcTag.seller{background:transparent;border-color:var(--line-strong)}
+  @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .tcTag.over{color:#f2b45c}}
+  :root[data-theme="dark"] .tcTag.over{color:#f2b45c}
+  .tcBack{display:inline-flex;align-items:center;gap:.2rem;min-height:44px;padding:0 .2rem;border:0;background:transparent;color:var(--accent);font:inherit;font-weight:600;cursor:pointer}
+  .tcH{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.7rem;line-height:1.05;margin:.1rem 0 .15rem}
+  .tcH3{font-size:1.02rem;font-weight:700;margin:1rem 0 .45rem;display:flex;flex-wrap:wrap;gap:.1rem .5rem;align-items:baseline;justify-content:space-between}
+  .tcTiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;margin:.5rem 0}
+  .tcTiles div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.4rem .6rem;display:flex;flex-direction:column}
+  .tcTiles span{font:600 .7rem "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+  .tcTiles b{font:700 1.3rem "Barlow Condensed",sans-serif}
+  .tcWhy{margin:.3rem 0;padding-left:1.1rem;font-size:.88rem;color:var(--ink-soft);display:flex;flex-direction:column;gap:.2rem}.tcWhy b{color:var(--ink)}
+  .tcIdea{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem;margin-bottom:.6rem;display:flex;flex-direction:column;gap:.4rem}
+  .tcIdeaHd{display:flex;align-items:center;gap:.45rem}
+  .tcShape{font:600 .74rem "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+  .tcGain{margin-left:auto;font:700 1.35rem/1 "Barlow Condensed",sans-serif;color:var(--good)}
+  .tcDeal{display:grid;grid-template-columns:4.2rem minmax(0,1fr);gap:.1rem .5rem;font-size:.95rem}
+  .tcDeal .lbl{font:600 .7rem "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);padding-top:.2rem}
+  .tcNote{font-size:.84rem;color:var(--ink-soft)}
+  .tcFull{background:var(--surface-2);border-radius:8px;padding:.45rem .6rem;font-size:.88rem;display:flex;flex-direction:column;gap:.1rem}
+  .tcFull .up{color:var(--good)}.tcFull .down{color:var(--warn)}
+  .tcFullHd{font:600 .7rem "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--current)}
+  .tcBtns{display:flex;gap:.45rem}.tcBtns>*{flex:1;min-height:44px}
+  .tcGo{border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:700;font-size:.9rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem}
+  .tcGo:disabled{opacity:.75;cursor:default}
   .tradeCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin-bottom:.7rem}
   .tradeHd{display:flex;align-items:baseline;gap:.4rem;padding-bottom:.35rem;border-bottom:1px solid var(--line);margin-bottom:.35rem}
   .tradeScore{margin-left:auto;font-family:"Barlow Condensed",monospace;font-weight:600;color:var(--good);font-size:1.05rem}
@@ -2067,16 +2128,6 @@ function setView(v){
   const b=document.querySelector(`#segView button[data-v="${v}"]`); if(b && b.style.display!=='none') b.click();
 }
 
-function signalsHtml(T){
-  const st=TR.meta.signal_study||{};
-  const row=r=>`<div class="tradeRow small"><b>${pc(r.name)}</b> ${r.team?`<span class="hint">${esc(r.team)}</span>`:''} · ${r.fpg} pts/g${r.hist!=null?` (before: ${r.hist})`:''} · expected ${r.extra>0?'+':''}${r.extra} beyond normal aging${r.why.length?`<br><span class="hint">${r.why.map(esc).join('; ')}</span>`:''}</div>`;
-  if(!(T.sell_high||[]).length&&!(T.buy_low||[]).length) return '';
-  return `<details class="profCard" style="margin:.4rem 0 1rem"><summary style="cursor:pointer;font-weight:600">Sell-high on your roster · buy-low elsewhere <span class="hint">(mild evidence, see note)</span></summary>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-top:.5rem">
-    <div><div class="hint" style="margin-bottom:.2rem">Sell-high (yours)</div>${(T.sell_high||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div>
-    <div><div class="hint" style="margin-bottom:.2rem">Buy-low (other teams)</div>${(T.buy_low||[]).map(row).join('')||'<div class="hint">none flagged</div>'}</div></div>
-    <div class="note" style="margin-top:.5rem">Tested on 2021-24 seasons (out of sample): the reversion model barely beats "normal aging alone" (error ${st.mae_persistence} to ${st.mae_model} pts/g). What holds up: big jumps above expectation fall back a bit (about 2 pts/g); players whose minutes jumped 4+ tend to give some back; big slumps do <b>not</b> reliably rebound, and injury-shortened seasons do <b>not</b> reliably bounce back. Treat these as tie-breakers, not reasons to trade.</div></details>`;
-}
 
 function matchupTag(v){
   if(v==null||Math.abs(v)<0.15) return '';
@@ -2756,41 +2807,262 @@ function renderMatchups(){
   const on=pane.querySelector('.mxWk.on'); if(on) on.scrollIntoView({block:'nearest',inline:'center'});
 }
 
-function renderTrades(){
+/* ===================== TRADES COMMAND CENTER (2026-11-09) =====================
+   Data: trade_board.json, built every morning by research/build_trade_board.py. Views: Targets (other teams' players, tags, Target score), My roster, Ideas (full-checked),
+   Analyzer (the exact workflow). A player's trade sheet builds packages live with the QUICK estimate, the same function as build_trade_board.py's parts()/value()
+   (trade_proxy_study.py: playoff-weighted points, re-fit every morning against the full analyzer) and the league acceptance model; "Run full check" sends one to trade-analyze.yml. */
+let TB=null;
+const TCC={view:'targets',tags:new Set(),sort:'score',team:'all',pos:'all',gettable:true,q:'',sel:null,sell:false,second:null,mode:{},shape:'All',limit:50,checks:{},running:null};
+const TC_TAGS=['Buy low','Sell high','Playoff target','Injury target','Rising role','Keeper asset','Underperforming','Overperforming','Their keeper','Seller'];
+const TC_CLS={'Buy low':'buy','Sell high':'sell','Underperforming':'under','Overperforming':'over','Playoff target':'po','Injury target':'inj','Rising role':'role','Keeper asset':'kp','Their keeper':'tk','Seller':'seller'};
+const tcTag=t=>`<span class="tcTag ${TC_CLS[t]||''}">${esc(t)}</span>`;
+const tcSg=(x,d=1)=>(x>=0?'+':'')+x.toFixed(d);
+const tcRnd=r=>r===1?'1st':(r===2?'2nd':(r===3?'3rd':r+'th'));
+function tcPickName(k,withRange){ const x=TB.picks.find(p=>p.k===k); if(!x) return k; return `${x.orig} ${tcRnd(x.round)}-round pick${withRange?` (likely ${x.lo===x.hi?'pick '+x.lo:'picks '+Math.min(x.lo,x.hi)+'–'+Math.max(x.lo,x.hi)})`:''}`; }
+/* ---- the quick estimate (mirror of build_trade_board.py) */
+function tcMulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const TC_Z=new Map();
+function tcZ(id){ let z=TC_Z.get(id); if(z) return z; const r=tcMulberry(id), n=TB.params.draws; z=new Float64Array(n);
+  for(let i=0;i<n;i++){ const u1=Math.max(r(),1e-12), u2=r(); z[i]=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2); } TC_Z.set(id,z); return z; }
+const TC_N=new Map();
+function tcNoisy(p){ const k=p.id+':'+p.af; let v=TC_N.get(k); if(v) return v; const P=TB.params, z=tcZ(p.id); v=new Float64Array(z.length);
+  for(let d=0;d<z.length;d++) v[d]=Math.max(p.af*(1+P.asset_noise*z[d])+0.8*z[d],0); TC_N.set(k,v); return v; }
+function tcKs(list){
+  const P=TB.params, rows=list.filter(p=>p.af>0).map(tcNoisy); if(!rows.length) return 0;
+  const n=P.draws, m=rows.length, v=new Float64Array(m); let top=0, chip=0;
+  for(let d=0;d<n;d++){ for(let i=0;i<m;i++) v[i]=rows[i][d]; v.sort();
+    for(let i=0;i<9&&i<m;i++){ const x=v[m-1-i]; if(i<5) top+=x; else chip+=x; } }
+  return top/n+P.chip*chip/n;
+}
+function tcStream(ro){
+  const keep=new Set(ro.slice().sort((a,b)=>(b.af||0)-(a.af||0)).slice(0,6).map(p=>p.id));
+  const c=ro.filter(p=>!p.out&&!keep.has(p.id)&&p.lvl<35).map(p=>p.lvl);
+  return c.length?Math.max(0,TB.params.stream7-(1.7+2.15*Math.min(...c))):0;
+}
+let TC_BASE=null;
+function tcSeg(ro,key,f){ const v=ro.map(p=>p[key]).sort((a,b)=>b-a); let s=0; for(let i=0;i<v.length;i++) s+=v[i]*f[Math.min(i,f.length-1)]; return s; }
+const tcFA=k=>({id:-k-1,lvl:TB.params.fa_level,out:false,af:0,er:TB.params.fa_er,ep:TB.params.fa_ep});
+function tcBase(){
+  if(TC_BASE) return TC_BASE;
+  const P=TB.params, byId=new Map(TB.players.map(p=>[p.id,p]));
+  const ro=(TB.order[String(TB.me_id)]||[]).map(i=>byId.get(i)).filter(Boolean);
+  const spots=r=>r.length-Math.min(P.ir,r.filter(p=>p.out).length);
+  const open0=P.spots-spots(ro), base0=ro.concat(Array.from({length:Math.max(0,open0)},(_,k)=>tcFA(k)));
+  TC_BASE={byId,ro,spots,open0,ks0:tcKs(ro),sb0:tcStream(ro),bReg:tcSeg(base0,'er',P.f_reg),bPo:tcSeg(base0,'ep',P.f_po)};
+  return TC_BASE;
+}
+function tcParts(give,get){
+  const P=TB.params, B=tcBase();
+  const gp=give.filter(x=>x.pick), gv=give.filter(x=>!x.pick), rp=get.filter(x=>x.pick), rv=get.filter(x=>!x.pick);
+  const gids=new Set(gv.map(x=>x.id)); let neu=B.ro.filter(p=>!gids.has(p.id)).concat(rv);
+  const op=P.spots-B.spots(neu), nd=Math.max(0,-op)-Math.max(0,-B.open0);
+  let drops=[];
+  if(nd>0){ const got=new Set(rv.map(x=>x.id)); drops=neu.filter(p=>!p.out&&!got.has(p.id)).sort((a,b)=>a.lvl-b.lvl).slice(0,nd); const ds=new Set(drops); neu=neu.filter(p=>!ds.has(p)); }
+  const filled=neu.concat(Array.from({length:Math.max(0,op)},(_,k)=>tcFA(k)));
+  const dsb=tcStream(filled)-B.sb0;
+  const reg=tcSeg(filled,'er',P.f_reg)-B.bReg+dsb*P.reg_wk, po=tcSeg(filled,'ep',P.f_po)-B.bPo+dsb*P.po_wk;
+  const dk=tcKs(neu)-B.ks0+rp.reduce((a,x)=>a+x.eq,0)-gp.reduce((a,x)=>a+x.eq,0);
+  return {reg,po,dk,drops,fill:Math.max(0,Math.max(0,op)-Math.max(0,B.open0)),v:P.a*reg+P.b*po+P.c_fut*dk};
+}
+function tcAccept(give,get){
+  const L=TB.params.lp, w=L.star_w;
+  const side=vs=>vs.slice().sort((a,b)=>b-a).reduce((a,v,i)=>a+v*(i<w.length?w[i]:w[w.length-1]),0);
+  const recv=side(give.map(x=>x.pv)), sent=side(get.map(x=>x.pick?x.pv:x.pv*(x.t5?1+L.keeper_endow:1)));
+  if(sent<=0) return {band:'likely',ratio:null};
+  const r=recv/sent; return {band:r>=L.likely?'likely':(r>=L.possible?'possible':'unlikely'),ratio:r};
+}
+const tcLbl=x=>x.pick?tcPickName(x.k,false):x.n;
+const tcShape=(g,r)=>`${g.length}-for-${r.length}`;
+function tcIdea(give,get){
+  const acc=tcAccept(give,get); if(acc.band==='unlikely') return null;
+  const q=tcParts(give,get); if(q.v<=0) return null;
+  const notes=[]; if(q.drops.length) notes.push('Drop '+q.drops.map(p=>p.n).join(' and ')+' to make room.');
+  if(q.fill) notes.push(q.fill===1?'Opens a spot: add the best free agent.':`Opens ${q.fill} spots: add the best free agents.`);
+  return {give,get,v:q.v,band:acc.band,shape:tcShape(give,get),note:notes.join(' ')||'No drop needed.',key:give.map(x=>x.k||x.id).join(',')+'>'+get.map(x=>x.k||x.id).join(',')};
+}
+function* tcCombos(arr,n,start=0,pre=[]){ if(pre.length===n){ yield pre; return; } for(let i=start;i<arr.length;i++) yield* tcCombos(arr,n,i+1,pre.concat([arr[i]])); }
+function tcMyPool(){
+  const B=tcBase(); const pl=B.ro.filter(p=>!p.ir).slice().sort((a,b)=>b.pv-a.pv);
+  return pl.slice(0,TB.params.give_pool).concat(TB.picks.filter(x=>x.owner===TB.me_id));
+}
+function tcPick(ideas,shape){
+  ideas.sort((a,b)=>b.v-a.v);
+  const shown=shape==='All'?ideas:ideas.filter(i=>i.shape===shape), out=[], seen=new Set();
+  if(shape==='All'){ for(const s of [...new Set(ideas.map(i=>i.shape))]){ const b=ideas.find(i=>i.shape===s); if(b&&out.length<6){ out.push(b); seen.add(b.key); } } }
+  const core=i=>i.give.filter(x=>!x.pick).map(x=>x.id).sort().join(',')+'>'+i.get.map(x=>x.k||x.id).sort().join(',');      // the same players with a different pick is one idea
+  const cores=new Set(out.map(core));
+  for(const i of shown){ if(out.length>=6) break; if(!seen.has(i.key)&&!cores.has(core(i))){ out.push(i); seen.add(i.key); cores.add(core(i)); } }
+  return {list:out.sort((a,b)=>b.v-a.v),shapes:[...new Set(ideas.map(i=>i.shape))].sort()};
+}
+function tcBuyIdeas(T){
+  const B=tcBase(), mode=TCC.mode;
+  const pool=tcMyPool().filter(x=>mode[x.k||x.id]!=='never'), must=Object.keys(mode).filter(k=>mode[k]==='must');
+  const others=TB.players.filter(p=>p.tid===T.tid&&p.id!==T.id&&!p.ir).sort((a,b)=>b.pv-a.pv).slice(0,TB.params.other_pool).concat(TB.picks.filter(x=>x.owner===T.tid));
+  const S=TCC.second?B.byId.get(TCC.second):null;
+  const gets=S?[[T,S]]:[[T]].concat(others.filter(o=>o.pv<=T.pv).map(o=>[T,o]));
+  const ideas=[];
+  for(let n=1;n<=3;n++) for(const G of tcCombos(pool,n)){
+    if(G.filter(x=>x.pick).length>1) continue;
+    if(must.length&&!must.every(k=>G.some(x=>String(x.k||x.id)===k))) continue;
+    for(const R of gets){ const i=tcIdea(G,R); if(i) ideas.push(i); } }
+  return tcPick(ideas,TCC.shape);
+}
+function tcSellIdeas(M){
+  const pool=tcMyPool().filter(x=>x.id!==M.id&&TCC.mode[x.k||x.id]!=='never').filter((x,i,a)=>x.pick||a.filter(y=>!y.pick).indexOf(x)<8), ideas=[];      // with him: up to one more of your top 8, or a pick
+  const teams=[...new Set(TB.players.filter(p=>p.tid!==TB.me_id).map(p=>p.tid))];
+  for(const tid of teams){
+    const th=TB.players.filter(p=>p.tid===tid&&!p.ir).sort((a,b)=>b.pv-a.pv).slice(0,TB.params.other_pool).concat(TB.picks.filter(x=>x.owner===tid));
+    const gets=th.map(o=>[o]).concat([...tcCombos(th.filter(x=>!x.pick),2)]);
+    const gives=[[M]].concat(pool.map(x=>[M,x]));
+    const mine=[];
+    for(const G of gives) for(const R of gets){ const i=tcIdea(G,R); if(i){ i.partner=tid; mine.push(i); } }
+    mine.sort((a,b)=>b.v-a.v); ideas.push(...mine.slice(0,3));
+  }
+  return tcPick(ideas,TCC.shape);
+}
+/* ---- views */
+async function renderTrades(){
   const pane=document.getElementById('tradesPane');
-  const myT=TR&&TR.teams?TR.teams.find(t=>t.abbrev===(W&&W.my_abbrev)):null;
-  pane.innerHTML=`<div id="taBox"></div><div id="tiBox"></div>${myT&&((myT.sell_high||[]).length||(myT.buy_low||[]).length)?signalsHtml(myT):''}`;
-  collapseLegends(pane);
-  taInit();
-  tiInit();
+  if(TB===null){ pane.innerHTML='<div class="hint" style="padding:1rem">Loading trades...</div>';
+    try{ TB=await (await fetch('trade_board.json',{cache:'no-cache'})).json(); }catch(e){ TB=false; } }
+  if(!TB){ pane.innerHTML='<div class="hint" style="padding:1rem">Trade data is not built yet.</div>'; return; }
+  const tabs=[['targets','Targets'],['mine','My roster'],['ideas','Ideas'],['analyzer','Analyzer']];
+  pane.innerHTML=`<div class="tcTabs" role="tablist">${tabs.map(([k,l])=>`<button type="button" role="tab" data-tcv="${k}" aria-selected="${TCC.view===k&&!TCC.sel?'true':'false'}">${l}</button>`).join('')}</div><div id="tcBody"></div><div id="taBox" ${TCC.view==='analyzer'&&!TCC.sel?'':'hidden'}></div>`;
+  pane.querySelectorAll('[data-tcv]').forEach(b=>b.addEventListener('click',()=>{ TCC.view=b.dataset.tcv; TCC.sel=null; renderTrades(); }));
+  const body=document.getElementById('tcBody');
+  if(TCC.sel){ tcSheet(body); }
+  else if(TCC.view==='targets') tcBoard(body,false);
+  else if(TCC.view==='mine') tcBoard(body,true);
+  else if(TCC.view==='ideas') tcIdeasView(body);
+  else { body.innerHTML=''; taInit(); }
 }
-/* trade ideas v2: built weekly by research/find_trades.py; every idea already passed the full analyzer and the league-perception acceptance check */
-let TI=null;
-async function tiInit(){
-  const box=document.getElementById('tiBox'); if(!box) return;
-  if(TI===null){ try{ TI=await (await fetch('trade_ideas_v2.json',{cache:'no-cache'})).json(); }catch(e){ TI=false; } }
-  if(!TI||!TI.ideas){ box.innerHTML=''; return; }
-  const pct=x=>(100*x).toFixed(0)+'%', sg=(x,d=1)=>(x>=0?'+':'')+x.toFixed(d);
-  const bandC=b=>b==='likely'?'var(--good)':(b==='possible'?'var(--accent)':'var(--warn)');
-  const cards=TI.ideas.slice(0,15).map((i,k)=>`<div class="tradeCard">
-      <div class="tradeHd"><span class="hint">with</span> <b>${esc(i.partner)}</b><span class="tradeScore">${sg(i.me.value.total,1)}</span></div>
-      <div class="tradeRow"><span class="lbl">You give</span> ${i.give.map(pc).join(' + ')}</div>
-      <div class="tradeRow"><span class="lbl">You get</span> <b>${i.get.map(pc).join(' + ')}</b></div>
-      <div class="tradeRow small">You: title ${pct(i.me.odds_before.title)} to <b>${pct(i.me.odds_after.title)}</b>, keeper strength ${i.me.keeper_strength.before} to ${i.me.keeper_strength.after}${i.me.drops.length?` · drops ${i.me.drops.map(esc).join(', ')}`:''}</div>${(i.my_keepers_given||[]).length?`<div class="tradeRow small" style="color:var(--warn)">Gives up your likely keeper: ${i.my_keepers_given.map(esc).join(', ')}</div>`:''}
-      <div class="tradeRow small">${esc(i.partner)}: value ${sg(i.them.value.total,1)} (title ${pct(i.them.odds_before.title)} to ${pct(i.them.odds_after.title)})</div>
-      <div class="tradeRow small">${chip(i.market.band==='likely'?'Likely accepted':(i.market.band==='possible'?'Possible':'Unlikely'),i.market.band==='likely'?'good':(i.market.band==='possible'?'acc':'warn'))}${(i.market.keepers_sent||[]).length?` <span class="hint">includes their keeper ${i.market.keepers_sent.map(esc).join(', ')}</span>`:''}</div>
-      <div class="tradeRow"><button type="button" class="dbtn" data-ti="${k}">Open in the analyzer</button></div></div>`).join('');
-  box.innerHTML=`<details class="sec" open><summary><span class="secT">Trade ideas</span><span class="secM">updated ${new Date(TI.generated).toLocaleDateString([], {month:'short',day:'numeric'})}</span></summary><div class="secB">${cards||'<div class="hint" style="padding:.6rem">No trade that helps you also clears the acceptance check this week.</div>'}</div></details>`;
-  box.querySelectorAll('button[data-ti]').forEach(b=>b.addEventListener('click',()=>{
-    const i=TI.ideas[+b.dataset.ti]; const Tm=taTeams(); if(!Tm) return;
-    const P=Tm.others.find(t=>t.abbrev===i.partner); if(!P) return;
-    TA.partner=P.id; TA.res=null; TA.status='';
-    TA.give=new Set(Tm.me.roster.filter(p=>i.give.includes(p.name)).map(p=>p.id));
-    TA.get=new Set(P.roster.filter(p=>i.get.includes(p.name)).map(p=>p.id));
-    const tb=document.getElementById('taBox'); taRenderInputs(tb); tb.scrollIntoView({behavior:'smooth'});
-  }));
+function tcOpen(id,sell){ TCC.sel=id; TCC.sell=!!sell; TCC.second=null; TCC.shape='All'; renderTrades(); const p=document.getElementById('tradesPane'); if(p) p.scrollIntoView({block:'start'}); }
+function tcToAnalyzer(i){
+  const B=tcBase(); const tid=i.partner!=null?i.partner:(i.get.find(x=>!x.pick)||{}).tid;
+  TA.partner=tid; TA.res=null; TA.status='';
+  TA.give=new Set(i.give.map(x=>x.pick?x.k:x.id)); TA.get=new Set(i.get.map(x=>x.pick?x.k:x.id));
+  TCC.view='analyzer'; TCC.sel=null; renderTrades();
 }
-
+function tcRow(p,mine){
+  const b=p.best, sc=mine?p.cost:(b?b.v:null);
+  const meta=[p.pos,p.nba,mine?null:p.t].filter(Boolean).join(' · ')+(p.out?' · out':'');
+  const stats=[['DELCO',p.delco!=null?p.delco.toFixed(1):'—'],['Avg',p.avg!=null?p.avg.toFixed(1):'—'],['Price',p.pv.toFixed(0)],['PO games',p.gpo!=null?p.gpo:'—']];
+  return `<button type="button" class="tcRow" data-tcp="${p.id}">
+    <span class="tcRowTop"><span class="tcNm"><b>${esc(p.n)}</b><small>${esc(meta)}</small></span>
+      <span class="tcSc ${sc==null?'':(mine?'':(sc>=1.5?'hi':(sc>=0.8?'mid':'lo')))}">${sc==null?'—':(mine?sc.toFixed(1):tcSg(sc))}<small>${mine?'Worth to you':'Target'}</small></span></span>
+    <span class="tcStats">${stats.map(([l,v])=>`<span>${l} <b>${v}</b></span>`).join('')}</span>
+    ${p.tags.length?`<span class="tcTags">${p.tags.map(t=>tcTag(t[0])).join('')}</span>`:''}</button>`;
+}
+function tcBoard(body,mine){
+  const all=TB.players.filter(p=>mine?p.tid===TB.me_id:p.tid!==TB.me_id);
+  const q=nname(TCC.q);
+  let list=all.filter(p=>[...TCC.tags].every(t=>p.tags.some(x=>x[0]===t)));
+  if(!mine&&TCC.team!=='all') list=list.filter(p=>p.t===TCC.team);
+  if(TCC.pos!=='all') list=list.filter(p=>(p.slots||[]).includes(TCC.pos));
+  if(!mine&&TCC.gettable) list=list.filter(p=>p.best);
+  if(q) list=list.filter(p=>nname(p.n).includes(q)||nname(p.nba).includes(q)||nname(p.t).includes(q));
+  const key={score:p=>mine?(p.cost??-99):(p.best?p.best.v:-99),disc:p=>(p.delco!=null&&p.avg!=null)?p.delco-p.avg:-99,po:p=>(p.gpo||0)+(p.best?p.best.v/100:0),delco:p=>p.delco||0}[TCC.sort];
+  list.sort((a,b)=>key(b)-key(a));
+  const used=new Set(all.flatMap(p=>p.tags.map(t=>t[0])));
+  const teams=[...new Set(TB.players.filter(p=>p.tid!==TB.me_id).map(p=>p.t))].sort();
+  const sorts=[['score',mine?'Worth to you':'Target score'],['disc','Discount'],['po','Playoff games'],['delco','DELCO']];
+  body.innerHTML=`<div class="tcCtl">
+    <input type="search" id="tcQ" placeholder="Search a player or team" value="${esc(TCC.q)}" autocomplete="off" enterkeyhint="search">
+    <div class="tcChips">${TC_TAGS.filter(t=>used.has(t)||TCC.tags.has(t)).map(t=>`<button type="button" class="tcF ${TC_CLS[t]}" data-tct="${esc(t)}" aria-pressed="${TCC.tags.has(t)}">${esc(t)}</button>`).join('')}</div>
+    <div class="tcSort"><span>Sort</span>${sorts.map(([k,l])=>`<button type="button" data-tcs="${k}" aria-pressed="${TCC.sort===k}">${l}</button>`).join('')}</div>
+    <div class="tcSel">${mine?'':`<select id="tcTeam" aria-label="Team"><option value="all">All teams</option>${teams.map(t=>`<option ${TCC.team===t?'selected':''}>${esc(t)}</option>`).join('')}</select>`}
+      <select id="tcPos" aria-label="Position"><option value="all">All positions</option>${['PG','SG','SF','PF','C'].map(s=>`<option ${TCC.pos===s?'selected':''}>${s}</option>`).join('')}</select>
+      ${mine?'':`<button type="button" id="tcGet" aria-pressed="${TCC.gettable}">Gettable only</button>`}</div>
+    <div class="hint">${list.length} of ${all.length} players · updated ${new Date(TB.generated).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div></div>
+    <div class="tcList">${list.slice(0,TCC.limit).map(p=>tcRow(p,mine)).join('')||'<div class="hint" style="padding:1rem;text-align:center">No players match every selected tag.</div>'}</div>
+    ${list.length>TCC.limit?`<button type="button" class="dbtn" id="tcMore" style="width:100%;margin-top:.5rem">Show more</button>`:''}`;
+  const on=(s,e,f)=>body.querySelectorAll(s).forEach(x=>x.addEventListener(e,f));
+  on('#tcQ','input',e=>{ TCC.q=e.target.value; clearTimeout(tcBoard._t); tcBoard._t=setTimeout(()=>{ tcBoard(body,mine); const i=body.querySelector('#tcQ'); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } },250); });
+  on('[data-tct]','click',e=>{ const t=e.currentTarget.dataset.tct; TCC.tags.has(t)?TCC.tags.delete(t):TCC.tags.add(t); tcBoard(body,mine); });
+  on('[data-tcs]','click',e=>{ TCC.sort=e.currentTarget.dataset.tcs; tcBoard(body,mine); });
+  on('#tcTeam','change',e=>{ TCC.team=e.target.value; tcBoard(body,mine); });
+  on('#tcPos','change',e=>{ TCC.pos=e.target.value; tcBoard(body,mine); });
+  on('#tcGet','click',()=>{ TCC.gettable=!TCC.gettable; tcBoard(body,mine); });
+  on('#tcMore','click',()=>{ TCC.limit+=50; tcBoard(body,mine); });
+  on('[data-tcp]','click',e=>tcOpen(+e.currentTarget.dataset.tcp,mine));
+}
+function tcIdeaCard(i,k){
+  const ck=TCC.checks[i.key], pct=x=>(100*x).toFixed(1)+'%';
+  const partner=i.partner!=null?(TB.players.find(p=>p.tid===i.partner)||{}).t:(i.get.find(x=>!x.pick)||{}).t;
+  const full=ck&&ck.res&&!ck.res.error?ck.res:null;
+  return `<article class="tcIdea">
+    <div class="tcIdeaHd"><span class="tcShape">${i.shape}${TCC.sell?' · '+esc(partner||''):''}</span>${chip(i.band==='likely'?'Likely':'Possible',i.band==='likely'?'good':'acc')}<span class="tcGain">${tcSg(i.v)}</span></div>
+    <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(x=>esc(tcLbl(x))).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(x=>esc(x.pick?tcPickName(x.k,true):x.n)).join(' + ')}</b></div>
+    <div class="tcNote">${esc(i.note)}</div>
+    ${full?`<div class="tcFull"><div class="tcFullHd">Full check</div><div>Title <b>${pct(full.me.odds_before.title)}</b> to <b class="${full.me.d_title_pp>=0?'up':'down'}">${pct(full.me.odds_after.title)}</b> · Playoffs ${pct(full.me.odds_before.made)} to ${pct(full.me.odds_after.made)}</div>
+      <div class="hint">Total ${tcSg(full.me.value.total)} · keeper strength ${full.me.keeper_strength.before} to ${full.me.keeper_strength.after} · ${esc(full.them.abbrev)} title ${pct(full.them.odds_before.title)} to ${pct(full.them.odds_after.title)}</div></div>`:''}
+    ${ck&&!full?`<div class="tcNote" ${ck.res&&ck.res.error?'style="color:var(--warn)"':''}>${esc(ck.res&&ck.res.error?ck.res.error:ck.msg||'')}</div>`:''}
+    <div class="tcBtns">${full?'':`<button type="button" class="tcGo" data-tck="${k}" ${ck&&!ck.res?'disabled':''}>${ck&&!ck.res?'<span class="chSpin" aria-hidden="true"></span> Checking':'Run full check'}</button>`}<button type="button" class="dbtn" data-tce="${k}">Edit in analyzer</button></div></article>`;
+}
+function tcSheet(body){
+  const B=tcBase(), T=B.byId.get(TCC.sel); if(!T){ TCC.sel=null; renderTrades(); return; }
+  const mine=T.tid===TB.me_id, S=TCC.second?B.byId.get(TCC.second):null;
+  const tiles=[['DELCO',T.delco!=null?T.delco.toFixed(1):'—'],['Season avg',T.avg!=null?T.avg.toFixed(1):'—'],['Preseason',T.espn?T.espn.toFixed(1):'—'],['PO games',T.gpo??'—'],['League price',T.pv.toFixed(0)],
+    mine?['Worth to you',T.cost!=null?T.cost.toFixed(1):'—']:['Target',T.best?tcSg(T.best.v):'—']];
+  const res=mine?tcSellIdeas(T):tcBuyIdeas(T);
+  TCC.cur=res.list;
+  const seconds=mine?[]:TB.players.filter(p=>p.tid===T.tid&&p.id!==T.id&&!p.ir).sort((a,b)=>b.pv-a.pv).slice(0,8);
+  const myItems=tcMyPool().filter(x=>!mine||x.id!==T.id);
+  const md=x=>TCC.mode[x.k||x.id]||'open';
+  body.innerHTML=`<button type="button" class="tcBack" id="tcBack"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>${mine?'My roster':'Targets'}</button>
+    <h2 class="tcH">${esc(T.n)}${S?' + '+esc(S.n):''}</h2>
+    <div class="hint" style="font-size:.85rem">${esc([T.pos,T.nba,mine?'your team':'on '+T.t].filter(Boolean).join(' · '))}${T.out?' · out':''}</div>
+    ${T.tags.length?`<div class="tcTags" style="margin:.4rem 0">${T.tags.map(t=>tcTag(t[0])).join('')}</div>`:''}
+    <div class="tcTiles">${tiles.map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('')}</div>
+    ${T.tags.length?`<ul class="tcWhy">${T.tags.map(t=>`<li><b>${esc(t[0])}:</b> ${esc(t[1])}</li>`).join('')}</ul>`:''}
+    <div style="margin:.3rem 0"><span class="pName" data-pc="${esc(T.n)}" tabindex="0" role="button" style="color:var(--accent);font-weight:600">Open player card</span></div>
+    ${seconds.length?`<h3 class="tcH3">Add a second ${esc(T.t)} player</h3><div class="tcChips">${seconds.map(p=>`<button type="button" class="tcF" data-tc2="${p.id}" aria-pressed="${TCC.second===p.id}">${esc(p.n)}</button>`).join('')}</div>`:''}
+    <h3 class="tcH3">Your side <span class="hint">tap: open · must include · never</span></h3>
+    <div class="tcChips">${myItems.map(x=>`<button type="button" class="tcM ${md(x)}" data-tcm="${esc(String(x.k||x.id))}" aria-label="${esc(tcLbl(x))}: ${md(x)==='must'?'must include':md(x)}">${esc(x.pick?tcPickName(x.k,false):x.n)}</button>`).join('')}</div>
+    <h3 class="tcH3">Trade ideas <span class="hint">${res.list.length} shown</span></h3>
+    ${res.shapes.length>1?`<div class="tcSort">${['All'].concat(res.shapes).map(s=>`<button type="button" data-tcsh="${s}" aria-pressed="${TCC.shape===s}">${s}</button>`).join('')}</div>`:''}
+    <div>${res.list.map((i,k)=>tcIdeaCard(i,k)).join('')||'<div class="hint" style="padding:1rem;text-align:center">No acceptable trade that helps you fits these choices.</div>'}</div>`;
+  const on=(s,e,f)=>body.querySelectorAll(s).forEach(x=>x.addEventListener(e,f));
+  on('#tcBack','click',()=>{ TCC.sel=null; renderTrades(); });
+  on('[data-tc2]','click',e=>{ const id=+e.currentTarget.dataset.tc2; TCC.second=TCC.second===id?null:id; TCC.shape='All'; tcSheet(body); });
+  on('[data-tcm]','click',e=>{ const k=e.currentTarget.dataset.tcm, m=TCC.mode[k]||'open'; const nx={open:'must',must:'never',never:'open'}[m]; if(nx==='open') delete TCC.mode[k]; else TCC.mode[k]=nx; tcSheet(body); });
+  on('[data-tcsh]','click',e=>{ TCC.shape=e.currentTarget.dataset.tcsh; tcSheet(body); });
+  on('[data-tck]','click',e=>tcCheck(TCC.cur[+e.currentTarget.dataset.tck],body));
+  on('[data-tce]','click',e=>tcToAnalyzer(TCC.cur[+e.currentTarget.dataset.tce]));
+}
+async function tcCheck(i,body){
+  if(!slTok()){ TCC.checks[i.key]={res:{error:'Needs the GitHub token from Set lineup in ESPN.'}}; tcSheet(body); return; }
+  const partner=i.partner!=null?i.partner:(i.get.find(x=>!x.pick)||{}).tid, ab=(TB.players.find(p=>p.tid===partner)||{}).t;
+  const nm=x=>x.pick?x.k:x.n, rid=Date.now().toString(36);
+  TCC.checks[i.key]={msg:'Sending to GitHub...',rid}; tcSheet(body);
+  const set=m=>{ const c=TCC.checks[i.key]; if(c&&c.rid===rid){ Object.assign(c,m); if(TCC.sel) tcSheet(document.getElementById('tcBody')); } };
+  try{
+    const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/trade-analyze.yml/dispatches`,{method:'POST',headers:{Authorization:'Bearer '+slTok(),Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+      body:JSON.stringify({ref:'main',inputs:{partner:ab,give:i.give.map(nm).join(';'),get:i.get.map(nm).join(';'),posture_me:'auto',posture_them:'auto',future_lambda:'0.15',rid}})});
+    if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the token.':'GitHub returned status '+r.status);
+  }catch(e){ set({res:{error:e.message}}); return; }
+  set({msg:'Running the full check (about 1 to 2 minutes)...'});
+  for(let n=0;n<40;n++){
+    await new Promise(r=>setTimeout(r,10000));
+    if(!TCC.checks[i.key]||TCC.checks[i.key].rid!==rid) return;
+    try{ const j=await ghFile('trade-data','trade_result.json'); if(j&&j.rid===rid){ set({res:j}); return; } }catch(e){}
+  }
+  set({res:{error:'Still running after several minutes. Check the Trade analyzer workflow in GitHub Actions.'}});
+}
+function tcIdeasView(body){
+  const pct=x=>(100*x).toFixed(1)+'%', B=tcBase();
+  const toItem=(name,tid)=>{ if(/^PICK:/.test(name)) return TB.picks.find(x=>x.k===name)||{pick:true,k:name,pv:0,eq:0}; return TB.players.find(p=>p.n===name&&p.tid===tid)||{n:name,id:-1}; };
+  const cards=(TB.ideas||[]).map((i,k)=>{ const tid=(TB.players.find(p=>p.t===i.partner)||{}).tid;
+    return `<article class="tcIdea"><div class="tcIdeaHd"><span class="tcShape">${i.give.length}-for-${i.get.length} · ${esc(i.partner)}</span>${chip(i.market.band==='likely'?'Likely':(i.market.band==='possible'?'Possible':'Unlikely'),i.market.band==='likely'?'good':(i.market.band==='possible'?'acc':'warn'))}<span class="tcGain">${tcSg(i.me.value.total)}</span></div>
+      <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(n=>esc(/^PICK:/.test(n)?tcPickName(n,false):n)).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(n=>esc(/^PICK:/.test(n)?tcPickName(n,true):n)).join(' + ')}</b></div>
+      <div class="tcFull"><div>Title <b>${pct(i.me.odds_before.title)}</b> to <b class="${i.me.d_title_pp>=0?'up':'down'}">${pct(i.me.odds_after.title)}</b> · Playoffs ${pct(i.me.odds_before.made)} to ${pct(i.me.odds_after.made)}</div>
+        <div class="hint">Keeper strength ${i.me.keeper_strength.before} to ${i.me.keeper_strength.after}${i.me.drops.length?' · drops '+i.me.drops.map(esc).join(', '):''} · ${esc(i.partner)} title ${pct(i.them.odds_before.title)} to ${pct(i.them.odds_after.title)}</div></div>
+      <div class="tcBtns"><button type="button" class="tcGo" data-tco="${i.target}">Open ${esc((B.byId.get(i.target)||{}).n||'target')}</button><button type="button" class="dbtn" data-tci="${k}" data-tid="${tid}">Edit in analyzer</button></div></article>`; }).join('');
+  body.innerHTML=`<div class="hint" style="margin:.2rem 0 .6rem">Every idea here has been through the full check · updated ${new Date(TB.generated).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div>${cards||'<div class="hint" style="padding:1rem;text-align:center">No trade that helps you also clears the acceptance check today.</div>'}`;
+  body.querySelectorAll('[data-tco]').forEach(b=>b.addEventListener('click',()=>tcOpen(+b.dataset.tco,false)));
+  body.querySelectorAll('[data-tci]').forEach(b=>b.addEventListener('click',()=>{ const i=TB.ideas[+b.dataset.tci], tid=+b.dataset.tid;
+    tcToAnalyzer({partner:tid,give:i.give.map(n=>toItem(n,TB.me_id)),get:i.get.map(n=>toItem(n,tid))}); }));
+}
 /* ===================== TRADE ANALYZER =====================
    Pick a partner and the players on each side. INSTANT check in the browser (data from trade_market.json): how the other owner sees the trade and how it changes each team's
    top-5 future keeper assets. EXACT analysis through a workflow (research/trade_value.py): rebuilds both teams' lineups for every remaining week, re-runs the playoff simulation,
@@ -3626,7 +3898,7 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,choices:()=>true};
+    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!W,draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,choices:()=>true};
     if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
       ['board','redraft','about','standings','teams','week','trades','sched','draft','keepers','cloud'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });

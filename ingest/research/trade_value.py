@@ -481,8 +481,8 @@ def pick_pv(slot_probs):
     P = LEAGUE_PV
     v = 0.0
     for slot, pr in slot_probs.items():
-        draft = max(0.0, 150.0 - slot) / 150.0 * P["draft_scale"]
-        prod = max(0.0, PICK_K * (slot + PICK_C) ** (-PICK_P) - P["repl"])
+        draft = max(0.0, 150.0 - (slot + PICK_KEPT)) / 150.0 * P["draft_scale"]      # priced like a player taken at that overall pick (keeper rounds come first, as for players)
+        prod = max(0.0, pick_mu(slot) - P["repl"])
         v += pr * (1 + P["youth"]) * (P["w_prod"] * prod + (1 - P["w_prod"]) * draft)
     return v
 
@@ -490,8 +490,25 @@ def pick_pv(slot_probs):
 # =============================================================== draft picks (next draft)
 # A pick is valued as the player it will turn into. Draft order = reverse of finish (regular-season rank for teams that miss the playoffs, playoff finish for the others), so the slot
 # comes from the simulation's draft-position distribution for the pick's ORIGINAL owner. Snake: even rounds run backwards. What a slot produces = this league's own draft history
-# (draft_capital_curve.py: 612 non-keeper picks 2021-25, realized fantasy points per game that season; power-law fit below, spread 15 early to 11 late).
-PICK_K, PICK_C, PICK_P = 70.2, 1.96, 0.1995
+# (draft_capital_curve.py: 612 non-keeper picks 2021-25, realized fantasy points per game that season).
+# 2026-11-09 (Trades Command Center): those drafts had 0, 8 and 6 keeper rounds, so 'real round 1' meant very different talent (picks 1-12 averaged 59 points a game
+# with no keepers, 36-39 with 6-8 keeper rounds, 45 this season with 3). The curve is now fit on KEEPER drafts only (2023-25 realized seasons + this season's 3-keeper draft,
+# season average so far), by TALENT RANK = keeper rounds x 12 + real pick; next year's picks sit behind KEEPERS_NEXT keeper rounds. Keeper drafts only, because stacked
+# teams leave good players unkept (Tommy: Barnes was a team's 4th-best player and went 1st): 6- and 8-keeper drafts' first rounds were about equal, which a no-keeper draft
+# cannot show. Rank-level means within 1.3 of the fit through rank 160. Next year's pick 1 / 12 / 24: old curve 56.5 / 41.5 / 36.7, now 41.3 / 38.7 / 36.2.
+# Spread of single-season outcomes: about 10-11 (measured), plus the convex payoff below (starter level, keeper upside).
+PICK_K, PICK_C, PICK_P = 5000.0, 94.34, 0.95065
+KEEPERS_NEXT = 5                 # keepers per team next year (build_week_plan.KEEPERS_LATER)
+PICK_KEPT = KEEPERS_NEXT * 12    # talent taken before next year's real round 1
+
+
+def pick_mu(slot):
+    return PICK_K * (slot + PICK_KEPT + PICK_C) ** (-PICK_P)
+
+
+def pick_sd(slot):
+    return 11.0 if slot + PICK_KEPT <= 120 else 10.5
+
 PICK_STARTER_LEVEL = 30.0        # a drafted player only helps if he beats the replacement-level free agent (3rd-best free agent is about 27-30 points per game)
 PICK_KEEPER_LEVEL = 42.0         # ... and he is kept (free) the next year if he is about a top-5 asset level
 PICK_KEEP_YEARS = 0.95           # extra discounted year of value for a kept player
@@ -512,8 +529,7 @@ def pick_value(slot_probs, lvl_to_v):
     grid = np.arange(0.0, 91.0, 1.0)
     ppg_eq, mkt = 0.0, 0.0
     for slot, pr in slot_probs.items():
-        mu = PICK_K * (slot + PICK_C) ** (-PICK_P)
-        sd = 15.0 - 3.5 * min(max(slot - 12, 0), 88) / 88
+        mu, sd = pick_mu(slot), pick_sd(slot)
         w = np.exp(-0.5 * ((grid - mu) / sd) ** 2)
         w /= w.sum()
         ppg_eq += pr * float(np.sum(w * (np.maximum(0, grid - PICK_STARTER_LEVEL) + PICK_KEEP_YEARS * np.maximum(0, grid - PICK_KEEPER_LEVEL))))
