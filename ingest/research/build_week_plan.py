@@ -1240,10 +1240,11 @@ def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
 #   * only uses true free agents any day, and waiver players only from the day they clear (their `from`, set in _tag_waivers).
 # Greedy: each round picks the single best (player, add day, who to drop) by points gained this week minus that future cost, until nothing is worth MIN_NET_GAIN or the adds run out.
 def long_level(p):
-    # the LONG-RUN level used for 'what is he worth after this week': our model (DELCO) and ESPN averaged, since both see the whole season; a free agent is shrunk toward replacement, but only a little
-    # when he has a long record and the two agree (a veteran at 34 on both is not a lucky streak), more when the record is short. This week's points still use the day-specific numbers.
+    # the LONG-RUN level used for 'what is he worth after this week': DELCO alone (2026-11-09, Tommy; age_falloff_study.py: ESPN's season number has not moved since the
+    # preseason for 96% of players, and averaging a frozen preseason number into DELCO predicted the next games worse, this season and 2011-26). ESPN only when DELCO has
+    # no number. A free agent is shrunk toward replacement, a little when he has a long record and the two sources agree, more otherwise. This week's points use the day numbers.
     vals = [v for v in (p.get("espn_level"), p.get("model_level")) if v]
-    base = sum(vals) / len(vals) if vals else p["level"]
+    base = p.get("model_level") or p.get("espn_level") or p["level"]
     if not p.get("is_fa"):
         return base
     agree = len(vals) == 2 and abs(vals[0] - vals[1]) <= 6
@@ -1366,6 +1367,10 @@ def reclaim_lose(ll, days):
     return 1 - (1 - cur[3]) * (1 - rate) ** (days - 7)
 
 STREAM_HOLD_EVAL = {}      # candidate id -> best 'add now and KEEP him' option the stream search saw on its first round (read by the pickup alert so it agrees with the plan)
+
+
+CHAIN_OLD = not os.environ.get("CHAIN_FIX")      # chain fix (2026-11-09) tested, waiting for Tommy's go: CHAIN_FIX=1 turns it on
+CHAIN_AUDIT = []
 
 
 def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
@@ -1519,6 +1524,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
 
     infos, cur = run(None)
     best_total = sum(i["net"] for i in infos)
+    CHAIN_AUDIT.append({"chain": None, "steps": len(infos), "old": round(best_total, 1), "fixed": round(best_total, 1)})
     # chains: turn the cheapest-to-lose roster player's slot into a stream slot for the week (a slot rotating one-day rentals), and keep it if the whole chain beats the best one-at-a-time plan
     pool = sorted([x for x in r if not x["ir"] and x["espn_id"] not in prot and not x.get("until") and not x.get("_stream")], key=fut)[:3]
     for T in pool:
@@ -1526,7 +1532,10 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         if len(ci) < 2:
             continue
         fT = fut(T)
-        chain_total = sum(i["wk"] for i in ci) - fT
+        # 2026-11-09: the chain's swaps of OTHER roster players carry their own future value / cost (the one-at-a-time plan's total already counts it), so both totals are on the same terms
+        other_fut = sum(i["fut"] for i in ci if i["kind"] == "roster" and i["tgt_id"] != T["espn_id"])
+        chain_total = sum(i["wk"] for i in ci) - fT - (0.0 if CHAIN_OLD else other_fut)
+        CHAIN_AUDIT.append({"chain": T["name"], "steps": len(ci), "old": round(sum(i["wk"] for i in ci) - fT, 1), "fixed": round(sum(i["wk"] for i in ci) - fT - other_fut, 1)})
         if os.environ.get("STREAM_DEBUG"):
             print("  [stream] chain via", T["name"], "steps", len(ci), "weeks", round(sum(i["wk"] for i in ci), 1), "slot cost", round(fT, 1), "net", round(chain_total, 1), "vs best so far", round(best_total, 1))
         if chain_total >= MIN_NET_GAIN and chain_total > best_total:
@@ -1898,14 +1907,25 @@ for t in lg.teams:
             tonight_picks = sorted(_tp, key=lambda x: -x["gain"])[:8]
         except Exception as _ex:
             print("tonight pickups skipped:", repr(_ex)[:100])
+    if os.environ.get("CHAIN_AUDIT_ALL") and t.team_abbrev != MY_ABBREV:     # TEST HOOK (chain fix test): the stream search on every team's roster, nothing else changes
+        try:
+            CHAIN_AUDIT.clear()
+            stream_search(r, total, c0, steps=min(adds_left, 8))
+            _ok = [a for a in CHAIN_AUDIT if a["chain"] is None or (a["steps"] >= 2)]
+            print("CHAINAUDIT", json.dumps({"team": t.team_abbrev, "options": _ok}))
+        except Exception as _ex:
+            print("CHAINAUDIT failed", t.team_abbrev, repr(_ex)[:120])
     if t.team_abbrev == MY_ABBREV:
         try:
+            CHAIN_AUDIT.clear()
             _rs, _tot = r, total
             if os.environ.get("STREAM_TEST_WEAKEN"):      # TEST HOOK: pretend these rostered players (comma-separated surnames) are 14 points worse, to exercise the chain logic
                 _w = [x.strip().lower() for x in os.environ["STREAM_TEST_WEAKEN"].split(",")]
                 _rs = [dict(x, level=round(x["level"] - 14, 1)) if any(k in x["name"].lower() for k in _w) else x for x in r]
                 _tot = plan_team(_rs, c0)
             seq, r_stream = stream_search(_rs, _tot, c0, steps=min(adds_left, 8))
+            if os.environ.get("CHAIN_AUDIT_ALL"):
+                print("CHAINAUDIT", json.dumps({"team": t.team_abbrev, "options": [a for a in CHAIN_AUDIT if a["chain"] is None or a["steps"] >= 2]}))
             pickup_checks = {str(k): v for k, v in STREAM_HOLD_EVAL.items()}
         except Exception as _ex:
             print("stream manager failed, keeping the greedy sequence:", repr(_ex)[:160])

@@ -345,7 +345,7 @@ for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", 
         # the ROS-gain simulation and the displayed level should both use his TRUE level (level_raw), not the shrink meant for THIS WEEK's noisy,
         # small-sample streaming decisions (FA_SHRINK's backtest was about a single week's realized gain, not a 70-game season -- see FA_SHRINK's
         # comment in build_week_plan.py; found 2026-09-27 via Jalen Green showing "level" 31.1 here against his real ~37-42 projection elsewhere).
-        level = x.get("ll") or x.get("level_raw", x["level"])       # the same long-run level the weekly plan uses (ESPN and DELCO averaged, light shrink for veterans)
+        level = x.get("ll") or x.get("level_raw", x["level"])       # the same long-run level the weekly plan uses (DELCO, light shrink for veterans; ESPN only when DELCO has none)
         f = mk(dict(x, ir=False, protected=False, status="ACTIVE", level=level))
         if x.get("out_now"):
             f["back"] = x["back_date"]
