@@ -117,3 +117,52 @@ say(f"\nfor contrast, big minute drops WITHOUT missed games after: {pl.sum():,} 
     f"{np.mean([mins[i + 1:i + 11].mean() / pre_min[i] for i in np.where(pl)[0] if pid[min(i + 10, len(pid) - 1)] == pid[i]]):.0%}")
 say(f"injury exits: next-10 minutes vs expected before: {(S.fut_min / S.pre_min).mean():.0%}")
 OUT.close()
+
+# ---------------- PART 2 (2026-11-09, Tommy: "if he had simply missed the game his DELCO would have stayed higher"): the like-for-like comparison.
+# Where the site values an injured player (trade analyzer, plan), his output after a return is ALREADY cut by the measured return ramp (injury_advisor.ramp_ratio,
+# ~1,000 real returns). So the fair question: with the ramp applied on top, which is right after an injury EXIT: DELCO as is, or DELCO as if he had simply missed that game?
+# And for contrast: plain absences (no exit game), where DELCO is unchanged by the absence and only the ramp applies.
+import injury_advisor as IA  # noqa: E402
+
+OUT = open(D / "injury_exit_study.log", "a", encoding="utf-8")
+
+
+def ramped(i, base, total_out, n=40):
+    j, g, pr, ac = i + 1, 0, [], []
+    while j < len(df) and pid[j] == pid[i] and seas[j] == seas[i] and g < n:
+        g += 1
+        pr.append(base * IA.ramp_ratio(total_out, g))
+        ac.append(fp[j])
+        j += 1
+    return np.array(pr), np.array(ac)
+
+
+res = {"exit": [], "plain": []}
+for i in idx:
+    if not nxt_same[i] or pre_min[i] < 25:
+        continue
+    tot = int(round(gap_next[i] / 2.1))                   # team games missed after the exit (about one every 2.1 days)
+    if tot < 5:
+        continue
+    a = k["after"].iloc[i]
+    m = a * (m_post[i] / a_post[i] if a_post[i] > 0 else 1.0)
+    pa, ac = ramped(i, a, tot)
+    pm, _ = ramped(i, m, tot)
+    if len(ac) >= 10:
+        res["exit"].append((np.abs(pa[:10] - ac[:10]).mean(), np.abs(pm[:10] - ac[:10]).mean(), np.abs(pa - ac).mean(), np.abs(pm - ac).mean(), pa.mean(), pm.mean(), ac.mean(), age[i] < 24))
+# plain absences: a game, then 10+ days off (5+ games), no short exit; DELCO going into the return game = the belief after the last game played
+pa_idx = np.where(nxt_same & (gap_next >= 10.5) & (mins >= 0.7 * pre_min) & (pre_min >= 25) & (seas >= "2011-12"))[0]
+for i in pa_idx:
+    tot = int(round(gap_next[i] / 2.1))
+    pa, ac = ramped(i, k["after"].iloc[i], tot)
+    if len(ac) >= 10:
+        res["plain"].append((np.abs(pa[:10] - ac[:10]).mean(), np.abs(pa - ac).mean(), pa.mean(), ac.mean()))
+E = np.array(res["exit"])
+P_ = np.array(res["plain"])
+say("\nPART 2. with the return ramp applied (regulars, 25+ expected minutes, 5+ games missed)")
+say(f"  plain absences   n={len(P_):5d}  next 10 error {P_[:, 0].mean():.2f} | next 40 error {P_[:, 1].mean():.2f} | predicted {P_[:, 2].mean():.1f} vs actual {P_[:, 3].mean():.1f}")
+say(f"  injury exits     n={len(E):5d}  next 10 error: as is {E[:, 0].mean():.2f}, as if missed {E[:, 1].mean():.2f} | next 40: as is {E[:, 2].mean():.2f}, as if missed {E[:, 3].mean():.2f}"
+    f" | predicted as is {E[:, 4].mean():.1f}, as if missed {E[:, 5].mean():.1f}, actual {E[:, 6].mean():.1f}; 'as if missed' better in {np.mean(E[:, 3] < E[:, 2]):.0%}")
+Y = E[E[:, 7] == 1]
+say(f"  ... under 24     n={len(Y):5d}  next 40: as is {Y[:, 2].mean():.2f}, as if missed {Y[:, 3].mean():.2f} | predicted as is {Y[:, 4].mean():.1f}, as if missed {Y[:, 5].mean():.1f}, actual {Y[:, 6].mean():.1f}")
+OUT.close()

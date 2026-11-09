@@ -164,6 +164,31 @@ for stat in KALMAN_STATS:
     sm = SEASON_MODE.get(stat, {"QM": 1, "J": 0})
     post_s, pre_s = run_filter_all_players(player_ids, days, age, gain, obs, Q, R, peak_age, slope_up, slope_down, x0_arr, return_pre=True,
                                            q_mult=float(sm["QM"]), season_start=season_start_arr, jump=float(sm["J"]) * R / (1.0 if is_min else 30.0))
+    if is_min:
+        # INJURY EXITS (2026-11-09, Tommy re Kon Knueppel: 6 minutes in his first game back, re-injured, season minutes 31 -> 26). A game he left hurt (under half his
+        # expected minutes, from 15+) followed by a real absence (5+ games: next game 10.5+ days later, or still out now per ESPN) does not update his expected MINUTES:
+        # it is treated as if he missed it. Everywhere an injured player is valued the measured return ramp already cuts his first games back, so counting the exit too
+        # was a double cut. injury_exit_study.py part 2 (regulars, 2011-26, ramp applied): predicted 31.4 as is / 33.0 as if missed vs actual 33.8 (n=338; under 24:
+        # 30.1 / 31.7 vs 32.4). Without a following absence it is NOT masked (part 1: short-minute games then mostly predict lower minutes). Career mode is untouched.
+        _same_next = np.r_[(player_ids[1:] == player_ids[:-1]) & (_seas[1:] == _seas[:-1]), False]
+        _gap_next = np.r_[days[1:], np.nan]
+        _out_now = set()
+        try:
+            _ep = pd.read_csv(ROOT / "data" / "espn_positions.csv")
+            _out_now = set(_ep.loc[_ep["injury_status"].astype(str).str.upper().isin(["OUT", "INJURY_RESERVE"]), "PLAYER_ID"].astype(int))
+        except Exception:
+            pass
+        _last = ~_same_next & np.r_[player_ids[1:] != player_ids[:-1], True]
+        _since = (TODAY - df["GAME_DATE"]).dt.days.to_numpy()
+        _absent = (_same_next & (_gap_next >= 10.5)) | (_last & ((_since >= 10.5) | np.isin(player_ids, list(_out_now))))
+        _exit = (minutes < 0.5 * pre_s) & (pre_s >= 15) & _absent
+        if _exit.any():
+            _g2 = gain.copy()
+            _g2[_exit] = 0.0
+            post_s, pre_s = run_filter_all_players(player_ids, days, age, _g2, obs, Q, R, peak_age, slope_up, slope_down, x0_arr, return_pre=True,
+                                                   q_mult=float(sm["QM"]), season_start=season_start_arr, jump=float(sm["J"]) * R)
+            _names = df.loc[_exit & _last, "PLAYER_NAME"].tolist()
+            print(f"  injury exits treated as missed games: {int(_exit.sum())} (now: {', '.join(_names[:12]) or 'none'})")
     df["_post_s"] = post_s
     df[f"_pre_{stat}"] = pre_s           # season-mode belief going INTO each game (the site's game-log chart draws it as a line)
     df[f"_postS_{stat}"] = post_s
