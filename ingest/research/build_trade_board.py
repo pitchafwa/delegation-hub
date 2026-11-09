@@ -127,7 +127,7 @@ def main():
     post = (ctx.get("teams", {}).get(str(me_id)) or {}).get("posture", "balanced")
     w_now, w_fut = TV.POSTURE[post]
     c_fut = w_fut * TV.FUTURE_LAMBDA * TV.GAMES_PER_WEEK_PER_ASSET_PT * s_next
-    c_next = w_now * TV.GAMES_PER_WEEK_PER_ASSET_PT * TV.next_slope(W, me_id) if TV.NEXT_SPLIT else None     # next season like this one (trade_value.NEXT_SPLIT)
+    c_next = max(w_now, w_fut) * TV.GAMES_PER_WEEK_PER_ASSET_PT * TV.next_slope(W, me_id) if TV.NEXT_SPLIT else None     # next season like this one (trade_value.NEXT_SPLIT)
     po_set = set(W.playoff_weeks)
     weeks = list(range(W.first, W.last + 1))
     reg_wk = sum(W.weeks[w].get("days", 7) / 7.0 for w in weeks if w not in po_set)
@@ -349,25 +349,48 @@ def main():
             alts[T["id"]] = [(f[0], [label(x) for x in f[1]], [label(x) for x in f[2]]) for f in found[:8]]
     print(f"targets scored: {len(best)}  ({time.time() - T0:.0f}s)", flush=True)
 
-    # ---------------- ideas: the best packages across the league, through the full analyzer
+    # ---------------- lineup check (2026-11-09, Tommy approved): the quick estimate ignores positions (Amen + Peterson + Clingan for Jokic: quick +18, full +8), so each
+    # target's best CHECK_TOP different packages go through the full analyzer and his Target score is the best FULL value. The page shows that check on the trade sheet.
+    CHECK_TOP = 2
+    full_res = {}
+    for pid in list(best):
+        tried, seen_core = [], set()
+        for v, g, r in alts[pid]:
+            if len(tried) >= CHECK_TOP:
+                break
+            core = (tuple(sorted(x for x in g if not x.startswith("PICK:"))), tuple(sorted(r)))
+            if core in seen_core:
+                continue
+            seen_core.add(core)
+            try:
+                res = TV.evaluate(me_ab, W.abbrev_of[P[pid]["tid"]], g, r, n=10000, world=W, inp=inp)
+            except SystemExit:
+                continue
+            tried.append((res["me"]["value"]["total"], v, g, r, res))
+        if not tried:
+            continue
+        tot, v, g, r, res = max(tried, key=lambda t: t[0])
+        m, t = res["me"], res["them"]
+        best[pid] = {"v": round(tot, 2), "quick": round(v, 2), "give": g, "get": r, "band": res["market"]["band"], "drops": m["drops"],
+                     "full": {"me": {k: m[k] for k in ("odds_before", "odds_after", "d_title_pp", "keeper_strength", "drops", "adds", "season_points")} | {"value": m["value"]},
+                              "them": {"abbrev": t["abbrev"], "odds_before": t["odds_before"], "odds_after": t["odds_after"], "value": t["value"]}}}
+        full_res[pid] = res
+    print(f"lineup-checked: {len(full_res)}  ({time.time() - T0:.0f}s)", flush=True)
+
+    # ---------------- ideas: the best checked packages across the league
     ideas, used, seen = [], {}, set()
-    for pid in sorted(best, key=lambda i: -best[i]["v"]):
-        if len(ideas) >= N_IDEAS:
+    for pid in sorted(full_res, key=lambda i: -best[i]["v"]):
+        b_ = best[pid]
+        if len(ideas) >= N_IDEAS or b_["v"] <= 0.3:
             break
-        pick_ = next(((v, g, r) for v, g, r in alts[pid] if v > 0.3 and all(used.get(n, 0) < 2 for n in g) and (tuple(sorted(g)), tuple(sorted(r))) not in seen), None)
-        if not pick_:
+        key_ = (tuple(sorted(b_["give"])), tuple(sorted(b_["get"])))
+        if key_ in seen or any(used.get(n, 0) >= 2 for n in b_["give"]):
             continue
-        v, g, r = pick_
-        seen.add((tuple(sorted(g)), tuple(sorted(r))))
-        try:
-            res = TV.evaluate(me_ab, W.abbrev_of[P[pid]["tid"]], g, r, n=20000, world=W, inp=inp)
-        except SystemExit:
-            continue
-        if res["me"]["value"]["total"] <= 0.3:                    # the full check disagrees: not an idea
-            continue
-        for n in g:
+        seen.add(key_)
+        for n in b_["give"]:
             used[n] = used.get(n, 0) + 1
-        ideas.append({"target": pid, "partner": W.abbrev_of[P[pid]["tid"]], "give": g, "get": r, "quick": round(v, 2), "me": res["me"], "them": res["them"], "market": res["market"], "verdict": res["verdict"]})
+        res = full_res[pid]
+        ideas.append({"target": pid, "partner": W.abbrev_of[P[pid]["tid"]], "give": b_["give"], "get": b_["get"], "quick": b_["quick"], "me": res["me"], "them": res["them"], "market": res["market"], "verdict": res["verdict"]})
     ideas.sort(key=lambda i: -i["me"]["value"]["total"])
     print(f"ideas: {len(ideas)}  ({time.time() - T0:.0f}s)", flush=True)
 

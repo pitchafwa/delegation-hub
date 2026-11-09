@@ -52,12 +52,12 @@ KEEP_PTS = 3.4 * 19 * FUTURE_LAMBDA   # season points one future-asset point is 
 CHIP_WEIGHT = 0.15               # value of assets ranked 6-9 on a roster (tradeable even if not kept)
 ASSET_NOISE = 0.25               # relative uncertainty of an asset value when asking 'who will be in the top 5'
 POSTURE = {"rebuild": (0.7, 1.4), "balanced": (1.0, 1.0), "contend": (1.25, 0.7)}      # (weight on this season, weight on the future)
-# NEXT SEASON, split out (2026-11-09, Tommy: "each title is worth the same"; behind NEXT_SPLIT=1 until he approves the before/after). Next season's points count like this
+# NEXT SEASON, split out (2026-11-09, Tommy: "each title is worth the same"; approved 11-09). Next season's points count like this
 # season's (same posture weight), converted to title odds with the slope the team is expected to have NEXT year: league mean + CONTEND_RHO x (its slope now - mean).
 # CONTEND_RHO: how much of a team's standing carries over in this keeper league (finish-rank correlation 0.47 / -0.01 / 0.75 / 0.71 over the four keeper-era seasons,
 # points-for 0.43 / 0.26 / 0.70 / 0.93; data/league_standings_hist.json). Seasons after next keep the FUTURE_LAMBDA treatment. A player's next season only counts if he is in the
 # team's top 5 keepers (same soft top-5 as keeper_strength); a pick's next season = its player's expected points above a 30-point free agent, the keeper upside goes later.
-NEXT_SPLIT = bool(os.environ.get("NEXT_SPLIT"))
+NEXT_SPLIT = os.environ.get("NEXT_SPLIT", "1") != "0"      # ON since 2026-11-09 (Tommy approved the before/after); NEXT_SPLIT=0 restores the old future value
 CONTEND_RHO = 0.5
 DEFAULT_SLOPE = 0.17             # title percentage points per +1 point/week, used only when the context file is missing
 
@@ -527,17 +527,22 @@ def pick_pv(slot_probs):
 # teams leave good players unkept (Tommy: Barnes was a team's 4th-best player and went 1st): 6- and 8-keeper drafts' first rounds were about equal, which a no-keeper draft
 # cannot show. Rank-level means within 1.3 of the fit through rank 160. Next year's pick 1 / 12 / 24: old curve 56.5 / 41.5 / 36.7, now 41.3 / 38.7 / 36.2.
 # Spread of single-season outcomes: about 10-11 (measured), plus the convex payoff below (starter level, keeper upside).
-PICK_K, PICK_C, PICK_P = 5000.0, 94.34, 0.95065
+# 2026-11-09 (Tommy: "pick 1 is worth a fair bit more than pick 3"; outside research agrees the top of a keeper draft is its own tier): one expected value PER PICK,
+# exponential decay at the top plus a gentle slide, with a shift per keeper round. Fit on this league's keeper drafts (2023-25 realized seasons + this season's 3-keeper draft
+# so far, picks 1-96): value = 48.44 - 1.835 x keeper rounds + 15.76 x exp(-(pick-1)/1.584) - 0.143 x (pick-1). Observed means, picks 1/2/3/4/5: 53.6/42.4/44.5/37.9/32.2
+# (4 drafts each). Next year (5 keepers): pick 1 55.0, 2 47.5, 3 43.4, 4 41.2, 6 39.2, 12 37.7, 24 36.0, 36 34.3. Leave-one-draft-out error 7.8 a pick (about the same as
+# the old rank curve overall; single players vary by ~11 either way).
+PICK_A, PICK_KR, PICK_TOP, PICK_TAU, PICK_SLIDE = 48.444, -1.835, 15.756, 1.584, 0.143
 KEEPERS_NEXT = 5                 # keepers per team next year (build_week_plan.KEEPERS_LATER)
-PICK_KEPT = KEEPERS_NEXT * 12    # talent taken before next year's real round 1
+PICK_KEPT = KEEPERS_NEXT * 12    # players taken before next year's real round 1 (prices a pick like a player taken at that overall pick)
 
 
 def pick_mu(slot):
-    return PICK_K * (slot + PICK_KEPT + PICK_C) ** (-PICK_P)
+    return max(22.0, PICK_A + PICK_KR * KEEPERS_NEXT + PICK_TOP * math.exp(-(slot - 1) / PICK_TAU) - PICK_SLIDE * (slot - 1))
 
 
 def pick_sd(slot):
-    return 11.0 if slot + PICK_KEPT <= 120 else 10.5
+    return 11.0
 
 PICK_STARTER_LEVEL = 30.0        # a drafted player only helps if he beats the replacement-level free agent (3rd-best free agent is about 27-30 points per game)
 PICK_KEEPER_LEVEL = 42.0         # ... and he is kept (free) the next year if he is about a top-5 asset level
@@ -701,7 +706,7 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
             sp = {k: pick_split(pick_slot_probs(after["draft_pos"][ids.index(k[0])], k[1])) for k in set(give_picks) | set(get_picks)}
             dn_pick = sum(sp[k][0] for k in pk_in) - sum(sp[k][0] for k in pk_out)
             dl_pick = sum(sp[k][1] for k in pk_in) - sum(sp[k][1] for k in pk_out)
-            v_next = w_now * GAMES_PER_WEEK_PER_ASSET_PT * next_slope(W, tid) * ((n1 - n0) + dn_pick)
+            v_next = max(w_now, w_fut) * GAMES_PER_WEEK_PER_ASSET_PT * next_slope(W, tid) * ((n1 - n0) + dn_pick)      # a rebuilding team cares about next year at least as much as its future
             v_fut = v_next + w_fut * FUTURE_LAMBDA * c_asset * (((k1 - k0) - (n1 - n0)) + dl_pick)
         wb, wa = wk[tid]
         res[who] = {"abbrev": me_abbrev if who == "me" else partner_abbrev, "posture": post, "posture_auto": post_in == "auto",
