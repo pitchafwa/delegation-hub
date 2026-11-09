@@ -2834,6 +2834,12 @@ function tcKs(list){
     for(let i=0;i<9&&i<m;i++){ const x=v[m-1-i]; if(i<5) top+=x; else chip+=x; } }
   return top/n+P.chip*chip/n;
 }
+function tcKsNext(list){      /* next-season points above the cutoff of the soft top 5 (build_trade_board.ks_next) */
+  const rows=list.filter(p=>p.af>0); if(!rows.length) return 0;
+  const N=rows.map(tcNoisy), n=TB.params.draws, m=rows.length, idx=new Array(m); let tot=0;
+  for(let d=0;d<n;d++){ for(let i=0;i<m;i++) idx[i]=i; idx.sort((a,b)=>(N[b][d]-N[a][d])||(a-b)); for(let i=0;i<5&&i<m;i++) tot+=rows[idx[i]].v1||0; }
+  return tot/n;
+}
 function tcStream(ro){
   const keep=new Set(ro.slice().sort((a,b)=>(b.af||0)-(a.af||0)).slice(0,6).map(p=>p.id));
   const c=ro.filter(p=>!p.out&&!keep.has(p.id)&&p.lvl<35).map(p=>p.lvl);
@@ -2848,7 +2854,7 @@ function tcBase(){
   const ro=(TB.order[String(TB.me_id)]||[]).map(i=>byId.get(i)).filter(Boolean);
   const spots=r=>r.length-Math.min(P.ir,r.filter(p=>p.out).length);
   const open0=P.spots-spots(ro), base0=ro.concat(Array.from({length:Math.max(0,open0)},(_,k)=>tcFA(k)));
-  TC_BASE={byId,ro,spots,open0,ks0:tcKs(ro),sb0:tcStream(ro),bReg:tcSeg(base0,'er',P.f_reg),bPo:tcSeg(base0,'ep',P.f_po)};
+  TC_BASE={byId,ro,spots,open0,ks0:tcKs(ro),ksn0:P.c_next!=null?tcKsNext(ro):0,sb0:tcStream(ro),bReg:tcSeg(base0,'er',P.f_reg),bPo:tcSeg(base0,'ep',P.f_po)};
   return TC_BASE;
 }
 function tcParts(give,get){
@@ -2861,8 +2867,11 @@ function tcParts(give,get){
   const filled=neu.concat(Array.from({length:Math.max(0,op)},(_,k)=>tcFA(k)));
   const dsb=tcStream(filled)-B.sb0;
   const reg=tcSeg(filled,'er',P.f_reg)-B.bReg+dsb*P.reg_wk, po=tcSeg(filled,'ep',P.f_po)-B.bPo+dsb*P.po_wk;
-  const dk=tcKs(neu)-B.ks0+rp.reduce((a,x)=>a+x.eq,0)-gp.reduce((a,x)=>a+x.eq,0);
-  return {reg,po,dk,drops,fill:Math.max(0,Math.max(0,op)-Math.max(0,B.open0)),v:P.a*reg+P.b*po+P.c_fut*dk};
+  const sum=(l,k)=>l.reduce((a,x)=>a+(x[k]||0),0);
+  let fv;
+  if(P.c_next==null) fv=P.c_fut*(tcKs(neu)-B.ks0+sum(rp,'eq')-sum(gp,'eq'));
+  else { const dn=tcKsNext(neu)-B.ksn0; fv=P.c_next*(dn+sum(rp,'en')-sum(gp,'en'))+P.c_fut*(tcKs(neu)-B.ks0-dn+sum(rp,'el')-sum(gp,'el')); }
+  return {reg,po,drops,fill:Math.max(0,Math.max(0,op)-Math.max(0,B.open0)),v:P.a*reg+P.b*po+fv};
 }
 function tcAccept(give,get){
   const L=TB.params.lp, w=L.star_w;

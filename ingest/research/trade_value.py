@@ -19,6 +19,7 @@ import argparse
 import itertools
 import json
 import math
+import os
 import re
 import sys
 import unicodedata
@@ -51,6 +52,13 @@ KEEP_PTS = 3.4 * 19 * FUTURE_LAMBDA   # season points one future-asset point is 
 CHIP_WEIGHT = 0.15               # value of assets ranked 6-9 on a roster (tradeable even if not kept)
 ASSET_NOISE = 0.25               # relative uncertainty of an asset value when asking 'who will be in the top 5'
 POSTURE = {"rebuild": (0.7, 1.4), "balanced": (1.0, 1.0), "contend": (1.25, 0.7)}      # (weight on this season, weight on the future)
+# NEXT SEASON, split out (2026-11-09, Tommy: "each title is worth the same"; behind NEXT_SPLIT=1 until he approves the before/after). Next season's points count like this
+# season's (same posture weight), converted to title odds with the slope the team is expected to have NEXT year: league mean + CONTEND_RHO x (its slope now - mean).
+# CONTEND_RHO: how much of a team's standing carries over in this keeper league (finish-rank correlation 0.47 / -0.01 / 0.75 / 0.71 over the four keeper-era seasons,
+# points-for 0.43 / 0.26 / 0.70 / 0.93; data/league_standings_hist.json). Seasons after next keep the FUTURE_LAMBDA treatment. A player's next season only counts if he is in the
+# team's top 5 keepers (same soft top-5 as keeper_strength); a pick's next season = its player's expected points above a 30-point free agent, the keeper upside goes later.
+NEXT_SPLIT = bool(os.environ.get("NEXT_SPLIT"))
+CONTEND_RHO = 0.5
 DEFAULT_SLOPE = 0.17             # title percentage points per +1 point/week, used only when the context file is missing
 
 
@@ -134,8 +142,10 @@ class World:
         oc = self.hub.get("opportunity_cost") or {"floor": 14.84, "amp": 20.37, "tau": 19.96}
         cut5 = oc["floor"] + oc["amp"] * math.exp(-5.0 / oc["tau"])
         asset_f = max(0.0, float(asset or 0.0) - max(0.0, float((hp or {}).get("year0_ppg") or 0.0) - cut5))
+        trj = (hp or {}).get("trajectory_kalman") or (hp or {}).get("trajectory") or []
+        v1 = max(0.0, float(trj[1]) - cut5) if len(trj) > 1 and trj[1] is not None else 0.0          # next season, points a game above the 5-keeper cutoff
         pl = {"id": p["id"], "name": p["name"], "team": canon(p.get("team") or ""), "slots": [s for s in p.get("slots", []) if s in set(SLOTS)] or ["UT"], "status": p.get("status", "ACTIVE"),
-              "level": float(p.get("level") or 0.0), "ir": bool(p.get("ir")), "hub_id": hid, "asset": float(asset or 0.0), "asset_f": asset_f, "age": (hp or {}).get("age"), "advice": advice,
+              "level": float(p.get("level") or 0.0), "ir": bool(p.get("ir")), "hub_id": hid, "asset": float(asset or 0.0), "asset_f": asset_f, "v1": v1, "age": (hp or {}).get("age"), "advice": advice,
               "out": p.get("status") in OUT_STATUS or bool(p.get("ir"))}
         pl["avail"] = self.availability(pl)
         return pl
@@ -274,6 +284,26 @@ def keeper_strength(roster, k=5, draws=400):
     noisy.sort(axis=0)
     top = noisy[::-1]
     return float(top[:k].sum(axis=0).mean() + CHIP_WEIGHT * top[k:k + 4].sum(axis=0).mean())
+
+
+def keeper_next(roster, draws=400):
+    """E[next-season points above the cutoff of the players in the soft top 5] (same draws and selection as keeper_strength)"""
+    ps = [p for p in roster if p["asset_f"] > 0]
+    if not ps:
+        return 0.0
+    Z = np.stack([np.random.default_rng(p["id"]).normal(0, 1, draws) for p in ps])
+    a = np.array([p["asset_f"] for p in ps])[:, None]
+    noisy = np.maximum(a * (1 + ASSET_NOISE * Z) + 0.8 * Z, 0)
+    top = np.argsort(-noisy, axis=0)[:5]
+    v1 = np.array([p.get("v1", 0.0) for p in ps])
+    return float(v1[top].sum(axis=0).mean())
+
+
+def next_slope(world, tid):
+    ctx = world.ctx or {}
+    s = ctx.get("slope", {}).get(str(tid), DEFAULT_SLOPE)
+    m = ctx.get("slope_mean", DEFAULT_SLOPE)
+    return m + CONTEND_RHO * (s - m)
 
 
 def fix_roster(world, roster, label):
@@ -524,6 +554,19 @@ def pick_slot_probs(draft_pos_row, rnd):
     return out
 
 
+def pick_split(slot_probs):
+    """(next-season points above a 30-point free agent, later keeper upside) of a pick, both in points a game for a season"""
+    grid = np.arange(0.0, 91.0, 1.0)
+    nx = lt = 0.0
+    for slot, pr in slot_probs.items():
+        mu, sd = pick_mu(slot), pick_sd(slot)
+        w = np.exp(-0.5 * ((grid - mu) / sd) ** 2)
+        w /= w.sum()
+        nx += pr * float(np.sum(w * np.maximum(0, grid - PICK_STARTER_LEVEL)))
+        lt += pr * float(np.sum(w * PICK_KEEP_YEARS * np.maximum(0, grid - PICK_KEEPER_LEVEL)))
+    return nx, lt
+
+
 def pick_value(slot_probs, lvl_to_v):
     """expected (points-per-game-equivalent for the title model, market value) of a pick"""
     grid = np.arange(0.0, 91.0, 1.0)
@@ -652,6 +695,14 @@ def evaluate(me_abbrev, partner_abbrev, give_names, get_names, posture_me="auto"
         pk_in, pk_out = (get_picks, give_picks) if who == "me" else (give_picks, get_picks)
         d_pick = sum(pv[k][0] for k in pk_in) - sum(pv[k][0] for k in pk_out)
         v_fut = w_fut * FUTURE_LAMBDA * c_asset * ((k1 - k0) + d_pick)
+        n0 = n1 = 0.0
+        if NEXT_SPLIT:                                                       # next season like this season; only later seasons get lambda
+            n0, n1 = keeper_next(rb), keeper_next(ra)
+            sp = {k: pick_split(pick_slot_probs(after["draft_pos"][ids.index(k[0])], k[1])) for k in set(give_picks) | set(get_picks)}
+            dn_pick = sum(sp[k][0] for k in pk_in) - sum(sp[k][0] for k in pk_out)
+            dl_pick = sum(sp[k][1] for k in pk_in) - sum(sp[k][1] for k in pk_out)
+            v_next = w_now * GAMES_PER_WEEK_PER_ASSET_PT * next_slope(W, tid) * ((n1 - n0) + dn_pick)
+            v_fut = v_next + w_fut * FUTURE_LAMBDA * c_asset * (((k1 - k0) - (n1 - n0)) + dl_pick)
         wb, wa = wk[tid]
         res[who] = {"abbrev": me_abbrev if who == "me" else partner_abbrev, "posture": post, "posture_auto": post_in == "auto",
                     "odds_before": {k: round(v, 4) for k, v in b.items()}, "odds_after": {k: round(v, 4) for k, v in a.items()},

@@ -18,6 +18,7 @@ Tag cutoffs from trade_tag_study.py (15 seasons, data/trade_tag_study.log).
 import itertools
 import json
 import math
+import os
 import random
 import re
 import sys
@@ -94,6 +95,17 @@ def noisy(p):
     return _NOISY[k]
 
 
+def ks_next(players):
+    """next-season points above the cutoff of the soft top 5 (TV.keeper_next on the shared draws)"""
+    ps = [p for p in players if p["asset_f"] > 0]
+    if not ps:
+        return 0.0
+    M = np.stack([noisy(p) for p in ps])
+    top = np.argsort(-M, axis=0, kind="stable")[:5]
+    v1 = np.array([p.get("v1", 0.0) for p in ps])
+    return float(v1[top].sum(axis=0).mean())
+
+
 def ks(players):
     """keeper strength (trade_value.keeper_strength's formula) on the shared draws"""
     rows = [noisy(p) for p in players if p["asset_f"] > 0]
@@ -115,6 +127,7 @@ def main():
     post = (ctx.get("teams", {}).get(str(me_id)) or {}).get("posture", "balanced")
     w_now, w_fut = TV.POSTURE[post]
     c_fut = w_fut * TV.FUTURE_LAMBDA * TV.GAMES_PER_WEEK_PER_ASSET_PT * s_next
+    c_next = w_now * TV.GAMES_PER_WEEK_PER_ASSET_PT * TV.next_slope(W, me_id) if TV.NEXT_SPLIT else None     # next season like this one (trade_value.NEXT_SPLIT)
     po_set = set(W.playoff_weeks)
     weeks = list(range(W.first, W.last + 1))
     reg_wk = sum(W.weeks[w].get("days", 7) / 7.0 for w in weeks if w not in po_set)
@@ -150,6 +163,19 @@ def main():
     # ---------------- picks (next draft), from the simulation's draft-position odds
     mu0 = {(t, w): v for t in W.teams for w, v in W.base_proj[t].items()}
     base = TV.run_odds(W, inp, mu0, 20000)
+    # what a point is worth in title odds, measured on the simulation itself: +DELTA a week in your regular-season weeks, then in your playoff weeks (same random numbers).
+    # 2026-11-09: fitting these two weights on ~145 full checks alone was unstable (regular/playoff points move together), so the simulation sets them and the checks only
+    # fit one overall scale.
+    DELTA = 25.0
+    ids_i = ids.index(me_id)
+    b40 = TV.run_odds(W, inp, mu0, 40000)
+    rw = [w for w in W.base_proj[me_id] if w >= W.first and w not in po_set]
+    pw = [w for w in W.base_proj[me_id] if w in po_set]
+    tr_ = TV.run_odds(W, inp, {k: v + (DELTA if k[0] == me_id and k[1] in rw else 0) for k, v in mu0.items()}, 40000)
+    tp_ = TV.run_odds(W, inp, {k: v + (DELTA if k[0] == me_id and k[1] in pw else 0) for k, v in mu0.items()}, 40000)
+    A0 = w_now * 100 * (float(tr_["title"][ids_i]) - float(b40["title"][ids_i])) / (DELTA * max(1, len(rw)))
+    B0 = w_now * 100 * (float(tp_["title"][ids_i]) - float(b40["title"][ids_i])) / (DELTA * max(1, len(pw)))
+    print(f"title points per point: regular {A0:.5f}, playoffs {B0:.5f}", flush=True)
     owners = TV.pick_owner_map(W)
     l2v = TV.level_to_market()
     picks = {}
@@ -158,6 +184,7 @@ def main():
         for rnd in range(1, MAX_PICK_ROUND + 1):
             probs = TV.pick_slot_probs(base["draft_pos"][ids.index(t)], rnd)
             eq, _ = TV.pick_value(probs, l2v)
+            en, el = TV.pick_split(probs)
             cum, lo, hi = 0.0, None, None
             for s in sorted(probs):
                 cum += probs[s]
@@ -166,12 +193,13 @@ def main():
                 if hi is None and cum >= 0.9:
                     hi = s
             k = f"PICK:{ab}:{rnd}"
-            picks[k] = {"k": k, "orig": ab, "round": rnd, "owner": owners.get((t, rnd), t), "eq": eq, "pv": TV.pick_pv(probs),
+            picks[k] = {"k": k, "orig": ab, "round": rnd, "owner": owners.get((t, rnd), t), "eq": eq, "en": en, "el": el, "pv": TV.pick_pv(probs),
                         "lo": (lo - 1) % 12 + 1, "hi": (hi - 1) % 12 + 1, "pick": True, "name": f"{ab} round {rnd}"}
 
     # ---------------- the quick estimate (the page runs the same function)
     R_ME = rosters[me_id]
     ks0 = ks(R_ME)
+    ksn0 = ks_next(R_ME)
     sb0 = TV.stream_bonus(R_ME)
 
     def spots(ro):
@@ -231,8 +259,12 @@ def main():
         dsb = TV.stream_bonus(filled) - sb0
         reg = seg(filled, "er", F_REG) - B_REG + dsb * reg_wk
         po = seg(filled, "ep", F_PO) - B_PO + dsb * po_wk
-        dk = ks(new) - ks0 + sum(x["eq"] for x in rp) - sum(x["eq"] for x in gp)
-        return reg, po, dk, drops, max(0, op) - max(0, open0)
+        if c_next is None:
+            fv = c_fut * (ks(new) - ks0 + sum(x["eq"] for x in rp) - sum(x["eq"] for x in gp))
+        else:
+            dn = ks_next(new) - ksn0
+            fv = c_next * (dn + sum(x["en"] for x in rp) - sum(x["en"] for x in gp)) + c_fut * (ks(new) - ks0 - dn + sum(x["el"] for x in rp) - sum(x["el"] for x in gp))
+        return reg, po, fv, drops, max(0, op) - max(0, open0)
 
     def accept(give, get, tid):
         return LP.accept([x["id"] for x in give if not x.get("pick")], [x["id"] for x in get if not x.get("pick")], tid,
@@ -257,7 +289,7 @@ def main():
 
     # ---------------- morning fit of a, b against the full analyzer
     targets = [p for tid, ro in rosters.items() if tid != me_id for p in ro if not p["ir"] and (p["pv"] >= 3 or p["level"] >= 28)]
-    sample, ab = [], DEFAULT_AB
+    sample, ab = [], (A0, B0)
     fit_targets = random.sample(targets, min(len(targets), max(1, N_FIT // 5)))
     for T in fit_targets:
         cands = []
@@ -265,7 +297,7 @@ def main():
             if accept(G, R, T["tid"])["band"] == "unlikely":
                 continue
             r, q, dk, _, _ = parts(G, R)
-            cands.append((ab[0] * r + ab[1] * q + c_fut * dk, G, R, r, q, dk))
+            cands.append((ab[0] * r + ab[1] * q + dk, G, R, r, q, dk))
         if not cands:
             continue
         cands.sort(key=lambda c: -c[0])
@@ -276,38 +308,29 @@ def main():
             except SystemExit:
                 continue
             sample.append({"t": T["id"], "r": r, "q": q, "dk": dk, "now": res["me"]["value"]["now"], "total": res["me"]["value"]["total"]})
-    fit = {"n": len(sample), "a": ab[0], "b": ab[1], "fallback": True}
+    fit = {"n": len(sample), "a": ab[0], "b": ab[1], "sim_a": A0, "sim_b": B0, "scale": 1.0, "fallback": True}
     if len(sample) >= 30:
-        def nnls(rows):
-            X = np.array([[s["r"], s["q"]] for s in rows])
-            y = np.array([s["now"] for s in rows])
-            best = None
-            for cols in ([0, 1], [1], [0]):
-                c, *_ = np.linalg.lstsq(X[:, cols], y, rcond=None)
-                if (c >= 0).all():
-                    full = np.zeros(2)
-                    full[cols] = c
-                    err = float(((X @ full - y) ** 2).sum())
-                    if best is None or err < best[1]:
-                        best = (full, err)
-            return best[0] if best else np.array(DEFAULT_AB)
-        tl = sorted({s["t"] for s in sample})
+        def scale(rows):
+            x = np.array([A0 * s_["r"] + B0 * s_["q"] for s_ in rows])
+            y = np.array([s_["now"] for s_ in rows])
+            return max(0.0, float(x @ y / (x @ x))) if (x @ x) > 0 else 1.0
+        tl = sorted({s_["t"] for s_ in sample})
         half = set(tl[::2])
-        tr = [s for s in sample if s["t"] in half]
-        te = [s for s in sample if s["t"] not in half]
-        c_tr = nnls(tr)
-        pred = [c_tr[0] * s["r"] + c_tr[1] * s["q"] + c_fut * s["dk"] for s in te]
+        tr = [s_ for s_ in sample if s_["t"] in half]
+        te = [s_ for s_ in sample if s_["t"] not in half]
+        k_tr = scale(tr)
+        pred = [k_tr * (A0 * s_["r"] + B0 * s_["q"]) + s_["dk"] for s_ in te]
         rk = lambda v: np.argsort(np.argsort(v))
-        rho = float(np.corrcoef(rk(pred), rk([s["total"] for s in te]))[0, 1]) if len(te) > 3 else None
-        c = nnls(sample)
-        ab = (float(c[0]), float(c[1]))
-        fit = {"n": len(sample), "a": ab[0], "b": ab[1], "fallback": False, "holdout_rank_corr": round(rho, 3) if rho is not None else None,
-               "mean_abs_err": round(float(np.mean([abs(ab[0] * s["r"] + ab[1] * s["q"] + c_fut * s["dk"] - s["total"]) for s in sample])), 2)}
+        rho = float(np.corrcoef(rk(pred), rk([s_["total"] for s_ in te]))[0, 1]) if len(te) > 3 else None
+        k = scale(sample)
+        ab = (k * A0, k * B0)
+        fit = {"n": len(sample), "a": ab[0], "b": ab[1], "sim_a": A0, "sim_b": B0, "scale": round(k, 3), "fallback": False, "holdout_rank_corr": round(rho, 3) if rho is not None else None,
+               "mean_abs_err": round(float(np.mean([abs(ab[0] * s_["r"] + ab[1] * s_["q"] + s_["dk"] - s_["total"]) for s_ in sample])), 2)}
     print(f"fit: {fit}  ({time.time() - T0:.0f}s)", flush=True)
 
     def value(G, R):
         r, q, dk, drops, _ = parts(G, R)
-        return ab[0] * r + ab[1] * q + c_fut * dk, drops
+        return ab[0] * r + ab[1] * q + dk, drops
 
     # ---------------- target scores
     best, alts = {}, {}
@@ -391,18 +414,18 @@ def main():
     for pid, p in P.items():
         r = rd.get(pid) or {}
         players.append({"id": pid, "n": p["name"], "tid": p["tid"], "t": W.abbrev_of[p["tid"]], "nba": p["team"], "pos": r.get("pos") or "/".join(s for s in p["slots"] if s in ("PG", "SG", "SF", "PF", "C")),
-                        "slots": p["slots"], "lvl": round(p["level"], 1), "er": round(p["er"], 1), "ep": round(p["ep"], 1), "af": round(p["asset_f"], 2), "out": p["out"], "ir": p["ir"],
+                        "slots": p["slots"], "lvl": round(p["level"], 1), "er": round(p["er"], 1), "ep": round(p["ep"], 1), "af": round(p["asset_f"], 2), "v1": round(p.get("v1", 0.0), 2), "out": p["out"], "ir": p["ir"],
                         "pv": round(p["pv"], 2), "t5": pid in t5.get(p["tid"], set()), "delco": r.get("ppg"), "avg": r.get("s_avg"), "gp": r.get("n_season"), "espn": r.get("espn_ppg"),
                         "gpo": r.get("gpo"), "age": p.get("age"), "back": r.get("back"), "tags": tags(p), "best": best.get(pid), "cost": my_cost.get(pid)})
     players.sort(key=lambda x: -((x["best"] or {}).get("v") or -99))
     out = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "me": me_ab, "me_id": me_id, "posture": post,
-           "params": {"a": ab[0], "b": ab[1], "c_fut": c_fut, "f_reg": F_REG, "f_po": F_PO, "fa_level": fa_level, "fa_er": fa_e[0], "fa_ep": fa_e[1], "reg_wk": reg_wk, "po_wk": po_wk,
+           "params": {"a": ab[0], "b": ab[1], "c_fut": c_fut, "c_next": c_next, "f_reg": F_REG, "f_po": F_PO, "fa_level": fa_level, "fa_er": fa_e[0], "fa_ep": fa_e[1], "reg_wk": reg_wk, "po_wk": po_wk,
                       "spots": TV.ROSTER_SPOTS, "ir": TV.IR_SLOTS, "stream7": TV.STREAM_SPOT_7, "asset_noise": TV.ASSET_NOISE, "chip": TV.CHIP_WEIGHT, "draws": DRAWS,
                       "lp": TV.LEAGUE_PV, "give_pool": GIVE_POOL, "other_pool": OTHER_POOL},
            "fit": fit, "order": {str(tid): [p["id"] for p in ro] for tid, ro in rosters.items()}, "picks": list(picks.values()), "players": players, "ideas": ideas, "seconds": round(time.time() - T0)}
     for k in out["picks"]:
-        k["eq"], k["pv"] = round(k["eq"], 2), round(k["pv"], 2)
-    (TV.HUB / "trade_board.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        k["eq"], k["pv"], k["en"], k["el"] = round(k["eq"], 2), round(k["pv"], 2), round(k["en"], 2), round(k["el"], 2)
+    (TV.HUB / os.environ.get("TB_OUT", "trade_board.json")).write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"wrote trade_board.json: {len(players)} players, {len(best)} targets, {len(ideas)} ideas in {time.time() - T0:.0f}s")
 
 
