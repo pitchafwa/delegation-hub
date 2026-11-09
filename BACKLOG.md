@@ -475,6 +475,7 @@ Cost: none (Actions free for public repos; R2 free tier). Memory notes stay per 
   scorecard to the `cloud-test` branch; site page More > Cloud test. `cloud-test-dff.yml` every 10 minutes.
 - Decision write-up due about 2026-12-01.
 - Recheck (2026-11-05): when the laptop runs after the 8:15am cloud check, `cloud-test-recheck.yml` redoes today's comparison as soon as its status file lands on main (cloud model files kept in R2 as `cloud/dash.tar.zst`). Days before this with `laptop_run.today` false are not fair comparisons and do not count.
+- Two cloud-only bugs fixed in `pull_espn_box.py` (2026-11-09, weekly review): (1) ESPN's accent-free names split players from their last-season rows, so `build_redraft.py` read last season's DELCO and minutes for Vucevic, Krejci, Bogdanovic, Schroder, Jovic and others (next-few-days gaps of up to 11 points); this season's rows now keep the NBA spelling. (2) Cached ESPN games were frozen before official stat corrections; each game is now re-pulled until 3 days after it. `build_redraft.py` still takes DNOW/DMIN per spelling, not per player: harmless on the laptop today only because Moussa Cissé sorts the safe way. Fixing it touches the live site, so it needs Tommy's approval.
 
 ## Games cap tethered to ESPN (fixed 2026-11-02)
 ESPN stores the games-played limit per scoring period (40/7 = 5.714, `lineupSlotStatLimits` statId 42). A matchup's limit = that x the days WITH NBA games, and it is

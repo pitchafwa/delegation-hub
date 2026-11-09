@@ -4,7 +4,9 @@ Writes the same two files the model chain reads from the NBA site, in the same c
   box_v3_<season>.csv   (pull_box_v3.py: every listed player, with the did-not-play comment)
 Ids: players are mapped ESPN -> NBA with espn_id_map.json (+ the crosswalk and earlier game logs by name); a player still unmapped gets
 and is counted (a stable negative id from his name). Games get "0" + the ESPN event id (10 digits, never clashes with NBA's 0022...). One cached summary per finished game in
-data/espn_box_cache/ (a game is final once, so it is never re-pulled).
+data/espn_box_cache/, pulled again until REPULL_DAYS after the game: official stat corrections reach ESPN after the morning-after pull (2026-11-09: 22 of 316 player lines from 11-04).
+Names: a player the NBA files already know keeps the NBA's spelling, as on the laptop. ESPN writes Nikola Vucevic, last season's logs Nikola Vučević; build_redraft.py then took
+his "current" DELCO and minutes from last season's rows under the other spelling (found 2026-11-09).
 Run from ingest/:  python research/pull_espn_box.py [season] [--out DIR] [--prefix espn_]
   default writes data/game_logs/espn_nba_api_<season>.csv and espn_box_v3_<season>.csv (side by side with the NBA files, for the comparison);
   --prefix "" writes the real file names (the cloud run).
@@ -81,6 +83,8 @@ if cw.exists():
     x = pd.read_csv(cw, usecols=["NBAID", "ESPNID"], encoding="latin-1").dropna()
     for e, n in zip(x.ESPNID, x.NBAID):
         e2n.setdefault(int(e), int(n))
+REPULL_DAYS = 3
+nba_spelling = {}                              # NBA id -> the name in the earlier game logs
 by_name = {}                                   # last resort for new players: NBA ids by folded name from the earlier game logs
 if cw.exists():
     x = pd.read_csv(cw, usecols=["NBAName", "NBAID"], encoding="latin-1").dropna()
@@ -95,6 +99,7 @@ for f in sorted((R / "data" / "game_logs").glob("nba_api_*.csv")):
         continue
     g = pd.read_csv(f, usecols=["PLAYER_ID", "PLAYER_NAME"]).drop_duplicates()
     by_name.update({fold(n): int(p) for p, n in zip(g.PLAYER_ID, g.PLAYER_NAME)})
+    nba_spelling.update({int(p): n for p, n in zip(g.PLAYER_ID, g.PLAYER_NAME)})
 by_name.update({k[2:]: int(v) for k, v in _learned.items() if k.startswith("n:")})     # learned names (inactive players ESPN never lists)
 
 
@@ -129,15 +134,18 @@ def roster(team_id):
 rows, box, unmapped, rosters = [], [], {}, {}
 for gd, eid in events:
     cp = CACHE / f"{eid}.json"
-    if cp.exists():
-        j = json.loads(cp.read_text(encoding="utf-8"))
-    else:
-        j = get(SUM, event=eid)
-        keep = {"boxscore": {"players": j["boxscore"]["players"]}, "header": {"competitions": [{"competitors": j["header"]["competitions"][0]["competitors"]}]}}
-        keep["rosters"] = {c["team"]["abbreviation"]: roster(c["team"]["id"]) for c in keep["header"]["competitions"][0]["competitors"]}   # as of the morning after
-        cp.write_text(json.dumps(keep), encoding="utf-8")
-        j = keep
-        time.sleep(0.25)
+    j = json.loads(cp.read_text(encoding="utf-8")) if cp.exists() else None
+    if j is None or j.get("fetched", "") < (gd + timedelta(days=REPULL_DAYS)).isoformat():
+        try:
+            f = get(SUM, event=eid)
+            keep = {"boxscore": {"players": f["boxscore"]["players"]}, "header": {"competitions": [{"competitors": f["header"]["competitions"][0]["competitors"]}]}, "fetched": today_et.isoformat()}
+            keep["rosters"] = j["rosters"] if j and "rosters" in j else {c["team"]["abbreviation"]: roster(c["team"]["id"]) for c in keep["header"]["competitions"][0]["competitors"]}   # as of the morning after
+            cp.write_text(json.dumps(keep), encoding="utf-8")
+            j = keep
+            time.sleep(0.25)
+        except (RuntimeError, KeyError):
+            if j is None:                      # no copy at all; a copy we already hold is still usable
+                raise
     if "rosters" not in j:                     # summaries cached before rosters were kept (2026-11-01 backfill): today's roster stands in
         j["rosters"] = {c["team"]["abbreviation"]: roster(c["team"]["id"]) for c in j["header"]["competitions"][0]["competitors"]}
         cp.write_text(json.dumps(j), encoding="utf-8")
@@ -180,7 +188,7 @@ for gd, eid in events:
             num = lambda k: int(str(s.get(k, "0")).replace("+", "") or 0) if str(s.get(k, "0")).lstrip("+-").isdigit() else 0
             mn, pts, reb, ast, stl, blk, tov, oreb, dreb, pf, pm = (num(k) for k in ("minutes", "points", "rebounds", "assists", "steals", "blocks", "turnovers",
                                                                                          "offensiveRebounds", "defensiveRebounds", "fouls", "plusMinus"))
-            rows.append(dict(SEASON_ID=int("2" + season[:4]), PLAYER_ID=pid, PLAYER_NAME=nm, TEAM_ID=tid, TEAM_ABBREVIATION=tm, TEAM_NAME=tname, GAME_ID=gid,
+            rows.append(dict(SEASON_ID=int("2" + season[:4]), PLAYER_ID=pid, PLAYER_NAME=nba_spelling.get(pid, nm), TEAM_ID=tid, TEAM_ABBREVIATION=tm, TEAM_NAME=tname, GAME_ID=gid,
                              GAME_DATE=gd.isoformat(), MATCHUP=matchup, WL=wl, MIN=mn, FGM=fgm, FGA=fga, FG_PCT=round(fgm / fga, 3) if fga else None, FG3M=tpm, FG3A=tpa,
                              FG3_PCT=round(tpm / tpa, 3) if tpa else None, FTM=ftm, FTA=fta, FT_PCT=round(ftm / fta, 3) if fta else None, OREB=oreb, DREB=dreb, REB=reb,
                              AST=ast, STL=stl, BLK=blk, TOV=tov, PF=pf, PTS=pts, PLUS_MINUS=pm, FANTASY_PTS=None, VIDEO_AVAILABLE=0))
