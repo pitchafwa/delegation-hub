@@ -115,6 +115,7 @@ NEVER_DROP = {norm(n) for n in json.load(open(Path(__file__).resolve().parent / 
 def protected_ids(roster):
     valued = sorted([p for p in roster if p["asset_rank"]], key=lambda p: p["asset_rank"])
     keep = {p["espn_id"] for p in valued[:keeper_protect()]}
+    keep |= {p["espn_id"] for p in roster if int(p["espn_id"]) in KEPT}
     keep |= {p["espn_id"] for p in roster if (p["level"] >= PROTECT_LEVEL and weeks_after() > 0) or norm(p["name"]) in NEVER_DROP}     # championship week: a non-keeper has no value after it
     return keep
 
@@ -148,6 +149,11 @@ def drop_flag(p):
 today = datetime.now(ET).date()
 if os.environ.get("PLAN_TODAY"):                       # TEST HOOK: pretend today is this date (e.g. a Sunday) to exercise the lookahead; never set in production
     today = date.fromisoformat(os.environ["PLAN_TODAY"])
+# KEEP / PASS (2026-11-09, Tommy; plan_choice.py, the Do now card's buttons): a kept player of mine can't be suggested as a drop and a passed free agent can't be suggested as an add, until the matchup ends
+import plan_choice as PC
+PLAN_CHOICES, _chosen = PC.active(today)
+KEPT, PASSED = set(_chosen["keep"]), set(_chosen["pass"])
+print("plan choices: keep", list(_chosen["keep"].values()), "pass", list(_chosen["pass"].values()))
 mp_id, mp_start, mp_end = matchup_for(max(today, SEASON_START))
 days = [mp_start + timedelta(days=i) for i in range((mp_end - mp_start).days + 1)]
 plan_days = [d for d in days if d >= today]
@@ -799,7 +805,7 @@ dyn_pool = []
 for _p in lg.free_agents(size=400):
     _hp = hub_player(_p.playerId, _p.name)
     _a = asset5(_hp)
-    if _hp and _a >= DYN_MIN_ASSET and on_nba_roster(_p.name):
+    if _hp and _a >= DYN_MIN_ASSET and on_nba_roster(_p.name) and int(_p.playerId) not in PASSED:
         dyn_pool.append({"id": _p.playerId, "name": _p.name, "team": canon(_p.proTeam or ""), "pos": [x for x in _p.eligibleSlots if x in ("PG", "SG", "SF", "PF", "C")],
                          "status": _p.injuryStatus or "ACTIVE", "age": _hp.get("age"), "asset": round(_a, 1), "asset_rank": ASSET_RANK.get(_hp["id"]), "market_rank": _hp.get("market_rank"),
                          "kind": _hp.get("kind"), "p_break": _hp.get("p_break"), "level": round(_hp.get("season_ppg") or _hp.get("year0_ppg") or 0, 1), "level_raw": round(_hp.get("season_ppg") or _hp.get("year0_ppg") or 0, 1), "form": FORM.get(formkey(_p.name))})
@@ -1159,6 +1165,10 @@ if new_rows and not os.environ.get("PLAN_TODAY") and not _c0:          # a simul
         if fresh:
             w.writeheader()
         w.writerows(new_rows)
+
+FA_PASSED = [f for f in fa_players if int(f["espn_id"]) in PASSED]     # out of every search below; still in fa_pool for his player card
+fa_players = [f for f in fa_players if int(f["espn_id"]) not in PASSED]
+
 
 def search_moves(r, total, c0, steps=4, extra_protect=frozenset()):
     """best single adds and a greedy add/drop sequence for roster r (see the per-team notes in the module docstring)"""
@@ -1522,9 +1532,11 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         if chain_total >= MIN_NET_GAIN and chain_total > best_total:
             wsum = sum(i["wk"] for i in ci)
             for i in ci:                                                # share the one-time slot cost across the steps in proportion to what each earns, so every step shows a net gain and they add up to the chain's net
+                i["chain"] = T["name"]
+                if i["kind"] == "roster" and i["tgt_id"] != T["espn_id"]:   # a swap of another roster player keeps its own numbers (2026-11-09: DeRozan for Sharpe showed +1 when the plan valued it at +17, 16 of it rest of season)
+                    continue
                 i["net"] = i["wk"] * chain_total / wsum
                 i["fut"] = i["wk"] - i["net"]
-                i["chain"] = T["name"]
             infos, cur, best_total = ci, cc, chain_total
     # chronological order, with the running total recomputed in that order
     infos.sort(key=lambda i: i["s"])
@@ -2045,7 +2057,7 @@ def build_stash():
         info = ESPN_INJ.get(int(_p.playerId))
         out_now = (_p.injuryStatus in IR_OK) or (info and info.get("status") == "Out")
         idle = canon(_p.proTeam or "") in TEAM_DATES and not any(plays(canon(_p.proTeam), d) for d in plan_days)
-        if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES or not on_nba_roster(_p.name):
+        if not (out_now or idle) or canon(_p.proTeam or "") not in TEAM_DATES or not on_nba_roster(_p.name) or int(_p.playerId) in PASSED:
             continue
         f = make_player(_p)
         f["is_fa"] = True
@@ -2134,8 +2146,8 @@ out = {"generated": datetime.now(timezone.utc).isoformat(), "season": SEASON_ID,
                    "cap": round(cap, 1), "adds_limit": adds_limit, "props": props_meta, "dfs": dfs_meta, "calendar_assumed": not CAL_VERIFIED, "look_days": [d.isoformat() for d in LOOK_DAYS],
            "leverage": ({"x20": round(this_week_value(20.0) / 20.0, 2), "wp": LEV.get("wp"), "days_left": LEV.get("days_left")} if LEV else None),
                    "nba_games": {d.isoformat(): sorted(g.keys()) for d, g in games.items() if d in days}},
-       "fa_pool": [{"form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "plays_today": plays(f["team"], today), "dfs": today.isoformat() in f.get("dfs_dates", ()), "next": next_pts(f), "next_dfs": next_dfs(f), "level_raw": f.get("level_raw", f["level"]), "ll": round(long_level(f), 1), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
-                     "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind"), **last_day(f)} for f in fa_players],
+       "plan_choices": PLAN_CHOICES, "fa_pool": [{"passed": int(f["espn_id"]) in PASSED, "form": f.get("form"), "ramp": f.get("ramp_note"), "id": f["espn_id"], "name": f["name"], "team": f["team"], "slots": f["slots"], "level": f["level"], "tonight": round(level_on(f, today), 1), "plays_today": plays(f["team"], today), "dfs": today.isoformat() in f.get("dfs_dates", ()), "next": next_pts(f), "next_dfs": next_dfs(f), "level_raw": f.get("level_raw", f["level"]), "ll": round(long_level(f), 1), "status": f["status"], "waiver": f.get("waiver"), "boost": f.get("boost", {}),
+                     "age": (hub_by_id.get(f["hub_id"]) or {}).get("age"), "asset": round(asset5(hub_by_id.get(f["hub_id"])), 1), "asset_rank": ASSET_RANK.get(f["hub_id"]), "market_rank": (hub_by_id.get(f["hub_id"]) or {}).get("market_rank"), "kind": (hub_by_id.get(f["hub_id"]) or {}).get("kind"), **last_day(f)} for f in (fa_players + FA_PASSED)],
        "usage": USAGE, "opportunities": OPPORTUNITIES, "stash_pool": STASH_POOL,
        "teams": out_teams}
 # form records are exported once (out["form"], keyed by normalised name); every player dict carries just the key

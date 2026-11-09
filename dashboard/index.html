@@ -745,6 +745,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
     .scoreBig{font-size:2.8rem}
   }
 sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;cursor:help}
+.chRow{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem}.chBtn{min-height:34px;padding:.25rem .75rem;border-radius:999px;border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);font:inherit;font-size:.82rem;cursor:pointer}.chBtn:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -768,11 +769,13 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
       <button data-v="draft" id="draftBtn">Draft</button>
       <button data-v="about">Glossary</button>
       <button data-v="cloud">Cloud test</button>
+      <button data-v="choices">Keep / pass</button>
     </div>
   </div>
 
   <div id="aboutPane" style="display:none"></div>
   <div id="cloudPane" style="display:none"></div>
+  <div id="choicesPane" style="display:none"></div>
   <div id="standingsPane" style="display:none"></div>
   <div id="teamsPane" style="display:none"></div>
   <div id="weekPane"><div class="hint" style="padding:1rem">Loading this week's plan…</div></div>
@@ -1801,15 +1804,15 @@ function renderWeek(){
   if(isMe){
     (T.ir_moves||[]).forEach(m=>{
       if(m.action==='stay_ir'){ doItems.push({when:'Hold',what:`Keep ${m.name} on IR`,sub:`Healthy, so adds stay locked while he's there.${m.blocked>0.5?` Unlocking them costs two drops, which this week's adds aren't worth.`:''}`,gain:''}); return; }
-      if(m.action==='return'){ if(m.drop) doItems.push({at:m.on,when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:(PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${m.drop.name}`),sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
-            if(m.action==='activate_swap'){ doItems.push({at:m.on&&m.on>todayIso?m.on:todayIso,when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
+      if(m.action==='return'){ if(m.drop) doItems.push({keep:m.drop.id!==m.id&&!PAIRED(m.id)?m.drop:null,at:m.on,when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:(PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${m.drop.name}`),sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
+            if(m.action==='activate_swap'){ doItems.push({keep:m.drop&&m.drop.id!==m.id&&!PAIRED(m.id)?m.drop:null,at:m.on&&m.on>todayIso?m.on:todayIso,when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
       doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}); });
     if(dayRow&&dayRow.locked) doItems.push({when:'Today',what:'Cap reached: nothing counts today',sub:'',gain:''});
     else if(dayRow&&dayRow.start.length){
       const doubt=dayRow.start.filter(x=>x.p<0.8).map(x=>x.name);
       doItems.push({when:'Today',what:`Start ${dayRow.start.length} tonight`,sub:(dayRow.sat>0?`Bench ${dayRow.sat} who play, to save starts for later. `:'')+(doubt.length?`At risk: ${doubt.join(', ')}. `:'')+'Lineup below; set it in one click under Set lineup in ESPN.',gain:''});
     }
-    if(T.stash_suggest){ const s=T.stash_suggest, pr=s.pair; doItems.push({when:'Today',what:`Add ${s.name}${s.drop?', drop '+s.drop.name:''}, then move him to IR`,sub:`${pr?`Then ${pr.kind==='add'?'add '+pr.name:'activate '+pr.name}${pr.on>todayIso?' '+dShort(pr.on):''} with no drop: ${s.drop.name.split(' ').slice(-1)[0]}'s spot is the one that opens. `:(s.drop?'Refill the open spot later. ':'')}A free IR slot and an add that would go unused (${s.why}). ${s.injury?esc(s.injury)+', ':''}${s.back_date?'back about '+new Date(s.back_date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})+'. ':''}About +${s.gain} over the rest of the season.`,gain:''}); }
+    if(T.stash_suggest){ const s=T.stash_suggest, pr=s.pair; doItems.push({keep:s.drop||null,pass:{id:s.id,name:s.name},when:'Today',what:`Add ${s.name}${s.drop?', drop '+s.drop.name:''}, then move him to IR`,sub:`${pr?`Then ${pr.kind==='add'?'add '+pr.name:'activate '+pr.name}${pr.on>todayIso?' '+dShort(pr.on):''} with no drop: ${s.drop.name.split(' ').slice(-1)[0]}'s spot is the one that opens. `:(s.drop?'Refill the open spot later. ':'')}A free IR slot and an add that would go unused (${s.why}). ${s.injury?esc(s.injury)+', ':''}${s.back_date?'back about '+new Date(s.back_date+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})+'. ':''}About +${s.gain} over the rest of the season.`,gain:''}); }
     const seq=(T.sequence||[]).map(a=>{ const g=(a.by_day||[]).map(x=>x.gain), mx=g.length?Math.max(...g):0, bi=(!g.length||g[0]>=mx-5)?0:g.indexOf(mx); let d=a.on||(g.length?a.by_day[bi].date:todayIso);
       // a waiver player the plan wants ON the day he clears must be claimed the night before (the claim runs at 3am); if the plan wants him later, he is a free agent by then: add him on the plan's day
       const claimNow=!!(a.add.waiver&&a.add.waiver.date&&a.on&&a.on<=a.add.waiver.date);
@@ -1834,14 +1837,14 @@ function renderWeek(){
       const what=pairedA?`${claim?'Claim':'Add'} ${a.add.name} (no drop: spot opened by the IR stash)`:(claim?`Claim ${a.add.name}, drop ${a.drop?a.drop.name:'nobody'}`:`Add ${a.add.name}, drop ${a.drop?a.drop.name:'nobody (open spot)'}`);
       const claimNote=claim?`On waivers: put the claim in before ${a.add.waiver.when}${pairedA?'':' (the drop happens then)'}. `:(a.add.waiver?`On waivers until ${a.add.waiver.when}; a free agent by ${dShort(d)}, so no claim needed. `:'');
       const mv=d===todayIso?{add:a.add.id,drop:a.drop&&!pairedA?a.drop.id:'',kind:claim?'waiver':'fa',name:a.add.name,dropName:a.drop&&!pairedA?a.drop.name:''}:null;      // one-tap: only moves due today
-      doItems.push({at:d,when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
+      doItems.push({keep:(a.drop&&!a.drop.streamer&&!pairedA)?a.drop:null,pass:a.add,at:d,when:whenLbl,what,sub:claimNote+(a.purpose==='next'?'Sets up next week. ':'')+kind+pts+risk+bk,gain:sgn0(a.gain),mv}); });
     if(!seq.length) doItems.push(M.adds_limit-T.adds_used<=0?{when:'Week',what:`All ${M.adds_limit} adds used`,sub:'No more pickups until the next matchup starts. Just set your lineup.',gain:''}:{when:'Week',what:'No add clears the bar this week',sub:'Standing still is the plan. It re-runs several times a day.',gain:''});
   }
   const chg=isMe?planChanges(T,sb):null;
   const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
   // in the order they should be done (2026-11-08): free moves and holds first, then by day (today's steps before tonight's claims), week notes last; same-day items keep their order
   { const ord=t=>(t.when==='Now'||t.when==='Hold')?'0':(t.when==='Week'?'9':(t.at||todayIso)+(t.when==='Tonight'?'b':'a')); doItems.forEach((t,i)=>t._i=i); doItems.sort((x,y)=>ord(x)<ord(y)?-1:ord(x)>ord(y)?1:x._i-y._i); }
-  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
+  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}${chButtons(t)}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
   // tonight's lineup in ESPN slot order, points if he plays
   const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
   const luNow=dayRow&&!dayRow.locked?dayRow.start.slice().sort((a,b)=>(SLOT_O[a.slot]??9)-(SLOT_O[b.slot]??9)||b.ef-a.ef):[];
@@ -2045,7 +2048,7 @@ function collapseLegends(root){
   });
 }
 const activeView=()=>{const b=document.querySelector('#segView button[aria-pressed="true"]'); return b?b.dataset.v:null;};
-const VIEWS=['week','standings','sched','board','redraft','teams','trades','keepers','draft','about','cloud'];
+const VIEWS=['week','standings','sched','board','redraft','teams','trades','keepers','draft','about','cloud','choices'];
 let pendingTeam=null;
 function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
   const h='#'+v+(extra?'/'+extra:'');
@@ -3596,8 +3599,8 @@ function renderAbout(){
 /* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
 const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
 const navGroups=()=>offseason()
-  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['week','Last week'],['cloud','Cloud test']]]]
-  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['keepers','Keepers'],['draft','Draft'],['cloud','Cloud test']]]];
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['choices','Keep / pass'],['week','Last week'],['cloud','Cloud test']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['choices','Keep / pass'],['keepers','Keepers'],['draft','Draft'],['cloud','Cloud test']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
@@ -3623,7 +3626,7 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true};
+    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!(D&&TR),draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,choices:()=>true};
     if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
       ['board','redraft','about','standings','teams','week','trades','sched','draft','keepers','cloud'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
@@ -3637,6 +3640,7 @@ function wire(){
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
     document.getElementById('cloudPane').style.display = b.dataset.v==='cloud' ? '' : 'none';
     if(b.dataset.v==='cloud') renderCloud();
+    if(b.dataset.v==='choices') renderChoices();
     document.getElementById('teamsPane').style.display = b.dataset.v==='teams' ? '' : 'none';
     document.getElementById('standingsPane').style.display = b.dataset.v==='standings' ? '' : 'none';
     if(b.dataset.v==='standings') renderStandings();
@@ -3753,6 +3757,54 @@ function mvButton(m){
   const btn=st.ok?'':`<button type="button" class="doBtn" data-mv="${esc(JSON.stringify(m))}" ${st.busy?'disabled':''}>${st.busy?'Working…':label}</button>`;
   return `<span class="doAct">${btn}${st.msg?`<span class="doMsg${st.ok===false?' bad':(st.ok?' good':'')}">${st.msg}</span>`:''}</span>`;
 }
+/* Keep / pass (2026-11-09, Tommy): buttons on a Do now move and a list under More. plan-choice.yml records the choice in plan_choices.json and rebuilds the plan; nothing happens in ESPN. */
+const CH={list:null,busy:null,msg:''};
+const chLast=n=>String(n||'').split(' ').slice(-1)[0];
+function chButtons(t){
+  if(!t.keep&&!t.pass) return '';
+  const b=(act,x,lbl)=>`<button class="chBtn" data-act="${act}" data-id="${esc(x.id)}" data-name="${esc(x.name)}"${CH.busy?' disabled':''}>${esc(lbl)}</button>`;
+  return `<span class="chRow">${t.keep?b('keep',t.keep,'Keep '+chLast(t.keep.name)):''}${t.pass?b('pass',t.pass,'Pass on '+chLast(t.pass.name)):''}</span>`;
+}
+async function chFetch(){
+  try{ const j=slTok()?await ghRaw('dashboard/plan_choices.json','main'):await fetch('plan_choices.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null); CH.list=j||{keep:[],pass:[]}; }
+  catch(e){ CH.list=(W&&W.plan_choices)||{keep:[],pass:[]}; }
+  const t=new Date().toISOString().slice(0,10), live=v=>(v||[]).filter(e=>String(e.until||'')>=t); CH.list={keep:live(CH.list.keep),pass:live(CH.list.pass)};
+  return CH.list;
+}
+async function renderChoices(){
+  const pn=document.getElementById('choicesPane'); if(!pn) return;
+  if(!CH.list){ pn.innerHTML='<div class="hint">Loading…</div>'; await chFetch(); }
+  const row=(e,lbl)=>`<div class="doItem"><span class="doBody"><b>${lbl} ${pc(e.name)}</b><span>Through ${esc(new Date(e.until+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}))}</span></span><button class="chBtn" data-act="undo" data-id="${esc(e.id)}" data-name="${esc(e.name)}"${CH.busy?' disabled':''}>Undo</button></div>`;
+  const k=CH.list.keep||[], p=CH.list.pass||[];
+  pn.innerHTML=`<h2>Keep / pass</h2>${CH.msg?`<div class="note" style="margin-bottom:.6rem">${CH.msg}</div>`:''}<div class="doList">${k.map(e=>row(e,'Keep')).join('')}${p.map(e=>row(e,'Pass on')).join('')}</div>${k.length||p.length?'':'<div class="hint">Nothing kept or passed on right now.</div>'}`;
+}
+async function chRun(act,id,name){
+  const say=m=>{ CH.msg=m; PR.msg=m; renderStamp(); if(activeView()==='choices') renderChoices(); };
+  if(!slTok()){ say('Add your GitHub key first: open Set lineup in ESPN at the bottom of Today.'); return; }
+  if(CH.busy) return;
+  CH.busy=act; const t0=Date.now(), until=(W&&W.matchup&&W.matchup.end)||'';
+  const verb={keep:`Keeping ${name}`,pass:`Passing on ${name}`,undo:`Undoing ${name}`}[act];
+  const inPlan=w=>{ const c=(w&&w.plan_choices)||{}, has=a=>(c[a]||[]).some(e=>Number(e.id)===Number(id)); return act==='undo'?!has('keep')&&!has('pass'):has(act); };
+  try{
+    const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/plan-choice.yml/dispatches`,{method:'POST',headers:Object.assign(ghH(),{'Content-Type':'application/json'}),body:JSON.stringify({ref:'main',inputs:{action:act,id:String(id),name:String(name||''),until}})});
+    if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the key (it needs Actions read and write on this repository).':'GitHub returned status '+r.status);
+    // show it in the list right away
+    if(CH.list){ for(const k of ['keep','pass']) CH.list[k]=(CH.list[k]||[]).filter(e=>Number(e.id)!==Number(id)); if(act!=='undo') CH.list[act].push({id,name,until}); }
+    let done=false;
+    for(let i=0;i<48&&!done;i++){
+      say(`${esc(verb)}: rebuilding the plan… ${Math.round((Date.now()-t0)/1000)}s (usually about 2 minutes)`);
+      await new Promise(res=>setTimeout(res,10000));
+      const c=await fetch(`https://api.github.com/repos/${SL_REPO}/commits?path=dashboard/week_plan.json&sha=main&per_page=1`,{headers:ghH(),cache:'no-store'}).then(x=>x.ok?x.json():null).catch(()=>null);
+      const top=c&&c[0], when=top?Date.parse(top.commit.committer.date):0;
+      if(when&&when>t0-15000){ const [w,sp]=await Promise.all([ghRaw('dashboard/week_plan.json',top.sha),ghRaw('dashboard/schedule_plan.json',top.sha).catch(()=>null)]); if(inPlan(w)){ applyNewPlan(w,sp); done=true; } }
+    }
+    CH.busy=null; await chFetch();
+    say(done?'<b style="color:var(--good)">Plan updated.</b>':'Saved. The plan is still rebuilding; the page will pick it up when it lands.');
+    if(done) setTimeout(()=>{ if(!CH.busy){ CH.msg=''; PR.msg=''; renderStamp(); if(activeView()==='choices') renderChoices(); } },15000);
+  }catch(e){ CH.busy=null; say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); }
+  if(activeView()==='week') renderWeek();
+}
+document.addEventListener('click',e=>{ const b=e.target.closest('.chBtn'); if(!b||b.disabled) return; chRun(b.dataset.act,b.dataset.id,b.dataset.name); });
 async function mvRun(m){
   const k=mvKey(m), set=(o)=>{ MV[k]=Object.assign(MV[k]||{},o); if(activeView()==='week') renderWeek(); };
   if(!slTok()){ set({ok:false,msg:'Needs the GitHub token from Set lineup in ESPN (one-time setup).'}); return; }

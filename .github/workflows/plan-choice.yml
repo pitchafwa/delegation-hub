@@ -1,0 +1,59 @@
+name: Plan choice (keep / pass button on the site)
+
+# The Do now card's Keep and Pass buttons (and Undo under More) dispatch this with the GitHub token Tommy pasted into his own browser. It records the choice in
+# dashboard/plan_choices.json and starts a plan rebuild. Nothing happens in ESPN. No concurrency group: quick taps must not replace each other (GitHub keeps only one
+# pending run per group), and the push below retries on top of whatever landed first.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "keep | pass | undo"
+        required: true
+      id:
+        description: "ESPN id of the player"
+        required: true
+      name:
+        description: "player name"
+        default: ""
+      until:
+        description: "last day it applies (YYYY-MM-DD)"
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  choice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Record the choice
+        working-directory: ingest
+        env:
+          IN_ACTION: ${{ inputs.action }}
+          IN_ID: ${{ inputs.id }}
+          IN_NAME: ${{ inputs.name }}
+          IN_UNTIL: ${{ inputs.until }}
+        run: |
+          git config user.name "plan-bot"
+          git config user.email "plan-bot@users.noreply.github.com"
+          for i in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python research/plan_choice.py --action "$IN_ACTION" --id "$IN_ID" --name "$IN_NAME" --until "$IN_UNTIL"
+            git add ../dashboard/plan_choices.json
+            git diff --cached --quiet && break
+            git commit -q -m "Plan choice: $IN_ACTION $IN_NAME"
+            git push -q origin HEAD:main && break
+            sleep $((i * 3))
+          done
+
+      - name: Rebuild the plan
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run refresh-gameday.yml --ref main || echo "dispatch failed"

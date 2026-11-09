@@ -335,6 +335,8 @@ _dyn = [dict(d, slots=[q for q in d["pos"]] + ["UT"], out_now=False)
         for d in (me.get("dynasty_adds") or []) if d["id"] not in _seen_ids and d["level"] > 0 and d.get("status") not in IR_OK_DYN]
 for src, pool in (("stash", wp.get("stash_pool", [])), ("fa", wp.get("fa_pool", [])), ("fa", _dyn)):
     for x in pool:
+        if x.get("passed"):                                          # Pass on him (the Do now button): off the Season list too until the matchup ends
+            continue
         if x["team"] not in heat and canon(x["team"]) not in heat:
             continue
         if src == "stash" and x.get("out_now") and not x.get("back_date"):
