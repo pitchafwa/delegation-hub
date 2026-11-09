@@ -745,7 +745,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
     .scoreBig{font-size:2.8rem}
   }
 sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;cursor:help}
-.chRow{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem}.chBtn{min-height:34px;padding:.25rem .75rem;border-radius:999px;border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);font:inherit;font-size:.82rem;cursor:pointer}.chBtn:disabled{opacity:.5;cursor:default}
+.chRow{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem}.chBtn{min-height:34px;padding:.25rem .75rem;border-radius:999px;border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);font:inherit;font-size:.82rem;cursor:pointer}.chBtn:disabled{opacity:.5;cursor:default}.chBtn.on,.chBtn.on:disabled{opacity:1;background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.chBtn:active{transform:scale(.96)}.chSpin{display:inline-block;width:.75em;height:.75em;margin-right:.35em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:chSpin .8s linear infinite;vertical-align:-.1em}@keyframes chSpin{to{transform:rotate(360deg)}}.chNote{display:block;margin-top:.3rem;font-size:.8rem;color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -3758,12 +3758,15 @@ function mvButton(m){
   return `<span class="doAct">${btn}${st.msg?`<span class="doMsg${st.ok===false?' bad':(st.ok?' good':'')}">${st.msg}</span>`:''}</span>`;
 }
 /* Keep / pass (2026-11-09, Tommy): buttons on a Do now move and a list under More. plan-choice.yml records the choice in plan_choices.json and rebuilds the plan; nothing happens in ESPN. */
-const CH={list:null,busy:null,msg:''};
+const CH={list:null,busy:null,msg:'',pend:null};   // pend: the button just tapped {act,id}, shown pressed until the new plan lands
 const chLast=n=>String(n||'').split(' ').slice(-1)[0];
 function chButtons(t){
   if(!t.keep&&!t.pass) return '';
-  const b=(act,x,lbl)=>`<button class="chBtn" data-act="${act}" data-id="${esc(x.id)}" data-name="${esc(x.name)}"${CH.busy?' disabled':''}>${esc(lbl)}</button>`;
-  return `<span class="chRow">${t.keep?b('keep',t.keep,'Keep '+chLast(t.keep.name)):''}${t.pass?b('pass',t.pass,'Pass on '+chLast(t.pass.name)):''}</span>`;
+  const on=(act,x)=>CH.pend&&CH.pend.act===act&&String(CH.pend.id)===String(x.id);
+  const b=(act,x,lbl,done)=>on(act,x)?`<button class="chBtn on" disabled>${CH.busy?'<span class="chSpin"></span>':'✓ '}${esc(CH.busy?lbl.replace(/^Keep/,'Keeping').replace(/^Pass on/,'Passing on'):done)}</button>`
+    :`<button class="chBtn" data-act="${act}" data-id="${esc(x.id)}" data-name="${esc(x.name)}"${CH.busy?' disabled':''}>${esc(lbl)}</button>`;
+  const pendHere=CH.pend&&[t.keep,t.pass].some(x=>x&&String(x.id)===String(CH.pend.id));
+  return `<span class="chRow">${t.keep?b('keep',t.keep,'Keep '+chLast(t.keep.name),'Kept '+chLast(t.keep.name)):''}${t.pass?b('pass',t.pass,'Pass on '+chLast(t.pass.name),'Passed on '+chLast(t.pass.name)):''}</span>${pendHere&&CH.busy?'<span class="chNote">Saved. Rebuilding the plan (about 2 minutes); this move goes away when it lands.</span>':''}`;
 }
 async function chFetch(){
   try{ const j=slTok()?await ghRaw('dashboard/plan_choices.json','main'):await fetch('plan_choices.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null); CH.list=j||{keep:[],pass:[]}; }
@@ -3774,7 +3777,7 @@ async function chFetch(){
 async function renderChoices(){
   const pn=document.getElementById('choicesPane'); if(!pn) return;
   if(!CH.list){ pn.innerHTML='<div class="hint">Loading…</div>'; await chFetch(); }
-  const row=(e,lbl)=>`<div class="doItem"><span class="doBody"><b>${lbl} ${pc(e.name)}</b><span>Through ${esc(new Date(e.until+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}))}</span></span><button class="chBtn" data-act="undo" data-id="${esc(e.id)}" data-name="${esc(e.name)}"${CH.busy?' disabled':''}>Undo</button></div>`;
+  const row=(e,lbl)=>`<div class="doItem"><span class="doBody"><b>${lbl} ${pc(e.name)}</b><span>Through ${esc(new Date(e.until+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}))}</span></span>${CH.pend&&CH.pend.act==='undo'&&String(CH.pend.id)===String(e.id)?`<button class="chBtn on" disabled>${CH.busy?'<span class="chSpin"></span>Undoing':'✓ Undone'}</button>`:`<button class="chBtn" data-act="undo" data-id="${esc(e.id)}" data-name="${esc(e.name)}"${CH.busy?' disabled':''}>Undo</button>`}</div>`;
   const k=CH.list.keep||[], p=CH.list.pass||[];
   pn.innerHTML=`<h2>Keep / pass</h2>${CH.msg?`<div class="note" style="margin-bottom:.6rem">${CH.msg}</div>`:''}<div class="doList">${k.map(e=>row(e,'Keep')).join('')}${p.map(e=>row(e,'Pass on')).join('')}</div>${k.length||p.length?'':'<div class="hint">Nothing kept or passed on right now.</div>'}`;
 }
@@ -3782,7 +3785,8 @@ async function chRun(act,id,name){
   const say=m=>{ CH.msg=m; PR.msg=m; renderStamp(); if(activeView()==='choices') renderChoices(); };
   if(!slTok()){ say('Add your GitHub key first: open Set lineup in ESPN at the bottom of Today.'); return; }
   if(CH.busy) return;
-  CH.busy=act; const t0=Date.now(), until=(W&&W.matchup&&W.matchup.end)||'';
+  CH.busy=act; CH.pend={act,id}; const t0=Date.now(), until=(W&&W.matchup&&W.matchup.end)||'';
+  if(activeView()==='week') renderWeek(); else if(activeView()==='choices') renderChoices();   // show the tap right away
   const verb={keep:`Keeping ${name}`,pass:`Passing on ${name}`,undo:`Undoing ${name}`}[act];
   const inPlan=w=>{ const c=(w&&w.plan_choices)||{}, has=a=>(c[a]||[]).some(e=>Number(e.id)===Number(id)); return act==='undo'?!has('keep')&&!has('pass'):has(act); };
   try{
@@ -3801,8 +3805,9 @@ async function chRun(act,id,name){
     CH.busy=null; await chFetch();
     say(done?'<b style="color:var(--good)">Plan updated.</b>':'Saved. The plan is still rebuilding; the page will pick it up when it lands.');
     if(done) setTimeout(()=>{ if(!CH.busy){ CH.msg=''; PR.msg=''; renderStamp(); if(activeView()==='choices') renderChoices(); } },15000);
-  }catch(e){ CH.busy=null; say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); }
+  }catch(e){ CH.busy=null; CH.pend=null; say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); }
   if(activeView()==='week') renderWeek();
+  setTimeout(()=>{ if(!CH.busy){ CH.pend=null; if(activeView()==='week') renderWeek(); } },20000);
 }
 document.addEventListener('click',e=>{ const b=e.target.closest('.chBtn'); if(!b||b.disabled) return; chRun(b.dataset.act,b.dataset.id,b.dataset.name); });
 async function mvRun(m){
