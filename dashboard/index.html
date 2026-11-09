@@ -3000,7 +3000,7 @@ function tcIdeaCard(i,k){
   const partner=i.partner!=null?(TB.players.find(p=>p.tid===i.partner)||{}).t:(i.get.find(x=>!x.pick)||{}).t;
   const full=ck&&ck.res&&!ck.res.error?ck.res:null;
   return `<article class="tcIdea">
-    <div class="tcIdeaHd"><span class="tcShape">${i.shape}${TCC.sell?' · '+esc(partner||''):''}</span>${chip(i.band==='likely'?'Likely':'Possible',i.band==='likely'?'good':'acc')}<span class="tcGain">${tcSg(full?full.me.value.total:i.v)}</span></div>
+    <div class="tcIdeaHd"><span class="tcShape">${i.shape}${TCC.sell?' · '+esc(partner||''):''}</span>${chip(i.band==='likely'?'Likely':'Possible',i.band==='likely'?'good':'acc')}<span class="tcGain">${tcSg(full?full.me.value.total:i.v)}${full?'':'<small style="font-size:.6rem;color:var(--ink-faint);margin-left:2px">est.</small>'}</span></div>
     <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(x=>esc(tcLbl(x))).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(x=>esc(x.pick?tcPickName(x.k,true):x.n)).join(' + ')}</b></div>
     <div class="tcNote">${esc(i.note)}</div>
     ${full?`<div class="tcFull"><div class="tcFullHd">Full check</div><div>Title <b>${pct(full.me.odds_before.title)}</b> to <b class="${full.me.d_title_pp>=0?'up':'down'}">${pct(full.me.odds_after.title)}</b> · Playoffs ${pct(full.me.odds_before.made)} to ${pct(full.me.odds_after.made)}</div>
@@ -3014,16 +3014,20 @@ function tcSheet(body){
   const tiles=[['DELCO',T.delco!=null?T.delco.toFixed(1):'—'],['Season avg',T.avg!=null?T.avg.toFixed(1):'—'],['Preseason',T.espn?T.espn.toFixed(1):'—'],['PO games',T.gpo??'—'],['League price',T.pv.toFixed(0)],
     mine?['Worth to you',T.cost!=null?T.cost.toFixed(1):'—']:['Target',T.best?tcSg(T.best.v):'—']];
   const res=mine?tcSellIdeas(T):tcBuyIdeas(T);
-  if(!mine&&!S&&T.best&&T.best.full&&TCC.shape==='All'&&!Object.keys(TCC.mode).length){      // the morning's full check of his best package
-    const lab=x=>x.pick?x.k:x.n, sig=(g,r)=>g.slice().sort().join('|')+'>'+r.slice().sort().join('|'), want=sig(T.best.give,T.best.get);
-    let hit=res.list.find(i=>sig(i.give.map(lab),i.get.map(lab))===want);
-    if(!hit){ const it=(n,tid)=>/^PICK:/.test(n)?TB.picks.find(x=>x.k===n):TB.players.find(p=>p.n===n&&p.tid===tid);
-      const g=T.best.give.map(n=>it(n,TB.me_id)), r=T.best.get.map(n=>it(n,T.tid));
-      if(g.every(Boolean)&&r.every(Boolean)){ hit=tcIdea(g,r)||{give:g,get:r,v:T.best.quick,band:T.best.band,shape:tcShape(g,r),note:'',key:g.map(x=>x.k||x.id).join(',')+'>'+r.map(x=>x.k||x.id).join(',')};
-        res.list.unshift(hit); if(res.list.length>6) res.list.pop(); } }
-    if(hit&&!TCC.checks[hit.key]) TCC.checks[hit.key]={res:T.best.full};
+  if(!mine&&!S&&T.best&&T.best.full){      // the morning's full checks of his best packages (each shown with its real number)
+    const lab=x=>x.pick?x.k:x.n, sig=(g,r)=>g.slice().sort().join('|')+'>'+r.slice().sort().join('|');
+    const it=(n,tid)=>/^PICK:/.test(n)?TB.picks.find(x=>x.k===n):TB.players.find(p=>p.n===n&&p.tid===tid);
+    const free=TCC.shape==='All'&&!Object.keys(TCC.mode).length;
+    for(const c of (T.best.checked||[{give:T.best.give,get:T.best.get,full:T.best.full}])){
+      const want=sig(c.give,c.get); let hit=res.list.find(i=>sig(i.give.map(lab),i.get.map(lab))===want);
+      if(!hit&&free&&c.full.me.value.total>0){ const g=c.give.map(n=>it(n,TB.me_id)), r=c.get.map(n=>it(n,T.tid));
+        if(g.every(Boolean)&&r.every(Boolean)){ const q=tcParts(g,r), acc=tcAccept(g,r); hit={give:g,get:r,v:q.v,band:acc.band==='unlikely'?'possible':acc.band,shape:tcShape(g,r),note:q.drops.length?'Drop '+q.drops.map(p=>p.n).join(' and ')+' to make room.':'No drop needed.',key:g.map(x=>x.k||x.id).join(',')+'>'+r.map(x=>x.k||x.id).join(',')};
+          res.list.push(hit); } }
+      if(hit&&!TCC.checks[hit.key]) TCC.checks[hit.key]={res:c.full};
+    }
   }
   res.list.sort((a,b)=>((TCC.checks[b.key]&&TCC.checks[b.key].res&&TCC.checks[b.key].res.me)?TCC.checks[b.key].res.me.value.total:b.v)-((TCC.checks[a.key]&&TCC.checks[a.key].res&&TCC.checks[a.key].res.me)?TCC.checks[a.key].res.me.value.total:a.v));
+  res.list=res.list.slice(0,6);
   TCC.cur=res.list;
   const seconds=mine?[]:TB.players.filter(p=>p.tid===T.tid&&p.id!==T.id&&!p.ir).sort((a,b)=>b.pv-a.pv).slice(0,8);
   const myItems=tcMyPool().filter(x=>!mine||x.id!==T.id);

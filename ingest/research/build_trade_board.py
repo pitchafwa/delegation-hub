@@ -369,11 +369,13 @@ def main():
             tried.append((res["me"]["value"]["total"], v, g, r, res))
         if not tried:
             continue
+        def compact(res):
+            m, t = res["me"], res["them"]
+            return {"me": {k: m[k] for k in ("odds_before", "odds_after", "d_title_pp", "keeper_strength", "drops", "adds", "season_points")} | {"value": m["value"]},
+                    "them": {"abbrev": t["abbrev"], "odds_before": t["odds_before"], "odds_after": t["odds_after"], "value": t["value"]}}
         tot, v, g, r, res = max(tried, key=lambda t: t[0])
-        m, t = res["me"], res["them"]
-        best[pid] = {"v": round(tot, 2), "quick": round(v, 2), "give": g, "get": r, "band": res["market"]["band"], "drops": m["drops"],
-                     "full": {"me": {k: m[k] for k in ("odds_before", "odds_after", "d_title_pp", "keeper_strength", "drops", "adds", "season_points")} | {"value": m["value"]},
-                              "them": {"abbrev": t["abbrev"], "odds_before": t["odds_before"], "odds_after": t["odds_after"], "value": t["value"]}}}
+        best[pid] = {"v": round(tot, 2), "quick": round(v, 2), "give": g, "get": r, "band": res["market"]["band"], "drops": res["me"]["drops"], "full": compact(res),
+                     "checked": [{"give": g_, "get": r_, "full": compact(x_)} for _, _, g_, r_, x_ in tried]}
         full_res[pid] = res
     print(f"lineup-checked: {len(full_res)}  ({time.time() - T0:.0f}s)", flush=True)
 
