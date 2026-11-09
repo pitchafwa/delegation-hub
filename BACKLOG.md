@@ -38,7 +38,7 @@ Bench-cover check 11-16; calibration 12-01 and monthly; laptop-free decision ~12
 - 2026-11-09: Keep / pass built: buttons on Do now moves, list + Undo under More (plan_choice.py, plan-choice.yml, dashboard/plan_choices.json; both end with the matchup). A chain's swap of another roster player now shows its own numbers (was hidden by the chain's cost sharing).
 - 2026-11-09 age fall-off study (age_falloff_study.py): faster DELCO drops for older fallers NOT supported. Fallers 33+ kept 12% of the gap over the next 20 games vs 23% under 30; out of sample no improvement; drop-out rates similar. No change made.
 - 2026-11-09 DONE (Tommy approved): long_level uses DELCO alone, ESPN only when DELCO has none (DeRozan 33.2 -> 31.5). Title odds unchanged (the season forecast uses day levels for rosters), so no history rebuild.
-- OPEN (awaiting Tommy): chain fix built behind CHAIN_FIX=1. Test (every team's roster, Nov 9/11/13, 36 team-days): picks changed in 6, never for DRNK; old chain totals left out tens to hundreds of points of roster-upgrade value the one-at-a-time total counted. Plan-model check only, no outcome replay exists for chains.
+- DONE 2026-11-09 (Tommy approved): chain fix on by default (CHAIN_OLD=1 restores old total). Test (every team's roster, Nov 9/11/13, 36 team-days): picks changed in 6, never for DRNK; old chain totals left out tens to hundreds of points of roster-upgrade value the one-at-a-time total counted. Plan-model check only, no outcome replay exists for chains.
 
 **Dropped**
 Win-probability alerts at 25%/75% (conflicts with actionable-only alerts); power rankings chart.

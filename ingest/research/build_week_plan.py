@@ -1369,7 +1369,7 @@ def reclaim_lose(ll, days):
 STREAM_HOLD_EVAL = {}      # candidate id -> best 'add now and KEEP him' option the stream search saw on its first round (read by the pickup alert so it agrees with the plan)
 
 
-CHAIN_OLD = not os.environ.get("CHAIN_FIX")      # chain fix (2026-11-09) tested, waiting for Tommy's go: CHAIN_FIX=1 turns it on
+CHAIN_OLD = bool(os.environ.get("CHAIN_OLD"))     # chain fix (2026-11-09) on by Tommy's go: a chain counts its roster swaps' rest-of-season value; CHAIN_OLD=1 restores the old total
 CHAIN_AUDIT = []
 
 
