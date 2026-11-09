@@ -2,7 +2,9 @@
  "avail_prev": {
   "3978": "FREEAGENT",
   "4395626": "WAIVERS",
-  "4431679": "WAIVERS"
+  "4397424": "FREEAGENT",
+  "4431679": "WAIVERS",
+  "4683766": "FREEAGENT"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -130,7 +132,9 @@
   "4437244:2026-11-08:collin sexton": "2026-11-08",
   "4437244:2026-11-08:collin sexton:today": "2026-11-08",
   "4437244:2026-11-08:dayron sharpe": "2026-11-08",
-  "4437244:2026-11-08:dayron sharpe:today": "2026-11-08"
+  "4437244:2026-11-08:dayron sharpe:today": "2026-11-08",
+  "5106060:2026-11-09:dayron sharpe": "2026-11-09",
+  "5106060:2026-11-09:dayron sharpe:today": "2026-11-09"
  },
  "plan_rebuild": {
   "at": "2026-11-08T22:40:35+00:00",
