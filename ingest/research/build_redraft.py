@@ -52,6 +52,25 @@ def key(name):
     return re.sub(r"[^a-z]", "", unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower().replace(" jr.", "").replace(" jr", "").replace(" iii", "").replace(" ii", ""))
 
 
+# DARKO (2026-11-09, Tommy: show it where ESPN's frozen season projection used to be): the latest data/darko_daily file from pull_darko.py, this league's
+# scoring, minutes if he plays (a player who is out is not cut by his chance of playing). Matched by NBA id (hub ids are "c" + NBA id), else by name.
+def _load_darko():
+    import csv as _csv
+    dd = sorted((Path(__file__).resolve().parent / "data" / "darko_daily").glob("*.csv"))
+    if not dd:
+        return {}, {}, None
+    by_id, by_name, asof = {}, {}, None
+    for row in _csv.DictReader(open(dd[-1], encoding="utf-8")):
+        try:
+            v = round(float(row["fp_full"]), 1)
+        except (TypeError, ValueError):
+            continue
+        by_id[int(row["nba_id"])] = v
+        by_name[key(row["name"])] = v
+        asof = row.get("as_of") or asof
+    return by_id, by_name, asof
+
+
 def sigma_ppg(games_played):
     return 5.2 + 1.0 * max(0.0, 1 - games_played / 20.0)
 
@@ -124,6 +143,7 @@ print("ESPN players:", len(raw))
 
 # ---------------- our model, injuries, logs
 hub = json.load(open(HUB / "hub_data.json", encoding="utf-8"))
+DARKO_ID, DARKO_NAME, DARKO_ASOF = _load_darko()
 hub_by = {}
 for p in hub["players"]:
     if p["kind"] == "current" or key(p["player"]) not in hub_by:
@@ -327,7 +347,11 @@ for e in raw:
         next_proj = [round(ppg + v, 1) for v in next_st]
     fr = form_p.get(key(name))
     s = sigma_ppg(n_played)
-    rows.append({"id": p["id"], "name": name, "team": team, "pos": None,
+    _hid = str((hp or {}).get("id") or "")
+    darko = DARKO_ID.get(int(_hid[1:])) if _hid[:1] == "c" and _hid[1:].isdigit() else None
+    if darko is None:
+        darko = DARKO_NAME.get(key(name))
+    rows.append({"id": p["id"], "name": name, "team": team, "pos": None, "darko": darko,
                  "pos_ids": p.get("eligibleSlots"), "age": hp.get("age") if hp else None, "status": status, "espn_ppg": round(espn_ppg, 1), "ppg": round(ppg, 1), "our": bool(ours),
                  "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),
@@ -368,7 +392,7 @@ for r in rows:
     r["mkt"], r["mkt_src"] = next(((v, src) for src, v in order if v), (None, "none"))
 print(f"market ranks: {sum(1 for r in rows if r['mkt_src']=='espn')} ESPN (rankings+ADP), {sum(1 for r in rows if r['mkt_src']=='fp')} FantasyPros (fallback), {sum(1 for r in rows if r['mkt_src']=='none')} none")
 rows.sort(key=lambda r: -r["vor"])
-out = {"generated": datetime.now(timezone.utc).isoformat(), "asof": t0, "season_now": season_now, "preseason": today < SEASON_START, "repl_ppg": round(repl, 1), "repl_rank": REPL_RANK,
+out = {"generated": datetime.now(timezone.utc).isoformat(), "asof": t0, "darko_asof": DARKO_ASOF, "season_now": season_now, "preseason": today < SEASON_START, "repl_ppg": round(repl, 1), "repl_rank": REPL_RANK,
        "season_end": END, "playoff_start": PLAYOFF_START, "log_through": str(logs["date"].max())[:10], "sigma": {"pre": sigma_ppg(0), "late": sigma_ppg(99)}, "players": rows}
 (HUB / "redraft_data.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"wrote redraft_data.json: {len(rows)} players, replacement {repl:.1f} ppg (rank {REPL_RANK}); {round((HUB / 'redraft_data.json').stat().st_size / 1024)} KB")
