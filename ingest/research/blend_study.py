@@ -7,7 +7,8 @@ plus DailyFantasyFuel's projection at tip-off (local log data/dfs/log.csv, writt
 Actual results: this league's fantasy points from the box scores (form_common.load_all).
 
   Q1 TONIGHT    which mix best predicts a player's points in tonight's game (players who played)?  Today: DFF when posted, else the plan's level.
-  Q2 SEASON     which mix best predicts his average over his NEXT 20 games?                          Today: (ESPN + DELCO) / 2  (build_week_plan.long_level)
+  Q2 SEASON     which mix best predicts his average over his NEXT 20 games?                          Today: DELCO alone (build_week_plan.long_level, 2026-11-09)
+  DARKO (darko.app, logged daily from 2026-11-09 by pull_darko.py) is a candidate source in Q1 and Q2.
   Q3            do the best weights differ early vs later (fewer than 10 vs 10+ games in ESPN's last-15 window)?
 Fit on the earlier 60% of dates, judged on the later 40% (never seen during fitting). Weights are non-negative and sum to 1 (a blend, no free intercept).
 Writes data/blend_study_report.txt.  Run from ingest/:  .venv/Scripts/python research/blend_study.py
@@ -90,6 +91,14 @@ if dlog_p.exists():
             if len(b):
                 dff[(day, key)] = float(b.sort_values("t").iloc[-1]["league_proj"])
 log["dff"] = [dff.get((d, k), np.nan) for d, k in zip(log.date, log.key)]
+# DARKO (logged daily from 2026-11-09 by pull_darko.py: this league's scoring, minutes restored for players who are not active)
+darko = {}
+for f_ in sorted((R / "data" / "darko_daily").glob("*.csv")) if (R / "data" / "darko_daily").exists() else []:
+    dd_ = pd.read_csv(f_)
+    for nm_, v_ in zip(dd_["name"], dd_["fp_full"]):
+        darko[(f_.stem, norm(nm_))] = float(v_)
+log["darko"] = [darko.get((d, k), np.nan) for d, k in zip(log.date, log.key)]
+P(f"DARKO logged on {log.dropna(subset=['darko']).date.nunique()} of these dates")
 log["actual"] = [float(act.loc[(d, k)]) if (d, k) in act.index else np.nan for d, k in zip(log.date, log.key)]
 
 # ---------------- Q1 tonight
@@ -100,7 +109,7 @@ cut = dates[int(len(dates) * 0.6)] if len(dates) >= 5 else None
 if cut is None or len(q1) < 300:
     P(f"  not enough data yet ({len(q1)} player-games, {len(dates)} dates; want 300+ over 5+ dates)")
 else:
-    for cols in (["dff", "espn", "model", "l15"], ["dff", "espn", "model"], ["espn", "model", "l15"]):
+    for cols in (["dff", "espn", "model", "l15"], ["dff", "espn", "model"], ["espn", "model", "l15"], ["dff", "darko", "model"], ["darko", "model"], ["dff", "darko", "model", "l15"]):
         d = q1.dropna(subset=cols)
         fit, test = d[d.date < cut], d[d.date >= cut]
         if len(fit) < 100 or len(test) < 50:
@@ -122,21 +131,21 @@ for key, g in games.groupby("key"):
             nxt[(days_[i], key)] = float(fp[i:i + 20].mean())
 log["next20"] = [nxt.get((d, k), np.nan) for d, k in zip(log.date, log.key)]
 q2 = log.dropna(subset=["next20", "espn", "model"]).copy()
-q2["current_rule"] = (q2.espn + q2.model) / 2
+q2["current_rule"] = q2.model                 # since 2026-11-09 the long-run level is DELCO alone (build_week_plan.long_level)
 if len(q2) < 300 or q2.date.nunique() < 5:
     P(f"  not enough data yet ({len(q2)} player-days with 20 later games; want 300+ over 5+ dates)")
 else:
     dates = sorted(q2.date.unique())
     cut = dates[int(len(dates) * 0.6)]
-    for cols in (["espn", "model", "l15"], ["espn", "model", "model_career", "l15"], ["espn", "model"]):
+    for cols in (["espn", "model", "l15"], ["espn", "model", "model_career", "l15"], ["espn", "model"], ["darko", "model"], ["darko", "model", "l15"], ["espn", "darko", "model", "l15"]):
         d = q2.dropna(subset=cols)
         fit, test = d[d.date < cut], d[d.date >= cut]
         if len(fit) < 100 or len(test) < 50:
             continue
         w, _ = best_blend(fit, cols, "next20")
         test = test.assign(blend=test[cols].to_numpy(float) @ w)
-        P(f"  sources {cols}: best weights {dict(zip(cols, np.round(w, 2)))}  test MAE blend {mae(test, 'blend', 'next20'):.2f} vs (ESPN+DELCO)/2 {mae(test, 'current_rule', 'next20'):.2f}"
-          f"   ESPN alone {mae(test, 'espn', 'next20'):.2f}   DELCO alone {mae(test, 'model', 'next20'):.2f}")
+        P(f"  sources {cols}: best weights {dict(zip(cols, np.round(w, 2)))}  test MAE blend {mae(test, 'blend', 'next20'):.2f} vs DELCO (today's rule) {mae(test, 'current_rule', 'next20'):.2f}"
+          f"   ESPN alone {mae(test, 'espn', 'next20'):.2f}   DELCO alone {mae(test, 'model', 'next20'):.2f}" + (f"   DARKO alone {mae(test.dropna(subset=['darko']), 'darko', 'next20'):.2f}" if test['darko'].notna().sum() >= 50 else ""))
     # Q3: early vs later
     P("\nQ3: same, split by games in ESPN's last-15 window")
     q2["gp15"] = pd.to_numeric(q2.get("gp15"), errors="coerce")

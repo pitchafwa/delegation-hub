@@ -151,6 +151,7 @@ try:
         run("build_trades", "build_trades.py")            # reads hub_data, league rosters, weekly plan and the Hashtag values
         run("build_redraft", "build_redraft.py")          # rest-of-season board (ESPN projections, expected games, last-10 logs); non-critical
         run("pull_player_news", "pull_player_news.py")    # news blurbs for the player card (also runs in the game-day workflow); non-critical
+        run("darko_log", "pull_darko.py")                 # DARKO projections logged privately for the Dec 14 blend study (2026-11-09); not used on the site; non-critical
     else:
         finish(False, "model chain failed; nothing published")
         sys.exit(1)
