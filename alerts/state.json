@@ -3,9 +3,9 @@
   "2566769": "FREEAGENT",
   "3978": "FREEAGENT",
   "4395626": "WAIVERS",
-  "4397424": "FREEAGENT",
   "4431679": "WAIVERS",
   "4592479": "WAIVERS",
+  "4593125": "WAIVERS",
   "4683766": "FREEAGENT"
  },
  "benef_sent": {
@@ -151,9 +151,9 @@
   "5106060:2026-11-09:dayron sharpe:today": "2026-11-09"
  },
  "plan_rebuild": {
-  "at": "2026-11-10T05:00:32+00:00",
+  "at": "2026-11-10T07:19:37+00:00",
   "sig": "6430,3059319,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4433134,4594327,4601023,4684740,5041939,5041955,5105565,5106060,5279130",
-  "why": "DFF posted 2026-11-10 numbers (167 players)"
+  "why": "new free agent(s) to evaluate: Santi Aldama"
  },
  "rosterfix_sent": {},
  "sent": {
