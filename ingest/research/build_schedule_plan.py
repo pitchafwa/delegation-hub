@@ -200,6 +200,24 @@ def week_points(roster, wid):
     return best(0, 0)
 
 
+# ROSTER SPOTS (2026-11-09, Tommy: DRNK's title odds jumped 31% -> 34% after IR-stashing Barnes / Quickley (back in 2 days) and adding two players). Only 15 players can
+# count in any week: IR players come back into a spot (a drop) or stay on IR and score nothing. So a week's lineup is drawn from at most 15 of the players who can play
+# that week, the 15 best (it assumes the weakest are dropped when IR players return); players out all week stay on IR and take no spot.
+SPOT_CAP = os.environ.get("SPOT_CAP", "1") != "0"      # on since 2026-11-09 (Tommy approved; DRNK title 34.3% -> 25.9%); SPOT_CAP=0 turns it off
+SPOTS = 15
+
+
+def capped(roster, wid):
+    if not SPOT_CAP:
+        return roster
+    days = wk_days(CAL[wid - 1])
+    can = [p for p in roster if any(p_play(p, d, wid) > 0 for d in days)]
+    if len(can) <= SPOTS:
+        return roster
+    keep = {id(p) for p in sorted(can, key=lambda p: -p["level"])[:SPOTS]}
+    return [p for p in roster if id(p) in keep]
+
+
 def points_over(roster, weeks):
     return sum(week_points(roster, w) for w in weeks)
 
@@ -248,7 +266,7 @@ for t in wp["teams"]:
         prow.append({"id": pl["id"], "name": pl["name"], "team": pl["team"], "level": pl["level"], "status": pl["status"], "ir": pl["ir"], "games": gr,
                      "x4": round(n4 - avg_next4, 1), "xp": round(npo - avg_play, 1), "flags": flags})
     active = [p for p in r]
-    raw_proj = {w: week_points(active, w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
+    raw_proj = {w: week_points(capped(active, w), w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
     # In season: solver x a "beat-the-model" factor. A team's factor in a past week = its real points / the solver's forecast saved at the start of
     # that week (week_forecasts.json: the roster it really had, not today's). The league-wide factor fixes the solver's overall bias; the team's own
     # factor counts only as weeks pile up, weight n / (n + 5). Backtest on 2025-26 (weekly_proj_study.py, 2026-11-02), mean miss per team-week:
