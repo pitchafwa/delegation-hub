@@ -325,6 +325,10 @@ def make_player(p, on_roster_slot=None):
     ours = (hp.get("season_ppg") or hp.get("year0_ppg")) if hp else None      # DELCO season mode (rest-of-season settings); career mode stays in the keeper/dynasty numbers
     base = espn_proj if espn_proj else (ours or 0.0)          # ESPN's projection first; our model only when ESPN has none
     src = "ESPN" if espn_proj else ("model" if ours else "none")
+    if ours and (p.injuryStatus or "ACTIVE") in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
+        # 2026-11-09 (Tommy): a player who is out skips next-few-days DELCO below, so his level used to stay on ESPN's season number, which has not moved since the
+        # preseason for 96% of players (age_falloff_study.py: DELCO 8.46 vs ESPN 9.21 points a game, this season). Out now: season DELCO, as the long-run level does.
+        base, src = ours, "model"
     l15 = p.stats.get(f"{SEASON_ID}_last_15") or {}
     gp15 = (l15.get("total") or {}).get("GP") or 0
     if gp15 >= 3 and l15.get("applied_avg"):
