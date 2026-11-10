@@ -1377,6 +1377,9 @@ CHAIN_OLD = bool(os.environ.get("CHAIN_OLD"))     # chain fix (2026-11-09) on by
 CHAIN_AUDIT = []
 
 
+ADD_MIN_DAY = None         # earliest day an add can be made (set while the IR unlock check runs: adds stay locked until the stashed players are activated)
+
+
 def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
     global STREAM_HOLD_EVAL
     STREAM_HOLD_EVAL = {}
@@ -1458,6 +1461,10 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
                     continue
                 e_last = (fdl or fd)[-1]                                # held through his last game in view (possibly next week's Mon-Wed)
                 starts = list(fd) + ([plan_days[-1]] if fdl and plan_days[-1] not in fd else [])
+                if ADD_MIN_DAY is not None:
+                    starts = [s0 for s0 in starts if s0 >= ADD_MIN_DAY] or ([ADD_MIN_DAY] if fdl and ADD_MIN_DAY <= plan_days[-1] else [])
+                if not starts:
+                    continue
                 variants = {(s0, ee) for s0 in starts for ee in {e_last, next((d for d in (fd + fdl) if d >= s0), e_last)}}   # rent him to his last game, or release him after his first game (one-day rentals)
                 variants |= {(s0, None) for s0 in starts}                                                                          # or KEEP him for the rest of the season (a pickup, not a rental)
                 for s_, e_ in variants:
@@ -1507,6 +1514,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
             f, tgt = best["f"], best["tgt"]
             by_day = []
             for d in plan_days:                                         # what the same swap is worth if made on each other day
+                if ADD_MIN_DAY is not None and d < ADD_MIN_DAY:
+                    continue
                 fd2 = option(f, d, best["e"])
                 try:
                     nn = build(cur, fd2, tgt if (tgt is None or tgt.get("_stream") is None or tgt["from"] < d) else None, d)
@@ -1937,11 +1946,16 @@ for t in lg.teams:
     # IR UNLOCK (2026-11-01, Tommy): with a healthy player stashed on IR and a full roster, every add is blocked. Activating him means dropping X (and any add after
     # that drops someone else too). Try the cheapest drops and the sensible days (today, his first game, the first day the plan would want an add); keep him on IR
     # unless activating, plus the adds it unlocks, is worth MIN_NET_GAIN after the cost of losing X.
+    # 2026-11-10 (Tommy, Barnes + Quickley both healthy on IR): adds stay locked while ANY healthy player is on IR, so adds count only when EVERY stashed player is
+    # activated (one drop each). Activating some but not all can still pay for itself on games played, but unlocks nothing. Every subset is tried.
     _stash = [m for m in ir_moves if m["action"] == "stay_ir"]
     if t.team_abbrev == MY_ABBREV and _stash:
+        _hold_eval = dict(STREAM_HOLD_EVAL)
+        _blocked = round(sum(q["gain"] for q in (seq or [])), 1)            # what the plan's adds would be worth if adds were not locked
         try:
-            _hold_eval = dict(STREAM_HOLD_EVAL)
-            _sp = next(p for p in r if p["espn_id"] == _stash[0]["id"])
+            from itertools import combinations
+            _sps = [next(p for p in r if p["espn_id"] == m_["id"]) for m_ in _stash]
+            _spids = {p["espn_id"] for p in _sps}
             _prot = protected_ids(r)
 
             def _val2(ros):
@@ -1953,37 +1967,52 @@ for t in lg.teams:
 
             def _dcost(x):
                 return max(0.0, long_level(x) - _restream) * GAMES_PER_WEEK * _wk_left * reclaim_lose(long_level(x), 2)
-            _xs = sorted([x for x in r if not x["ir"] and not x.get("until") and x["espn_id"] not in _prot and x is not _sp], key=_dcost)[:2]
-            _us = {max(plan_days[0], FIRST_MOVE_DAY)}
-            _us |= set([d for d in plan_days if d >= FIRST_MOVE_DAY and p_play(dict(_sp, ir=False), d) > 0][:1])
-            _us |= set([date.fromisoformat(q["on"]) for q in (seq or []) if q.get("on")][:1])
+            _xs = sorted([x for x in r if not x["ir"] and not x.get("until") and not x.get("_back") and x["espn_id"] not in _prot and x["espn_id"] not in _spids],
+                         key=_dcost)[:len(_sps) + 1]
             _best = None
-            for _u in sorted(_us):
-                for _x in _xs:
-                    _rX = [dict(q, until=_u - timedelta(days=1)) if q is _x else (dict(q, ir=False, **{"from": _u}) if q is _sp else q) for q in r]
-                    _tX, _nX = _val2(_rX)
-                    _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - _dcost(_x)
-                    _sX, _rsX = stream_search(_rX, _tX, c0, steps=min(adds_left, 8)) if (seq and adds_left > 0) else ([], None)
-                    _v = _act + sum(q["gain"] for q in _sX)
-                    if _best is None or _v > _best[0]:
-                        _best = (_v, _u, _x, _rX, _sX, _rsX, _act, dict(STREAM_HOLD_EVAL))
-            _m = _stash[0]
-            _m["blocked"] = round(sum(q["gain"] for q in (seq or [])), 1)       # what the plan's adds would be worth if adds were not locked
+            for _k in range(1, len(_sps) + 1):
+                for _S in combinations(_sps, _k):
+                    _all = _k == len(_sps)
+                    _us = {max(plan_days[0], FIRST_MOVE_DAY)}
+                    _us |= set([d for d in plan_days if d >= FIRST_MOVE_DAY and any(p_play(dict(sp, ir=False), d) > 0 for sp in _S)][:1])
+                    if _all:
+                        _us |= set([date.fromisoformat(q["on"]) for q in (seq or []) if q.get("on")][:1])
+                    for _u in sorted(_us):
+                        for _X in combinations(_xs, _k):
+                            _xid, _sid = {x["espn_id"] for x in _X}, {sp["espn_id"] for sp in _S}
+                            _rX = [dict(q, until=_u - timedelta(days=1)) if q["espn_id"] in _xid else (dict(q, ir=False, **{"from": _u}) if q["espn_id"] in _sid else q) for q in r]
+                            _tX, _nX = _val2(_rX)
+                            _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - sum(_dcost(x) for x in _X)
+                            ADD_MIN_DAY = _u                    # no add before the activations: until then adds are still locked
+                            try:
+                                _sX, _rsX = stream_search(_rX, _tX, c0, steps=min(adds_left, 8)) if (_all and seq and adds_left > 0) else ([], None)
+                            finally:
+                                ADD_MIN_DAY = None
+                            _v = _act + sum(q["gain"] for q in _sX)
+                            if _best is None or _v > _best[0]:
+                                _best = (_v, _u, list(zip(_S, _X)), _rX, _sX, _rsX, _act, dict(STREAM_HOLD_EVAL))
+            for m_ in _stash:
+                m_["blocked"] = _blocked
             if _best and _best[0] >= MIN_NET_GAIN:
-                _v, _u, _x, _rX, _sX, _rsX, _act, _he = _best
+                _v, _u, _pairs, _rX, _sX, _rsX, _act, _he = _best
                 r = _rX
                 total, rows, naive = plan_team(r, c0, detail=True, lateswap=True)
                 plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + _stream + so_far[t.team_id]["pts"]
                 seq, r_stream = _sX, _rsX
-                pickup_checks = {str(k): v for k, v in _he.items()}
-                _m.update({"action": "activate_swap", "on": _u.isoformat(), "drop": {"id": _x["espn_id"], "name": _x["name"], "level": _x["level"], "asset_rank": _x["asset_rank"]},
-                           "unlock": bool(_sX), "act_gain": round(_act, 1), "unlocks": round(_v, 1)})
+                pickup_checks = {str(k): v for k, v in (_he if _sX else _hold_eval).items()}
+                for _i, (sp, x) in enumerate(_pairs):
+                    _m = next(m_ for m_ in _stash if m_["id"] == sp["espn_id"])
+                    _m.update({"action": "activate_swap", "on": _u.isoformat(), "drop": {"id": x["espn_id"], "name": x["name"], "level": x["level"], "asset_rank": x["asset_rank"]},
+                               "unlock": bool(_sX), "act_gain": round(_act, 1) if _i == 0 else None, "unlocks": round(_v, 1) if _i == 0 else None})
             else:
                 seq, r_stream = [], None
                 pickup_checks = {str(k): v for k, v in _hold_eval.items()}
-                _m["best_unlock"] = round(_best[0], 1) if _best else None
-            print("IR unlock:", _m["name"], _m["action"], _m.get("on"), (_m.get("drop") or {}).get("name"), "value", round(_best[0], 1) if _best else None, "blocked adds worth", _m["blocked"])
+                for m_ in _stash:
+                    m_["best_unlock"] = round(_best[0], 1) if _best else None
+            print("IR unlock:", [(m_["name"], m_["action"], m_.get("on"), (m_.get("drop") or {}).get("name")) for m_ in _stash], "value", round(_best[0], 1) if _best else None, "blocked adds worth", _blocked)
         except Exception as _ex:
+            seq, r_stream = [], None                    # adds are locked: never suggest one when the check could not run
+            pickup_checks = {str(k): v for k, v in _hold_eval.items()}
             print("IR unlock check failed:", repr(_ex)[:160])
     _ir_free = max(0, 4 - len([p for p in r if p.get("_ir_now", p["ir"])]))
     # IR STASH (study #7): only when it is free -- an open IR slot AND an add that would otherwise go unused (the matchup's last day, a week already decided, or a
