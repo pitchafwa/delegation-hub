@@ -1,6 +1,7 @@
 {
  "avail_prev": {
   "2566769": "FREEAGENT",
+  "3133628": "WAIVERS",
   "3978": "FREEAGENT",
   "4395626": "FREEAGENT",
   "4431679": "FREEAGENT",
@@ -158,9 +159,9 @@
   "5241364:2026-11-10:jarace walker:today": "2026-11-10"
  },
  "plan_rebuild": {
-  "at": "2026-11-11T12:36:24+00:00",
+  "at": "2026-11-11T16:40:34+00:00",
   "sig": "6430,3059319,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4433134,4594327,4601023,4684740,5041939,5041955,5105565,5106060,5279130",
-  "why": "new free agent(s) to evaluate: Precious Achiuwa"
+  "why": "new free agent(s) to evaluate: Myles Turner"
  },
  "rosterfix_sent": {},
  "sent": {
