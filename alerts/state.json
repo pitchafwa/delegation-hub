@@ -1,11 +1,9 @@
 {
  "avail_prev": {
-  "2566769": "FREEAGENT",
   "3133628": "WAIVERS",
   "3978": "FREEAGENT",
   "4395626": "FREEAGENT",
-  "4431679": "FREEAGENT",
-  "5041951": "FREEAGENT"
+  "4431679": "FREEAGENT"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -78,11 +76,6 @@
    "espn": "ACTIVE",
    "official": null
   },
-  "4601023": {
-   "date": "2026-11-11",
-   "espn": "ACTIVE",
-   "official": null
-  },
   "4684740": {
    "date": "2026-11-11",
    "espn": "ACTIVE",
@@ -123,6 +116,7 @@
  "lu": {},
  "my_drops": {
   "4277811": "2026-11-08",
+  "4601023": "2026-11-11",
   "6589": "2026-11-08"
  },
  "pickup_sent": {},
