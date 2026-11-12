@@ -143,3 +143,18 @@ say("   what that means for a Traore-vs-Wiggins call: two players DELCO has 4 ap
 kk = (P.tr * (P.f15 - P.cur)).sum() / (P.tr ** 2).sum()
 say(f"      next 15 games: gap {4 - kk * 5 - kk * 3:+.1f} instead of +4.0 (k = {kk:.2f})")
 OUT.close()
+
+# ---------------- C. survival curve for the plan (share of pickups still on the team k weeks after the add) ----------------
+OUT = open(D / "pickup_horizon_study.log", "a", encoding="utf-8")
+say("")
+say("C. SHARE OF PICKUPS STILL KEPT k WEEKS LATER (finished stints, 20-35 ppg while kept, all teams; and Tommy's)")
+mid = done[(done.ppg >= 20) & (done.ppg < 35)]
+surv = [round(float(np.mean(mid.days >= 7 * w)), 3) for w in range(1, 21)]
+say("   all teams:", surv)
+say("   Tommy    :", [round(float(np.mean(done[done.team == ME].days >= 7 * w)), 3) for w in range(1, 21)])
+say(f"   sum over weeks 1-20 (weeks of value a kept pickup really gives, vs the plan's 0.6 x weeks left): {sum(surv):.2f}")
+json.dump({"surv_weeks": surv, "note": "share of 20-35 ppg pickups (league, 2023-24..2025-26 + this season finished stints) still on the team k weeks after the add, k=1..20"},
+          open(D / "pickup_survival.json", "w"))
+import shutil  # noqa: E402
+shutil.copy(D / "pickup_survival.json", Path(__file__).resolve().parent / "pickup_survival.json")
+OUT.close()

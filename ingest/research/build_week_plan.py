@@ -1257,6 +1257,31 @@ def long_level(p):
     return FA_ANCHOR + sh * (base - FA_ANCHOR)
 
 
+# PICKUP HORIZON (2026-11-12, Tommy; pickup_horizon_study.py) -- TEST FLAG, off until approved. A pickup is kept a median ~8 days (20-35 ppg adds: 54% still there after a
+# week, 26% after three, 6% after nine), so value after this matchup is (a) the NEXT-FEW-DAYS DELCO level for days 11-14 (season DELCO + his recent minutes / scoring /
+# situation, model A) instead of season DELCO, so a riser (Traore) and a slumper (Wiggins) are judged on where they are heading; and (b) a kept add is credited only for
+# the weeks he is likely to stay (the measured survival curve, ~2.1 weeks in all), not 0.6 x every week left. ON from 2026-11-13 (Tommy approved 11-12); PICKUP_HORIZON=0 = old rules.
+PICKUP_HORIZON = os.environ.get("PICKUP_HORIZON", "1") != "0"
+try:
+    SURV = json.load(open(Path(__file__).resolve().parent / "pickup_survival.json"))["surv_weeks"]       # copied from data/ by pickup_horizon_study.py (in the repo, so the cloud run matches)
+except Exception:
+    SURV = [0.54, 0.35, 0.26, 0.19, 0.16, 0.13, 0.10, 0.07, 0.06, 0.05]
+
+
+def short_level(p):
+    """level for the next two weeks or so: next-few-days DELCO at its furthest bucket (11-14 days), else the long-run level"""
+    if not PICKUP_HORIZON:
+        return long_level(p)
+    if p.get("st_base") is not None and p.get("st_dl") and not p.get("ramp_by_date"):
+        v = max(0.0, p["st_base"] + p["st_dl"][-1])
+        return fa_mark(v) if p.get("is_fa") else v
+    return long_level(p)
+
+
+def kept_weeks(wk_left):
+    return sum(SURV[:max(0, int(wk_left))])
+
+
 # ---------- LEVERAGE (2026-10-24, Tommy). What a move is for is WINS, not points. A point this week is worth what it does to this matchup's win chance; a point in a
 # later week is worth an average close week's rate. Both are put in the same currency by measuring this week's change in win chance against what the same points
 # would do at the start of a coin-flip week, using the live tracker's win model (win_prob_model.json, calibrated on 2025-26):
@@ -1396,7 +1421,7 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
         return a_ + b_
     cand = [f for f in fa_players if any(p_play(f, d) > 0 for d in all_days)][:n_cand]
 
-    LL = long_level
+    LL = short_level                                            # = long_level unless PICKUP_HORIZON
     fl = sorted(LL(f) for f in fa_players if not f.get("waiver"))
     restream = fl[-3] if len(fl) >= 3 else REPL_LEVEL
     wk_left = min(ROS_WEEKS, weeks_after())
@@ -1426,6 +1451,8 @@ def stream_search(r, total, c0, steps=6, extra_protect=frozenset(), n_cand=35):
             c = max(0.0, LL(tgt) - restream) * weighted_games(tgt["team"], tgt) - max(0.0, LL(f) - restream) * weighted_games(f["team"], f)
             return c * (1.0 if c > 0 else 0.6)
         gap = LL(tgt) - LL(f)
+        if PICKUP_HORIZON:                                          # credited (or charged) only for the weeks a pickup really stays
+            return gap * GAMES_PER_WEEK * kept_weeks(wk_left)
         return gap * GAMES_PER_WEEK * wk_left * (1.0 if gap > 0 else 0.6)
 
     def option(f, s_, e_):
@@ -1806,7 +1833,7 @@ def plan_ir(r, mine=True):
             if k not in prot:
                 cand.append(plan[k])                     # the returning player himself, when he is the weakest: he isn't worth a roster spot
             if cand:
-                x = min(cand, key=long_level)
+                x = min(cand, key=short_level)
                 if x["espn_id"] == k:
                     plan[k] = p                          # never comes back into the plan
                 else:
@@ -1962,12 +1989,12 @@ for t in lg.teams:
             def _val2(ros):
                 return plan_team(ros, c0), (plan_team(ros, 0.0, days_=LOOK_DAYS, cap_=NEXT_CAP) if LOOK_DAYS else 0.0)
             _b_this, _b_next = _val2(r)
-            _fl = sorted(long_level(f) for f in fa_players if not f.get("waiver"))
+            _fl = sorted(short_level(f) for f in fa_players if not f.get("waiver"))
             _restream = _fl[-3] if len(_fl) >= 3 else REPL_LEVEL
             _wk_left = min(ROS_WEEKS, weeks_after())
 
             def _dcost(x):
-                return max(0.0, long_level(x) - _restream) * GAMES_PER_WEEK * _wk_left * reclaim_lose(long_level(x), 2)
+                return max(0.0, short_level(x) - _restream) * GAMES_PER_WEEK * _wk_left * reclaim_lose(short_level(x), 2)
             _xs = sorted([x for x in r if not x["ir"] and not x.get("until") and not x.get("_back") and x["espn_id"] not in _prot and x["espn_id"] not in _spids],
                          key=_dcost)[:len(_sps) + 1]
             _best = None
@@ -2074,7 +2101,7 @@ for t in lg.teams:
                 _prot = protected_ids(r)
                 _pool = [p for p in r if not p.get("_ir_now", p["ir"]) and p["espn_id"] not in _prot and int(p["espn_id"]) not in _start_ids]
                 if _pool:
-                    _w = min(_pool, key=long_level)
+                    _w = min(_pool, key=short_level)
                     stash_suggest["drop"] = {"id": _w["espn_id"], "name": _w["name"]}
                 else:
                     stash_suggest = None                # nobody sensible to drop: no stash
