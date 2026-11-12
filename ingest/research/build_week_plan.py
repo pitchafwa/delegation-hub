@@ -656,6 +656,7 @@ for m in raw.get("schedule", []):
             if tp is not None:
                 weekly_actual[m[side]["teamId"]][str(m["matchupPeriodId"])] = round(tp, 1)
 counters = {tm["id"]: tm.get("transactionCounter") or {} for tm in lg.espn_request.league_get(params={"view": "mTeam"}).get("teams", [])}
+UNLOCK_HOLD_COST = bool(os.environ.get("UNLOCK_HOLD_COST"))   # TEST (2026-11-12): price an activation drop as keeping the IR player instead of X for the season (writes week_plan_test.json)
 _c0 = float(os.environ.get("WEEK_C0", 0))     # testing only: pretend every team already has this many starts
 for _k in so_far:
     so_far[_k]["starts"] += _c0
@@ -1153,7 +1154,7 @@ for pl in [x for rr in rosters.values() for x in rr] + fa_players:
                          # added 2026-10-26 with model A: the v1 number it replaced
                          "st_v1": round(pl["st_base"] + pl["st_delta"], 1) if pl.get("st_delta") is not None else ""})
     seen_log.add(key)
-if new_rows and not os.environ.get("PLAN_TODAY") and not _c0:          # a simulated day must never write the projection log the blend study grades
+if new_rows and not os.environ.get("PLAN_TODAY") and not _c0 and not UNLOCK_HOLD_COST and not os.environ.get("UNLOCK_DEBUG"):          # a simulated day must never write the projection log the blend study grades
     fields = list(new_rows[0].keys())
     if LOG.exists():
         with open(LOG, encoding="utf-8") as fh:
@@ -1988,13 +1989,21 @@ for t in lg.teams:
                         _xid, _sid, _rid = {x["espn_id"] for x in _X}, {sp["espn_id"] for sp in _S}, {sp["espn_id"] for sp in _R}
                         _rX = [dict(q, until=_u - timedelta(days=1)) if (q["espn_id"] in _xid or q["espn_id"] in _rid) else (dict(q, ir=False, **{"from": _u}) if q["espn_id"] in _sid else q) for q in r]
                         _tX, _nX = _val2(_rX)
-                        _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - sum(_dcost(x) for x in list(_X) + _R)
+                        if UNLOCK_HOLD_COST:                # a drop to make room is permanent (no spot to re-add him into): his full season edge over a re-stream, no re-add discount
+                            _hc = sum(max(0.0, long_level(x) - _restream) * GAMES_PER_WEEK * _wk_left for x in list(_X) + _R)
+                        else:
+                            _hc = sum(_dcost(x) for x in list(_X) + _R)
+                        _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - _hc
+                        if os.environ.get("UNLOCK_DEBUG"):
+                            print("UNLOCKOPT", _u, "act", [x["name"] for x in _S], "drop", [x["name"] for x in _X], "release", [x["name"] for x in _R], "cost", round(_hc, 1), "act_val", round(_act, 1))
                         ADD_MIN_DAY = _u                    # no add before the IR moves: until then adds are still locked
                         try:
                             _sX, _rsX = stream_search(_rX, _tX, c0, steps=min(adds_left, 8)) if (_all and seq and adds_left > 0) else ([], None)
                         finally:
                             ADD_MIN_DAY = None
                         _v = _act + sum(q["gain"] for q in _sX)
+                        if os.environ.get("UNLOCK_DEBUG"):
+                            print("UNLOCKOPT   adds", [(q["add"]["name"], (q["drop"] or {}).get("name"), q.get("on"), q["gain"]) for q in _sX], "total", round(_v, 1))
                         if _best is None or _v + 0.5 * bool(_R) > _best[0] + 0.5 * bool(_best[8]):     # near-ties go to the simpler move (drop from IR)
                             _best = (_v, _u, list(zip(_S, _X)), _rX, _sX, _rsX, _act, dict(STREAM_HOLD_EVAL), _R)
             for m_ in _stash:
@@ -2234,13 +2243,13 @@ def _slim(o):
 
 _slim(out)
 out["form"] = _FORM_OUT
-OUTP = HUB / ("week_plan.json" if not (_c0 or os.environ.get("PLAN_TODAY")) else "week_plan_test.json")      # test hooks never overwrite the real plan
+OUTP = HUB / os.environ.get("WP_OUT") if os.environ.get("WP_OUT") else HUB / ("week_plan.json" if not (_c0 or os.environ.get("PLAN_TODAY") or UNLOCK_HOLD_COST or os.environ.get("UNLOCK_DEBUG")) else "week_plan_test.json")      # test hooks never overwrite the real plan
 OUTP.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print("wrote", OUTP.name, round(OUTP.stat().st_size / 1024), "KB")
 
 # ---------- ACCOUNTABILITY LEDGER: what we predicted and recommended, appended every run from opening night (grade it against real results later; see ledger/README.md)
 try:
-    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0 and not os.environ.get("PLAN_TODAY"):      # a simulated day (PLAN_TODAY) must never write the real ledger
+    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0 and not os.environ.get("PLAN_TODAY") and not UNLOCK_HOLD_COST and not os.environ.get("UNLOCK_DEBUG"):      # a simulated day (PLAN_TODAY) must never write the real ledger
         LEDGER = HUB.parent / "ledger"
         LEDGER.mkdir(exist_ok=True)
         _lf = LEDGER / f"plan-{today.strftime('%Y-%m')}.jsonl"
