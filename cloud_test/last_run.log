@@ -1,27 +1,27 @@
-[08:15:51] START hashtag_mkt: pull_hashtag_dynasty.py 
-[08:15:52] OK   hashtag_mkt (1s)
-[08:15:52] START espn_adp: pull_espn_adp.py 2027
-[08:15:55] OK   espn_adp (3s)
-[08:15:55] START espn_positions: pull_espn_positions.py 
-[08:15:57] OK   espn_positions (2s)
-[08:15:57] START injury_reports: pull_injury_reports_hourly.py update
-[08:15:59] OK   injury_reports (2s)
-[08:15:59] START espn_box: pull_espn_box.py 2026-27 --prefix 
-[08:16:13] OK   espn_box (14s)
-[08:16:13] START rotation_status: build_rotation_status.py 
-[08:16:14] OK   rotation_status (1s)
-[08:16:14] START gamelogs_unify: build_game_logs.py 
-[08:16:16] OK   gamelogs_unify (2s)
-[08:16:16] START form_split: build_form_split.py 
-[08:16:18] OK   form_split (3s)
-[08:16:18] START matchup_context: build_matchup_context.py 
-[08:16:20] OK   matchup_context (1s)
-[08:16:20] START kalman_inputs: prep_kalman_input.py 
-[08:16:23] OK   kalman_inputs (4s)
-[08:16:23] START kalman_trajectories: kalman_vor.py 
-[08:17:40] OK   kalman_trajectories (77s)
-[08:17:40] START prospect_trajectories: project_prospect_trajectory.py 
-[08:18:29] OK   prospect_trajectories (48s)
+[08:15:55] START hashtag_mkt: pull_hashtag_dynasty.py 
+[08:15:56] OK   hashtag_mkt (1s)
+[08:15:56] START espn_adp: pull_espn_adp.py 2027
+[08:15:59] OK   espn_adp (3s)
+[08:15:59] START espn_positions: pull_espn_positions.py 
+[08:16:01] OK   espn_positions (2s)
+[08:16:01] START injury_reports: pull_injury_reports_hourly.py update
+[08:16:02] OK   injury_reports (2s)
+[08:16:02] START espn_box: pull_espn_box.py 2026-27 --prefix 
+[08:16:15] OK   espn_box (13s)
+[08:16:15] START rotation_status: build_rotation_status.py 
+[08:16:16] OK   rotation_status (1s)
+[08:16:16] START gamelogs_unify: build_game_logs.py 
+[08:16:18] OK   gamelogs_unify (2s)
+[08:16:18] START form_split: build_form_split.py 
+[08:16:21] OK   form_split (3s)
+[08:16:21] START matchup_context: build_matchup_context.py 
+[08:16:22] OK   matchup_context (1s)
+[08:16:22] START kalman_inputs: prep_kalman_input.py 
+[08:16:25] OK   kalman_inputs (3s)
+[08:16:25] START kalman_trajectories: kalman_vor.py 
+[08:17:42] OK   kalman_trajectories (77s)
+[08:17:42] START prospect_trajectories: project_prospect_trajectory.py 
+[08:18:29] OK   prospect_trajectories (47s)
 [08:18:29] START asset_value: asset_value_v2.py 
 [08:18:34] OK   asset_value (5s)
 [08:18:34] START injury_rows: injury_playrate_study.py 
@@ -37,10 +37,10 @@
 [08:20:04] START darko_log: pull_darko.py 
 [08:20:04] OK   darko_log (0s)
 [08:20:04] START build_redraft: build_redraft.py 
-[08:20:11] OK   build_redraft (7s)
+[08:20:11] OK   build_redraft (6s)
 [08:20:11] START pull_player_news: pull_player_news.py 
-[08:20:20] OK   pull_player_news (9s)
-[08:20:20] START trade_board: build_trade_board.py 
-[08:25:09] OK   trade_board (289s)
-[08:25:09] --no-push: skipping git
-[08:25:09] DONE ok=True 
+[08:20:19] OK   pull_player_news (8s)
+[08:20:19] START trade_board: build_trade_board.py 
+[08:25:51] OK   trade_board (332s)
+[08:25:51] --no-push: skipping git
+[08:25:51] DONE ok=True 
