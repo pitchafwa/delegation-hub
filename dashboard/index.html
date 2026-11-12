@@ -1797,6 +1797,7 @@ function renderWeek(){
   const irLine=m=>m.action==='to_ir'?`<b>${pc(m.name)}</b> <span class="liveStatus">${esc(m.status)}</span> → move to an open IR slot <span class="hint">(free, and it frees a roster spot)</span>`
     :m.action==='activate'?`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot, so he can't play → move him to your bench or lineup`
     :m.action==='activate_swap'?`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → activate him and drop <b>${pc(m.drop.name)}</b> <span class="hint">${m.drop.level} pts/g${m.drop.asset_rank?' · keeper rank #'+m.drop.asset_rank:''}</span>`
+    :m.action==='release_ir'?`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → drop him straight from IR <span class="hint">${m.level} pts/g</span>`
     :m.action==='stay_ir'?`<b>${pc(m.name)}</b> is healthy but kept on IR → holds an extra player; adds stay locked while he's there`
     :m.action==='return'?`<b>${pc(m.name)}</b> <span class="liveStatus">${esc(m.status)}</span> → back ${fmtDow(m.on)} (ESPN's date)${m.drop?(m.drop.id===m.id?'; not worth a roster spot: drop him then':`; drop <b>${pc(m.drop.name)}</b> that day to make room`):''}`
     :`<b>${pc(m.name)}</b> is healthy but sitting in an IR slot → he can't play until you free a roster spot for him`;
@@ -1864,8 +1865,9 @@ function renderWeek(){
   const PAIRED=id=>{ const p=T.stash_suggest&&T.stash_suggest.pair; return !!(p&&Number(p.id)===Number(id)); };   // this move's drop already went to the IR stash
   if(isMe){
     (T.ir_moves||[]).forEach(m=>{
-      if(m.action==='stay_ir'){ doItems.push({when:'Hold',what:`Keep ${m.name} on IR`,sub:`Healthy, so adds stay locked while he's there.${m.blocked>0.5?` Unlocking them costs two drops, which this week's adds aren't worth.`:''}`,gain:''}); return; }
+      if(m.action==='stay_ir'){ doItems.push({when:'Hold',what:`Keep ${m.name} on IR`,sub:`Healthy, so adds stay locked while he's there.${m.blocked>0.5?` Freeing them (activate him with a drop, or drop him) isn't worth it this week.`:''}`,gain:''}); return; }
       if(m.action==='return'){ if(m.drop) doItems.push({keep:m.drop.id!==m.id&&!PAIRED(m.id)?m.drop:null,at:m.on,when:dShort(m.on),what:m.drop.id===m.id?`Drop ${m.name}`:(PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${m.drop.name}`),sub:`Back ${dShort(m.on)} by ESPN's date. Wait for him to come off the injury list.`,gain:''}); return; }
+            if(m.action==='release_ir'){ doItems.push({at:m.on&&m.on>todayIso?m.on:todayIso,when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:`Drop ${m.name} from IR`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
             if(m.action==='activate_swap'){ doItems.push({keep:m.drop&&m.drop.id!==m.id&&!PAIRED(m.id)?m.drop:null,at:m.on&&m.on>todayIso?m.on:todayIso,when:m.on&&m.on>todayIso?dShort(m.on):'Now',what:PAIRED(m.id)?`Activate ${m.name} (no drop: spot opened by the IR stash)`:`Activate ${m.name}, drop ${(m.drop||{}).name||'?'}`,sub:m.unlock?'Unlocks your adds (blocked while a healthy player is on IR). Do it before the adds below.':'He plays and beats the player dropped.',gain:m.unlocks!=null?sgn0(m.unlocks):''}); return; }
       doItems.push({when:'Now',what:({to_ir:`Move ${m.name} to an open IR slot`,activate:`Activate ${m.name} from IR`})[m.action]||`Free a roster spot for ${m.name}`,sub:'Free move, do it first',gain:''}); });
     if(dayRow&&dayRow.locked) doItems.push({when:'Today',what:'Cap reached: nothing counts today',sub:'',gain:''});
@@ -2488,7 +2490,7 @@ function pcHtml(P){
     const myDays=(T.days_after&&(T.sequence||[]).length)?T.days_after:(T.days||[]);
     const nextStart=myDays.map(dd=>({dd,x:(dd.start||[]).find(x=>Number(x.id)===pid)})).find(o=>o.x);
     inPlan=!!(a||d||(T.stash_suggest&&Number(T.stash_suggest.id)===pid)||(isMine&&nextStart));
-    if(a){ const claim=!!a.add.waiver; plan=`${claim?'Claim '+(waiver&&waiver.date&&new Date(waiver.date+'T12:00:00')-new Date(todayIso+'T12:00:00')<=864e5?'tonight':'before '+esc(waiver.when)):'Add '+dayLbl(a.on)}, drop ${esc(a.drop?a.drop.name:'nobody')} · <b>${a.gain>=0?'+':''}${a.gain.toFixed(0)}</b>`; }
+    if(a){ const claim=!!(a.add.waiver&&a.add.waiver.date&&a.on&&a.on<=a.add.waiver.date); plan=`${claim?'Claim '+(waiver&&waiver.date&&new Date(waiver.date+'T12:00:00')-new Date(todayIso+'T12:00:00')<=864e5?'tonight':'before '+esc(waiver.when)):'Add '+dayLbl(a.on)}, drop ${esc(a.drop?a.drop.name:'nobody')} · <b>${a.gain>=0?'+':''}${a.gain.toFixed(0)}</b>`; }
     else if(d) plan=`Dropped ${dayLbl(d.on)} for ${esc(d.add.name)}`;
     else if(T.stash_suggest&&Number(T.stash_suggest.id)===pid) plan=`Add him${T.stash_suggest.drop?', drop '+esc(T.stash_suggest.drop.name):''}, then move him to IR`;
     else if(isMine&&slot) plan=`Starting tonight at ${esc(slot.slot)} · projected <b>${(slot.p>0?slot.ef/slot.p:slot.ef).toFixed(0)}</b>`;

@@ -247,7 +247,8 @@ def digest(kind):
         for m in T["ir_moves"][:3]:
             lines.append({"to_ir": f"IR: move {m['name']} ({STATUS_WORD.get(m['status'], m['status'].lower())}) to an open IR slot", "activate": f"IR: {m['name']} is healthy but stuck in IR, activate him",
                           "activate_swap": f"IR: activate {m['name']} and drop {m.get('drop', {}).get('name', '?')}" + (f" on {date.fromisoformat(m['on']).strftime('%a')}" if m.get("on") and m["on"] > TODAY.isoformat() else "") + (" (unlocks adds)" if m.get("unlock") else ""),
-                          "stay_ir": f"IR: keep {m['name']} on IR (healthy, so adds stay locked; no add is worth two drops)",
+                          "release_ir": f"IR: drop {m['name']} straight from IR" + (f" on {date.fromisoformat(m['on']).strftime('%a')}" if m.get("on") and m["on"] > TODAY.isoformat() else "") + (" (unlocks adds)" if m.get("unlock") else ""),
+                          "stay_ir": f"IR: keep {m['name']} on IR (healthy, so adds stay locked; freeing them is not worth it this week)",
                           "return": f"IR: {m['name']} back {date.fromisoformat(m['on']).strftime('%a') if m.get('on') else 'soon'} (ESPN's date)" + ((", not worth a spot: drop him then" if m["drop"]["id"] == m["id"] else f", drop {m['drop']['name']} then") if m.get("drop") else "")}.get(m["action"], f"IR: {m['name']}: {m['action']}"))
     mv = best_moves(T, 5 if kind == "weekly" else 3)
     adds_left = M["adds_limit"] - T.get("adds_used", 0)
@@ -680,7 +681,7 @@ def ir_back_alert(T, s, mine, off, can_send):
                 sent[f"irq:{p.playerId}:{TODAY.isoformat()}"] = TODAY.isoformat()
                 request_rebuild(s, f"{p.name} back from IR ({e})")
             continue
-        if pm["action"] not in ("activate", "activate_swap") or (pm.get("on") or TODAY.isoformat()) > TODAY.isoformat():
+        if pm["action"] not in ("activate", "activate_swap", "release_ir") or (pm.get("on") or TODAY.isoformat()) > TODAY.isoformat():
             continue
         if lock is not None and NOW >= lock - timedelta(minutes=5):
             continue
@@ -694,11 +695,13 @@ def ir_back_alert(T, s, mine, off, can_send):
         body = f"ESPN lists him {STATUS_WORD.get(e, e.lower())}" + (f" (injury report: {o})" if o else "") + ". He can't score from IR."
         if pm["action"] == "activate_swap" and pm.get("drop"):
             body += f" Activate him and drop {pm['drop']['name']}."
+        elif pm["action"] == "release_ir":
+            body += " Drop him straight from IR: that unlocks your adds."
         if lock is not None:
             body += f" Do it before {_fmt_t(lock)}, when roster moves lock for today."
         if pm.get("unlocks") and pm["unlocks"] > 0.5:
             body += f" +{pm['unlocks']:.0f} pts this week."
-        if push(f"Activate {p.name} from IR", body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
+        if push(f"{'Drop' if pm['action'] == 'release_ir' else 'Activate'} {p.name} from IR", body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
             sent[key] = TODAY.isoformat()
 
 

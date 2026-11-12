@@ -1970,31 +1970,37 @@ for t in lg.teams:
             _xs = sorted([x for x in r if not x["ir"] and not x.get("until") and not x.get("_back") and x["espn_id"] not in _prot and x["espn_id"] not in _spids],
                          key=_dcost)[:len(_sps) + 1]
             _best = None
-            for _k in range(1, len(_sps) + 1):
-                for _S in combinations(_sps, _k):
-                    _all = _k == len(_sps)
-                    _us = {max(plan_days[0], FIRST_MOVE_DAY)}
-                    _us |= set([d for d in plan_days if d >= FIRST_MOVE_DAY and any(p_play(dict(sp, ir=False), d) > 0 for sp in _S)][:1])
-                    if _all:
-                        _us |= set([date.fromisoformat(q["on"]) for q in (seq or []) if q.get("on")][:1])
-                    for _u in sorted(_us):
-                        for _X in combinations(_xs, _k):
-                            _xid, _sid = {x["espn_id"] for x in _X}, {sp["espn_id"] for sp in _S}
-                            _rX = [dict(q, until=_u - timedelta(days=1)) if q["espn_id"] in _xid else (dict(q, ir=False, **{"from": _u}) if q["espn_id"] in _sid else q) for q in r]
-                            _tX, _nX = _val2(_rX)
-                            _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - sum(_dcost(x) for x in _X)
-                            ADD_MIN_DAY = _u                    # no add before the activations: until then adds are still locked
-                            try:
-                                _sX, _rsX = stream_search(_rX, _tX, c0, steps=min(adds_left, 8)) if (_all and seq and adds_left > 0) else ([], None)
-                            finally:
-                                ADD_MIN_DAY = None
-                            _v = _act + sum(q["gain"] for q in _sX)
-                            if _best is None or _v > _best[0]:
-                                _best = (_v, _u, list(zip(_S, _X)), _rX, _sX, _rsX, _act, dict(STREAM_HOLD_EVAL))
+            # 2026-11-12 (Tommy, Traore): each healthy IR player can also simply be DROPPED straight from IR. That frees the lock with no other drop, and is the
+            # cheap way out when he is the weakest player anyway (the plan had activated Traore by dropping Wiggins, then dropped Traore three days later).
+            from itertools import product
+            for _ch in product(("stay", "act", "rel"), repeat=len(_sps)):
+                if all(c_ == "stay" for c_ in _ch):
+                    continue
+                _S = [sp for sp, c_ in zip(_sps, _ch) if c_ == "act"]
+                _R = [sp for sp, c_ in zip(_sps, _ch) if c_ == "rel"]
+                _all = "stay" not in _ch
+                _us = {max(plan_days[0], FIRST_MOVE_DAY)}
+                _us |= set([d for d in plan_days if d >= FIRST_MOVE_DAY and any(p_play(dict(sp, ir=False), d) > 0 for sp in _S)][:1])
+                if _all:
+                    _us |= set([date.fromisoformat(q["on"]) for q in (seq or []) if q.get("on")][:1])
+                for _u in sorted(_us):
+                    for _X in combinations(_xs, len(_S)):
+                        _xid, _sid, _rid = {x["espn_id"] for x in _X}, {sp["espn_id"] for sp in _S}, {sp["espn_id"] for sp in _R}
+                        _rX = [dict(q, until=_u - timedelta(days=1)) if (q["espn_id"] in _xid or q["espn_id"] in _rid) else (dict(q, ir=False, **{"from": _u}) if q["espn_id"] in _sid else q) for q in r]
+                        _tX, _nX = _val2(_rX)
+                        _act = this_week_value(_tX - _b_this, 0.0) + NEXT_WEEK_P * (_nX - _b_next) - sum(_dcost(x) for x in list(_X) + _R)
+                        ADD_MIN_DAY = _u                    # no add before the IR moves: until then adds are still locked
+                        try:
+                            _sX, _rsX = stream_search(_rX, _tX, c0, steps=min(adds_left, 8)) if (_all and seq and adds_left > 0) else ([], None)
+                        finally:
+                            ADD_MIN_DAY = None
+                        _v = _act + sum(q["gain"] for q in _sX)
+                        if _best is None or _v + 0.5 * bool(_R) > _best[0] + 0.5 * bool(_best[8]):     # near-ties go to the simpler move (drop from IR)
+                            _best = (_v, _u, list(zip(_S, _X)), _rX, _sX, _rsX, _act, dict(STREAM_HOLD_EVAL), _R)
             for m_ in _stash:
                 m_["blocked"] = _blocked
             if _best and _best[0] >= MIN_NET_GAIN:
-                _v, _u, _pairs, _rX, _sX, _rsX, _act, _he = _best
+                _v, _u, _pairs, _rX, _sX, _rsX, _act, _he, _rel = _best
                 r = _rX
                 total, rows, naive = plan_team(r, c0, detail=True, lateswap=True)
                 plans[t.team_id] = total * owner_eff(t.team_id, t.team_abbrev) + _stream + so_far[t.team_id]["pts"]
@@ -2004,6 +2010,11 @@ for t in lg.teams:
                     _m = next(m_ for m_ in _stash if m_["id"] == sp["espn_id"])
                     _m.update({"action": "activate_swap", "on": _u.isoformat(), "drop": {"id": x["espn_id"], "name": x["name"], "level": x["level"], "asset_rank": x["asset_rank"]},
                                "unlock": bool(_sX), "act_gain": round(_act, 1) if _i == 0 else None, "unlocks": round(_v, 1) if _i == 0 else None})
+                for _j, sp in enumerate(_rel):
+                    _m = next(m_ for m_ in _stash if m_["id"] == sp["espn_id"])
+                    _first = not _pairs and _j == 0
+                    _m.update({"action": "release_ir", "on": _u.isoformat(), "drop": {"id": sp["espn_id"], "name": sp["name"], "level": sp["level"], "asset_rank": sp["asset_rank"]},
+                               "unlock": bool(_sX), "act_gain": round(_act, 1) if _first else None, "unlocks": round(_v, 1) if _first else None})
             else:
                 seq, r_stream = [], None
                 pickup_checks = {str(k): v for k, v in _hold_eval.items()}
