@@ -915,7 +915,7 @@ async function hzSave(h){
     const r=await fetch(`https://api.github.com/repos/${SL_REPO}/actions/workflows/site-setting.yml/dispatches`,{method:'POST',headers:Object.assign(ghH(),{'Content-Type':'application/json'}),body:JSON.stringify({ref:'main',inputs:{horizon:String(h)}})});
     if(r.status!==204) throw new Error(r.status===401||r.status===403?'GitHub rejected the key (it needs Actions read and write on this repository).':'GitHub returned status '+r.status);
     HZ_SAVED=h; try{localStorage.removeItem('hubHZ');}catch(_){}
-    say('<b style="color:var(--good)">Saved: '+h+' seasons.</b> The plan rebuilds in about 2 minutes; the trade board follows at the next morning run.');
+    say('<b style="color:var(--good)">Saved: '+h+' seasons.</b> The plan and trade board use it from their next scheduled runs.');
   }catch(e){ say(`<span style="color:var(--warn)">${esc(e.message)}</span>`); }
   HZ_BUSY=false;
 }

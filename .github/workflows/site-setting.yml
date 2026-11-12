@@ -2,7 +2,8 @@ name: Site setting (value horizon slider on the site)
 
 # The value-horizon slider (More > Settings, and the Dynasty board) dispatches this with the GitHub token Tommy pasted into his own browser. It saves the setting in
 # dashboard/site_settings.json, re-picks every player's asset value at that horizon in hub_data.json (apply_horizon.py: the nightly build already stores every
-# horizon), and rebuilds the plan. The trade board follows at the next morning refresh. One run at a time; a newer setting simply lands on top.
+# horizon). No plan rebuild (2026-11-12, Tommy): the horizon only moves which players count as protected keepers; the next scheduled plan run (4 a day)
+# and the morning trade board pick it up. One run at a time; a newer setting simply lands on top.
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +13,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 concurrency:
   group: site-setting
@@ -44,9 +44,3 @@ jobs:
             git push -q origin HEAD:main && break
             sleep $((i * 3))
           done
-
-      - name: Rebuild the plan
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run refresh-gameday.yml --ref main || echo "dispatch failed"
