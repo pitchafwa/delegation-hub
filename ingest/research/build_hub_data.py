@@ -211,6 +211,24 @@ def _nk(n):
 _hk = pd.read_csv(ROOT / "data" / "hashtag_dynasty_latest.csv")
 MARKET = {_nk(r.player): int(r.rank) for r in _hk.itertuples()}
 ASSET_BY_PID = {int(r.PLAYER_ID): [round(float(getattr(r, c)), 1) for c in _avcols] for r in _av.itertuples()}
+# VALUE HORIZON (2026-11-12, Tommy): how many seasons count in asset value is a site setting (dashboard/site_settings.json, 1-10; the career chart still shows 10).
+# asset_k / ceil_asset_k = the values at the saved horizon (what the plan, trade engine and keeper tools read); asset_kh / ceil_asset_kh = every horizon, for the page's slider.
+try:
+    VALUE_H = int(json.loads((ROOT.parent.parent / "dashboard" / "site_settings.json").read_text(encoding="utf-8")).get("horizon", 10))
+except Exception:
+    VALUE_H = 10
+VALUE_H = max(1, min(10, VALUE_H))
+ASSET_KH, CEIL_KH = {}, {}
+for _f, _dst in (("asset_value_byh", ASSET_KH), ("ceiling_byh", CEIL_KH)):
+    try:
+        _b = pd.read_csv(ROOT / "data" / f"{_f}{SFX}.csv")
+        for r in _b.itertuples(index=False):
+            _dst[int(r.PLAYER_ID)] = [[round(float(getattr(r, f"h{h}_{k}")), 1) for k in range(20)] for h in range(1, 11)]
+    except FileNotFoundError:
+        print(f"{_f}: missing, value horizon fixed at 10")
+if ASSET_KH:
+    ASSET_BY_PID = {pid: v[VALUE_H - 1] for pid, v in ASSET_KH.items()}
+print("value horizon:", VALUE_H, "seasons")
 # THIN-SAMPLE SHRINKAGE. The Kalman path trusts a short NBA record almost as much as a long one, so a player who got 13 games of big minutes (Julian Reese: 13 games, 31 mpg, 35.8 points
 # per game) was projected at 35.9 for a full season. Fitted on 2010-2024 player-seasons (390 players with <=30 games and little earlier NBA time, who then played 15+ games the next year):
 # next-year points per game = 14.6 + (this year - 14.6) x G / (G + 30.5). Rows error 6.7 vs 8.8 unshrunk. Applied to players with <=40 career games in our box scores and no draft-based
@@ -240,7 +258,8 @@ for _, r in current.iterrows():
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
         "market_rank": MARKET.get(_nk(r["player"])),
         "ceil_path": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("path"),
-        "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
+        "ceil_asset_k": (CEIL_KH[int(r["PLAYER_ID"])][VALUE_H - 1] if int(r["PLAYER_ID"]) in CEIL_KH else (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset")),
+        "asset_kh": ASSET_KH.get(int(r["PLAYER_ID"])), "ceil_asset_kh": CEIL_KH.get(int(r["PLAYER_ID"])),
         "player": r["player"],
         "pos": pos if pd.notna(pos) else None,
         "team": ESPN_TEAM.get(int(r["PLAYER_ID"])) or (r["TEAM_ABBREVIATION"] if pd.notna(r.get("TEAM_ABBREVIATION")) else None),
@@ -372,7 +391,8 @@ for _, r in prospects.iterrows():
         "asset_k": ASSET_BY_PID.get(int(r["PLAYER_ID"])),
         "market_rank": MARKET.get(_nk(r["player"])),
         "ceil_path": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("path"),
-        "ceil_asset_k": (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset"),
+        "ceil_asset_k": (CEIL_KH[int(r["PLAYER_ID"])][VALUE_H - 1] if int(r["PLAYER_ID"]) in CEIL_KH else (CEIL.get(int(r["PLAYER_ID"])) or {}).get("asset")),
+        "asset_kh": ASSET_KH.get(int(r["PLAYER_ID"])), "ceil_asset_kh": CEIL_KH.get(int(r["PLAYER_ID"])),
         "brk_tier": "rookie" if pd.notna(r.get("rk_p")) else None,
         "p_break": round_or_none(r.get("rk_p"), 3), "p_break_base": round_or_none(r.get("rk_pbase"), 3),
         "proj_fpg": round_or_none(r.get("rk_proj"), 1), "proj_lo": round_or_none(r.get("rk_lo"), 1), "proj_hi": round_or_none(r.get("rk_hi"), 1),
@@ -434,6 +454,7 @@ out = {
     "opportunity_cost": {"floor": OPP_FLOOR, "amp": OPP_AMP, "tau": OPP_TAU},
     "injury_meta": INJ_META,
     "horizon_years": HORIZON_YEARS,
+    "value_horizon": VALUE_H,
     "default_keepers": 3,
     "note": "VOR is computed live in the browser from each player's raw trajectory + the "
             "opportunity-cost curve (same real formula fit from this league's own draft "
@@ -451,11 +472,14 @@ OUT_PATH.write_text(json.dumps(out, indent=None, allow_nan=False), encoding="utf
 _kh_p = OUT_PATH.parent / "keeper_history.json"
 _kh = json.loads(_kh_p.read_text(encoding="utf-8")) if _kh_p.exists() else {"k": 5, "dates": [], "v": {}}
 _day = _dt.datetime.now(__import__("zoneinfo").ZoneInfo("America/New_York")).date().isoformat()
+_kh.setdefault("hz", [10] * len(_kh["dates"]))          # value horizon each day's numbers used (the page only compares days with the same horizon)
 if _kh["dates"] and _kh["dates"][-1] == _day:
     for _v in _kh["v"].values():
         _v.pop()
+    _kh["hz"][-1] = VALUE_H
 else:
     _kh["dates"].append(_day)
+    _kh["hz"].append(VALUE_H)
 _n = len(_kh["dates"])
 for _pl in out["players"]:
     _a = _pl.get("asset_k")

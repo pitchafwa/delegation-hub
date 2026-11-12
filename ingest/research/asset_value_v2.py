@@ -45,6 +45,9 @@ NTEAMS, H, REPL, LAST_YR, DELTA = 12, 10, 22.0, 2025, 0.95  # 10-season horizon 
 # boosted year-1 level becomes the baseline every later season builds on (level shift for all years). Variant files get a _carry suffix.
 CTX_MODE = os.environ.get("CTX_MODE", "decay")
 SFX = "_carry" if CTX_MODE == "carry" else ""
+H_VAL = int(os.environ.get("H_VAL", H))   # seasons summed into ASSET VALUE (the paths themselves, and the career graph, still run H = 10 seasons)
+if H_VAL != H:
+    SFX += f"_h{H_VAL}"
 
 # ------------------------------------------------------------------ vet panel with outcomes at +1..+6
 panel = pd.read_csv(D / "breakout_panel_ctx2.csv")
@@ -484,17 +487,19 @@ gp_, Rp, Pp = analog_vectors_pro()
 C_p = ceiling_paths(E_p, np.digitize(pr_pick, [4, 11, 31]), gp_, Rp, Pp)
 
 
-def total_value(k, delta=DELTA):
+def total_value(k, delta=DELTA, by_h=False):
+    """asset value at k keepers summed over H_VAL seasons; by_h=True returns the running sum after every season 1..H (one column per value horizon)"""
     c_future = max(cut(k), REPL)
     v_vet = np.zeros(len(live)); v_pro = np.zeros(len(pros))
-    for h in range(1, H + 1):
+    cums = []
+    for h in range(1, (H if by_h else H_VAL) + 1):
         c = REPL if h == 1 else c_future
-        if not np.isfinite(cut(k)) and h > 1:
-            continue
-        wgt = delta ** (h - 1)
-        v_vet += wgt * fc.value(live, live_age_next, h, c, mu=EA_v[:, h - 1])
-        v_pro += wgt * prospect_value(pr_pick, pr_age, h, c, mu=EA_p[:, h - 1])
-    return np.concatenate([v_vet, v_pro])
+        if not (not np.isfinite(cut(k)) and h > 1):
+            wgt = delta ** (h - 1)
+            v_vet += wgt * fc.value(live, live_age_next, h, c, mu=EA_v[:, h - 1])
+            v_pro += wgt * prospect_value(pr_pick, pr_age, h, c, mu=EA_p[:, h - 1])
+        cums.append(np.concatenate([v_vet, v_pro]))
+    return cums if by_h else np.concatenate([v_vet, v_pro])
 
 
 res = pd.DataFrame({"player": list(live["PLAYER_NAME"]) + [q["player"] for q in pros],
@@ -506,19 +511,26 @@ for k in range(20):       # all keeper counts the dashboard slider can pick
     res[f"av{k}"] = total_value(k)
 res["exp_y1"] = y1
 res.to_csv(D / f"asset_value{SFX}.csv", index=False)
+# VALUE HORIZON (2026-11-12, Tommy): the site picks how many seasons count (site_settings.json "horizon", 1-10); every horizon x keeper count, for the slider and the nightly pick
+_byh = res[["PLAYER_ID"]].copy()
+for k in range(20):
+    for h, v in enumerate(total_value(k, by_h=True), start=1):
+        _byh[f"h{h}_{k}"] = np.round(v, 2)
+_byh.to_csv(D / f"asset_value_byh{SFX}.csv", index=False)
 
 
-def ceiling_asset(C, k):
+def ceiling_asset(C, k, by_h=False):
     """asset value of the 90th-percentile career treated as the realized path (no extra spread): sum of discounted
-    surplus over the keep cutoff in each year he clears it -- same rules as total_value"""
+    surplus over the keep cutoff in each year he clears it -- same rules as total_value (by_h: running sum after each season)"""
     out = np.zeros(len(C))
+    cums = []
     c_future = max(cut(k), REPL)
-    for h in range(1, H + 1):
-        if not np.isfinite(cut(k)) and h > 1:
-            continue
-        c = REPL if h == 1 else c_future
-        out += DELTA ** (h - 1) * np.maximum(C[:, h - 1] - c, 0.0)
-    return out
+    for h in range(1, (H if by_h else H_VAL) + 1):
+        if not (not np.isfinite(cut(k)) and h > 1):
+            c = REPL if h == 1 else c_future
+            out = out + DELTA ** (h - 1) * np.maximum(C[:, h - 1] - c, 0.0)
+        cums.append(out.copy())
+    return cums if by_h else out
 
 
 C_all = np.vstack([C_v, C_p])
@@ -528,6 +540,11 @@ cp["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 for k in range(20):
     cp[f"CA{k}"] = ceiling_asset(C_price, k)
 cp.to_csv(D / f"ceiling_paths{SFX}.csv", index=False)
+_cbyh = cp[["PLAYER_ID"]].copy()
+for k in range(20):
+    for h, v in enumerate(ceiling_asset(C_price, k, by_h=True), start=1):
+        _cbyh[f"h{h}_{k}"] = np.round(v, 2)
+_cbyh.to_csv(D / f"ceiling_byh{SFX}.csv", index=False)
 up = pd.DataFrame(np.vstack([E_v, E_p]), columns=[f"E{h}" for h in range(1, H + 1)])
 up["PLAYER_ID"] = list(live["PLAYER_ID"]) + [int(q["id"][1:]) for q in pros]
 up["kind"] = ["current"] * len(live) + ["prospect"] * len(pros)
