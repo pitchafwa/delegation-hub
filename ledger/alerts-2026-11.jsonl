@@ -71,3 +71,5 @@
 {"kind":"alert","ts":"2026-11-12T14:43:28-05:00","title":"Activate Nolan Traore from IR","body":"ESPN lists him day-to-day. He can't score from IR. Activate him and drop Andrew Wiggins. Do it before 7pm, when roster moves lock for today. +102 pts this week.","priority":4}
 {"kind":"alert","ts":"2026-11-13T13:01:10-05:00","title":"Swap out Dejounte Murray by 8pm","body":"Dejounte Murray (UT) is doubtful (injury report).\nStart Andrew Wiggins at UT (~28 pts).","priority":4}
 {"kind":"late_scratch","ts":"2026-11-13T13:01:10-05:00","player":"Dejounte Murray","stage":1,"mins_to_tip":419,"swap":"Andrew Wiggins"}
+{"kind":"alert","ts":"2026-11-13T14:42:54-05:00","title":"Now: add Javon Small","body":"Drop Andrew Wiggins before 7pm, when today's first game locks roster moves. Rental: drop him after tomorrow's game, +12 pts. If he's gone: Kelly Oubre Jr..","priority":4}
+{"kind":"alert","ts":"2026-11-13T14:42:54-05:00","title":"Drop Nolan Traore from IR","body":"ESPN lists him day-to-day. He can't score from IR. Drop him straight from IR: that unlocks your adds. Do it before 7pm, when roster moves lock for today. +11 pts this week.","priority":4}
