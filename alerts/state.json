@@ -19,108 +19,106 @@
  },
  "last_status": {
   "3059319": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "3135045": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "3907497": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4431785": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "4432194": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "OUT",
-   "official": "Out"
+   "official": null
   },
   "4593125": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4594327": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "5241364": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "ACTIVE",
    "official": null
   },
   "5279130": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "DAY_TO_DAY",
    "official": null
   },
   "6430": {
-   "date": "2026-11-12",
+   "date": "2026-11-13",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "league_req": "2026-10-26",
  "lu": {},
  "my_drops": {
-  "4277811": "2026-11-08",
   "4601023": "2026-11-11",
-  "5106060": "2026-11-12",
-  "6589": "2026-11-08"
+  "5106060": "2026-11-12"
  },
  "pickup_sent": {},
  "plan_announced": {
