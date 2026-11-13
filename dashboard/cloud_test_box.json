@@ -1,11 +1,11 @@
 {
- "date": "2026-11-12",
- "through": "2026-11-11",
- "games_nba": 170,
- "games_espn": 170,
- "player_games_nba": 3843,
- "player_games_espn": 3844,
- "matched": 3843,
+ "date": "2026-11-13",
+ "through": "2026-11-12",
+ "games_nba": 174,
+ "games_espn": 174,
+ "player_games_nba": 3933,
+ "player_games_espn": 3934,
+ "matched": 3933,
  "only_nba": [],
  "only_nba_n": 0,
  "only_espn": [
@@ -29,8 +29,8 @@
   "DREB": 7,
   "PF": 0
  },
- "fp_exact": 0.9935,
- "fp_within_2": 0.9984,
+ "fp_exact": 0.9936,
+ "fp_within_2": 0.9985,
  "fp_mean_abs": 0.012,
  "fp_max": 3.0,
  "fp_worst": [
@@ -51,12 +51,12 @@
   "injury -> away": 1,
   "injury -> coach": 22,
   "not listed -> away": 12,
-  "not listed -> coach": 204,
-  "not listed -> g_league": 224,
-  "not listed -> injury": 603
+  "not listed -> coach": 209,
+  "not listed -> g_league": 231,
+  "not listed -> injury": 626
  },
- "reasons_same": 4839,
- "rotation_out_nba": 50,
+ "reasons_same": 4943,
+ "rotation_out_nba": 47,
  "rotation_out_espn": 69,
  "rotation_only_nba": [
   "ernest udeh jr"
@@ -64,11 +64,14 @@
  "rotation_only_espn": [
   "blake hinson",
   "blake wesley",
+  "caleb love",
   "cam whitmore",
   "chris manon",
   "christopher cenac jr",
   "devin carter",
   "enrique freeman",
+  "felix okpara",
+  "grant williams",
   "jaden akins",
   "jakobi gillespie",
   "jayson kent",
@@ -78,9 +81,9 @@
   "khalifa diop",
   "kylan boswell",
   "nikola topic",
+  "rayan rupert",
   "ryan nembhard",
   "sean pedulla",
-  "tacko fall",
   "tyler bilodeau"
  ]
 }
