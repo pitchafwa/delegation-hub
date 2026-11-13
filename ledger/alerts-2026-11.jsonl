@@ -69,3 +69,5 @@
 {"kind":"alert","ts":"2026-11-11T18:08:27-05:00","title":"Still to do: add Bennett Stirtz","body":"Drop Andrew Wiggins before 7pm (51 min), when roster moves lock for today.","priority":5}
 {"kind":"alert","ts":"2026-11-12T00:12:27-05:00","title":"Add Santi Aldama now","body":"Drop Jarace Walker. DFF: 26 pts today. Long-term pickup, +36 pts.","priority":4}
 {"kind":"alert","ts":"2026-11-12T14:43:28-05:00","title":"Activate Nolan Traore from IR","body":"ESPN lists him day-to-day. He can't score from IR. Activate him and drop Andrew Wiggins. Do it before 7pm, when roster moves lock for today. +102 pts this week.","priority":4}
+{"kind":"alert","ts":"2026-11-13T13:01:10-05:00","title":"Swap out Dejounte Murray by 8pm","body":"Dejounte Murray (UT) is doubtful (injury report).\nStart Andrew Wiggins at UT (~28 pts).","priority":4}
+{"kind":"late_scratch","ts":"2026-11-13T13:01:10-05:00","player":"Dejounte Murray","stage":1,"mins_to_tip":419,"swap":"Andrew Wiggins"}
