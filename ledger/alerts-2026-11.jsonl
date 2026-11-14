@@ -76,3 +76,5 @@
 {"kind":"alert","ts":"2026-11-13T17:00:38-05:00","title":"Still to do: add Javon Small","body":"Drop Andrew Wiggins before 7pm (119 min), when roster moves lock for today.","priority":5}
 {"kind":"alert","ts":"2026-11-13T18:07:09-05:00","title":"Now: add Dylan Cardwell","body":"Drop Nolan Traore before 7pm, when today's first game locks roster moves. Rental: drop him after his Sun game, +24 pts. If he's gone: Keldon Johnson.","priority":4}
 {"kind":"alert","ts":"2026-11-13T18:07:09-05:00","title":"Still to do: add Dylan Cardwell","body":"Drop Nolan Traore before 7pm (52 min), when roster moves lock for today.","priority":5}
+{"kind":"alert","ts":"2026-11-14T15:00:43-05:00","title":"Swap out Ty Jerome by 8pm","body":"Ty Jerome (PG) is out (injury report).\nMove Darryn Peterson to PG, start Santi Aldama at UT (~30 pts).\nOr: Nolan Traore, Andrew Wiggins.","priority":4}
+{"kind":"late_scratch","ts":"2026-11-14T15:00:43-05:00","player":"Ty Jerome","stage":1,"mins_to_tip":299,"swap":"Santi Aldama"}
