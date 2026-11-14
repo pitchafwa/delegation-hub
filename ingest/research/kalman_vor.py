@@ -202,6 +202,19 @@ stl_rate = df.groupby("PLAYER_ID").apply(
 )
 year0["STL"] = stl_rate.reindex(year0.index).fillna(0.0)
 year0_season["STL"] = year0["STL"]
+# PER-STAT RATES NOW (2026-11-13, Tommy): season-mode belief after each player's latest game, per minute for every scored stat, plus expected minutes. The plan uses
+# them to turn sportsbook props into a full stat line: minutes estimated from the props that exist, missing stats (steals, blocks, turnovers, free throws, ...) = minutes x rate.
+try:
+    _lr = df.loc[last_game_idx]
+    _rates = pd.DataFrame({"PLAYER_ID": _lr["PLAYER_ID"].to_numpy(), "PLAYER_NAME": _lr["PLAYER_NAME"].to_numpy(), "GAME_DATE": _lr["GAME_DATE"].dt.strftime("%Y-%m-%d").to_numpy(),
+                           "MIN": _lr["_postS_MIN"].clip(lower=0).round(2).to_numpy()})
+    for _k in ("PTS", "REB", "AST", "BLK", "FG3M", "FTM", "FTA", "TOV"):
+        _rates[_k] = _lr[f"_postS_{_k}"].clip(lower=0).round(5).to_numpy()
+    _rates["STL"] = _rates["PLAYER_ID"].map(year0["STL"]).fillna(0.0).round(5)
+    _rates.to_csv(ROOT / "data" / "delco_rates.csv", index=False)
+    print(f"  wrote delco_rates.csv ({len(_rates)} players)")
+except Exception as _ex:
+    print("  delco_rates.csv skipped:", repr(_ex)[:120])
 # DELCO GOING INTO EACH GAME (2026-10-26, Tommy): fantasy points per game the season-mode filter expected before each of a player's recent games, plus its
 # belief now (after his last game), so the site can draw his trend on the game-log chart. Recent seasons only, last 15 rows per player.
 try:

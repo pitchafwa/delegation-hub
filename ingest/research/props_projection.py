@@ -94,6 +94,41 @@ def fantasy(means, espn_avg, espn_applied):
     return pts, used
 
 
+# MINUTES FROM PROPS (2026-11-13, Tommy's method). A book rarely offers every stat: tonight's test had points for all 95 players but steals for 36, blocks for 22,
+# and no turnover or free-throw market at all, and in this league steals and blocks are worth 3 each. So: each prop that exists, divided by his DELCO per-minute
+# rate for that stat, says how many minutes the market expects; average those (points weigh most, his DELCO minutes count as a prior), then every stat with no
+# prop = those minutes x his DELCO rate. Free throws and turnovers follow scoring volume as well as minutes, so they are scaled halfway toward the points prop's
+# usage (points prop / (minutes x his scoring rate)).
+MIN_W = {"PTS": 4.0, "REB": 2.0, "AST": 2.0, "FG3M": 1.0, "STL": 0.5, "BLK": 0.5}
+MIN_PRIOR_W = 1.5
+STATS6 = ("PTS", "REB", "AST", "FG3M", "STL", "BLK")
+
+
+def fantasy_from_rates(means, pm):
+    """league points from prop means + DELCO per-minute rates pm {'MIN','PTS','REB','AST','STL','BLK','FG3M','FTM','FTA','TOV'}; returns (points, used, detail) or None"""
+    if not pm or not pm.get("MIN") or not pm.get("PTS"):
+        return None
+    m0 = float(pm["MIN"])
+    num, den = MIN_PRIOR_W * m0, MIN_PRIOR_W
+    for st, mu in means.items():
+        r = pm.get(st) or 0.0
+        if st in MIN_W and r > 1e-4:
+            w = MIN_W[st] * min(1.0, (r * m0) / 2.0) if st != "PTS" else MIN_W[st]      # a stat he rarely records says little about minutes
+            num += w * (mu / r)
+            den += w
+    m = min(max(num / den, 0.4 * m0), min(44.0, 1.6 * m0 + 4.0))
+    u = min(max(means["PTS"] / (m * pm["PTS"]), 0.6), 1.6) if "PTS" in means else 1.0
+    vol = 0.5 + 0.5 * u
+    line = {}
+    for st in STATS6:
+        line[st] = means[st] if st in means else m * (pm.get(st) or 0.0) * (vol if st == "FG3M" else 1.0)
+    ftm, fta, tov = m * (pm.get("FTM") or 0.0) * vol, m * (pm.get("FTA") or 0.0) * vol, m * (pm.get("TOV") or 0.0) * vol
+    pts = line["PTS"] + 1.5 * line["REB"] + 2 * line["AST"] + 3 * line["STL"] + 3 * line["BLK"] + line["FG3M"] + 2 * ftm - fta - tov
+    used = {k: round(v, 2) for k, v in means.items()}
+    detail = {"min": round(m, 1), "usage": round(u, 2), "filled": {k: round(v, 2) for k, v in line.items() if k not in means}, "ftm": round(ftm, 2), "fta": round(fta, 2), "tov": round(tov, 2)}
+    return pts, used, detail
+
+
 def fetch_player_props(api_key, dates, bookmakers="draftkings,fanduel"):
     """{normalized player name: {iso date: {stat: mean}}} for NBA games whose ET date is in `dates`, plus a small meta dict."""
     want = {d.isoformat() for d in dates}
@@ -133,6 +168,79 @@ def fetch_player_props(api_key, dates, bookmakers="draftkings,fanduel"):
             except Exception:
                 continue
             out.setdefault(norm(player), {}).setdefault(d, {})[stat] = mu
+    meta["players"] = len(out)
+    return out, meta
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# FREE SOURCE (2026-11-13, Tommy; DailyFantasyFuel cut its free table to the top 25 on 11-12): ESPN's public odds feed carries DraftKings player props
+# for every game (sports.core.api.espn.com .../odds/100/propBets; ~15 players a game with a points line). Each 'Total <stat>' line comes as two entries
+# with no side label: the FIRST listed is the over (checked against DraftKings' own ladder lines: 49 of 50). Turnovers, free throws and triple-doubles
+# have no prop here, so fantasy() fills them from ESPN's projected stat line as before. Keyed by ESPN athlete id (= the fantasy playerId).
+ESPN_CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba"
+ESPN_SITE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+ESPN_TYPES = {"Total Points": "PTS", "Total Rebounds": "REB", "Total Assists": "AST", "Total 3-Point Field Goals": "FG3M",
+              "Total Steals": "STL", "Total Blocks": "BLK"}
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+
+
+def _american(v):
+    try:
+        return float(str(v).replace("+", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_espn_props(dates, provider=100, sess=None):
+    """{espn athlete id (str): {iso date: {stat: mean}}} for NBA games on `dates` that have not tipped yet, plus meta. Free, no key."""
+    S = sess or requests.Session()
+    out, meta = {}, {"source": "ESPN (DraftKings lines)", "events": 0, "players": 0, "requests": 0}
+    for d in dates:
+        sb = S.get(ESPN_SITE, params={"dates": d.strftime("%Y%m%d")}, headers=UA, timeout=30)
+        meta["requests"] += 1
+        if sb.status_code != 200:
+            continue
+        for e in sb.json().get("events", []):
+            if (e.get("competitions") or [{}])[0].get("status", {}).get("type", {}).get("state") != "pre":
+                continue                                            # tipped or final: in-game lines are not a pregame projection
+            eid, items, page = e["id"], [], 1
+            while True:
+                r = S.get(f"{ESPN_CORE}/events/{eid}/competitions/{eid}/odds/{provider}/propBets", params={"limit": 1000, "page": page}, headers=UA, timeout=30)
+                meta["requests"] += 1
+                if r.status_code != 200:
+                    break
+                j = r.json()
+                items += j.get("items", [])
+                if page >= j.get("pageCount", 1):
+                    break
+                page += 1
+            if not items:
+                continue
+            meta["events"] += 1
+            seen = {}
+            for x in items:
+                stat = ESPN_TYPES.get((x.get("type") or {}).get("name"))
+                if not stat:
+                    continue
+                aid = x["athlete"]["$ref"].split("/athletes/")[1].split("?")[0]
+                line = ((x.get("current") or {}).get("target") or {}).get("value")
+                px = _american(((x.get("odds") or {}).get("american") or {}).get("value"))
+                if line is None or px is None:
+                    continue
+                seen.setdefault((aid, stat, float(line)), []).append(px)
+            best = {}
+            for (aid, stat, line), pxs in seen.items():
+                if len(pxs) < 2:
+                    continue
+                p = fair_over(pxs[0], pxs[1])                       # first listed = over
+                cand = -abs(p - 0.5)                                # the main line: closest to 50/50
+                if (aid, stat) not in best or cand > best[(aid, stat)][0]:
+                    best[(aid, stat)] = (cand, line, p)
+            for (aid, stat), (_, line, p) in best.items():
+                try:
+                    out.setdefault(aid, {}).setdefault(d.isoformat(), {})[stat] = mean_from_line(stat, line, p)
+                except Exception:
+                    continue
     meta["players"] = len(out)
     return out, meta
 

@@ -194,6 +194,13 @@ try:
         DMIN[key(nm_)] = float(g_["afterMIN"].iloc[-1]) if "afterMIN" in g_ else None
 except Exception as _ex:
     print("DELCO game-by-game unavailable:", repr(_ex)[:100])
+# DELCO per-minute rates by stat + expected minutes (kalman_vor.py -> data/delco_rates.csv): the plan fills the stats a sportsbook has no prop for (2026-11-13)
+DRATE = {}
+try:
+    for r_ in _pd.read_csv(Path(__file__).resolve().parent / "data" / "delco_rates.csv").itertuples():
+        DRATE[key(r_.PLAYER_NAME)] = {k: float(getattr(r_, k)) for k in ("MIN", "PTS", "REB", "AST", "STL", "BLK", "FG3M", "FTM", "FTA", "TOV")}
+except Exception as _ex:
+    print("DELCO rates unavailable:", repr(_ex)[:100])
 
 
 # NEXT-FEW-DAYS DELCO, model A (2026-10-26, Tommy; RESEARCH_short_term_projection_plan.md Phases 4-6, st_model.json): season DELCO corrected for his recent
@@ -351,7 +358,7 @@ for e in raw:
     darko = DARKO_ID.get(int(_hid[1:])) if _hid[:1] == "c" and _hid[1:].isdigit() else None
     if darko is None:
         darko = DARKO_NAME.get(key(name))
-    rows.append({"id": p["id"], "name": name, "team": team, "pos": None, "darko": darko,
+    rows.append({"id": p["id"], "name": name, "team": team, "pos": None, "darko": darko, "pm": DRATE.get(key(name)),
                  "pos_ids": p.get("eligibleSlots"), "age": hp.get("age") if hp else None, "status": status, "espn_ppg": round(espn_ppg, 1), "ppg": round(ppg, 1), "our": bool(ours),
                  "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),

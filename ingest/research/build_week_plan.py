@@ -1102,22 +1102,42 @@ except Exception as ex:
 # ---------- sportsbook player props (optional): market projections for today/tomorrow, converted to league scoring
 props_meta = {"enabled": False}
 ODDS_KEY = os.environ.get("ODDS_API_KEY")
-if ODDS_KEY:
+# 2026-11-13 (Tommy): DailyFantasyFuel's free table is down to its top 25 players, so the free ESPN feed of DraftKings player props now fills the
+# day number for everyone else (props_projection.fetch_espn_props). DFF still overrides it below for the players DFF lists. PROPS_ESPN=0 turns it off.
+PROPS_ESPN = os.environ.get("PROPS_ESPN", "1") != "0"
+if ODDS_KEY or PROPS_ESPN:
     try:
         import props_projection as PP
         prop_dates = [d for d in plan_days if (d - today).days <= 1]
-        props, pm = PP.fetch_player_props(ODDS_KEY, prop_dates)
+        if ODDS_KEY:
+            props, pm = PP.fetch_player_props(ODDS_KEY, prop_dates)
+        else:
+            props, pm = PP.fetch_espn_props(prop_dates)
+            pm.setdefault("remaining", None)
         n_used = 0
+        try:                                                     # DELCO per-minute rates (build_redraft.py 'pm'): fill the stats with no prop (fantasy_from_rates)
+            _PMR = {int(r_["id"]): r_["pm"] for r_ in json.load(open(HUB / "redraft_data.json", encoding="utf-8"))["players"] if r_.get("pm")}
+        except Exception:
+            _PMR = {}
+        n_rates = 0
         for pl in [x for rr in rosters.values() for x in rr] + fa_players:
-            byd = props.get(norm(pl["name"]))
+            byd = props.get(str(pl["espn_id"])) or props.get(norm(pl["name"]))
             if not byd:
                 continue
             for dt, means in byd.items():
-                lvl, used = PP.fantasy(means, pl.get("espn_avg"), pl.get("espn_level"))
+                _fr = PP.fantasy_from_rates(means, _PMR.get(int(pl["espn_id"])))
+                if _fr:
+                    lvl, used, _det = _fr
+                    n_rates += 1
+                    pl.setdefault("props_detail", {})[dt] = _det
+                else:
+                    lvl, used = PP.fantasy(means, pl.get("espn_avg"), pl.get("espn_level"))
                 if lvl > 0 and used:
                     pl.setdefault("lvl_by_date", {})[dt] = round(lvl, 1)
                     n_used += 1
-        props_meta = {"enabled": True, "events": pm["events"], "players_with_props": pm["players"], "player_days_used": n_used, "credits_remaining": pm["remaining"]}
+                    if os.environ.get("PROPS_DEBUG"):
+                        print("PROPSDBG", json.dumps({"name": pl["name"], "date": dt, "props": round(lvl, 1), "level": pl.get("level"), "means": {k: round(v, 1) for k, v in means.items()}, "detail": pl.get("props_detail", {}).get(dt)}))
+        props_meta = {"enabled": True, "source": pm.get("source", "The Odds API"), "events": pm["events"], "players_with_props": pm["players"], "player_days_used": n_used, "with_delco_rates": n_rates, "credits_remaining": pm["remaining"]}
         print("props:", props_meta)
     except Exception as ex:
         props_meta = {"enabled": False, "error": str(ex)[:120]}
