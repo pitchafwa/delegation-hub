@@ -948,7 +948,7 @@ function computeVOR(traj, k){
 }
 const fmt1=v=>v==null?'—':v.toFixed(1);
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const OURS='<sup class="ours" title="Our projection: DailyFantasyFuel hasn&#39;t posted this game yet">*</sup>';   // marks a game number that isn't DFF's yet (2026-11-08)
+const OURS='<sup class="ours" title="DELCO only: no DailyFantasyFuel or Vegas number for this game yet">*</sup>';   // marks a game number with neither DFF nor Vegas behind it (2026-11-08; Vegas counts since 11-15)
 const norm=n=>String(n||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ jr\.?$| sr\.?$| iii$| ii$| iv$/,'').replace(/[^a-z]/g,'');
 let OWNER=new Map();  // hub player id -> {abbrev,name,team,slot}
 function initLeague(){
