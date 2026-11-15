@@ -1,6 +1,7 @@
 {
  "avail_prev": {
   "2566769": "FREEAGENT",
+  "3059319": "WAIVERS",
   "5106060": "FREEAGENT"
  },
  "benef_sent": {
@@ -16,7 +17,7 @@
   "5279130:2026-11-13": "2026-11-13"
  },
  "last_status": {
-  "3059319": {
+  "3133626": {
    "date": "2026-11-15",
    "espn": "ACTIVE",
    "official": null
@@ -66,15 +67,15 @@
    "espn": "OUT",
    "official": "Questionable"
   },
-  "4593125": {
-   "date": "2026-11-15",
-   "espn": "ACTIVE",
-   "official": null
-  },
   "4594327": {
    "date": "2026-11-15",
    "espn": "DAY_TO_DAY",
    "official": "Questionable"
+  },
+  "4683678": {
+   "date": "2026-11-15",
+   "espn": "ACTIVE",
+   "official": null
   },
   "4684740": {
    "date": "2026-11-15",
@@ -91,17 +92,17 @@
    "espn": "ACTIVE",
    "official": null
   },
+  "5104155": {
+   "date": "2026-11-15",
+   "espn": "ACTIVE",
+   "official": null
+  },
   "5105565": {
    "date": "2026-11-15",
    "espn": "ACTIVE",
    "official": null
   },
   "5241364": {
-   "date": "2026-11-15",
-   "espn": "ACTIVE",
-   "official": null
-  },
-  "5279130": {
    "date": "2026-11-15",
    "espn": "ACTIVE",
    "official": null
@@ -115,8 +116,11 @@
  "league_req": "2026-10-26",
  "lu": {},
  "my_drops": {
+  "3059319": "2026-11-15",
+  "4593125": "2026-11-15",
   "4601023": "2026-11-11",
-  "5106060": "2026-11-12"
+  "5106060": "2026-11-12",
+  "5279130": "2026-11-15"
  },
  "pickup_sent": {},
  "plan_announced": {
