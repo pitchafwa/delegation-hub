@@ -291,6 +291,8 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   #redraftPane .tablewrap tbody tr:not(.detail) td:first-child{white-space:normal;max-width:190px}
   #redraftPane .sparkCell{justify-content:flex-start}
   #redraftPane .controls input[type=search]{min-width:170px}
+  #dailyPane .tablewrap tbody tr td:first-child{white-space:normal;max-width:200px}
+  #dailyPane tr.mine td{background:var(--surface-2)}
   /* ---- shared list rows (phones) ---- */
   .plList,.plWrap .tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .plr,.tmr{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -376,6 +378,17 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
     #redraftPane .moreRow td,#boardPane .moreRow td{padding:.5rem !important;border:0 !important}#redraftPane .moreRow td::before,#boardPane .moreRow td::before{content:none}
     #redraftPane .moreRow button,#boardPane .moreRow button{width:100%;border:1px solid var(--line-strong);border-radius:8px;background:transparent;color:var(--ink);font:inherit;font-weight:600}
     #redraftPane .statbar{display:none}
+    #dailyPane .tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+    #dailyPane table,#dailyPane tbody,#dailyPane tr,#dailyPane td{display:block;width:100%}
+    #dailyPane thead{display:none}
+    #dailyPane tr.plTr{border-bottom:1px solid var(--line)}
+    #dailyPane tr.detail{background:var(--surface-2);border-bottom:1px solid var(--line)}#dailyPane tr.detail>td{padding:.2rem .7rem .6rem !important;border:0 !important}#dailyPane tr.detail td::before{content:none}#dailyPane tr.detail .statline{grid-template-columns:repeat(4,1fr);margin-top:.3rem}
+    #dailyPane tr.plTr>td{padding:0 !important;border:0 !important;max-width:none !important;white-space:normal !important}
+    #dailyPane tr.plTr>td::before,#dailyPane .moreRow td::before{content:none !important}
+    #dailyPane .moreRow td{padding:.5rem !important;border:0 !important}
+    #dailyPane .moreRow button{width:100%;border:1px solid var(--line-strong);border-radius:8px;background:transparent;color:var(--ink);font:inherit;font-weight:600}
+    #dailyPane .controls{display:flex;flex-wrap:wrap;gap:.5rem}
+    #dyDays{order:0;flex:1 1 100%;flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none}#dyDays button{flex:0 0 auto}#dyQ{order:1;flex:1 1 100%}#dySeg{order:2;flex:1 1 100%}#dyPos{order:3;flex:0 0 auto;font-size:.92rem !important}#dailyPane .plSort{order:4;flex:1 1 0}#dailyPane label{order:5}
     #segBrk{flex-wrap:nowrap !important;overflow-x:auto;max-width:100%;scrollbar-width:none}#segBrk::-webkit-scrollbar{display:none}#segBrk button{flex:0 0 auto}#segBrk .hint{display:none}
     #redraftPane .controls{display:flex;flex-wrap:wrap;gap:.5rem}
     #rdQ{order:0;flex:1 1 100%}#rdSeg{order:1;flex:1 1 100%}#rdPos{order:2;flex:0 0 auto;font-size:.92rem !important}#redraftPane .plSort{order:3;flex:1 1 0}
@@ -823,6 +836,7 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
       <button data-v="sched" id="schedBtn">Matchups</button>
       <button data-v="board">Board</button>
       <button data-v="redraft" id="redraftBtn">Redraft</button>
+      <button data-v="daily" id="dailyBtn">Daily</button>
       <button data-v="standings" id="standingsBtn">Standings</button>
       <button data-v="teams" id="teamsBtn">Teams</button>
       <button data-v="trades" id="tradesBtn">Trades</button>
@@ -847,6 +861,7 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
   <div id="keepersPane" style="display:none"></div>
   <div id="draftPane" style="display:none"></div>
   <div id="redraftPane" style="display:none"></div>
+  <div id="dailyPane" style="display:none"></div>
   <div id="boardPane" style="display:none">
   <div class="statbar" id="statbar"></div>
 
@@ -2152,7 +2167,7 @@ function collapseLegends(root){
   });
 }
 const activeView=()=>{const b=document.querySelector('#segView button[aria-pressed="true"]'); return b?b.dataset.v:null;};
-const VIEWS=['week','standings','sched','board','redraft','teams','trades','keepers','draft','about','cloud','choices','settings'];
+const VIEWS=['week','standings','sched','board','redraft','daily','teams','trades','keepers','draft','about','cloud','choices','settings'];
 let pendingTeam=null;
 function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
   const h='#'+v+(extra?'/'+extra:'');
@@ -2270,6 +2285,108 @@ function rdRows(){
   const key={player:p=>p.name,pos:p=>p.pos,age:p=>p.age,rank:p=>-p.rank,pts:p=>p.pts,ppg:p=>p.ppg,exp_gp:p=>p.exp_gp,po:p=>poG(p.team),vor:p=>{ const v=titleValRD(p); return v!=null?v:p.vor*1e-5; },mkt:p=>p.mkt==null?null:-p.mkt,pts90:p=>p.pts90,l10:p=>p.l10,traj:p=>p.l10!=null?p.l10-p.ppg:null,owner:p=>p._o?p._o.abbrev:null}[rdSort.k]||(p=>p.vor);
   r.sort((a,b)=>{ let av=key(a),bv=key(b); if(av==null) av=-Infinity; if(bv==null) bv=-Infinity; if(typeof av==='string'&&typeof bv==='string') return rdSort.asc?av.localeCompare(bv):bv.localeCompare(av); return rdSort.asc?av-bv:bv-av; });
   return r;
+}
+/* ---------------- Daily board (2026-11-15, Tommy): every player whose team plays on a chosen day, side by side on each day-level projection.
+   Season avg, last 3, last 10 and DELCO's next-game number come from redraft_data.json; Vegas = DraftKings player props turned into league points
+   (day_proj.json, written by each plan run for today and tomorrow); Min = the minutes the lines imply, else DELCO's; DARKO = DARKO's per-minute
+   production x that Min; Plan = the number the weekly plan uses that day (rostered players + its top free agents). ---------------- */
+let dyOpen=new Set(), DP=undefined, dySort={k:'delco',asc:false}, dyQ='', dyFilter='all', dyPos='all', dyDay=null, dyHideOut=true, dyLimit=60, dyRefocus=false;
+const etISO=(off=0)=>{ const t=new Date(Date.now()+off*864e5); return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(t); };
+function dyLoad(){
+  if(DP===undefined){ DP=null; fetch('day_proj.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ DP=x||{players:{}}; if(activeView()==='daily') renderDaily(); }).catch(()=>{ DP={players:{}}; if(activeView()==='daily') renderDaily(); }); }
+  if(NSCH===undefined){ NSCH=null; fetch('nba_schedule.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ NSCH=x||{}; if(activeView()==='daily') renderDaily(); }).catch(()=>{ NSCH={}; }); }
+}
+function dyDays(){ const g=(NSCH&&NSCH.games)||{}, out=[]; for(let i=0;i<8&&out.length<6;i++){ const d=etISO(i); if((g[d]||[]).length) out.push(d); } return out; }
+function dyPlanMap(){
+  const m=new Map(); if(!W) return m; const gd=W.generated?new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date(W.generated)):null;
+  const add=(id,o)=>{ if(id!=null&&!m.has(+id)) m.set(+id,o); };
+  for(const t of W.teams||[]) for(const r of t.roster||[]) add(r.id,{t:r.tonight,n:r.next,today:(r.games||[]).includes(gd)});
+  for(const f of W.fa_pool||[]) add(f.id,{t:f.tonight,n:f.next,today:!!f.plays_today});
+  m.gd=gd; return m;
+}
+function dyRows(day){
+  const g=((NSCH&&NSCH.games)||{})[day]||[], md=day.slice(5), opp=new Map(), tip=new Map();
+  for(const x of g){ opp.set(x[0],'@'+x[1]); opp.set(x[1],'vs '+x[0]); tip.set(x[0],x[2]); tip.set(x[1],x[2]); }
+  if(L&&!RD._own){ RD._own=new Map(); for(const t of L.teams) for(const x of t.roster) if(x.espn_id) RD._own.set(x.espn_id,{abbrev:t.abbrev,name:t.name}); }
+  const pm=dyPlanMap(), tmw=etISO(1), me=(W&&W.my_abbrev)||'DRNK', cur=RD.season_now;
+  let r=[];
+  for(const p of RD.players){
+    if(!opp.has(p.team)) continue;
+    const out=['OUT','INJURY_RESERVE','SUSPENSION'].includes(p.status)&&(!p.back||day<p.back);
+    if(dyHideOut&&out) continue;
+    const thisSzn=!p.gs||p.gs===cur, g3=thisSzn?(p.g||[]).slice(-3):[], m3=thisSzn?(p.gm||[]).slice(-3):[];
+    const ni=(p.next||[]).findIndex(n=>n[0]===md), delco=ni>=0&&p.next_proj?p.next_proj[ni]:null;
+    const vg=DP&&DP.players&&DP.players[p.id]&&DP.players[p.id][day]||null;
+    const mn=vg?vg.min:(p.dmin??null);
+    const darko=p.darko!=null&&p.darko_min&&mn?p.darko*mn/p.darko_min:null;
+    const pl=pm.get(+p.id); let plan=null;
+    if(pl&&pm.gd===etISO(0)){ if(day===pm.gd&&pl.today) plan=pl.t; else if(day===tmw) plan=pl.n; }     // plan 'next' = his next game after today, which is tomorrow's when his team plays tomorrow
+    if(!(thisSzn&&p.n_season)&&!vg&&plan==null) continue;      // no games this season and nobody prices him (retired, unsigned)
+    r.push({p,o:RD._own?RD._own.get(p.id)||null:null,out,opp:opp.get(p.team),tip:tip.get(p.team),szn:thisSzn&&p.n_season?p.s_avg:null,l3:g3.length?g3.reduce((a,b)=>a+b,0)/g3.length:null,
+      m3:m3.length?m3.reduce((a,b)=>a+b,0)/m3.length:null,l10:thisSzn?p.l10:null,delco,vegas:vg?vg.v:null,vgN:vg?vg.n:0,min:mn,minV:!!vg,darko,plan});
+  }
+  if(dyQ) r=r.filter(x=>x.p.name.toLowerCase().includes(dyQ.toLowerCase()));
+  if(dyPos!=='all') r=r.filter(x=>(x.p.pos||'').split('/').includes(dyPos));
+  if(dyFilter==='fa') r=r.filter(x=>!x.o); else if(dyFilter==='mine') r=r.filter(x=>x.o&&x.o.abbrev===me); else if(dyFilter==='rostered') r=r.filter(x=>x.o);
+  const key={player:x=>x.p.name,team:x=>x.p.team,owner:x=>x.o?x.o.abbrev:null,min:x=>x.min,szn:x=>x.szn,l3:x=>x.l3,l10:x=>x.l10,delco:x=>x.delco,darko:x=>x.darko,vegas:x=>x.vegas,plan:x=>x.plan}[dySort.k]||(x=>x.delco);
+  r.sort((a,b)=>{ let av=key(a),bv=key(b); if(typeof av==='string'||typeof bv==='string'){ av=av||''; bv=bv||''; return dySort.asc?av.localeCompare(bv):bv.localeCompare(av); }
+    if(av==null&&bv==null) return (b.delco??-1)-(a.delco??-1); if(av==null) return 1; if(bv==null) return -1; return dySort.asc?av-bv:bv-av; });
+  return r;
+}
+function renderDaily(){
+  const pane=document.getElementById('dailyPane'); if(!pane) return;
+  dyLoad();
+  if(!RD||!NSCH||DP===null||DP===undefined){ pane.innerHTML='<div class="hint" style="padding:1rem">Loading the daily board…</div>'; return; }
+  const days=dyDays(); if(!days.length){ pane.innerHTML='<div class="hint" style="padding:1rem">No NBA games in the next week.</div>'; return; }
+  if(!dyDay||!days.includes(dyDay)) dyDay=days[0];
+  const rows=dyRows(dyDay), mob=isMobile(), shown=mob?rows.slice(0,dyLimit):rows, f1=v=>v==null?'—':v.toFixed(1);
+  const dLbl=d=>d===etISO(0)?'Today':(d===etISO(1)?'Tomorrow':new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'}));
+  const tipT=z=>{ if(!z) return ''; const [h,m]=z.replace('Z','').split(':').map(Number), t=new Date(Date.UTC(+dyDay.slice(0,4),+dyDay.slice(5,7)-1,+dyDay.slice(8,10),h,m)); if(h<12) t.setUTCDate(t.getUTCDate()+1); return t.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).replace(':00',''); };
+  const hasV=rows.some(x=>x.vegas!=null), hasPl=rows.some(x=>x.plan!=null);
+  const cols=[['player','Player'],['team','Game'],['owner','Owner'],['min','Min'],['szn','Season'],['l3','L3'],['l10','L10'],['delco','DELCO'],['darko','DARKO'],['vegas','Vegas'],['plan','Plan']];
+  const tips={min:'Projected minutes: what the sportsbook lines imply when he has them (bold), else DELCO',szn:'Season average, this season',l3:'Average of his last 3 games (minutes underneath)',l10:'Average of his last 10 games',delco:"DELCO's projection for this game",darko:"DARKO's production per minute x the Min column",vegas:'DraftKings player props turned into league points (missing stats filled from the minutes the lines imply)',plan:'The number the weekly plan uses for him that day'};
+  const th=cols.map(c=>`<th data-k="${c[0]}" title="${esc(tips[c[0]]||'')}" class="${dySort.k===c[0]?'sorted '+(dySort.asc?'asc':''):''}">${c[1]}</th>`).join('');
+  const best=x=>{ const v=[x.delco,x.darko,x.vegas,x.plan].filter(v=>v!=null); return v.length?Math.max(...v):null; };
+  const cell=(x,k)=>{ const v=x[k]; if(v==null) return '<span class="hint">—</span>'; const b=best(x); return `<span${b!=null&&v===b&&[x.delco,x.darko,x.vegas,x.plan].filter(z=>z!=null).length>1?' style="font-weight:700"':''}>${v.toFixed(1)}</span>`; };
+  const body=shown.map(x=>{
+    const p=x.p, o=x.o, mine=!!(o&&W&&o.abbrev===W.my_abbrev);
+    const st=p.status&&p.status!=='ACTIVE'?` <span class="liveStatus">${esc(p.status.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','DTD'))}</span>`:'';
+    if(mob){
+      const KEY={min:[x.min!=null?x.min.toFixed(0):'—','Min'],szn:[f1(x.szn),'Season'],l3:[f1(x.l3),'Last 3'],l10:[f1(x.l10),'Last 10'],darko:[f1(x.darko),'DARKO'],vegas:[f1(x.vegas),'Vegas'],plan:[f1(x.plan),'Plan']}[dySort.k]||[f1(x.delco),'DELCO'];
+      const third=[['vegas','Vegas'],['delco','DELCO'],['darko','DARKO']].find(([k])=>k!==dySort.k&&x[k]!=null);
+      const stats=[[f1(x.szn),'Szn'],[f1(x.l3),'L3'],third?[f1(x[third[0]]),third[1]]:null].filter(Boolean);
+      const open=dyOpen.has(p.id), all=[['Min',x.min!=null?x.min.toFixed(0)+(x.minV?' (lines)':''):'—'],['Season',f1(x.szn)],['Last 3',f1(x.l3)+(x.m3!=null?` <small>${x.m3.toFixed(0)}m</small>`:'')],['Last 10',f1(x.l10)],['DELCO',f1(x.delco)],['DARKO',f1(x.darko)],['Vegas',f1(x.vegas)],['Plan',f1(x.plan)]];
+      return `<tr class="plTr" data-id="${p.id}"><td colspan="${cols.length}">${plRow({name:p.name,espn:p.id,team:p.team,pos:p.pos,meta:[esc(x.opp)+' '+tipT(x.tip)],own:L?(o?o.abbrev:null):undefined,mine,chips:[stCls(p.status)],stats,key:{v:KEY[0],l:KEY[1]}})}</td></tr>${open?`<tr class="detail"><td colspan="${cols.length}"><div class="statline">${all.map(([l,v])=>xpT(v,l)).join('')}</div></td></tr>`:''}`;
+    }
+    return `<tr data-id="${p.id}"${mine?' class="mine"':''}><td data-label="Player">${pc(p.name)}${st} <span class="hint">${esc(p.pos||'')}</span></td>
+      <td data-label="Game"><div class="teamCell">${esc(p.team)} <span class="hint">${esc(x.opp)} · ${tipT(x.tip)}</span></div></td>
+      <td data-label="Owner" style="text-align:left">${L?(o?`<span title="${esc(o.name)}">${esc(o.abbrev)}</span>`:'<span class="hint">FA</span>'):'<span class="hint">…</span>'}</td>
+      <td class="num" data-label="Min">${x.min!=null?(x.minV?`<b>${x.min.toFixed(0)}</b>`:x.min.toFixed(0)):'—'}</td>
+      <td class="num" data-label="Season">${f1(x.szn)}</td>
+      <td class="num" data-label="L3">${f1(x.l3)}${x.m3!=null?` <span class="hint">${x.m3.toFixed(0)}m</span>`:''}</td>
+      <td class="num" data-label="L10">${f1(x.l10)}</td>
+      <td class="num" data-label="DELCO">${cell(x,'delco')}</td><td class="num" data-label="DARKO">${cell(x,'darko')}</td><td class="num" data-label="Vegas">${cell(x,'vegas')}</td><td class="num" data-label="Plan">${cell(x,'plan')}</td></tr>`;
+  }).join('');
+  const more=(mob&&rows.length>dyLimit)?`<tr class="moreRow"><td colspan="${cols.length}"><button id="dyMore" type="button">Show ${Math.min(60,rows.length-dyLimit)} more · ${rows.length-dyLimit} left</button></td></tr>`:'';
+  const seg=(v,t,cur)=>`<button data-v="${v}" aria-pressed="${cur===v}">${t}</button>`;
+  pane.innerHTML=`<div class="controls">
+      <div class="seg" id="dyDays">${days.map(d=>seg(d,dLbl(d),dyDay)).join('')}</div>
+      <input type="search" id="dyQ" placeholder="filter by name…" value="${esc(dyQ)}"/>
+      <div class="seg" id="dySeg">${seg('all','All',dyFilter)}${seg('fa','Free agents',dyFilter)}${seg('mine','My team',dyFilter)}${seg('rostered','Rostered',dyFilter)}</div>
+      <select id="dyPos" style="padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem">${['all','PG','SG','SF','PF','C'].map(x=>`<option value="${x}" ${x===dyPos?'selected':''}>${x==='all'?'All positions':x}</option>`).join('')}</select>
+      <label class="hint" style="display:flex;align-items:center;gap:.3rem"><input type="checkbox" id="dyOut" ${dyHideOut?'checked':''}/> Hide players out</label>
+      ${sortMenu('dySortSel',[['delco','DELCO'],['vegas','Vegas'],['darko','DARKO'],['plan','Plan'],['l3','Last 3'],['l10','Last 10'],['szn','Season'],['min','Minutes'],['player','Name']],dySort.k,dySort.asc)}</div>
+    <div class="hint" style="margin:.2rem 0 .6rem"><b>${rows.length}</b> players · ${((NSCH.games||{})[dyDay]||[]).length} games${!hasV?(dyDay<=etISO(1)?' · Vegas lines not posted yet':' · Vegas lines post the day before or the day of the game'):''}${!hasPl&&dyDay>etISO(1)?' · the plan number covers today and tomorrow':''}</div>
+    <div class="tablewrap"><table id="dyTbl"><thead><tr>${th}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" style="text-align:center;padding:2rem;color:var(--ink-faint)">no matches</td></tr>`}${more}</tbody></table></div>`;
+  const q=document.getElementById('dyQ'); q.addEventListener('input',e=>{ dyQ=e.target.value; dyRefocus=true; renderDaily(); }); if(dyRefocus){ q.focus(); q.setSelectionRange(dyQ.length,dyQ.length); dyRefocus=false; }
+  document.getElementById('dyDays').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; dyDay=b.dataset.v; dyLimit=60; renderDaily(); });
+  document.getElementById('dySeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; dyFilter=b.dataset.v; dyLimit=60; renderDaily(); });
+  document.getElementById('dyPos').addEventListener('change',e=>{ dyPos=e.target.value; dyLimit=60; renderDaily(); });
+  document.getElementById('dyOut').addEventListener('change',e=>{ dyHideOut=e.target.checked; renderDaily(); });
+  document.getElementById('dySortSel').addEventListener('change',e=>{ dySort.k=e.target.value; dySort.asc=dySort.k==='player'; renderDaily(); });
+  document.getElementById('dySortSelDir').addEventListener('click',()=>{ dySort.asc=!dySort.asc; renderDaily(); });
+  document.querySelector('#dyTbl thead tr').addEventListener('click',e=>{ const t=e.target.closest('th'); if(!t) return; if(dySort.k===t.dataset.k) dySort.asc=!dySort.asc; else { dySort.k=t.dataset.k; dySort.asc=['player','team','owner'].includes(t.dataset.k); } renderDaily(); });
+  document.querySelector('#dyTbl tbody').addEventListener('click',e=>{ if(e.target.closest('#dyMore')){ dyLimit+=60; renderDaily(); return; } if(e.target.closest('.pName')||!isMobile()) return; const tr=e.target.closest('tr.plTr[data-id]'); if(!tr) return; const id=+tr.dataset.id; if(dyOpen.has(id)) dyOpen.delete(id); else dyOpen.add(id); renderDaily(); });
 }
 /* ===== SHARED LIST ROWS (phones): one player row and one team row used by Players, Dynasty, Teams and Standings =====
    player: headshot, name + chips, team logo / position / age / owner, up to three labelled numbers, and one big number on the right that follows the sort. */
@@ -3937,8 +4054,8 @@ function renderAbout(){
 /* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
 const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
 const navGroups=()=>offseason()
-  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['choices','Keep / pass'],['settings','Settings'],['week','Last week'],['cloud','Cloud test']]]]
-  :[['week','Today',[['week','Today']]],['players','Players',[['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['choices','Keep / pass'],['settings','Settings'],['keepers','Keepers'],['draft','Draft'],['cloud','Cloud test']]]];
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft'],['daily','Daily']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['choices','Keep / pass'],['settings','Settings'],['week','Last week'],['cloud','Cloud test']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['daily','Daily'],['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['about','Glossary'],['choices','Keep / pass'],['settings','Settings'],['keepers','Keepers'],['draft','Draft'],['cloud','Cloud test']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
@@ -3964,10 +4081,10 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!W,draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,choices:()=>true,settings:()=>!!D};
+    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,daily:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!W,draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,choices:()=>true,settings:()=>!!D};
     if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
-      ['board','redraft','about','standings','teams','week','trades','sched','draft','keepers','cloud'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
+      ['board','redraft','daily','about','standings','teams','week','trades','sched','draft','keepers','cloud'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
       const pn=document.getElementById(b.dataset.v+'Pane'); if(pn&&!pn.innerText.trim()) pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
       setHash(b.dataset.v); renderNav(); return;
     }
@@ -3975,6 +4092,8 @@ function wire(){
     document.getElementById('boardPane').style.display = b.dataset.v==='board' ? '' : 'none';
     document.getElementById('redraftPane').style.display = b.dataset.v==='redraft' ? '' : 'none';
     if(b.dataset.v==='redraft') renderRedraft();
+    document.getElementById('dailyPane').style.display = b.dataset.v==='daily' ? '' : 'none';
+    if(b.dataset.v==='daily') renderDaily();
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
     document.getElementById('cloudPane').style.display = b.dataset.v==='cloud' ? '' : 'none';
     if(b.dataset.v==='cloud') renderCloud();
@@ -4233,14 +4352,14 @@ async function loadLive(){
 }
 loadLive(); setInterval(loadLive,120000);
 fetch('playoff_odds.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.teams){ODDS=x; if(['week','standings','sched'].includes(activeView())) setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams') renderTeams();} }).catch(()=>{});
-fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='standings') renderStandings(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
+fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.players){RD=x; renderNav(); renderStamp(); if(activeView()==='standings') renderStandings(); if(activeView()==='redraft') renderRedraft(); if(activeView()==='daily') renderDaily(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
   HZ_SAVED=D.value_horizon||10; { let lh=null; try{ lh=slTok()?null:+localStorage.getItem('hubHZ'); }catch(_){} applyHZ(lh||HZ_SAVED); }
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
-  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; if(activeView()==='standings') renderStandings(); initLeague(); render(); if(RD) RD._own=null; if(activeView()==='teams') setView('teams'); if(RD) renderRedraft();} }).catch(()=>{});
+  fetch('league_rosters.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(l=>{ if(l&&l.teams){L=l; if(activeView()==='standings') renderStandings(); initLeague(); render(); if(RD) RD._own=null; if(activeView()==='teams') setView('teams'); if(RD) renderRedraft(); if(RD&&activeView()==='daily') renderDaily();} }).catch(()=>{});
   fetch('draft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.draft){DR=d; if(activeView()==='draft') setView('draft'); if(activeView()==='keepers') setView('keepers'); pollDraftLive(); setInterval(pollDraftLive,5000);} }).catch(()=>{});
   fetch('team_profiles.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(p=>{ if(p&&p.teams){PROF=p;} }).catch(()=>{});
   fetch('trade_ideas.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(t=>{ if(t&&t.teams){TR=t; if(activeView()==='trades') setView('trades');} }).catch(()=>{});

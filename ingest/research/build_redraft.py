@@ -54,6 +54,9 @@ def key(name):
 
 # DARKO (2026-11-09, Tommy: show it where ESPN's frozen season projection used to be): the latest data/darko_daily file from pull_darko.py, this league's
 # scoring, minutes if he plays (a player who is out is not cut by his chance of playing). Matched by NBA id (hub ids are "c" + NBA id), else by name.
+DARKO_MIN_ID, DARKO_MIN_NAME = {}, {}
+
+
 def _load_darko():
     import csv as _csv
     dd = sorted((Path(__file__).resolve().parent / "data" / "darko_daily").glob("*.csv"))
@@ -65,8 +68,14 @@ def _load_darko():
             v = round(float(row["fp_full"]), 1)
         except (TypeError, ValueError):
             continue
+        try:
+            mn = round(float(row["min_full"]), 1)
+        except (TypeError, ValueError, KeyError):
+            mn = None
         by_id[int(row["nba_id"])] = v
         by_name[key(row["name"])] = v
+        DARKO_MIN_ID[int(row["nba_id"])] = mn          # DARKO's minutes (the Daily board scales DARKO to our minutes)
+        DARKO_MIN_NAME[key(row["name"])] = mn
         asof = row.get("as_of") or asof
     return by_id, by_name, asof
 
@@ -356,9 +365,11 @@ for e in raw:
     s = sigma_ppg(n_played)
     _hid = str((hp or {}).get("id") or "")
     darko = DARKO_ID.get(int(_hid[1:])) if _hid[:1] == "c" and _hid[1:].isdigit() else None
+    darko_min = DARKO_MIN_ID.get(int(_hid[1:])) if darko is not None else None
     if darko is None:
         darko = DARKO_NAME.get(key(name))
-    rows.append({"id": p["id"], "name": name, "team": team, "pos": None, "darko": darko, "pm": DRATE.get(key(name)),
+        darko_min = DARKO_MIN_NAME.get(key(name))
+    rows.append({"id": p["id"], "name": name, "team": team, "pos": None, "darko": darko, "darko_min": darko_min, "pm": DRATE.get(key(name)),
                  "pos_ids": p.get("eligibleSlots"), "age": hp.get("age") if hp else None, "status": status, "espn_ppg": round(espn_ppg, 1), "ppg": round(ppg, 1), "our": bool(ours),
                  "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),

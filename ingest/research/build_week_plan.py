@@ -1109,10 +1109,13 @@ if ODDS_KEY or PROPS_ESPN:
     try:
         import props_projection as PP
         prop_dates = [d for d in plan_days if (d - today).days <= 1]
+        _plan_iso = {d.isoformat() for d in prop_dates}
+        DAY_DATES = [today, today + timedelta(days=1)]              # the Daily board shows today and tomorrow even when tomorrow is next matchup
+        _fetch = sorted(set(prop_dates) | set(DAY_DATES))
         if ODDS_KEY:
-            props, pm = PP.fetch_player_props(ODDS_KEY, prop_dates)
+            props, pm = PP.fetch_player_props(ODDS_KEY, _fetch)
         else:
-            props, pm = PP.fetch_espn_props(prop_dates)
+            props, pm = PP.fetch_espn_props(_fetch)
             pm.setdefault("remaining", None)
         n_used = 0
         try:                                                     # DELCO per-minute rates (build_redraft.py 'pm'): fill the stats with no prop (fantasy_from_rates)
@@ -1125,6 +1128,8 @@ if ODDS_KEY or PROPS_ESPN:
             if not byd:
                 continue
             for dt, means in byd.items():
+                if dt not in _plan_iso:
+                    continue
                 _fr = PP.fantasy_from_rates(means, _PMR.get(int(pl["espn_id"])))
                 if _fr:
                     lvl, used, _det = _fr
@@ -1137,6 +1142,32 @@ if ODDS_KEY or PROPS_ESPN:
                     n_used += 1
                     if os.environ.get("PROPS_DEBUG"):
                         print("PROPSDBG", json.dumps({"name": pl["name"], "date": dt, "props": round(lvl, 1), "level": pl.get("level"), "means": {k: round(v, 1) for k, v in means.items()}, "detail": pl.get("props_detail", {}).get(dt)}))
+        # Daily board (dashboard/day_proj.json): league points from the lines for every player with props today/tomorrow, plus the minutes they imply.
+        # Only converted fantasy points are published, never the lines themselves.
+        try:
+            _dp = {}
+            _iso2 = {d.isoformat() for d in DAY_DATES}
+            try:                                                 # keep the last number from earlier runs: a game's lines leave the feed once it tips
+                for k_, byd in json.loads((HUB / "day_proj.json").read_text(encoding="utf-8"))["players"].items():
+                    for dt, v_ in byd.items():
+                        if dt in _iso2:
+                            _dp.setdefault(k_, {})[dt] = v_
+            except Exception:
+                pass
+            for k_, byd in props.items():
+                if not str(k_).isdigit():
+                    continue
+                for dt, means in byd.items():
+                    if dt not in _iso2:
+                        continue
+                    _fr = PP.fantasy_from_rates(means, _PMR.get(int(k_)))
+                    if _fr:
+                        _dp.setdefault(str(k_), {})[dt] = {"v": round(_fr[0], 1), "min": _fr[2]["min"], "n": len(means)}
+            if not os.environ.get("WP_OUT") and not os.environ.get("PLAN_TODAY"):
+                (HUB / "day_proj.json").write_text(json.dumps({"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "dates": sorted(_iso2), "players": _dp}, separators=(",", ":")), encoding="utf-8")
+            print("day board props:", len(_dp), "players")
+        except Exception as ex:
+            print("day board props failed:", ex)
         props_meta = {"enabled": True, "source": pm.get("source", "The Odds API"), "events": pm["events"], "players_with_props": pm["players"], "player_days_used": n_used, "with_delco_rates": n_rates, "credits_remaining": pm["remaining"]}
         print("props:", props_meta)
     except Exception as ex:
