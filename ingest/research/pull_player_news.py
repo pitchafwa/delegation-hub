@@ -4,8 +4,9 @@ Source: ESPN's public fantasy player-news feed (the same items ESPN's own fantas
 the reporter or outlet they came from ("per Casey Holdahl of the Trail Blazers' official site"), so beat-writer reports on injuries, minutes, role
 and coach comments come through; No cookies needed, so this also runs in GitHub Actions.
 
-Players covered: everyone on the redraft board plus everyone on a league roster. Box-score recap blurbs ("recorded 27 points (9-15 FG)...") are
-dropped, since the card already shows the game log. The page loads this file only when a player card is opened.
+Players covered: everyone on the redraft board plus everyone on a league roster. RotoWire's game recaps are kept (2026-11-15, Tommy: about half
+carry role, minutes or injury notes under the stat line, and ESPN's card shows them); ESPN's highlight clips and general articles are dropped.
+The page loads this file only when a player card is opened.
 Run:  uv run python research/pull_player_news.py   (from ingest/)
 """
 import json
@@ -21,8 +22,7 @@ import requests
 sys.stdout.reconfigure(encoding="utf-8")
 HUB = Path(__file__).resolve().parent.parent.parent / "dashboard"
 URL = "https://site.api.espn.com/apis/fantasy/v2/games/fba/news/players"
-KEEP, MAX_AGE_DAYS, STORY_CHARS = 5, 120, 420
-RECAP = re.compile(r"\b(recorded|produced|registered|finished with|scored|posted|totaled|tallied|logged|ended)\b.*\d+\s+(points|rebounds|assists)|\(\d+-\d+ FG", re.I)
+KEEP, MAX_AGE_DAYS, STORY_CHARS = 8, 120, 420
 
 
 def ids():
@@ -55,7 +55,7 @@ def clean(item, cutoff):
         return None
     head = (item.get("headline") or "").strip()
     story = (item.get("story") or item.get("description") or "").strip()
-    if not head or RECAP.search(head):
+    if not head:
         return None
     story = re.sub(r"<[^>]+>", "", story)
     story = story if story != head else ""
