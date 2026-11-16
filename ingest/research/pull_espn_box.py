@@ -83,7 +83,7 @@ if cw.exists():
     x = pd.read_csv(cw, usecols=["NBAID", "ESPNID"], encoding="latin-1").dropna()
     for e, n in zip(x.ESPNID, x.NBAID):
         e2n.setdefault(int(e), int(n))
-REPULL_DAYS = 3
+REPULL_DAYS = 14                                # official stat corrections land up to a week+ later (11-16 review: 11-04 and 11-08 fixes missed at 3 days)
 nba_spelling = {}                              # NBA id -> the name in the earlier game logs
 by_name = {}                                   # last resort for new players: NBA ids by folded name from the earlier game logs
 if cw.exists():
