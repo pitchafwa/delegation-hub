@@ -90,3 +90,5 @@
 {"kind":"alert","ts":"2026-11-16T09:30:37-05:00","title":"Week ahead: no moves planned","body":"Matchup 5 vs RIP: projected 1785 to 1274, 91% chance to win.\nIR: Ty Jerome back Wed (ESPN's date), drop Kenrich Williams then\nIR: Dejounte Murray back Fri (ESPN's date), drop Terrence Shannon Jr. then\nIR: Scotty Pippen Jr. back Sat (ESPN's date), drop Scoot Henderson then\nNo moves planned this week.","priority":3}
 {"kind":"alert","ts":"2026-11-16T18:45:36-05:00","title":"Swap out Amen Thompson by 7:30pm","body":"Amen Thompson (SG) is out (injury report).\nNo bench fit. Free agent: Jordan Poole (~29 pts), costs an add. Add him before 7pm, when roster moves lock.","priority":5}
 {"kind":"late_scratch","ts":"2026-11-16T18:45:36-05:00","player":"Amen Thompson","stage":1,"mins_to_tip":44,"swap":null}
+{"kind":"alert","ts":"2026-11-16T18:55:36-05:00","title":"Still starting Amen Thompson (out)","body":"Amen Thompson (SG) is out (injury report).\nNo bench fit (adds now only count from tomorrow): leave it empty.","priority":5}
+{"kind":"late_scratch","ts":"2026-11-16T18:55:36-05:00","player":"Amen Thompson","stage":2,"mins_to_tip":34,"swap":null}
