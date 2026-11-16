@@ -909,7 +909,7 @@ let HZ=10, HZ_SAVED=10, HZ_MSG='', HZ_BUSY=false;
 function applyHZ(h){
   HZ=Math.max(1,Math.min(10,Math.round(+h||10)));
   if(D) for(const p of D.players){ if(p.asset_kh) p.asset_k=p.asset_kh[HZ-1]; if(p.ceil_asset_kh) p.ceil_asset_k=p.ceil_asset_kh[HZ-1]; }
-  _AR5=null;
+  _AR5=null; KT=null;
   document.querySelectorAll('.hzSlider').forEach(x=>{ x.value=HZ; }); document.querySelectorAll('.hzNum').forEach(x=>{ x.textContent=HZ; });
 }
 function hzBox(id){ return `<div class="kbox" style="max-width:100%;box-sizing:border-box"><span>Horizon (seasons):</span><input type="range" class="hzSlider" id="${id}" min="1" max="10" value="${HZ}" step="1" style="flex:1;min-width:0" /><b class="hzNum">${HZ}</b></div>`; }
@@ -999,9 +999,14 @@ function sparkline(traj, w=56, h=26){
 function ktrend(id){
   if(!KH) return null;
   if(!KT){ KT=new Map(); const ts=KH.dates.map(d=>Date.parse(d)); const last=ts[ts.length-1];
+    const byId=new Map((D&&D.players||[]).map(p=>[String(p.id),p]));
     for(const [k,vals] of Object.entries(KH.v)){
-      const hz=KH.hz||[], hl=hz.length?hz[hz.length-1]:null;
-      const pts=vals.map((v,i)=>v==null||(hl!=null&&(hz[i]??10)!==hl)?null:[ts[i],v]).filter(Boolean);     // only days valued at the current horizon
+      // days valued at another horizon (the setting moved from 10 to 5 seasons on 2026-11-12) are put on the current horizon with this player's
+      // own ratio between the two horizons in today's tables (asset_kh), so the line keeps its full 30 days and follows the Horizon slider
+      const hz=KH.hz||[], kh=(byId.get(String(k))||{}).asset_kh, kk=KH.k??5;          // asset_kh[horizon-1][keepers per team]
+      const at=h=>kh&&kh[h-1]?(Array.isArray(kh[h-1])?kh[h-1][kk]:kh[h-1]):null;
+      const pts=vals.map((v,i)=>{ if(v==null) return null; const h=hz[i]??10; if(h===HZ) return [ts[i],v];
+        const a=at(h), b=at(HZ); if(!(a>0)||b==null) return null; return [ts[i],v*b/a]; }).filter(Boolean);
       if(pts.length<2) continue;
       const ref=pts.find(q=>q[0]>=last-30*864e5)||pts[0];
       KT.set(k,{pts,delta:pts[pts.length-1][1]-ref[1]});

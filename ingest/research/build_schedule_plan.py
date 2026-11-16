@@ -121,7 +121,7 @@ def decay(d, level):
 
 
 RD_RAMP = 6.0
-RD_HIT = float(os.environ.get("RD_HIT", "1.0"))     # chance he is back on ESPN's return date (1.0 = trust ESPN's date fully, the rule until 2026-11-16)
+RD_HIT = float(os.environ.get("RD_HIT", "0.4"))     # chance he is back on ESPN's return date (1.0 = trust ESPN's date fully, the rule until 2026-11-16)
 
 
 def p_play(pl, d, wid):
@@ -180,7 +180,7 @@ def slot_matcher(cands):
 # next-few-days DELCO, which leans on his last few games' minutes and scoring. On 2010-26 box scores the minutes signal is worth 0.32 of the gap this
 # week, about half that next week, and nothing from ~7 weeks out (a role spike reverts); held at full strength for every future week it predicts worse
 # than season DELCO alone from 3 weeks out. So weeks ahead use season DELCO (ll) plus a fading share of today's gap.
-ST_FADE = os.environ.get("ST_FADE", "0") == "1"
+ST_FADE = os.environ.get("ST_FADE", "1") == "1"         # on since 2026-11-16 (Tommy approved); ST_FADE=0 for the old rule
 FADE = [1.0, 0.5, 0.4, 0.25, 0.15, 0.1, 0.1, 0.0]
 
 
