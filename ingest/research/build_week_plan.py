@@ -1173,6 +1173,23 @@ if ODDS_KEY or PROPS_ESPN:
             if not os.environ.get("WP_OUT") and not os.environ.get("PLAN_TODAY"):
                 (HUB / "day_proj.json").write_text(json.dumps({"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "dates": sorted(_iso2), "players": _dp}, separators=(",", ":")), encoding="utf-8")
             print("day board props:", len(_dp), "players")
+            # vegas_log.csv (2026-11-15, Tommy: for the Dec 14 study of where DELCO misses vs Vegas and DFF): every player's LAST pre-tip Vegas number per
+            # game day. _dp keeps the newest number until a game tips (the feed then drops it), so what stays is the closing one. projection_log's 'props'
+            # column is not that: it is written once at the first run of the day, before most lines post, and DFF overrides it for DFF's players.
+            if not os.environ.get("WP_OUT") and not os.environ.get("PLAN_TODAY"):
+                import csv as _csv
+                _VL = HUB / "vegas_log.csv"
+                _rows = {}
+                if _VL.exists():
+                    with open(_VL, encoding="utf-8") as fh:
+                        _rows = {(r["date"], r["espn_id"]): r for r in _csv.DictReader(fh)}
+                for k_, byd in _dp.items():
+                    for dt, v_ in byd.items():
+                        _rows[(dt, k_)] = {"date": dt, "espn_id": k_, "vegas": v_["v"], "min": v_["min"], "n_lines": v_["n"]}
+                with open(_VL, "w", encoding="utf-8", newline="") as fh:
+                    _w = _csv.DictWriter(fh, fieldnames=["date", "espn_id", "vegas", "min", "n_lines"], extrasaction="ignore")
+                    _w.writeheader()
+                    _w.writerows(sorted(_rows.values(), key=lambda r: (r["date"], int(r["espn_id"]))))
         except Exception as ex:
             print("day board props failed:", ex)
         props_meta = {"enabled": True, "source": pm.get("source", "The Odds API"), "events": pm["events"], "players_with_props": pm["players"], "player_days_used": n_used, "with_delco_rates": n_rates, "credits_remaining": pm["remaining"]}
