@@ -175,10 +175,12 @@ def day_options(roster, d, wid):
 
 
 def week_points(roster, wid):
+    """roster: a list of players, or a list with one roster per day of the week (capped_days)"""
     w = CAL[wid - 1]
     days = wk_days(w)
     cap = w["cap"]
-    opts = [day_options(roster, d, wid) for d in days]
+    per_day = bool(roster) and isinstance(roster[0], list)
+    opts = [day_options(roster[i] if per_day else roster, d, wid) for i, d in enumerate(days)]
     NS = int(cap) + 12
     memo = {}
 
@@ -216,6 +218,43 @@ def capped(roster, wid):
         return roster
     keep = {id(p) for p in sorted(can, key=lambda p: -p["level"])[:SPOTS]}
     return [p for p in roster if id(p) in keep]
+
+
+# DAY-AWARE ROSTER SPOTS (2026-11-16, playoff-accuracy study item 4; SPOT_DAY=1 to use, off until Tommy approves). capped() picks one set of 15 for the
+# whole week by level, so a player back on Saturday took the spot of a healthy player who could play Monday-Friday (DRNK week 5: 1,524 vs 1,613).
+# A manager keeps a returner on IR until his first game back, then activates him and drops the weakest player from that day on. So: start the week
+# with the best 15 who can play on day 1 (or any later day if out on day 1 but not injured), and on each returner's first playable day swap him
+# in for the weakest kept player when he is better.
+SPOT_DAY = os.environ.get("SPOT_DAY", "0") == "1"
+
+
+def capped_days(roster, wid):
+    days = wk_days(CAL[wid - 1])
+    first = {}
+    for p in roster:
+        f = next((i for i, d in enumerate(days) if p_play(p, d, wid) > 0), None)
+        if f is not None:
+            first[id(p)] = f
+    can = [p for p in roster if id(p) in first]
+    if len(can) <= SPOTS:
+        return [roster] * len(days)
+    out_now = lambda p: bool(p.get("ir") or p.get("status") in OUT_STATUS or p.get("back"))
+    healthy = sorted([p for p in can if not out_now(p)], key=lambda p: -p["level"])
+    kept = healthy[:SPOTS]
+    returners = sorted([p for p in can if out_now(p)], key=lambda p: (first[id(p)], -p["level"]))
+    by_day, ri = [], 0
+    for i in range(len(days)):
+        while ri < len(returners) and first[id(returners[ri])] <= i:
+            r = returners[ri]
+            ri += 1
+            if len(kept) < SPOTS:
+                kept.append(r)
+            else:
+                low = min(kept, key=lambda p: p["level"])
+                if r["level"] > low["level"]:
+                    kept = [p for p in kept if p is not low] + [r]
+        by_day.append(list(kept))
+    return by_day
 
 
 def points_over(roster, weeks):
@@ -266,7 +305,7 @@ for t in wp["teams"]:
         prow.append({"id": pl["id"], "name": pl["name"], "team": pl["team"], "level": pl["level"], "status": pl["status"], "ir": pl["ir"], "games": gr,
                      "x4": round(n4 - avg_next4, 1), "xp": round(npo - avg_play, 1), "flags": flags})
     active = [p for p in r]
-    raw_proj = {w: week_points(capped(active, w), w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
+    raw_proj = {w: week_points(capped_days(active, w) if SPOT_DAY and SPOT_CAP else capped(active, w), w) for w in range(FIRST, len(CAL) + 1)}     # every remaining week (the playoff-odds simulation needs them all)
     # In season: solver x a "beat-the-model" factor. A team's factor in a past week = its real points / the solver's forecast saved at the start of
     # that week (week_forecasts.json: the roster it really had, not today's). The league-wide factor fixes the solver's overall bias; the team's own
     # factor counts only as weeks pile up, weight n / (n + 5). Backtest on 2025-26 (weekly_proj_study.py, 2026-11-02), mean miss per team-week:

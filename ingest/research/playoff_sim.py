@@ -27,7 +27,7 @@ def season_tau(params, week):
     return params["tau_early"] + (params["tau_late"] - params["tau_early"]) * (week - a) / (b - a)
 
 
-def simulate(team_ids, wins, pf, pairs, mu, lens, reg_weeks, playoff_weeks=(20, 21, 22), tau=150.0, sigma_e=175.0, bias=25.0, n=N_DEFAULT, seed=7, focus=None, focus_week=None, shift=None):
+def simulate(team_ids, wins, pf, pairs, mu, lens, reg_weeks, playoff_weeks=(20, 21, 22), tau=150.0, sigma_e=175.0, bias=25.0, n=N_DEFAULT, seed=7, focus=None, focus_week=None, shift=None, walk=None):
     """team_ids: list; wins, pf: dicts id -> current wins / points for; pairs: list of (week, a, b) still to play in the regular season;
        mu: dict (id, week) -> forecast points; lens: dict week -> days in the matchup; reg_weeks: last regular-season week.
        focus / focus_week: return the focus team's result in that week so odds can be conditioned on winning or losing it.
@@ -38,10 +38,18 @@ def simulate(team_ids, wins, pf, pairs, mu, lens, reg_weeks, playoff_weeks=(20, 
     weeks = sorted({w for w, _, _ in pairs} | set(playoff_weeks))
     U = rng.normal(0, tau, (n, T))
     S = {}
+    # playoff-accuracy study item 7 (2026-11-16; both off unless passed): walk_step = drift that builds up week by week on top of the season-long shock
+    # (a team's misses in weeks far ahead share more than in near weeks: ~160 -> 240 per 7 days on the 2025-26 replay); h_decay = forecasts fall
+    # short by this fraction per week ahead (held rosters lose players faster than moves replace them: ~0.6%/week)
+    walk_step, h_decay = (walk or {}).get("step", 0.0), (walk or {}).get("decay", 0.0)
+    w0 = weeks[0] if weeks else 0
+    Ucum = U.copy()
     for w in weeks:
         L = lens.get(w, 7)
-        m = np.array([mu.get((t, w), 0.0) + (shift or {}).get(t, 0.0) * L / 7.0 for t in team_ids])
-        S[w] = m[None, :] - bias * L / 7.0 + U * (L / 7.0) + rng.normal(0, sigma_e, (n, T)) * np.sqrt(L / 7.0)
+        if walk_step and w > w0:
+            Ucum = Ucum + rng.normal(0, walk_step, (n, T))
+        m = np.array([mu.get((t, w), 0.0) * (1 - h_decay * (w - w0)) + (shift or {}).get(t, 0.0) * L / 7.0 for t in team_ids])
+        S[w] = m[None, :] - bias * L / 7.0 + Ucum * (L / 7.0) + rng.normal(0, sigma_e, (n, T)) * np.sqrt(L / 7.0)
     W = np.tile(np.array([wins.get(t, 0) for t in team_ids], float), (n, 1))
     PF = np.tile(np.array([pf.get(t, 0.0) for t in team_ids], float), (n, 1))
     focus_won = None

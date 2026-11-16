@@ -298,4 +298,25 @@ for rule in ("flat", "curve"):
     if rule == "curve":
         print("     champion's title odds by checkpoint (tau 100 / 150 / 200):", " ".join(f"w{c}:{res[100]['champ_p'][i]:.0%}/{res[150]['champ_p'][i]:.0%}/{res[200]['champ_p'][i]:.0%}" for i, c in enumerate(ANCHORS)))
 
+# ---------------- D. (2026-11-16, playoff-accuracy study item 7) drift that builds up week by week + forecasts that fall short further ahead
+# (ros_accuracy_study.py: shared misses ~160 -> 240 per 7 days from near to far weeks; ~0.6% shortfall per week ahead, not a late-season effect)
+print("\nD. BUILD-UP DRIFT AND DISTANCE SHORTFALL (injured rule: curve; all checkpoints)")
+for tau, step, decay in [(150, 0, 0), (165, 0, 0), (105, 0, 0), (150, 40, 0), (150, 57, 0), (130, 57, 0), (150, 40, 0.006), (150, 57, 0.006), (150, 0, 0.006)]:
+    sc = {"made": [], "bye": [], "title": [], "champ_p": []}
+    for c in ANCHORS:
+        wins, pf = O.standings(games, upto=c - 1)
+        for t in ids:
+            wins.setdefault(t, 0)
+            pf.setdefault(t, 0.0)
+        pairs = [(g["week"], g["a"], g["b"]) for g in games if g["week"] >= c]
+        mu = {(t, w): fcast[("curve", t, c, w)] for t in ids for w in ALL_W if ("curve", t, c, w) in fcast}
+        r = simulate(ids, wins, pf, pairs, mu, lens, REG_LAST, tau=float(tau), sigma_e=175.0, bias=0.0, n=6000, seed=3, walk={"step": step, "decay": decay})
+        sc["made"].append(ll(r["made"], made_y))
+        sc["bye"].append(ll(r["bye"], bye_y))
+        sc["title"].append(ll(r["title"], title_y))
+        sc["champ_p"].append(float(r["title"][ids.index(champ)]))
+    early = [i for i, c in enumerate(ANCHORS) if c <= 8]
+    print(f"   tau {tau:3d} step {step:3d} decay {decay:.3f}: log loss made {np.mean(sc['made']):.3f} (weeks<=8 {np.mean([sc['made'][i] for i in early]):.3f})"
+          f"  bye {np.mean(sc['bye']):.3f}  title {np.mean(sc['title']):.4f}  champion's avg title odds {np.mean(sc['champ_p']):.0%}")
+
 json.dump({"rows": len(df)}, open(R / "data" / "title_odds_study.json", "w"))
