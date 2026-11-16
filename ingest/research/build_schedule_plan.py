@@ -120,6 +120,10 @@ def decay(d, level):
     return _DEC["f"][h][b]
 
 
+RD_RAMP = 6.0
+RD_HIT = float(os.environ.get("RD_HIT", "1.0"))     # chance he is back on ESPN's return date (1.0 = trust ESPN's date fully, the rule until 2026-11-16)
+
+
 def p_play(pl, d, wid):
     if pl["team"] and not plays(pl["team"], d):
         return 0.0
@@ -136,6 +140,14 @@ def p_play(pl, d, wid):
         if j.get("rd"):
             if d.isoformat() < j["rd"]:
                 return 0.0
+            if RD_HIT < 1.0:
+                # playoff-accuracy study item 3 (2026-11-16): only 16 of 41 players this season were back by ESPN's first return date (10 a few days
+                # late, 15 still out). On the date he is RD_HIT likely back, rising to fully back over RD_RAMP more team games (those who missed the
+                # date and have returned were back within 5 days; the measured return curves do not fit here: they are for players out 8+ games,
+                # season-ending cases included, and level off near 50%)
+                rd0 = date.fromisoformat(j["rd"])
+                after = sum(1 for i in range((d - rd0).days) if plays(pl["team"], rd0 + timedelta(days=i)))
+                p *= min(1.0, RD_HIT + (1 - RD_HIT) * after / RD_RAMP)
             p *= RAMP_BACK
         else:
             curve = IA.out_curve(j["g"], j["t"], j["s"])[0]
@@ -164,8 +176,23 @@ def slot_matcher(cands):
     return [ci for ci in range(len(cands)) if try_assign(ci, set())]
 
 
+# RECENT FORM FADES WITH DISTANCE (playoff-accuracy study item 2, 2026-11-16; ST_FADE=1 to use, off until Tommy approves). A player's level today is
+# next-few-days DELCO, which leans on his last few games' minutes and scoring. On 2010-26 box scores the minutes signal is worth 0.32 of the gap this
+# week, about half that next week, and nothing from ~7 weeks out (a role spike reverts); held at full strength for every future week it predicts worse
+# than season DELCO alone from 3 weeks out. So weeks ahead use season DELCO (ll) plus a fading share of today's gap.
+ST_FADE = os.environ.get("ST_FADE", "0") == "1"
+FADE = [1.0, 0.5, 0.4, 0.25, 0.15, 0.1, 0.1, 0.0]
+
+
+def lvl(pl, wid):
+    if not ST_FADE or not pl.get("ll"):
+        return pl["level"]
+    h = max(0, wid - FIRST)
+    return pl["ll"] + (pl["level"] - pl["ll"]) * FADE[min(h, len(FADE) - 1)]
+
+
 def day_options(roster, d, wid):
-    cands = sorted(((p_play(pl, d, wid) * pl["level"], pl, p_play(pl, d, wid)) for pl in roster if p_play(pl, d, wid) > 0), key=lambda x: -x[0])
+    cands = sorted(((p_play(pl, d, wid) * lvl(pl, wid), pl, p_play(pl, d, wid)) for pl in roster if p_play(pl, d, wid) > 0), key=lambda x: -x[0])
     acc = slot_matcher(cands)
     vals, cnt = [0.0], [0.0]
     for ci in acc:
@@ -224,8 +251,8 @@ def capped(roster, wid):
 # whole week by level, so a player back on Saturday took the spot of a healthy player who could play Monday-Friday (DRNK week 5: 1,524 vs 1,613).
 # A manager keeps a returner on IR until his first game back, then activates him and drops the weakest player from that day on. So: start the week
 # with the best 15 who can play on day 1 (or any later day if out on day 1 but not injured), and on each returner's first playable day swap him
-# in for the weakest kept player when he is better.
-SPOT_DAY = os.environ.get("SPOT_DAY", "0") == "1"
+# in for the weakest kept player when he is better. (SPOT_DAY on by default since 2026-11-16, Tommy approved.)
+SPOT_DAY = os.environ.get("SPOT_DAY", "1") == "1"         # on since 2026-11-16 (Tommy approved); SPOT_DAY=0 for the old weekly rule
 
 
 def capped_days(roster, wid):
@@ -265,7 +292,7 @@ def points_over(roster, weeks):
 def mk(p):
     return {"id": p["id"], "name": p["name"], "team": canon(p.get("team") or ""), "slots": [s for s in p.get("slots", []) if s in set(SLOTS)] or ["UT"],
             "status": p.get("status", "ACTIVE"), "level": p.get("level") or 0.0, "ir": bool(p.get("ir")), "asset_rank": p.get("asset_rank"), "protected": bool(p.get("protected")),
-            "inj": p.get("inj")}
+            "inj": p.get("inj"), "ll": p.get("ll")}
 
 
 def games_row(pl):

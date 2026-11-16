@@ -37,6 +37,22 @@ one past season are reported as "can't tell yet".
   - DRNK caveat already holds in the live system: the factor uses 2026-27 weeks only.
   Open from stage 1: a small extra horizon decay (~0.25%/week) to test with item 7; the manager factor's within-season trend (does a team's
   edge grow or fade?) once 2026-27 has ~8 weeks.
+- CORRECTION 2026-11-16: the stage-1 "~0.6% further short per week ahead" is already handled live by the later-week decay
+  (horizon_decay.json, 2026-11-07); the backtest_phase2 replay does not apply it. Not a new finding.
+- 2026-11-16 item 2 (player level weeks ahead): `build_schedule_plan.lvl` (ST_FADE=1; off until approved). The season forecast used today's
+  next-few-days DELCO for every future week. On 2010-26 box scores (anchors every 6th game, 465k anchor-weeks, weights fit on even seasons,
+  scored on odd): the last-3 minutes gap is worth 0.32 this week, ~0.16 next week, ~0 from week 7 (then slightly negative: role spikes revert);
+  the last-3 scoring gap ~0.10 at every distance. Holding today's number is worse than season DELCO alone from 3 weeks out; fading
+  (1, .5, .4, .25, .15, .1, .1, 0) beats both at every distance (0.04-0.2 points a game a player). Today: next-4 full weeks -6 to +18 by team,
+  rest of season -118 to +406 (MMT, BBL, GGT up: players in short-minutes stretches).
+- 2026-11-16 item 3 (availability): ESPN return dates vs real returns this season (daily week_plan.json snapshots from git, game logs to
+  11-15): 41 players with a first ESPN date already passed: 16 back by it (39%), 10 back 1-5 days late, 15 still out. The live rule treats
+  a player as back from ESPN's date. Option RD_HIT=0.4 (off until approved): 40% on the date, rising to fully back over 6 team games
+  (RD_RAMP). The measured return curves do not fit (they are for players out 8+ games and level off near 50%; first try cut whole seasons
+  by 600-1,800 points, rejected). Today: weeks 5-6 -10 to -120 by team, rest of season -47 to -298; DRNK -200. Small sample: recheck in Dec.
+- Item 5 (start usage): covered by the manager factor (unused starts show up as points below forecast every week); no separate model.
+- Item 6 (schedule): the 2 unscheduled NBA Cup games per team hit every team about equally and the morning schedule pull adds them when the
+  NBA posts them (early December); no change.
 - 2026-11-16 item 4 (roster spots): `build_schedule_plan.capped_days` (SPOT_DAY=1; off until approved). Day-aware: returners stay on IR until
   their first game back, then replace the weakest kept player. Cannot be replayed on 2025-26 (the replay drops IR players and has no return
   dates), so it rests on logic: it never projects a team lower than the weekly rule. Today: DRNK week 5 1,524 -> 1,648; rest-of-season
