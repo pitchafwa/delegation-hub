@@ -1422,7 +1422,7 @@ function teamModel(t,byId,rdBy){
   const gamesOf=x=>{ const q=sp&&sp.players.find(y=>y.id===x.r.espn_id); return q?q.games:null; };
   const wkGames=w=>{ let s=0,n=0; top10.forEach(x=>{ const g=gamesOf(x); if(g&&g[w-1]!=null){s+=g[w-1];n++;} }); return n?s:null; };
   const next4=[0,1,2,3].map(i=>wkGames(cw+i)).filter(v=>v!=null);
-  const projW=sp&&sp.proj?[0,1,2,3].map(i=>sp.proj[String(cw+i)]).filter(v=>v!=null):[];
+  const projW=projWeeks(sp,cw);
   const use=TU&&TU.rows?TU.rows.filter(r=>r.team===t.id).sort((a,b)=>a.y-b.y||a.mp-b.mp).slice(-10):[];
   const useAvg=use.length?use.reduce((s,r)=>s+r.total/r.cap*40,0)/use.length:null;
   const od=ODDS&&ODDS.teams?ODDS.teams.find(x=>x.id===t.id):null, done=ODDS?Math.max(0,(ODDS.current_week||1)-1):0;
@@ -2102,7 +2102,7 @@ const GLOSS=[
   ['Opp pts/wk','Average points scored against the team per completed matchup: the schedule luck it has faced.'],
   ['All-play','The record a team would have if it played every other team every week. It measures strength without schedule luck.'],
   ['Luck','Actual wins minus the wins its all-play record says it should have. Plus means a kind schedule; it tends to even out.'],
-  ['Proj pts/wk','Projected points per matchup over the next four matchups, from the current rosters and NBA schedules.'],
+  ['Proj pts/wk','Projected points per matchup over the next four full NBA weeks (weeks with far fewer games, like the NBA Cup break, are skipped), from the current rosters and NBA schedules.'],
   ['Starts per matchup','Average started games per completed matchup this season, on the 40-game cap scale. Teams well under 40 leave points on the table.'],
   ['PO games','Games his NBA team plays in the fantasy playoffs (weeks 20-22), 9 to 12 across the league. A point in those weeks is worth far more to your title chances than a regular-season point.'],
   ['Proj','Projected final regular-season record, from the season simulation (19 matchups).'],
@@ -2167,6 +2167,14 @@ function collapseLegends(root){
   });
 }
 const activeView=()=>{const b=document.querySelector('#segView button[aria-pressed="true"]'); return b?b.dataset.v:null;};
+/* Proj pts/wk: the next four FULL NBA weeks (2026-11-16, Tommy saw ~1,100): weeks where the league plays well under a normal schedule (NBA Cup
+   break, games not yet scheduled) are skipped, so the number reads as roster strength rather than calendar. */
+function projWeeks(sp,cw){
+  if(!sp||!sp.proj) return [];
+  const ag=(SP&&SP.avg_games)||[], out=[];
+  for(let w=cw; w<cw+12&&out.length<4; w++){ const v=sp.proj[String(w)]; if(v==null) continue; if(ag[w-1]!=null&&ag[w-1]<2.5) continue; out.push(v); }
+  return out;
+}
 const VIEWS=['week','standings','sched','board','redraft','daily','teams','trades','keepers','draft','about','cloud','choices','settings'];
 let pendingTeam=null;
 function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
@@ -3903,7 +3911,7 @@ function renderStandings(){
   const rows=ODDS.teams.map(o=>{
     const wt=W.teams.find(x=>x.id===o.id)||{}, op=wt.opp!=null?W.teams.find(x=>x.id===wt.opp):null;
     const g=(o.res||[]).length, sp=SP&&SP.teams?SP.teams.find(x=>x.id===o.id):null, cw=SP?SP.current_week:1;
-    const pw=sp&&sp.proj?[0,1,2,3].map(i=>sp.proj[String(cw+i)]).filter(v=>v!=null):[];
+    const pw=projWeeks(sp,cw);
     const use=TU&&TU.rows?TU.rows.filter(r=>r.team===o.id&&r.y===W.season):[];            // this season's completed matchups only
     const st0=use.reduce((t,r)=>t+r.total,0)+(wt.starts_so_far||0), pts0=(o.pf||0)+(wt.pts_so_far||0);
     const pps=st0>0?pts0/st0:null;                                                                 // completed matchups plus the one in progress
