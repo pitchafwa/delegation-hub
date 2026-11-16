@@ -869,7 +869,8 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
     <div class="seg" id="segKind">
       <button data-v="all" aria-pressed="true">All</button>
       <button data-v="current">Current</button>
-      <button data-v="prospect">Prospects</button>
+      <button data-v="rookie">Rookies</button>
+      <button data-v="prospect" id="segProspect">Prospects</button>
       <button data-v="breakout">Breakouts</button>
     </div>
   </div>
@@ -1121,6 +1122,8 @@ function rowsFiltered(){
     else if(brkType==='radar') r = r.filter(p=>p.edge_fpg!=null && p.edge_fpg>=2);
     else if(brkType==='bust') r = r.filter(p=>p.p_bust!=null);
   }
+  else if(kind==='rookie') r = r.filter(isRk);
+  else if(kind==='prospect') r = r.filter(p => p._incoming);
   else if(kind!=='all') r = r.filter(p => p.kind===kind);
   if(q) r = r.filter(p => p.player.toLowerCase().includes(q.toLowerCase()));
   if(L && ownerFilter!=='all'){
@@ -1211,14 +1214,16 @@ function fillYearSelect(){
   sel.value=brkYear;
 }
 
+const isRk=p=>!!(p&&p._rookie);
 function render(){
   if(kind==='breakout' && brkYear!=='live' && H){ renderHist(); return; }
   const rows = rowsFiltered();
   const cur = D.players.filter(p=>p.kind==='current').length;
-  const pro = D.players.filter(p=>p.kind==='prospect').length;
+  const rk = D.players.filter(isRk).length, pro = D.players.filter(p=>p._incoming).length;
+  const sp=document.getElementById('segProspect'); if(sp) sp.style.display=pro?'':'none';
   document.getElementById('statbar').innerHTML = `
     <div><b>${cur}</b>current players</div>
-    <div><b>${pro}</b>prospects (not yet debuted)</div>
+    <div><b>${rk}</b>rookies</div>${pro?`<div><b>${pro}</b>prospects</div>`:''}
     <div><b>${rows.length}</b>showing</div>`;
   (document.getElementById('legend')||{}).innerHTML = kind==='breakout' ? (()=>{
     const m=D.breakout_meta, e=m.pools.emergence, l=m.pools.elevation, a=m.adp.listed, bu=m.bust, av=m.availability, te=m.total_edge, vt=m.vor_test, pr=m.projection;
@@ -1236,7 +1241,7 @@ function render(){
     <b>Season-total edge</b> = same idea in <i>season-total points</i> (pts/g × games). Additional info only, and a humbler result: the per-game edge picks did <b>not</b> beat ADP in season totals (${te.top10_total_surprise_by_pergame_edge.toFixed(0)} pts vs ADP-implied), because injuries eat the per-game advantage; ranking by the total edge itself gave +${te.top10_total_surprise_by_total_edge.toFixed(0)} pts (small next to ~${te.rmse_total_adp_only.toFixed(0)} pts of random season-to-season noise). Read per-game edge and injury risk together.<br>
     <b>VOR if he breaks out</b> = VOR after adding the breakout odds <i>beyond what age + output already imply</i> × how long a breakout's jump persists, shown in a player's expanded row rather than as its own column, because folding odds into projections only cut error ${((1-vt.h1.rmse_base_plus_breakout_odds/vt.h1.rmse_base)*100).toFixed(1)}% at 1 year and ${((1-vt.h3.rmse_base_plus_breakout_odds/vt.h3.rmse_base)*100).toFixed(1)}% at 3 years — too small to justify changing the core trajectories (tested against a simple proxy, not the Kalman model itself).<br>
     <b>Rookies</b> (separate model on college/international profile): "breakout chance" = probability of being fantasy-relevant in year 1 (within 1 pt of the ${oppCost(3).toFixed(1)} line). Honest result: draft slot alone (AUC ${m.rookie.pick_only.auc.toFixed(2)}) already does nearly all the work; adding the college profile ${m.rookie.full.auc<m.rookie.pick_only.auc?'did not help':'helped little'} (best variant AUC ${m.rookie['pick+few'].auc.toFixed(2)}, error ${m.rookie['pick+few'].rmse.toFixed(1)} vs ${m.rookie.pick_only.rmse.toFixed(1)} pts/g). And ESPN's ADP was far more accurate on ADP-listed rookies (error ${m.rookie.adp.rmse_adp_only.toFixed(1)} vs our ${m.rookie.adp.rmse_model_only.toFixed(1)} pts/g, ${m.rookie.adp.n} rookies), so <b>no rookie edge vs ADP is shown</b> — treat ADP as the better guide to year-1 output, and this as a P(relevant) read.<br>
-    Situation signals used: changed teams, usage/minutes vacated at his new team. Head-coach changes were tested and did <b>not</b> help. Watchlist, not a lock.</div></details>`;})() : `<b>90PCT VOR / 90PCT AST</b> = what the player would be worth if he has a 90th-percentile career: the typical career whose total value lands in the top 10% of outcomes for players like him (same age group or draft slot), assuming he stays in the league. Only a 1-in-10 outcome, not a forecast; the dashed green line on his chart shows that path. <b>MKT</b> (market rank) = Hashtag Basketball's crowdsourced dynasty ranking (205k votes, 2026-09-24); the small number beside it is the market rank minus our asset rank (+ = we rank him higher than the crowd, − = lower). It's a market price, not a forecast: use the gap to spot where our production-based value and the market disagree. <b>Horizon and scouting prior:</b> asset value counts the next ${HZ} season${HZ>1?'s':''} (the Horizon setting; 5%/yr discount; the career chart always shows 10) and young top-5 picks (age 21 or younger) carry a scouting-information prior inside the asset value (worth +3 pts/g per season when pricing). It is a calibrated prior, not a validated production effect, chosen so that group lands between two independent expert lists, and it is deliberately NOT applied to the projected points, peak or VOR shown here. <b>Reading the projections:</b> each trajectory and "Peak PPG" is the AVERAGE outcome in that season across everything that could happen to a player (busts, breakouts and all), not a best case. A player's single best season is typically several points higher than the peak of his average path, and a young star's upside sits well above his line. <b>Projections</b> (by <b>DELCO</b>, this hub's own projection system) are ONE blended path per player that feeds both VOR and Asset value: for players with NBA data, a Kalman tracking model blended with an empirical forecast built from what similar players actually did (75/25 next season, 50/50 after); for prospects, an empirical draft-slot/age/talent model blended with the calibrated college-profile projection (picks 1-10; late picks use the empirical model alone). Weights were chosen on held-out seasons. <b>Asset</b> = an overall, keeper-count-aware snapshot (the "what is this player worth to own" number): next season always counts, future seasons only count where he'd clear the keep cutoff for this many keepers per team (none at 0 = pure redraft; up to nearly everyone at 19 = full dynasty), weighted by career-survival odds and real historical outcome spread (young high-ceiling players carry upside, older players fade). Slide the keeper count to see young players rise and old high-scorers fall; <b>VOR</b> (below) stays the keep-vs-draft decision tool. <b>VOR</b> = value above opportunity cost, summed over each season your keeper trajectory stays above what you'd get back drafting fresh (stops at the first year it dips below) — <span class="kind rookie" style="font-size:.66rem">ROOKIE</span> not yet debuted (🌐 = international pathway). The colored dot next to a name is his injury-risk tier (hover for detail). Adjust the keeper count above to see value shift with league format.`;
+    Situation signals used: changed teams, usage/minutes vacated at his new team. Head-coach changes were tested and did <b>not</b> help. Watchlist, not a lock.</div></details>`;})() : `<b>90PCT VOR / 90PCT AST</b> = what the player would be worth if he has a 90th-percentile career: the typical career whose total value lands in the top 10% of outcomes for players like him (same age group or draft slot), assuming he stays in the league. Only a 1-in-10 outcome, not a forecast; the dashed green line on his chart shows that path. <b>MKT</b> (market rank) = Hashtag Basketball's crowdsourced dynasty ranking (205k votes, 2026-09-24); the small number beside it is the market rank minus our asset rank (+ = we rank him higher than the crowd, − = lower). It's a market price, not a forecast: use the gap to spot where our production-based value and the market disagree. <b>Horizon and scouting prior:</b> asset value counts the next ${HZ} season${HZ>1?'s':''} (the Horizon setting; 5%/yr discount; the career chart always shows 10) and young top-5 picks (age 21 or younger) carry a scouting-information prior inside the asset value (worth +3 pts/g per season when pricing). It is a calibrated prior, not a validated production effect, chosen so that group lands between two independent expert lists, and it is deliberately NOT applied to the projected points, peak or VOR shown here. <b>Reading the projections:</b> each trajectory and "Peak PPG" is the AVERAGE outcome in that season across everything that could happen to a player (busts, breakouts and all), not a best case. A player's single best season is typically several points higher than the peak of his average path, and a young star's upside sits well above his line. <b>Projections</b> (by <b>DELCO</b>, this hub's own projection system) are ONE blended path per player that feeds both VOR and Asset value: for players with NBA data, a Kalman tracking model blended with an empirical forecast built from what similar players actually did (75/25 next season, 50/50 after); for prospects, an empirical draft-slot/age/talent model blended with the calibrated college-profile projection (picks 1-10; late picks use the empirical model alone). Weights were chosen on held-out seasons. <b>Asset</b> = an overall, keeper-count-aware snapshot (the "what is this player worth to own" number): next season always counts, future seasons only count where he'd clear the keep cutoff for this many keepers per team (none at 0 = pure redraft; up to nearly everyone at 19 = full dynasty), weighted by career-survival odds and real historical outcome spread (young high-ceiling players carry upside, older players fade). Slide the keeper count to see young players rise and old high-scorers fall; <b>VOR</b> (below) stays the keep-vs-draft decision tool. <b>VOR</b> = value above opportunity cost, summed over each season your keeper trajectory stays above what you'd get back drafting fresh (stops at the first year it dips below) — <span class="kind rookie" style="font-size:.66rem">ROOKIE</span> first NBA season (🌐 = international pathway). The colored dot next to a name is his injury-risk tier (hover for detail). Adjust the keeper count above to see value shift with league format.`;
 
   const isBrk = kind==='breakout';
   const cols = isBrk ? [
@@ -1267,7 +1272,7 @@ function render(){
   const body = shownRows.map(p=>{
     const id=p.id;
     const isOpen=open.has(id);
-    const badge = p.kind==='prospect' ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
+    const badge = isRk(p) ? `<span class="kind rookie">ROOKIE${p.data_source==='international'?' 🌐':''}</span>` : '';
     const IM=D.injury_meta||{};
     const injTyp=IM.typical_missed!=null?` (a typical regular in ${IM.season}: listed out with an injury or illness for about ${IM.typical_missed} games, ${(IM.typical_share_25plus*100).toFixed(0)}% for 20%+ of games)`:'';
     const injTip=p.injury_tier!=null?`Injury risk: ${INJL[p.injury_tier]} compared with other regulars (24+ minutes a game) · about ${(p.injury_p*100).toFixed(0)}% chance of being listed out with an injury or illness in 20%+ of next season's games, roughly ${p.injury_health_missed!=null?p.injury_health_missed:p.injury_missed} games${injTyp}${(p.injury_tags||[]).length?' · '+p.injury_tags.join('; '):''}`:'';
@@ -1303,7 +1308,7 @@ function render(){
     if(isMobile()){
       const own=L?(p._owner?p._owner.abbrev:null):undefined, mine=!!(p._owner&&W&&p._owner.abbrev===W.my_abbrev);
       const where=!p.team&&p.kind==='prospect'?`${p.year?`Draft '${String(p.year).slice(-2)}`:'Prospect'}${p.pick?' · pick '+p.pick:''}`:'';
-      const chips=[p.kind==='prospect'?chip('Rookie','acc'):'',injDot,stCls(p.espn_injury_status)];
+      const chips=[isRk(p)?chip('Rookie','acc'):'',injDot,stCls(p.espn_injury_status)];
       let stats, key;
       if(isBrk){
         stats=[[p.fpg_last!=null?fmt1(p.fpg_last):null,'last season'],[p.proj_fpg!=null?p.proj_fpg.toFixed(0):null,'proj'],[p.p_bust!=null?(p.p_bust*100).toFixed(0)+'%':null,'bust',p.p_bust>=0.5?'down':''],[p.edge_fpg!=null?(p.edge_fpg>=0?'+':'')+p.edge_fpg.toFixed(1):null,'vs ADP',p.edge_fpg>=2?'up':(p.edge_fpg<=-2?'down':'')]];
@@ -1497,7 +1502,7 @@ function renderTeams(){
     const inj=x.r.injury&&x.r.injury!=='ACTIVE'?`<span class="liveStatus">${esc(x.r.injury.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','DTD'))}</span>`:'';
     const risk=p&&p.injury_tier!=null&&p.injury_tier>=3?` <span class="injTier t${p.injury_tier}" title="injury-risk tier for next season">${esc(INJL[p.injury_tier])}</span>`:'';
     return `<tr style="${x.ir?'opacity:.7':''}">
-      <td style="text-align:left">${keepRow?'<span class="kind rookie" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">KEEP</span> ':''}${pc(p?p.player:x.r.name)}${p&&p.kind==='prospect'?' <span class="kind rookie">ROOKIE</span>':''}${inj}${risk}</td>
+      <td style="text-align:left">${keepRow?'<span class="kind rookie" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">KEEP</span> ':''}${pc(p?p.player:x.r.name)}${p&&isRk(p)?' <span class="kind rookie">ROOKIE</span>':''}${inj}${risk}</td>
       <td style="text-align:left">${esc(x.r.slot||'')}</td><td style="text-align:left">${p?esc(p.pos||'—'):'—'}</td><td class="num">${p&&p.age!=null?p.age.toFixed(1):'—'}</td>
       <td style="text-align:left">${p?esc(p.team||'—'):'—'}</td>
       <td class="num">${p&&p.asset_k?`<b>${p.asset_k[K].toFixed(1)}</b> <span class="hint">#${ranks.get(p.id)}</span>`:'<span class="hint">none</span>'}</td>
@@ -1510,7 +1515,7 @@ function renderTeams(){
     const KEY={ppg:[v.ppg!=null?v.ppg.toFixed(1):'—',inSeason?'PPG':'Proj PPG'],l10:[v.l10!=null?v.l10.toFixed(1):'—','Last 10'],ros:[v.ros!=null?v.ros.toFixed(1):'—','Proj PPG'],age:[p&&p.age!=null?p.age.toFixed(1):'—','Age'],
       g4:[v.g4??'—','Games, 4 wks'],mkt:[p&&p.market_rank!=null?'#'+p.market_rank:'—','Market'],slot:[esc(x.r.slot||''),'Slot']}[tmSort.k]||[p&&p.asset_k?p.asset_k[K].toFixed(1):'—','Keeper value',p&&p.asset_k?'#'+ranks.get(p.id):''];
     return plRow({name:p?p.player:x.r.name,nba:p?String(p.id).slice(1):null,espn:x.r.espn_id,team:p&&p.team,pos:x.r.slot,age:p&&p.age,
-      chips:[keepRow?chip('Keep','good'):'',p&&p.kind==='prospect'?chip('Rookie','acc'):'',stCls(x.r.injury),p&&p.injury_tier>=3&&!(x.r.injury&&x.r.injury!=='ACTIVE')?chip(INJL[p.injury_tier]+' risk'):''],
+      chips:[keepRow?chip('Keep','good'):'',p&&isRk(p)?chip('Rookie','acc'):'',stCls(x.r.injury),p&&p.injury_tier>=3&&!(x.r.injury&&x.r.injury!=='ACTIVE')?chip(INJL[p.injury_tier]+' risk'):''],
       stats:[[v.ppg!=null?v.ppg.toFixed(1):null,v.played?'PPG':'proj'],[v.l10!=null?v.l10.toFixed(1):null,'L10'],[v.g4,'games, 4 wks']],key:{v:KEY[0],l:KEY[1],sub:KEY[2]}}); }).join('');
   const sortSel=`<select id="tmSortSel" class="mobileOnly" style="padding:.3rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit">${[['asset','Keeper value'],['ppg',inSeason?'Points per game':'Projected points per game'],['l10','Last 10'],['ros','Projected PPG'],['age','Age (youngest first)'],['g4','Games, 4 wks'],['mkt','Market rank'],['slot','Lineup slot']].map(([k,l])=>`<option value="${k}" ${tmSort.k===k?'selected':''}>${l}</option>`).join('')}</select>`;
   // ---- sections
@@ -4369,6 +4374,11 @@ fetch('redraft_data.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x
 fetch('schedule_plan.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x&&x.nba){SP=x; if(activeView()==='sched'||activeView()==='week') setView(activeView()); if(activeView()==='redraft'&&RD) renderRedraft(); if(activeView()==='teams'&&L&&D) renderTeams();} }).catch(()=>{});
 fetch('hub_data.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
   D=data;
+  /* ROOKIES vs PROSPECTS (2026-11-16, Tommy): a rookie is in his first NBA season, debuted or not (Peterson, Lendeborg; also a 2025 pick who never
+     played, like Sorber); a prospect is drafted for a LATER season (the incoming class: none between the season's tipoff and the next draft). */
+  { const cls=Math.max(...D.players.filter(p=>p.kind==='current'&&p.anchor_year).map(p=>p.anchor_year))-1;
+    for(const p of D.players){ p._incoming=p.kind==='prospect'&&p.year!=null&&p.year>cls;
+      p._rookie=!p._incoming&&(p.kind==='prospect'||(p.kind==='current'&&Array.isArray(p.history_years)&&!p.history_years.length)); } }
   HZ_SAVED=D.value_horizon||10; { let lh=null; try{ lh=slTok()?null:+localStorage.getItem('hubHZ'); }catch(_){} applyHZ(lh||HZ_SAVED); }
   document.getElementById('hSub').innerHTML = (D.ctx_mode==='carry' ? '<b style="color:var(--warn)">VARIANT: for incoming rookies the team-situation boost applies to year 1 only, and that boosted year-1 level is the baseline for every later season (no fade).</b> ' : '') + D.note;
   document.getElementById('foot').textContent += ` Generated ${new Date(D.generated).toLocaleString()}.`;
