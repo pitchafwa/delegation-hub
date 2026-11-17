@@ -2,6 +2,7 @@
  "avail_prev": {
   "2566769": "FREEAGENT",
   "3059319": "FREEAGENT",
+  "3978": "WAIVERS",
   "4431679": "FREEAGENT",
   "4683766": "FREEAGENT"
  },
@@ -39,7 +40,7 @@
   },
   "4065733": {
    "date": "2026-11-17",
-   "espn": "DAY_TO_DAY",
+   "espn": "OUT",
    "official": null
   },
   "4395724": {
@@ -136,9 +137,9 @@
   "5104155:2026-11-15:santi aldama:today": "2026-11-15"
  },
  "plan_rebuild": {
-  "at": "2026-11-17T19:40:36+00:00",
+  "at": "2026-11-17T22:20:39+00:00",
   "sig": "6430,3133626,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4433134,4594327,4683678,4684740,5041939,5041955,5105565,5241364,5279130",
-  "why": "scheduled build at 19:07Z did not run (plan from 18:48Z)"
+  "why": "new free agent(s) to evaluate: DeMar DeRozan"
  },
  "rosterfix_sent": {},
  "sent": {
