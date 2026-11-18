@@ -1273,7 +1273,7 @@ for pl in [x for rr in rosters.values() for x in rr] + fa_players:
                          # added 2026-10-26 with model A: the v1 number it replaced
                          "st_v1": round(pl["st_base"] + pl["st_delta"], 1) if pl.get("st_delta") is not None else ""})
     seen_log.add(key)
-if new_rows and not os.environ.get("PLAN_TODAY") and not _c0 and not UNLOCK_HOLD_COST and not os.environ.get("UNLOCK_DEBUG"):          # a simulated day must never write the projection log the blend study grades
+if new_rows and not os.environ.get("WP_OUT") and not os.environ.get("PLAN_TODAY") and not _c0 and not UNLOCK_HOLD_COST and not os.environ.get("UNLOCK_DEBUG"):          # a simulated day must never write the projection log the blend study grades
     fields = list(new_rows[0].keys())
     if LOG.exists():
         with open(LOG, encoding="utf-8") as fh:
@@ -2395,7 +2395,7 @@ print("wrote", OUTP.name, round(OUTP.stat().st_size / 1024), "KB")
 
 # ---------- ACCOUNTABILITY LEDGER: what we predicted and recommended, appended every run from opening night (grade it against real results later; see ledger/README.md)
 try:
-    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0 and not os.environ.get("PLAN_TODAY") and not UNLOCK_HOLD_COST and not os.environ.get("UNLOCK_DEBUG"):      # a simulated day (PLAN_TODAY) must never write the real ledger
+    if (today >= SEASON_START - timedelta(days=1) or os.environ.get("LEDGER_FORCE")) and not _c0 and not os.environ.get("WP_OUT") and not os.environ.get("PLAN_TODAY") and not UNLOCK_HOLD_COST and not os.environ.get("UNLOCK_DEBUG"):      # a simulated day (PLAN_TODAY) must never write the real ledger
         LEDGER = HUB.parent / "ledger"
         LEDGER.mkdir(exist_ok=True)
         _lf = LEDGER / f"plan-{today.strftime('%Y-%m')}.jsonl"
