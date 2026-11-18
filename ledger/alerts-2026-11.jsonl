@@ -97,3 +97,5 @@
 {"kind":"late_scratch","ts":"2026-11-17T21:15:35-05:00","player":"Grayson Allen","stage":1,"mins_to_tip":104,"swap":null}
 {"kind":"alert","ts":"2026-11-17T22:25:33-05:00","title":"Still starting Grayson Allen (out)","body":"Grayson Allen (UT) is out (injury report).\nNo bench fit (adds now only count from tomorrow): leave it empty.","priority":5}
 {"kind":"late_scratch","ts":"2026-11-17T22:25:33-05:00","player":"Grayson Allen","stage":2,"mins_to_tip":34,"swap":null}
+{"kind":"alert","ts":"2026-11-18T13:00:47-05:00","title":"Swap out Scottie Barnes by 7:30pm","body":"Scottie Barnes (G) is out (injury report).\nMove Darryn Peterson to G, start Kenrich Williams at UT (~24 pts).\nOr: Amen Thompson.","priority":4}
+{"kind":"late_scratch","ts":"2026-11-18T13:00:47-05:00","player":"Scottie Barnes","stage":1,"mins_to_tip":389,"swap":"Kenrich Williams"}
