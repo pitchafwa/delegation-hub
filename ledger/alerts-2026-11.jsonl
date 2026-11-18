@@ -93,3 +93,5 @@
 {"kind":"alert","ts":"2026-11-16T18:55:36-05:00","title":"Still starting Amen Thompson (out)","body":"Amen Thompson (SG) is out (injury report).\nNo bench fit (adds now only count from tomorrow): leave it empty.","priority":5}
 {"kind":"late_scratch","ts":"2026-11-16T18:55:36-05:00","player":"Amen Thompson","stage":2,"mins_to_tip":34,"swap":null}
 {"kind":"alert","ts":"2026-11-17T08:00:36-05:00","title":"Stash Moses Moody on IR","body":"Injured, Left Knee. Expected back about Dec 1. Add him, drop Kenrich Williams, move him to IR. Then activate Dejounte Murray with no drop. +170 rest of season.","priority":3}
+{"kind":"alert","ts":"2026-11-17T21:15:35-05:00","title":"Swap out Grayson Allen by 11pm","body":"Grayson Allen (UT) is out (injury report).\nNo bench fit (adds now only count from tomorrow): leave it empty.","priority":4}
+{"kind":"late_scratch","ts":"2026-11-17T21:15:35-05:00","player":"Grayson Allen","stage":1,"mins_to_tip":104,"swap":null}
