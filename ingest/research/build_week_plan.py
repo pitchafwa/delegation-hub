@@ -551,6 +551,47 @@ def assign_slots(chosen):
     return [out.get(i, "UT") for i in range(len(chosen))]
 
 
+def slots_ok(chosen):
+    s_ = assign_slots(chosen)
+    from collections import Counter as _C
+    need, have = _C(s_), _C(SLOTS)
+    return all(sl in pl["slots"] for pl, sl in zip(chosen, s_)) and all(need[k] <= have[k] for k in need)
+
+
+def cover_swap(chosen, cands, tips_today):
+    """WHO STARTS with the late-swap safety net counted on the day's real bench (2026-11-18, Tommy: Amen Thompson, questionable, 42.5 if he plays, was benched
+    for Kenrich Williams, 23.4). day_options credits cover only from a player left out of the 10 slots, so on a day the plan saves a start (a slot left
+    open under the games cap) a questionable star got no cover even though a bench player with a later tip could take his slot if he is ruled out.
+    A start is worth p x level + (1 - p) x the best bench player whose game tips at or after his (late-scratch alerts name that swap). Swap a starter for
+    a bench player when that is worth more and the slots still fit. Only who starts changes: the day's points are still counted as level x chance."""
+    tip = lambda pl: tips_today.get(canon(pl["team"]), "z")
+    info = {id(c_[1]): c_ for c_ in cands}
+
+    def worth(pl, bench):
+        ef, _, p = info[id(pl)]
+        lvl = ef / max(p, 1e-6)
+        cov = max([info[id(b)][0] for b in bench if b is not pl and tip(b) >= tip(pl)], default=0.0)
+        return p * lvl + (1 - p) * cov
+
+    chosen = list(chosen)
+    for _ in range(6):
+        bench = [c_[1] for c_ in cands if c_[1] not in chosen]
+        best_ = None
+        for s in chosen:
+            for b in bench:
+                if info[id(b)][2] >= info[id(s)][2]:
+                    continue                                     # only a less-certain player can gain from the safety net
+                new = [b if x is s else x for x in chosen]
+                nb = [s if x is b else x for x in bench]
+                g = worth(b, nb) - worth(s, bench)
+                if g > 0.5 and slots_ok(new) and (best_ is None or g > best_[0]):
+                    best_ = (g, new)
+        if not best_:
+            break
+        chosen = best_[1]
+    return chosen
+
+
 def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None, lateswap=False):
     pdays = plan_days if days_ is None else days_       # days to score (default: the rest of this matchup) and the games capv that applies to them
     capv = cap if cap_ is None else cap_
@@ -589,6 +630,9 @@ def plan_team(roster, c0=0.0, detail=False, days_=None, cap_=None, lateswap=Fals
         locked = c >= capv
         m = 0 if locked else best(di, c)[1]
         chosen = [cands[order[k]][1] for k in range(m)]
+        if not locked and m:
+            chosen = cover_swap(chosen, cands, games.get(d, {}))
+            order = [next(i for i, c_ in enumerate(cands) if c_[1] is pl) for pl in chosen] + [i for i in order if cands[i][1] not in chosen]
         slots = assign_slots(chosen)
         ls_info = None
         if lateswap and chosen and not locked:
