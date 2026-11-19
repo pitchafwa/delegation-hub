@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Delegation Hub on Cloudflare: the static site in dashboard/ plus src/worker.js for /api/* (Ask, later)
+  "name": "delegation-hub",
+  "compatibility_date": "2026-11-13",
+  "observability": { "enabled": true },
+  "main": "src/worker.js",
+  "assets": {
+    "directory": "dashboard",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  // Workers AI: the language model behind Ask (src/worker.js /api/ask)
+  "ai": { "binding": "AI", "remote": true }
+}

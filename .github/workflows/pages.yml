@@ -1,4 +1,4 @@
-name: Deploy dashboard to GitHub Pages
+name: Deploy dashboard (GitHub Pages + Cloudflare)
 
 on:
   push:
@@ -6,6 +6,8 @@ on:
     paths:
       - "dashboard/**"
       - ".github/workflows/pages.yml"
+      - "src/**"
+      - "wrangler.jsonc"
   workflow_dispatch:
 
 permissions:
@@ -34,3 +36,22 @@ jobs:
           path: dashboard
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Same site on Cloudflare (delegation-hub.tommy-valtin.workers.dev): static files from dashboard/ plus src/worker.js (/api/*).
+  # Needs the repo secret CLOUDFLARE_API_TOKEN (Tommy adds it); skipped with a note until it exists.
+  cloudflare:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 1f00ed93c4886579cdff70413c48ead4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp build id
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::12}/" dashboard/index.html
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Deploy to Cloudflare
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::notice::CLOUDFLARE_API_TOKEN secret not set; skipping the Cloudflare deploy"; exit 0; fi
+          npx --yes wrangler@4 deploy

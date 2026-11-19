@@ -15,6 +15,13 @@ Keep this list current in the same session as any build or study.
 7. Offseason: grade the draft simulator on the 2026 draft; league draft history as a second market price; breakout extras (playstyle, role competition, news signals).
 
 
+**Personal-tool roadmap (Tommy, 2026-11-19; the hub is a tool for Tommy alone, not a league site; staying public is fine; build in this order, approve each)**
+- A. Cloudflare move: IN PROGRESS. Worker `delegation-hub` (wrangler.jsonc; dashboard/ as static files, src/worker.js for /api/*) live at https://delegation-hub.tommy-valtin.workers.dev (first deploy from the laptop 11-19). pages.yml deploys to both GitHub Pages and Cloudflare; the Cloudflare job skips until Tommy adds repo secret CLOUDFLARE_API_TOKEN. To finish: secret added and a bot push deploys; Tommy re-enters his GitHub token on the new address (browser storage is per address) and re-adds the home-screen icon; alerts.py SITE points to the new address; GitHub Pages kept as a backup for a while, then retired.
+- B. Ask anything (incl. "describe the trade I want"): box on the site, `POST /api/ask` (Workers AI, as Backlog's Describe). The AI only picks which question the hub knows how to answer and fills in its settings (find trades: off-limits players/picks, position, win-now vs future, injury tolerance, which owners, package size; find pickups: days, position, horizon; compare players; why a projection moved; what a team needs; odds lookups). The page then answers from our own numbers and shows what it understood as editable chips. Questions outside the menu get "can't answer that yet", never a guess.
+- C. "Why they'd say yes" on every trade idea / analyzer result: the other side's reasons in short bullets (fills their hole, playoff/title-week games, title odds change, keeper value if rebuilding) plus likely objections. Not AI-written messages; Tommy writes his own pitch.
+- D. Owner-needs view: per owner what they are short on (thin positions, weak playoff schedule, injured starters), how urgent (record vs odds), trade/waiver habits; plus a league-wide "open for business" list. Standings / Teams / Matchups stay as they are.
+- E. Trade windows tab (on the site, NOT ntfy alerts): recent events that open a deal: a target's owner lost a starter, a buy-low price drop, a team falling out of the race (seller) or onto the bubble (buyer). Shares D's data.
+
 **Waiting on a date**
 Bench-cover re-check 12-14 (first check done 11-16, change proposed, awaiting Tommy); calibration 12-01 and monthly; laptop-free decision ~12-01; blend study 12-14; opponent streaming refresh after ~10 matchups; tanking overrides in February; first real waiver claim through the Do now button.
 
