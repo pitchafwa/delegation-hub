@@ -1,7 +1,7 @@
 {
  "date": "2026-11-19",
- "at": "2026-11-19T08:23-05:00",
- "recheck": false,
+ "at": "2026-11-19T09:50-05:00",
+ "recheck": true,
  "cloud_run": {
   "ok": true,
   "note": "",
@@ -33,15 +33,123 @@
   }
  },
  "laptop_run": {
-  "finished": "2026-11-18T06:16:29-05:00",
+  "finished": "2026-11-19T09:44:09-05:00",
   "failed": [],
-  "today": false
+  "today": true
  },
  "box": {
-  "stale": "2026-11-18"
+  "date": "2026-11-19",
+  "through": "2026-11-18",
+  "games_nba": 222,
+  "games_espn": 222,
+  "player_games_nba": 5000,
+  "player_games_espn": 5001,
+  "matched": 5000,
+  "only_nba": [],
+  "only_nba_n": 0,
+  "only_espn": [
+   "2026-10-23 Pacôme Dadiet NYK (0 min)"
+  ],
+  "only_espn_n": 1,
+  "stat_diffs": {
+   "MIN": 19,
+   "PTS": 0,
+   "REB": 3,
+   "AST": 2,
+   "STL": 6,
+   "BLK": 1,
+   "TOV": 3,
+   "FG3M": 0,
+   "FTM": 0,
+   "FTA": 0,
+   "FGM": 0,
+   "FGA": 1,
+   "OREB": 1,
+   "DREB": 2,
+   "PF": 0
+  },
+  "fp_exact": 0.9974,
+  "fp_within_2": 0.9988,
+  "fp_mean_abs": 0.006,
+  "fp_max": 4.0,
+  "fp_worst": [
+   "2026-11-16 Brandin Podziemski: NBA 39.0, ESPN 43.0",
+   "2026-11-18 Kyrie Irving: NBA 44.0, ESPN 47.0",
+   "2026-11-18 Caleb Martin: NBA 28.5, ESPN 25.5",
+   "2026-11-18 Andrew Wiggins: NBA 27.0, ESPN 24.0",
+   "2026-11-18 Simone Fontecchio: NBA 19.5, ESPN 22.5"
+  ],
+  "reasons": {
+   "coach -> away": 5,
+   "coach -> g_league": 3,
+   "coach -> injury": 14,
+   "coach -> not listed": 2,
+   "coach -> played": 6,
+   "g_league -> coach": 40,
+   "g_league -> not listed": 1,
+   "injury -> away": 1,
+   "injury -> coach": 28,
+   "not listed -> away": 15,
+   "not listed -> coach": 269,
+   "not listed -> g_league": 337,
+   "not listed -> injury": 900
+  },
+  "reasons_same": 6177,
+  "rotation_out_nba": 42,
+  "rotation_out_espn": 67,
+  "rotation_only_nba": [
+   "ernest udeh jr"
+  ],
+  "rotation_only_espn": [
+   "blake hinson",
+   "blake wesley",
+   "cam whitmore",
+   "christopher cenac jr",
+   "colin castleton",
+   "dalton knecht",
+   "daron holmes ii",
+   "devin carter",
+   "ebuka okorie",
+   "enrique freeman",
+   "felix okpara",
+   "jaden akins",
+   "jakobi gillespie",
+   "jaylin sellers",
+   "john tonje",
+   "johni broome",
+   "jonathan mogbo",
+   "josh dix",
+   "jr ernest udeh",
+   "kylan boswell",
+   "orlando robinson",
+   "pat spencer",
+   "riley minix",
+   "ryan nembhard",
+   "sean pedulla",
+   "tyler bilodeau"
+  ]
  },
  "dff": {
-  "stale": "2026-11-18"
+  "date": "2026-11-19",
+  "day": "2026-11-18",
+  "dff": {
+   "laptop": 119,
+   "cloud": 175,
+   "matched": 119,
+   "only_laptop": 0,
+   "only_cloud": 56,
+   "cloud_minus_laptop_median_min": 0.5,
+   "cloud_later_by_15min_plus": 0
+  },
+  "injuries": {
+   "laptop": 57,
+   "cloud": 58,
+   "matched": 57,
+   "only_laptop": 0,
+   "only_cloud": 1,
+   "cloud_minus_laptop_median_min": 0.6,
+   "cloud_later_by_15min_plus": 0
+  }
  },
  "models": {
   "keeper_value": {
@@ -49,31 +157,22 @@
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.5,
-   "within": 0.9733,
-   "mean_abs": 0.081,
-   "max": 1.5,
-   "worst": [
-    "Alperen Sengun: laptop 32.2, cloud 30.7",
-    "Tristan da Silva: laptop 6.7, cloud 5.2",
-    "Darius Acuff Jr.: laptop 23.3, cloud 24.5",
-    "Santi Aldama: laptop 7.8, cloud 6.7",
-    "Cameron Boozer: laptop 28.7, cloud 29.6"
-   ]
+   "within": 1.0,
+   "mean_abs": 0.001,
+   "max": 0.4,
+   "worst": []
   },
   "delco_season": {
    "n": 760,
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.5,
-   "within": 0.9342,
-   "mean_abs": 0.133,
-   "max": 3.2,
+   "within": 0.9974,
+   "mean_abs": 0.005,
+   "max": 2.0,
    "worst": [
-    "Tre Donaldson: laptop 6.1, cloud 2.9",
-    "Nikola Topić: laptop 16.1, cloud 13.9",
     "Malik Dia: laptop 11.1, cloud 13.1",
-    "Caris LeVert: laptop 17.0, cloud 15.1",
-    "Tristan da Silva: laptop 28.4, cloud 26.6"
+    "Pacôme Dadiet: laptop 4.8, cloud 4.2"
    ]
   },
   "kalman_now": {
@@ -81,15 +180,11 @@
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.5,
-   "within": 0.9697,
-   "mean_abs": 0.092,
-   "max": 3.2,
+   "within": 0.9987,
+   "mean_abs": 0.004,
+   "max": 2.0,
    "worst": [
-    "Tre Donaldson: laptop 6.1, cloud 2.9",
-    "Malik Dia: laptop 11.1, cloud 13.1",
-    "Braden Smith: laptop 12.9, cloud 14.8",
-    "Chris Cenac Jr.: laptop 7.0, cloud 8.7",
-    "Darius Acuff Jr.: laptop 49.1, cloud 50.6"
+    "Malik Dia: laptop 11.1, cloud 13.1"
    ]
   },
   "proj_fpg": {
@@ -113,112 +208,81 @@
    "worst": []
   },
   "rest_of_season_ppg": {
-   "n": 483,
+   "n": 484,
    "only_pc": 0,
-   "only_cloud": 2,
+   "only_cloud": 1,
    "tol": 0.5,
-   "within": 0.9048,
-   "mean_abs": 0.192,
-   "max": 2.2,
+   "within": 0.9979,
+   "mean_abs": 0.004,
+   "max": 0.6,
    "worst": [
-    "Nikola Topic: laptop 16.1, cloud 13.9",
-    "Caris LeVert: laptop 17.0, cloud 15.1",
-    "Tristan da Silva: laptop 28.4, cloud 26.6",
-    "Alperen Sengun: laptop 54.7, cloud 53.2",
-    "Santi Aldama: laptop 29.6, cloud 28.2"
+    "Pacome Dadiet: laptop 4.8, cloud 4.2"
    ]
   },
   "next_days": {
-   "n": 483,
+   "n": 484,
    "only_pc": 0,
-   "only_cloud": 2,
+   "only_cloud": 1,
    "tol": 0.5,
-   "within": 0.5673,
-   "mean_abs": 0.704,
-   "max": 4.8,
+   "within": 0.9979,
+   "mean_abs": 0.009,
+   "max": 0.6,
    "worst": [
-    "Alperen Sengun: laptop 53.7, cloud 48.9",
-    "Precious Achiuwa: laptop 29.1, cloud 25.1",
-    "Ryan Nembhard: laptop 21.6, cloud 17.8",
-    "Chris Cenac Jr.: laptop 13.6, cloud 17.1",
-    "Nikola Topic: laptop 19.0, cloud 15.7"
+    "Caleb Love: laptop 15.6, cloud 15.0"
    ]
   },
   "last10": {
-   "n": 476,
+   "n": 477,
    "only_pc": 0,
-   "only_cloud": 2,
+   "only_cloud": 1,
    "tol": 0.5,
-   "within": 0.6071,
-   "mean_abs": 0.764,
-   "max": 6.3,
+   "within": 0.9958,
+   "mean_abs": 0.015,
+   "max": 3.8,
    "worst": [
-    "Alperen Sengun: laptop 60.9, cloud 54.6",
-    "Moussa Cisse: laptop 9.2, cloud 3.0",
-    "Caleb Love: laptop 12.6, cloud 6.5",
-    "Kyle Anderson: laptop 12.4, cloud 7.3",
-    "Gary Trent Jr.: laptop 15.8, cloud 10.8"
+    "Caleb Love: laptop 10.3, cloud 6.5",
+    "Justin Edwards: laptop 6.8, cloud 6.2"
    ]
   },
   "minutes10": {
-   "n": 476,
+   "n": 477,
    "only_pc": 0,
-   "only_cloud": 2,
+   "only_cloud": 1,
    "tol": 0.5,
-   "within": 0.6933,
-   "mean_abs": 0.431,
-   "max": 5.0,
+   "within": 0.9979,
+   "mean_abs": 0.009,
+   "max": 2.9,
    "worst": [
-    "Caleb Love: laptop 12.1, cloud 7.1",
-    "Kobe Brown: laptop 20.1, cloud 16.3",
-    "Moussa Cisse: laptop 7.5, cloud 3.8",
-    "Max Christie: laptop 17.6, cloud 14.6",
-    "Kyle Anderson: laptop 10.2, cloud 7.3"
+    "Caleb Love: laptop 10.0, cloud 7.1"
    ]
   },
   "games_left": {
-   "n": 483,
+   "n": 484,
    "only_pc": 0,
-   "only_cloud": 2,
+   "only_cloud": 1,
    "tol": 0.5,
-   "within": 0.2422,
-   "mean_abs": 0.914,
-   "max": 47.8,
-   "worst": [
-    "Yanic Konan Niederhauser: laptop 3.5, cloud 51.3",
-    "Dominick Barlow: laptop 10.6, cloud 2.2",
-    "Brandon Ingram: laptop 3.3, cloud 11.6",
-    "Myron Gardner: laptop 50.5, cloud 42.7",
-    "Scottie Barnes: laptop 49.6, cloud 42.2"
-   ]
+   "within": 1.0,
+   "mean_abs": 0.0,
+   "max": 0.0,
+   "worst": []
   },
   "rank": {
-   "n": 483,
+   "n": 484,
    "only_pc": 0,
-   "only_cloud": 2,
+   "only_cloud": 1,
    "tol": 2,
-   "within": 0.412,
-   "mean_abs": 5.654,
-   "max": 215.0,
+   "within": 0.9959,
+   "mean_abs": 0.273,
+   "max": 5.0,
    "worst": [
-    "Yanic Konan Niederhauser: laptop 468.0, cloud 253.0",
-    "Jaxson Hayes: laptop 306.0, cloud 244.0",
-    "Jonathan Kuminga: laptop 202.0, cloud 147.0",
-    "Nikola Topic: laptop 268.0, cloud 320.0",
-    "Myron Gardner: laptop 346.0, cloud 396.0"
+    "Tyus Jones: laptop 372.0, cloud 367.0",
+    "Pacome Dadiet: laptop 457.0, cloud 460.0"
    ]
   },
   "rotation": {
-   "out_pc": 45,
+   "out_pc": 42,
    "out_cloud": 67,
-   "only_pc": [
-    "bronny james",
-    "caleb love",
-    "jaden hardy",
-    "nick richards",
-    "steven adams",
-    "tolu smith"
-   ],
+   "only_pc": [],
    "only_cloud": [
     "blake hinson",
     "blake wesley",
@@ -232,63 +296,48 @@
     "enrique freeman",
     "felix okpara",
     "jaden akins",
-    "jaden bradley",
     "jakobi gillespie",
-    "jaylin sellers"
+    "jaylin sellers",
+    "john tonje"
    ]
   },
   "form": {
-   "pc": 399,
+   "pc": 406,
    "cloud": 406,
    "only_pc": [],
-   "only_cloud": [
-    "deandrejordan",
-    "jahmaimashack",
-    "jaronpierre",
-    "nicclaxton",
-    "norchadomier",
-    "rasheerfleming",
-    "yvesmissi"
-   ]
+   "only_cloud": []
   },
   "trade_target_score": {
-   "n": 123,
-   "only_pc": 5,
-   "only_cloud": 5,
+   "n": 128,
+   "only_pc": 0,
+   "only_cloud": 0,
    "tol": 0.3,
-   "within": 0.1463,
-   "mean_abs": 1.559,
-   "max": 6.53,
+   "within": 0.9844,
+   "mean_abs": 0.025,
+   "max": 2.61,
    "worst": [
-    "Cedric Coward: laptop 3.9, cloud -2.6",
-    "Miles Bridges: laptop 5.2, cloud 0.6",
-    "Reed Sheppard: laptop -1.1, cloud -5.5",
-    "Matas Buzelis: laptop 3.2, cloud -1.0",
-    "Julius Randle: laptop -0.4, cloud -4.5"
+    "Darius Acuff Jr.: laptop 3.1, cloud 0.5",
+    "Jalen Brunson: laptop 0.3, cloud -0.2"
    ]
   },
   "trade_tags": {
-   "n": 210,
-   "same": 0.8381,
+   "n": 215,
+   "same": 0.9953,
    "worst": [
-    "Cade Cunningham: laptop ['Keeper asset', 'Rising role', 'Their keeper'], cloud ['Injury target', 'Keeper asset', 'Rising role', 'Their keeper']",
-    "Luka Doncic: laptop ['Keeper asset', 'Overperforming', 'Their keeper'], cloud ['Keeper asset', 'Their keeper']",
-    "Tyrese Maxey: laptop ['Keeper asset', 'Their keeper'], cloud ['Injury target', 'Keeper asset', 'Their keeper']",
-    "RJ Barrett: laptop [], cloud ['Injury target']",
-    "Jalen Suggs: laptop ['Buy low', 'Underperforming'], cloud ['Buy low']"
+    "Kyrie Irving: laptop ['Playoff target', 'Their keeper', 'Underperforming'], cloud ['Playoff target', 'Their keeper']"
    ]
   },
   "trade_fit": {
    "pc": {
-    "n": 148,
-    "a": 0.003738910989120363,
-    "b": 0.06298948923835224,
-    "sim_a": 0.002233333333333337,
-    "sim_b": 0.03762499999999998,
-    "scale": 1.674,
+    "n": 150,
+    "a": 0.004666053555025439,
+    "b": 0.06922082749121897,
+    "sim_a": 0.0025249999999999995,
+    "sim_b": 0.03745833333333332,
+    "scale": 1.848,
     "fallback": false,
-    "holdout_rank_corr": 0.966,
-    "mean_abs_err": 2.88
+    "holdout_rank_corr": 0.905,
+    "mean_abs_err": 3.41
    },
    "cloud": {
     "n": 150,
@@ -307,15 +356,15 @@
    "only_pc": 0,
    "only_cloud": 0,
    "tol": 0.01,
-   "within": 0.1344,
-   "mean_abs": 0.872,
-   "max": 3.81,
+   "within": 0.6398,
+   "mean_abs": 0.027,
+   "max": 0.34,
    "worst": [
-    "PHI.fpG: laptop 123.6, cloud 127.4",
-    "PHX.fpF: laptop 97.7, cloud 94.2",
-    "DAL.fpG: laptop 124.6, cloud 121.1",
-    "DEN.fpG: laptop 133.3, cloud 130.2",
-    "DEN.fpC: laptop 42.6, cloud 45.7"
+    "GSW.fpG: laptop 146.6, cloud 146.2",
+    "NOP.fpF: laptop 126.8, cloud 127.1",
+    "DEN.fpG: laptop 130.4, cloud 130.2",
+    "DET.fpF: laptop 98.8, cloud 99.0",
+    "HOU.fpF: laptop 96.0, cloud 96.2"
    ]
   }
  },
@@ -351,37 +400,35 @@
   "starters_same_days": 3,
   "n_days": 4,
   "moves_pc": [
-   "+Santi Aldama -Terrence Shannon Jr."
+   "+Kevin Huerter -Terrence Shannon Jr."
   ],
   "moves_cloud": [
    "+Santi Aldama -Terrence Shannon Jr."
   ],
-  "moves_same": true,
+  "moves_same": false,
   "ir_pc": [
    "return Dejounte Murray",
-   "return Ty Jerome",
-   "return Scottie Barnes"
+   "return Ty Jerome"
   ],
   "ir_cloud": [
    "return Dejounte Murray",
-   "return Ty Jerome",
-   "return Scottie Barnes"
+   "return Ty Jerome"
   ],
   "ir_same": true,
   "tonight_pc": [
    "Micah Potter",
-   "LJ Cryer",
-   "Olivier-Maxence Prosper"
+   "Olivier-Maxence Prosper",
+   "Baba Miller"
   ],
   "tonight_cloud": [
-   "Micah Potter",
    "Gary Payton II",
-   "Olivier-Maxence Prosper"
+   "Olivier-Maxence Prosper",
+   "Baba Miller"
   ],
   "tonight_same": false,
-  "win_pc": 0.939,
+  "win_pc": 0.949,
   "win_cloud": 0.948,
-  "expected_pc": 1666.0,
-  "expected_cloud": 1686.2
+  "expected_pc": 1663.4,
+  "expected_cloud": 1684.5
  }
 }
