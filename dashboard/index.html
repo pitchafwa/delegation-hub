@@ -499,6 +499,7 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   .tcTag.sell{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
   .tcTag.over{color:#b26b00;background:color-mix(in srgb,#f2b45c 22%,transparent)}
   .tcTag.po{color:var(--current);background:color-mix(in srgb,var(--current) 15%,transparent)}
+  .tcTag.ch{color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent)}
   .tcTag.inj{color:var(--intl);background:color-mix(in srgb,var(--intl) 15%,transparent)}
   .tcTag.role{color:var(--good);background:transparent;border-color:color-mix(in srgb,var(--good) 45%,transparent)}
   .tcTag.kp{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -2486,7 +2487,7 @@ function renderRedraft(){
           ${f&&Math.abs(f.d)>=3?`<div class="xpForm"><span class="frm ${f.d>=0?'hot':'cold'}"><b>${f.d>=0?'▲':'▼'} ${rdSg(f.d,1)}</b> vs his usual level, about <b>${rdSg(f.keep,1)}</b> likely to stick${chips?' · '+chips:''}</span></div>`:''}</div>
         <div class="simwrap"><div class="lbl">Rest of season</div><div class="statline xp3">${xpT(p.pts.toLocaleString(),'Projected pts')}${xpT(`${p.exp_gp.toFixed(0)}<small>/${p.g_rem}</small>`,'Games expected')}${xpT(fmtTitle(titleValRD(p))??p.vor.toLocaleString(),'Season value',p.vor<0?'down':'')}</div>
           <div class="xpLine">Likely range <b>${p.p10.toFixed(0)}–${p.p90.toFixed(0)}</b> a game${p.darko!=null?` · DARKO ${p.darko.toFixed(1)}`:''}${p.mkt!=null?` · market #${p.mkt} (ours #${p.rank})`:` · rank #${p.rank}`}</div></div>
-        ${xpFacts([`<b>${p.g7}</b> games next 7 days`,`<b>${p.gpo}</b> playoff-week games`,p.inj_tier!=null?injLine(p.inj_tier,p.inj_hmissed!=null?p.inj_hmissed:p.inj_missed):'',L?(o2?(mine?'<b>Your team</b>':`Owned by <b>${esc(o2.abbrev)}</b>`):'<b>Free agent</b>'+(p.own!=null?` · ${p.own.toFixed(0)}% owned`:'')):''])}
+        ${xpFacts([`<b>${p.g7}</b> games next 7 days`,`<b>${p.gpo}</b> playoff-week games${p.gch!=null?` · <b>${p.gch}</b> in the title week`:''}`,p.inj_tier!=null?injLine(p.inj_tier,p.inj_hmissed!=null?p.inj_hmissed:p.inj_missed):'',L?(o2?(mine?'<b>Your team</b>':`Owned by <b>${esc(o2.abbrev)}</b>`):'<b>Free agent</b>'+(p.own!=null?` · ${p.own.toFixed(0)}% owned`:'')):''])}
       </div><div class="dr"><div style="width:100%">${mob?rdChart(p,340,210):rdChart(p)}${p.gs&&RD.season_now&&p.gs!==RD.season_now?`<div class="note">${esc(p.gs)} games (last season)</div>`:''}</div></div></div></td></tr>`;
     }
     return row;
@@ -2991,8 +2992,8 @@ function renderMatchups(){
    (trade_proxy_study.py: playoff-weighted points, re-fit every morning against the full analyzer) and the league acceptance model; "Run full check" sends one to trade-analyze.yml. */
 let TB=null;
 const TCC={view:'targets',tags:new Set(),sort:'score',team:'all',pos:'all',gettable:true,q:'',sel:null,sell:false,second:null,mode:{},shape:'All',limit:50,checks:{},running:null};
-const TC_TAGS=['Buy low','Sell high','Playoff target','Injury target','Rising role','Keeper asset','Underperforming','Overperforming','Their keeper','Seller'];
-const TC_CLS={'Buy low':'buy','Sell high':'sell','Underperforming':'under','Overperforming':'over','Playoff target':'po','Injury target':'inj','Rising role':'role','Keeper asset':'kp','Their keeper':'tk','Seller':'seller'};
+const TC_TAGS=['Buy low','Sell high','Playoff target','Title-week target','Injury target','Rising role','Keeper asset','Underperforming','Overperforming','Their keeper','Seller'];
+const TC_CLS={'Buy low':'buy','Sell high':'sell','Underperforming':'under','Overperforming':'over','Playoff target':'po','Title-week target':'ch','Injury target':'inj','Rising role':'role','Keeper asset':'kp','Their keeper':'tk','Seller':'seller'};
 const tcTag=t=>`<span class="tcTag ${TC_CLS[t]||''}">${esc(t)}</span>`;
 const tcSg=(x,d=1)=>(x>=0?'+':'')+x.toFixed(d);
 const tcRnd=r=>r===1?'1st':(r===2?'2nd':(r===3?'3rd':r+'th'));
@@ -3133,7 +3134,7 @@ function tcToAnalyzer(i){
 function tcRow(p,mine){
   const b=p.best, sc=mine?p.cost:(b?b.v:null);
   const meta=[p.pos,p.nba,mine?null:p.t].filter(Boolean).join(' · ')+(p.out?' · out':'');
-  const stats=[['DELCO',p.delco!=null?p.delco.toFixed(1):'—'],['Avg',p.avg!=null?p.avg.toFixed(1):'—'],['Price',p.pv.toFixed(0)],['PO games',p.gpo!=null?p.gpo:'—']];
+  const stats=[['DELCO',p.delco!=null?p.delco.toFixed(1):'—'],['Avg',p.avg!=null?p.avg.toFixed(1):'—'],['Price',p.pv.toFixed(0)],['PO games',p.gpo!=null?p.gpo:'—'],['Title wk',p.gch!=null?p.gch:'—']];
   return `<button type="button" class="tcRow" data-tcp="${p.id}">
     <span class="tcRowTop"><span class="tcNm"><b>${esc(p.n)}</b><small>${esc(meta)}</small></span>
       <span class="tcSc ${sc==null?'':(mine?'':(sc>=1.5?'hi':(sc>=0.8?'mid':'lo')))}">${sc==null?'—':(mine?sc.toFixed(1):tcSg(sc))}<small>${mine?'Worth to you':'Target'}</small></span></span>
@@ -3148,11 +3149,11 @@ function tcBoard(body,mine){
   if(TCC.pos!=='all') list=list.filter(p=>(p.slots||[]).includes(TCC.pos));
   if(!mine&&TCC.gettable) list=list.filter(p=>p.best);
   if(q) list=list.filter(p=>nname(p.n).includes(q)||nname(p.nba).includes(q)||nname(p.t).includes(q));
-  const key={score:p=>mine?(p.cost??-99):(p.best?p.best.v:-99),disc:p=>(p.delco!=null&&p.avg!=null)?p.delco-p.avg:-99,po:p=>(p.gpo||0)+(p.best?p.best.v/100:0),delco:p=>p.delco||0}[TCC.sort];
+  const key={score:p=>mine?(p.cost??-99):(p.best?p.best.v:-99),disc:p=>(p.delco!=null&&p.avg!=null)?p.delco-p.avg:-99,po:p=>(p.gpo||0)+(p.best?p.best.v/100:0),ch:p=>(p.gch||0)+(p.gpo||0)/100+(p.best?p.best.v/1e4:0),delco:p=>p.delco||0}[TCC.sort];
   list.sort((a,b)=>key(b)-key(a));
   const used=new Set(all.flatMap(p=>p.tags.map(t=>t[0])));
   const teams=[...new Set(TB.players.filter(p=>p.tid!==TB.me_id).map(p=>p.t))].sort();
-  const sorts=[['score',mine?'Worth to you':'Target score'],['disc','Discount'],['po','Playoff games'],['delco','DELCO']];
+  const sorts=[['score',mine?'Worth to you':'Target score'],['disc','Discount'],['po','Playoff games'],['ch','Title-week games'],['delco','DELCO']];
   body.innerHTML=`<div class="tcCtl">
     <input type="search" id="tcQ" placeholder="Search a player or team" value="${esc(TCC.q)}" autocomplete="off" enterkeyhint="search">
     <div class="tcChips">${TC_TAGS.filter(t=>used.has(t)||TCC.tags.has(t)).map(t=>`<button type="button" class="tcF ${TC_CLS[t]}" data-tct="${esc(t)}" aria-pressed="${TCC.tags.has(t)}">${esc(t)}</button>`).join('')}</div>
@@ -3189,7 +3190,7 @@ function tcIdeaCard(i,k){
 function tcSheet(body){
   const B=tcBase(), T=B.byId.get(TCC.sel); if(!T){ TCC.sel=null; renderTrades(); return; }
   const mine=T.tid===TB.me_id, S=TCC.second?B.byId.get(TCC.second):null;
-  const tiles=[['DELCO',T.delco!=null?T.delco.toFixed(1):'—'],['Season avg',T.avg!=null?T.avg.toFixed(1):'—'],['Preseason',T.espn?T.espn.toFixed(1):'—'],['PO games',T.gpo??'—'],['League price',T.pv.toFixed(0)],
+  const tiles=[['DELCO',T.delco!=null?T.delco.toFixed(1):'—'],['Season avg',T.avg!=null?T.avg.toFixed(1):'—'],['Preseason',T.espn?T.espn.toFixed(1):'—'],['PO games',T.gpo??'—'],['Title-week games',T.gch??'—'],['League price',T.pv.toFixed(0)],
     mine?['Worth to you',T.cost!=null?T.cost.toFixed(1):'—']:['Target',T.best?tcSg(T.best.v):'—']];
   const res=mine?tcSellIdeas(T):tcBuyIdeas(T);
   if(!mine&&!S&&T.best&&T.best.full){      // the morning's full checks of his best packages (each shown with its real number)

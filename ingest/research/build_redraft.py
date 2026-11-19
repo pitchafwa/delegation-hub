@@ -135,6 +135,7 @@ sched = json.load(open(HUB / "nba_schedule.json", encoding="utf-8"))
 sp = json.load(open(HUB / "schedule_plan.json", encoding="utf-8"))
 END = max(w["end"] for w in sp["calendar"])
 PLAYOFF_START = next(w["start"] for w in sp["calendar"] if w["id"] == _CAL["playoff_weeks"][0])
+FINAL_START = next(w["start"] for w in sp["calendar"] if w["id"] == _CAL["playoff_weeks"][-1])      # the championship week (2026-11-19, Tommy: title-week targets)
 games_by_team = {}                    # team -> [(date, opp, home)]
 for ds, gl in sorted(sched["games"].items()):
     for a, h, tip in gl:
@@ -286,6 +287,7 @@ for e in raw:
     g_rem = team_games(team, first_day, END)
     g7 = team_games(team, t0, (today + timedelta(days=6)).isoformat())
     g_po = team_games(team, PLAYOFF_START, END)
+    g_ch = team_games(team, FINAL_START, END)
     out_now = status in IR_OK or (info and info.get("status") == "Out")
     games_out, back = 0.0, None
     if out_now and IA is not None:
@@ -371,7 +373,7 @@ for e in raw:
         darko_min = DARKO_MIN_NAME.get(key(name))
     rows.append({"id": p["id"], "name": name, "team": team, "pos": None, "darko": darko, "darko_min": darko_min, "pm": DRATE.get(key(name)),
                  "pos_ids": p.get("eligibleSlots"), "age": hp.get("age") if hp else None, "status": status, "espn_ppg": round(espn_ppg, 1), "ppg": round(ppg, 1), "our": bool(ours),
-                 "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po,
+                 "g_rem": g_rem, "exp_gp": round(exp_gp, 1), "games_out": round(games_out, 1) if games_out else 0, "back": back, "g7": g7, "gpo": g_po, "gch": g_ch,
                  "p90": round(ppg + 1.28 * s, 1), "p10": round(ppg - 1.28 * s, 1), "own": own.get("percentOwned"), "adp": (own.get("averageDraftPosition") if (own.get("averageDraftPosition") or 0) < 139 else None),
                  "inj_tier": hp.get("injury_tier") if hp else None, "inj_missed": hp.get("injury_missed") if hp else None, "inj_hmissed": hp.get("injury_health_missed") if hp else None, "traj": (hp.get("trajectory") or [None])[:3] if hp else None,
                  "next": nxt, "next_proj": next_proj, "next_st": next_st, **rec,

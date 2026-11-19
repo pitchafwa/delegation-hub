@@ -47,6 +47,8 @@ SELL_GAP, SELL_BACK = 7.0, 0.42
 PERF_GAP = 5.0                   # under / overperforming vs ESPN's preseason number
 ROLE_JUMP, ROLE_KEEP = 4.0, 0.33
 PO_GAMES = 12                    # games in the fantasy-playoff weeks (most players get 10-11)
+CH_GAMES = 4                     # games in the championship week (2026-27: 19 NBA teams play 4, 10 play 3, CLE 2)
+CH_TOP = 20                      # tag only the top 20 by projected title-week points (4 games is the norm, so the games alone tag ~80 players)
 KEEPER_RANK = 60                 # 12 teams x 5 keepers
 
 
@@ -397,6 +399,11 @@ def main():
     print(f"ideas: {len(ideas)}  ({time.time() - T0:.0f}s)", flush=True)
 
     # ---------------- tags
+    def tw_pts(p):
+        r = rd.get(p["id"]) or {}
+        return p["level"] * (r.get("gch") or 0) * (late.get(p["team"]) or {}).get("core_mult", 1.0)
+    tw_rank = {pid: i + 1 for i, pid in enumerate(sorted(P, key=lambda k: -tw_pts(P[k])))}
+
     def tags(p):
         out = []
         r = rd.get(p["id"]) or {}
@@ -416,6 +423,8 @@ def main():
                     out.append(["Overperforming", f"{d:.1f} over his preseason projection of {espn:.1f}."])
         if (r.get("gpo") or 0) >= PO_GAMES and p["level"] >= 25 and (late.get(p["team"]) or {}).get("core_mult", 1.0) >= 0.98:
             out.append(["Playoff target", f"{r['gpo']} games in the fantasy-playoff weeks (most players get 10-11)."])
+        if (r.get("gch") or 0) >= CH_GAMES and tw_rank[p["id"]] <= CH_TOP and (late.get(p["team"]) or {}).get("core_mult", 1.0) >= 0.98:
+            out.append(["Title-week target", f"{r['gch']} games in the championship week; #{tw_rank[p['id']]} in projected title-week points."])
         adv = p.get("advice") or {}
         if p["out"] and p["level"] >= 30 and (adv.get("p_back_playoffs") or 0) >= 0.75:
             g = adv.get("plan_games")
@@ -441,7 +450,7 @@ def main():
         players.append({"id": pid, "n": p["name"], "tid": p["tid"], "t": W.abbrev_of[p["tid"]], "nba": p["team"], "pos": r.get("pos") or "/".join(s for s in p["slots"] if s in ("PG", "SG", "SF", "PF", "C")),
                         "slots": p["slots"], "lvl": round(p["level"], 1), "er": round(p["er"], 1), "ep": round(p["ep"], 1), "af": round(p["asset_f"], 2), "v1": round(p.get("v1", 0.0), 2), "out": p["out"], "ir": p["ir"],
                         "pv": round(p["pv"], 2), "t5": pid in t5.get(p["tid"], set()), "delco": r.get("ppg"), "avg": r.get("s_avg"), "gp": r.get("n_season"), "espn": r.get("espn_ppg"),
-                        "gpo": r.get("gpo"), "age": p.get("age"), "back": r.get("back"), "tags": tags(p), "best": best.get(pid), "cost": my_cost.get(pid)})
+                        "gpo": r.get("gpo"), "gch": r.get("gch"), "age": p.get("age"), "back": r.get("back"), "tags": tags(p), "best": best.get(pid), "cost": my_cost.get(pid)})
     players.sort(key=lambda x: -((x["best"] or {}).get("v") or -99))
     out = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "me": me_ab, "me_id": me_id, "posture": post,
            "params": {"a": ab[0], "b": ab[1], "c_fut": c_fut, "c_next": c_next, "f_reg": F_REG, "f_po": F_PO, "fa_level": fa_level, "fa_er": fa_e[0], "fa_ep": fa_e[1], "reg_wk": reg_wk, "po_wk": po_wk,
