@@ -37,7 +37,7 @@
   "4065733": {
    "date": "2026-11-19",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "4395724": {
    "date": "2026-11-19",
@@ -52,7 +52,7 @@
   "4431785": {
    "date": "2026-11-19",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "4432194": {
    "date": "2026-11-19",
@@ -107,7 +107,7 @@
   "6430": {
    "date": "2026-11-19",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "league_req": "2026-10-26",
