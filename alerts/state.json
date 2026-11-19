@@ -2,8 +2,7 @@
  "avail_prev": {
   "2566769": "FREEAGENT",
   "3978": "FREEAGENT",
-  "4431679": "FREEAGENT",
-  "5106060": "FREEAGENT"
+  "4431679": "FREEAGENT"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -72,7 +71,7 @@
   },
   "4433134": {
    "date": "2026-11-19",
-   "espn": "OUT",
+   "espn": "DAY_TO_DAY",
    "official": null
   },
   "4594327": {
