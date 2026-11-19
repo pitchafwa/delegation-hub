@@ -2992,8 +2992,8 @@ function renderMatchups(){
    (trade_proxy_study.py: playoff-weighted points, re-fit every morning against the full analyzer) and the league acceptance model; "Run full check" sends one to trade-analyze.yml. */
 let TB=null;
 const TCC={view:'targets',tags:new Set(),sort:'score',team:'all',pos:'all',gettable:true,q:'',sel:null,sell:false,second:null,mode:{},shape:'All',limit:50,checks:{},running:null};
-const TC_TAGS=['Buy low','Sell high','Playoff target','Title-week target','Injury target','Rising role','Keeper asset','Underperforming','Overperforming','Their keeper','Seller'];
-const TC_CLS={'Buy low':'buy','Sell high':'sell','Underperforming':'under','Overperforming':'over','Playoff target':'po','Title-week target':'ch','Injury target':'inj','Rising role':'role','Keeper asset':'kp','Their keeper':'tk','Seller':'seller'};
+const TC_TAGS=['Buy low','Sell high','Playoff target','Title-week target','Title-week value','Injury target','Rising role','Keeper asset','Underperforming','Overperforming','Their keeper','Seller'];
+const TC_CLS={'Buy low':'buy','Sell high':'sell','Underperforming':'under','Overperforming':'over','Playoff target':'po','Title-week target':'ch','Title-week value':'ch','Injury target':'inj','Rising role':'role','Keeper asset':'kp','Their keeper':'tk','Seller':'seller'};
 const tcTag=t=>`<span class="tcTag ${TC_CLS[t]||''}">${esc(t)}</span>`;
 const tcSg=(x,d=1)=>(x>=0?'+':'')+x.toFixed(d);
 const tcRnd=r=>r===1?'1st':(r===2?'2nd':(r===3?'3rd':r+'th'));

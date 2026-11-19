@@ -403,6 +403,11 @@ def main():
         r = rd.get(p["id"]) or {}
         return p["level"] * (r.get("gch") or 0) * (late.get(p["team"]) or {}).get("core_mult", 1.0)
     tw_rank = {pid: i + 1 for i, pid in enumerate(sorted(P, key=lambda k: -tw_pts(P[k])))}
+    # TITLE-WEEK VALUE (2026-11-19, Tommy: owners rarely trade the stars; the edge is mid-level players nobody prices for March): good enough to
+    # start (level 30+), not one of his team's 5 most valuable, priced at or below the league's median, and the best schedule (4 title-week games,
+    # 11+ playoff games), on a team not expected to rest players late
+    _pv_others = sorted(q["pv"] for q in P.values() if q["tid"] != me_id)
+    PV_MED = _pv_others[len(_pv_others) // 2] if _pv_others else 0.0
 
     def tags(p):
         out = []
@@ -425,6 +430,9 @@ def main():
             out.append(["Playoff target", f"{r['gpo']} games in the fantasy-playoff weeks (most players get 10-11)."])
         if (r.get("gch") or 0) >= CH_GAMES and tw_rank[p["id"]] <= CH_TOP and (late.get(p["team"]) or {}).get("core_mult", 1.0) >= 0.98:
             out.append(["Title-week target", f"{r['gch']} games in the championship week; #{tw_rank[p['id']]} in projected title-week points."])
+        elif ((r.get("gch") or 0) >= CH_GAMES and (r.get("gpo") or 0) >= 11 and p["level"] >= 30 and p["pv"] <= PV_MED and not p["out"]
+              and p["id"] not in t5.get(p["tid"], set()) and (late.get(p["team"]) or {}).get("core_mult", 1.0) >= 0.98):
+            out.append(["Title-week value", f"{r['gch']} games in the championship week and {r['gpo']} in the playoffs, at a role player's price (league price {p['pv']:.0f}; the middle player is {PV_MED:.0f})."])
         adv = p.get("advice") or {}
         if p["out"] and p["level"] >= 30 and (adv.get("p_back_playoffs") or 0) >= 0.75:
             g = adv.get("plan_games")
