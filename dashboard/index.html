@@ -129,6 +129,23 @@
   #psList{max-height:min(60vh,440px);overflow-y:auto;-webkit-overflow-scrolling:touch}
   #psList button{display:flex;width:100%;align-items:center;gap:.6rem;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:.6rem 1rem;font:inherit;min-height:48px;cursor:pointer}
   #psList button:last-child{border-bottom:0}
+  #psBox .psPanel.asking #psList{max-height:min(78vh,720px)}
+  #psList .psAsk .psN{font-weight:600;color:var(--accent)}
+  #psList .psRc{padding:.5rem 1rem .2rem;font-size:.75rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em}
+  .askBody{padding:.7rem .9rem 1rem}
+  .askU{font-size:.85rem;color:var(--ink-soft);margin-bottom:.4rem}
+  .askChips{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem}
+  #psList .askChip{display:inline-flex;width:auto;min-height:32px;padding:.2rem .6rem;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface-2);font-size:.8rem;gap:.3rem}
+  #psList .askChip span{color:var(--ink-faint)}
+  .askErr{padding:.4rem 0;color:var(--ink-soft)}
+  #psList .askIdea button{display:inline-flex;width:auto;min-height:40px;border-bottom:0}
+  #psList .askIdea .tcBtns button.dbtn{border:1px solid var(--line-strong)}
+  #psList .tcBtns .dbtn#askDaily{display:inline-flex;width:auto;border:1px solid var(--line-strong);min-height:40px;margin-top:.5rem}
+  .askTbl{width:100%;border-collapse:collapse;font-size:.85rem}
+  .askTbl th,.askTbl td{padding:.35rem .3rem;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  .askTbl th:first-child,.askTbl td:first-child{text-align:left}
+  .askTbl small{display:block;font-size:.7rem;color:var(--ink-faint)}
+  .askTbl .pName{color:var(--accent);font-weight:600;cursor:pointer}
   #psList button.on,#psList button:hover{background:var(--surface-2)}
   #psList .psN{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #psList .psM{color:var(--ink-soft);font-size:.8rem;white-space:nowrap}
@@ -2603,36 +2620,206 @@ let PS_POOL=null, PS_HITS=[], PS_SEL=0;
 function psRender(){
   const box=document.getElementById('psBox'), q=box.querySelector('input').value, list=document.getElementById('psList');
   const qn=norm(q), qw=q.split(/[\s\-.']+/).map(norm).filter(Boolean);
-  if(!qn){ PS_HITS=[]; list.innerHTML=''; return; }
+  if(!qn){ PS_HITS=[]; const rc=askRecent(); list.innerHTML=rc.length?`<div class="psRc">Recent questions</div>${rc.map((t,i)=>`<button type="button" data-rq="${i}" class="psAsk"><span class="psN">${esc(t)}</span></button>`).join('')}`:'';
+    list.querySelectorAll('[data-rq]').forEach(b=>b.addEventListener('click',()=>{ const t=rc[+b.dataset.rq]; box.querySelector('input').value=t; askRun(t); })); return; }
+  const ak=askable(q);
   const rank=p=>{ if(p.k.startsWith(qn)) return 0; if(qw.every(w=>p.words.some(x=>x.startsWith(w)))) return 1; if(p.k.includes(qn)) return 2; return -1; };
   PS_HITS=PS_POOL.map(p=>[rank(p),p]).filter(x=>x[0]>=0).sort((a,b)=>a[0]-b[0]||(b[1].v??-1)-(a[1].v??-1)).slice(0,12).map(x=>x[1]);
-  PS_SEL=Math.min(PS_SEL,Math.max(PS_HITS.length-1,0));
-  list.innerHTML=PS_HITS.length?PS_HITS.map((p,i)=>`<button type="button" data-i="${i}" class="${i===PS_SEL?'on':''}"><span class="psN">${esc(p.name)}</span><span class="psM">${esc([p.team,p.pos].filter(Boolean).join(' · '))}</span><span class="psO${p.own?'':' fa'}">${p.own?esc(p.own):'FA'}</span><span class="psV">${p.v!=null?p.v.toFixed(1):''}</span></button>`).join('')
-    :'<div class="psE">No players found.</div>';
-  list.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>psPick(+b.dataset.i)));
+  PS_SEL=Math.max(ak?-1:0,Math.min(PS_SEL,Math.max(PS_HITS.length-1,0)));
+  list.innerHTML=(ak?`<button type="button" data-ask="1" class="psAsk${PS_SEL===-1?' on':''}"><span class="psN">Ask: ${esc(q.trim())}</span></button>`:'')+(PS_HITS.length?PS_HITS.map((p,i)=>`<button type="button" data-i="${i}" class="${i===PS_SEL?'on':''}"><span class="psN">${esc(p.name)}</span><span class="psM">${esc([p.team,p.pos].filter(Boolean).join(' · '))}</span><span class="psO${p.own?'':' fa'}">${p.own?esc(p.own):'FA'}</span><span class="psV">${p.v!=null?p.v.toFixed(1):''}</span></button>`).join('')
+    :(ak?'':'<div class="psE">No players found.</div>'));
+  list.querySelectorAll('button[data-i]').forEach(b=>b.addEventListener('click',()=>psPick(+b.dataset.i)));
+  const ab=list.querySelector('[data-ask]'); if(ab) ab.addEventListener('click',()=>askRun(q.trim()));
 }
 function psPick(i){ const p=PS_HITS[i]; if(!p) return; psClose(); openPlayerCard(p.name); }
-function psClose(){ const box=document.getElementById('psBox'); if(box) box.classList.remove('open'); }
+function psClose(){ const box=document.getElementById('psBox'); if(box){ box.classList.remove('open'); const pn=box.querySelector('.psPanel'); if(pn) pn.classList.remove('asking'); } ASK_RUN++; }
 function psOpen(){
   let box=document.getElementById('psBox');
   if(!box){ box=document.createElement('div'); box.id='psBox';
-    box.innerHTML='<div class="psScrim"></div><div class="psPanel" role="dialog" aria-label="Find a player"><input type="search" placeholder="Find a player…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go"/><div id="psList"></div></div>';
+    box.innerHTML='<div class="psScrim"></div><div class="psPanel" role="dialog" aria-label="Find a player"><input type="search" placeholder="Find a player or ask a question…" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go"/><div id="psList"></div></div>';
     document.body.appendChild(box);
     box.querySelector('.psScrim').addEventListener('click',psClose);
     const inp=box.querySelector('input');
-    inp.addEventListener('input',()=>{ PS_SEL=0; psRender(); });
+    inp.addEventListener('input',()=>{ PS_SEL=askable(inp.value)?-1:0; ASK_RUN++; box.querySelector('.psPanel').classList.remove('asking'); psRender(); });
     inp.addEventListener('keydown',e=>{
       if(e.key==='Escape'){ e.preventDefault(); psClose(); }
-      else if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); if(!PS_HITS.length) return; PS_SEL=(PS_SEL+(e.key==='ArrowDown'?1:-1)+PS_HITS.length)%PS_HITS.length; psRender(); const on=box.querySelector('#psList .on'); if(on) on.scrollIntoView({block:'nearest'}); }
-      else if(e.key==='Enter'){ e.preventDefault(); psPick(PS_SEL); } });
+      else if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); const lo=askable(inp.value)?-1:0, n=PS_HITS.length-lo; if(n<=0) return; PS_SEL=((PS_SEL-lo+(e.key==='ArrowDown'?1:-1)+n)%n)+lo; psRender(); const on=box.querySelector('#psList .on'); if(on) on.scrollIntoView({block:'nearest'}); }
+      else if(e.key==='Enter'){ e.preventDefault(); if(PS_SEL===-1&&askable(inp.value)) askRun(inp.value.trim()); else psPick(PS_SEL); } });
   }
   PS_POOL=psPool(); PS_SEL=0;
-  const inp=box.querySelector('input'); inp.value=''; psRender();
+  const inp=box.querySelector('input'); inp.value=''; box.querySelector('.psPanel').classList.remove('asking'); psRender();
   box.classList.add('open'); inp.focus();
 }
-{ const fab=document.createElement('button'); fab.id='psFab'; fab.type='button'; fab.setAttribute('aria-label','Find a player'); fab.title='Find a player (/)';
+{ const fab=document.createElement('button'); fab.id='psFab'; fab.type='button'; fab.setAttribute('aria-label','Find a player or ask a question'); fab.title='Find a player or ask a question (/)';
   fab.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>';
   fab.addEventListener('click',psOpen); document.body.appendChild(fab); }
+
+/* ---- Ask anything (2026-11-19, Tommy). The floating search box: a name finds a player; a question (3+ words) goes to /api/ask (src/worker.js), where a
+   language model only works out WHICH question it is and its settings. Every answer is built here from the hub's own data: trades from the trade
+   board's quick estimate and acceptance model (the same functions as a trade sheet), pickups from the Daily board's numbers, players from redraft_data.
+   The settings show as chips; removing one re-runs the answer without asking the model again. */
+let ASK=null, ASK_RUN=0;
+const ASK_POS={G:['PG','SG'],F:['SF','PF'],BIG:['PF','C'],WING:['SG','SF'],GUARD:['PG','SG'],FORWARD:['SF','PF'],CENTER:['C']};
+const askPosSet=ps=>{ const s=new Set(); for(const p of ps||[]){ const u=String(p).toUpperCase(); (ASK_POS[u]||[u]).forEach(x=>s.add(x)); } return s; };
+const askable=q=>String(q||'').trim().split(/\s+/).filter(Boolean).length>=3;
+function askCtx(){
+  const me=(W&&W.my_abbrev)||'DRNK', t=(W&&W.teams)||[], today=etISO(0);
+  return {today,weekday:new Date(today+'T12:00:00').toLocaleDateString('en-US',{weekday:'long'}),me,teams:t.map(x=>`${x.abbrev}: ${x.name||''}`),
+    roster:((t.find(x=>x.abbrev===me)||{}).roster||[]).map(r=>r.name)};
+}
+function askName(n,list,key){
+  const k=norm(n); if(!k) return null;
+  const hit=list.find(x=>norm(key(x))===k); if(hit) return hit;
+  const ws=s=>String(s||'').split(/[\s\-.']+/).map(norm).filter(Boolean), w=ws(n);
+  let c=list.filter(x=>{ const v=ws(key(x)); return w.every(a=>v.some(b=>b.startsWith(a))); }); if(c.length===1) return c[0];
+  const last=w[w.length-1]; c=list.filter(x=>{ const v=ws(key(x)); return v[v.length-1]===last; }); return c.length===1?c[0]:null;
+}
+const askWait=async(ok,ms=10000)=>{ for(let t=0;t<ms&&!ok();t+=100) await new Promise(r=>setTimeout(r,100)); return ok(); };
+async function askLoadTB(){ if(TB===null){ try{ TB=await (await fetch('trade_board.json',{cache:'no-cache'})).json(); }catch(e){ TB=false; } } return !!TB; }
+function askRecent(add){
+  let r=[]; try{ r=JSON.parse(localStorage.getItem('hub-ask-recent')||'[]'); }catch(e){}
+  if(add){ r=[add].concat(r.filter(x=>x!==add)).slice(0,6); try{ localStorage.setItem('hub-ask-recent',JSON.stringify(r)); }catch(e){} }
+  return r;
+}
+async function askRun(text){
+  const list=document.getElementById('psList'), panel=document.querySelector('#psBox .psPanel'); if(!list) return;
+  const run=++ASK_RUN; panel.classList.add('asking'); askRecent(text);
+  list.innerHTML='<div class="askBody"><div class="hint"><span class="chSpin" aria-hidden="true"></span> Reading the question…</div></div>';
+  let r;
+  try{ const res=await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,ctx:askCtx()})});
+    r=await res.json().catch(()=>({error:res.status===404||res.status===405?'Ask works on the Cloudflare address of the hub.':'Something went wrong.'}));
+    if(!res.ok&&!r.error) r={error:'Something went wrong ('+res.status+').'}; }
+  catch(e){ r={error:'Couldn’t reach the hub. Check the connection.'}; }
+  if(run!==ASK_RUN) return;
+  if(r.error){ list.innerHTML=`<div class="askBody"><div class="askErr">${esc(r.error)}</div></div>`; return; }
+  ASK={text,a:r.ask}; askAnswer();
+}
+function askChips(a){
+  const c=[], P=x=>x.join(', ');
+  if(a.intent==='trades'){
+    a.targets.forEach((n,i)=>c.push([`Get ${n}`,()=>a.targets.splice(i,1)]));
+    if(a.positions.length) c.push([`Position ${P(a.positions)}`,()=>{ a.positions=[]; }]);
+    a.offer.forEach((n,i)=>c.push([`Offer ${n}`,()=>a.offer.splice(i,1)]));
+    a.keep.forEach((n,i)=>c.push([`Keep ${n}`,()=>a.keep.splice(i,1)]));
+    a.keep_rounds.forEach((n,i)=>c.push([`Keep my ${tcRnd(n)}-rounders`,()=>a.keep_rounds.splice(i,1)]));
+    if(a.no_picks) c.push(['No picks',()=>{ a.no_picks=false; }]);
+    if(a.partners.length) c.push([`With ${P(a.partners)}`,()=>{ a.partners=[]; }]);
+    if(a.partner_kind!=='any') c.push([a.partner_kind==='out_of_race'?'Teams out of the race':'Contenders',()=>{ a.partner_kind='any'; }]);
+    if(a.focus!=='any') c.push([{now:'Win now',playoffs:'Playoff weeks',title_week:'Title week',future:'Keepers / future'}[a.focus],()=>{ a.focus='any'; }]);
+    if(a.injured!=='any') c.push([a.injured==='avoid'?'Healthy only':'Injured only',()=>{ a.injured='any'; }]);
+    if(a.tier&&a.tier!=='any') c.push([{star:'Stars',starter:'Starters',role:'Role players'}[a.tier],()=>{ a.tier='any'; }]);
+    if(a.max_give||a.max_get) c.push([`Up to ${a.max_give||3}-for-${a.max_get||2}`,()=>{ a.max_give=null; a.max_get=null; }]);
+  } else if(a.intent==='pickups'){
+    if(a.positions.length) c.push([`Position ${P(a.positions)}`,()=>{ a.positions=[]; }]);
+    if(a.days.length) c.push([a.days.map(d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'})).join(' + '),()=>{ a.days=[]; }]);
+  }
+  return c;
+}
+async function askAnswer(){
+  const list=document.getElementById('psList'); if(!list||!ASK) return;
+  const a=ASK.a, run=++ASK_RUN, chips=askChips(a);
+  const head=`<div class="askHd">${a.understood?`<div class="askU">${esc(a.understood)}</div>`:''}${chips.length?`<div class="askChips">${chips.map((x,i)=>`<button type="button" class="askChip" data-ac="${i}" aria-label="Remove ${esc(x[0])}">${esc(x[0])} <span aria-hidden="true">×</span></button>`).join('')}</div>`:''}</div>`;
+  const put=html=>{ if(run!==ASK_RUN) return; list.innerHTML=`<div class="askBody">${head}${html}</div>`;
+    list.querySelectorAll('[data-ac]').forEach(b=>b.addEventListener('click',()=>{ chips[+b.dataset.ac][1](); askAnswer(); })); };
+  try{
+    if(a.intent==='trades') await askTrades(a,put,run);
+    else if(a.intent==='pickups') await askPickups(a,put);
+    else if(a.intent==='players') askPlayers(a,put);
+    else if(a.intent==='team'){ const t=((W&&W.teams)||[]).find(x=>x.abbrev===a.team); if(!t){ put('<div class="askErr">I couldn’t tell which team that is.</div>'); return; } psClose(); pendingTeam=t.abbrev; setView('teams'); }
+    else if(a.intent==='standings'){ psClose(); setView('standings'); }
+    else put('<div class="askErr">I can’t answer that one yet. I can find trades, find pickups for given days, look up or compare players, and open a team or the standings.</div>');
+  }catch(e){ console.error(e); put('<div class="askErr">Something went wrong building that answer.</div>'); }
+}
+async function askTrades(a,put,run){
+  put('<div class="hint"><span class="chSpin" aria-hidden="true"></span> Loading the trade board…</div>');
+  if(!(await askLoadTB())){ put('<div class="askErr">Trade data is not built yet.</div>'); return; }
+  const B=tcBase(), me=TB.me_id, P=TB.params, notes=[];
+  const myAll=B.ro.filter(p=>!p.ir).concat(TB.picks.filter(x=>x.owner===me)), key=x=>String(x.k||x.id);
+  const mode={};
+  for(const n of a.keep){ const p=askName(n,B.ro,x=>x.n); if(p) mode[key(p)]='never'; else notes.push(`${n} is not on your roster.`); }
+  for(const x of TB.picks.filter(x=>x.owner===me)) if(a.no_picks||a.keep_rounds.includes(x.round)) mode[x.k]='never';
+  const offer=[]; for(const n of a.offer){ const p=askName(n,B.ro,x=>x.n); if(p){ offer.push(p); mode[key(p)]='must'; } else notes.push(`${n} is not on your roster.`); }
+  const pool=tcMyPool().concat(offer.filter(p=>!tcMyPool().includes(p))).filter(x=>mode[key(x)]!=='never');
+  const must=Object.keys(mode).filter(k=>mode[k]==='must');
+  // which teams
+  let tids=new Set(TB.players.filter(p=>p.tid!==me).map(p=>p.tid));
+  const abbr=new Map(TB.players.map(p=>[p.t,p.tid]));
+  if(a.partners.length&&a.partners.length<tids.size){ const s=new Set(a.partners.map(x=>abbr.get(x)).filter(x=>x!=null)); if(s.size) tids=new Set([...tids].filter(t=>s.has(t))); }
+  if(a.partner_kind!=='any'&&ODDS&&ODDS.teams){ const made=new Map(ODDS.teams.map(t=>[t.id,t.made]));
+    tids=new Set([...tids].filter(t=>{ const m=made.get(t); return m==null?true:(a.partner_kind==='out_of_race'?m<0.35:m>=0.5); })); }
+  // which players to get
+  const pos=askPosSet(a.positions);
+  const TIER={star:[47,99],starter:[38,47],role:[28,38]}[a.tier]||[0,99];
+  const fits=p=>tids.has(p.tid)&&(!p.ir||a.injured!=='avoid')&&p.lvl>=TIER[0]&&p.lvl<TIER[1]&&(!pos.size||(p.slots||[]).some(s=>pos.has(s)))&&(a.injured==='avoid'?!p.out:(a.injured==='only'?p.out:true));
+  const named=a.targets.map(n=>{ const p=askName(n,TB.players.filter(x=>x.tid!==me),x=>x.n); if(!p) notes.push(`${n} is not on another team in the league.`); return p; }).filter(Boolean);
+  const fkey={now:p=>p.lvl,playoffs:p=>(p.gpo||0)*p.lvl,title_week:p=>(p.gch||0)*p.lvl,future:p=>p.af||0,any:p=>p.best?p.best.v:-99}[a.focus];
+  const sellMode=!named.length&&offer.length&&!pos.size&&a.focus==='any'&&a.tier==='any';
+  ASK.checked=named;
+  const maxGive=Math.min(3,a.max_give||(offer.length?offer.length+1:(a.tier==='star'?3:2))), maxGet=Math.min(2,a.max_get||(named.length||sellMode?2:1));
+  let gets=[];
+  if(named.length){ for(const T of named){ gets.push([T]); if(maxGet>1) TB.players.filter(o=>o.tid===T.tid&&o.id!==T.id&&!o.ir&&o.pv<=T.pv).sort((x,y)=>y.pv-x.pv).slice(0,P.other_pool).forEach(o=>gets.push([T,o])); } }
+  else if(sellMode){ for(const tid of tids){ const th=TB.players.filter(p=>p.tid===tid&&!p.ir&&(a.injured==='avoid'?!p.out:(a.injured==='only'?p.out:true))).sort((x,y)=>y.pv-x.pv).slice(0,P.other_pool);
+      th.forEach(p=>gets.push([p])); if(maxGet>1) for(const pr of tcCombos(th,2)) gets.push(pr); } }
+  else{ let c=TB.players.filter(fits); if(a.focus==='title_week'&&c.some(p=>(p.gch||0)>=4)) c=c.filter(p=>(p.gch||0)>=4);
+    if(a.tier!=='star') c=c.filter(p=>p.best);
+    c=c.sort((x,y)=>fkey(y)-fkey(x)).slice(0,14); ASK.checked=c;
+    for(const T of c){ gets.push([T]); if(maxGet>1) TB.players.filter(o=>o.tid===T.tid&&o.id!==T.id&&!o.ir&&o.pv<=T.pv).sort((x,y)=>y.pv-x.pv).slice(0,4).forEach(o=>gets.push([T,o])); } }
+  if(!gets.length){ put(`${notes.map(n=>`<div class="askErr">${esc(n)}</div>`).join('')}<div class="askErr">No players on other teams match all of these settings.</div>`); return; }
+  const gives=[]; for(let n=1;n<=maxGive;n++) for(const G of tcCombos(pool,n)){ if(G.filter(x=>x.pick).length>1) continue; if(must.length&&!must.every(k=>G.some(x=>key(x)===k))) continue; gives.push(G); }
+  const ideas=[], step=Math.max(1,Math.ceil(gets.length/8));
+  for(let i=0;i<gets.length;i++){
+    if(i%step===0){ put(`<div class="hint"><span class="chSpin" aria-hidden="true"></span> Pricing trades… ${Math.round(100*i/gets.length)}%</div>`); await new Promise(r=>setTimeout(r,0)); if(run!==ASK_RUN) return; }
+    const R=gets[i]; for(const G of gives){ const d=tcIdea(G,R); if(d){ d.partner=R[0].tid; d.target=R[0]; ideas.push(d); } }
+  }
+  ideas.sort((x,y)=>y.v-x.v);
+  const out=[], seen=new Set(), perT=new Map(), core=i=>i.give.filter(x=>!x.pick).map(x=>x.id).sort().join(',')+'>'+i.get.map(x=>x.id).sort().join(',');
+  for(const i of ideas){ if(out.length>=8) break; const c=core(i), t=i.target.id; if(seen.has(c)||(perT.get(t)||0)>=2) continue; seen.add(c); perT.set(t,(perT.get(t)||0)+1); out.push(i); }
+  ASK.ideas=out; ASK.mode=mode;
+  const team=tid=>(TB.players.find(p=>p.tid===tid)||{}).t||'';
+  const stat=p=>[p.pos,p.nba,p.delco!=null?'DELCO '+p.delco.toFixed(1):null,p.gpo!=null?p.gpo+' PO g':null,p.gch!=null?p.gch+' title-wk g':null,p.out?'out':null].filter(Boolean).join(' · ');
+  put(`${notes.map(n=>`<div class="askErr">${esc(n)}</div>`).join('')}${out.length?out.map((i,k)=>`<article class="tcIdea askIdea">
+      <div class="tcIdeaHd"><span class="tcShape">${i.shape} · ${esc(team(i.partner))}</span>${chip(i.band==='likely'?'Likely':'Possible',i.band==='likely'?'good':'acc')}<span class="tcGain">${tcSg(i.v)}<small style="font-size:.6rem;color:var(--ink-faint);margin-left:2px">est.</small></span></div>
+      <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(x=>esc(tcLbl(x))).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(x=>esc(x.n)).join(' + ')}</b></div>
+      <div class="hint" style="font-size:.78rem">${i.get.map(p=>esc(p.n.split(' ').slice(-1)[0]+': '+stat(p))).join('<br>')}</div>
+      <div class="tcNote">${esc(i.note)}</div>
+      <div class="tcBtns"><button type="button" class="tcGo" data-aso="${k}">Open trade sheet</button><button type="button" class="dbtn" data-asa="${k}">Edit in analyzer</button></div></article>`).join('')
+    :`<div class="askErr">No trade that helps you and clears the acceptance check fits these settings.${(ASK.checked||[]).length?' Checked: '+esc(ASK.checked.map(p=>p.n+' ('+p.t+')').join(', '))+'.':''}</div>`}`);
+  const list=document.getElementById('psList');
+  list.querySelectorAll('[data-aso]').forEach(b=>b.addEventListener('click',()=>{ const i=ASK.ideas[+b.dataset.aso]; psClose(); TCC.mode=Object.assign({},ASK.mode); TCC.view='targets'; setView('trades');
+    setTimeout(()=>{ tcOpen(i.target.id,false); if(i.get[1]){ TCC.second=i.get[1].id; renderTrades(); } },50); }));
+  list.querySelectorAll('[data-asa]').forEach(b=>b.addEventListener('click',()=>{ const i=ASK.ideas[+b.dataset.asa]; psClose(); setView('trades'); setTimeout(()=>tcToAnalyzer(i),50); }));
+}
+async function askPickups(a,put){
+  put('<div class="hint"><span class="chSpin" aria-hidden="true"></span> Loading the daily board…</div>');
+  dyLoad(); if(!(await askWait(()=>RD&&NSCH&&DP))){ put('<div class="askErr">The daily board could not load.</div>'); return; }
+  const avail=dyDays(); let days=a.days.filter(d=>avail.includes(d)), missing=a.days.filter(d=>!avail.includes(d));
+  if(!days.length) days=[avail[0]];
+  const pos=askPosSet(a.positions), sv=[dyQ,dyPos,dyFilter,dyHideOut], agg=new Map();
+  try{ dyQ=''; dyPos='all'; dyFilter='fa'; dyHideOut=true;
+    for(const d of days) for(const x of dyRows(d)){ const v=x.vegas??x.plan??x.delco; if(v==null) continue; if(pos.size&&!(x.p.pos||'').split('/').some(s=>pos.has(s))) continue;
+      let o=agg.get(x.p.id); if(!o){ o={p:x.p,tot:0,d:{}}; agg.set(x.p.id,o); } o.tot+=v; o.d[d]={v,src:x.vegas!=null?'V':(x.plan!=null?'P':'D'),opp:x.opp}; } }
+  finally{ [dyQ,dyPos,dyFilter,dyHideOut]=sv; }
+  const rows=[...agg.values()].sort((x,y)=>y.tot-x.tot).slice(0,Math.max(8,a.count||0));
+  const dl=d=>d===etISO(0)?'Today':(d===etISO(1)?'Tmrw':new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'}));
+  put(`${missing.length?`<div class="askErr">No NBA schedule loaded yet for ${missing.join(', ')}.</div>`:''}${rows.length?`<table class="askTbl"><thead><tr><th>Free agent</th>${days.map(d=>`<th>${dl(d)}</th>`).join('')}${days.length>1?'<th>Total</th>':''}</tr></thead><tbody>
+    ${rows.map(o=>`<tr><td><span class="pName" data-pc="${esc(o.p.name)}" tabindex="0" role="button">${esc(o.p.name)}</span><small>${esc([o.p.pos,o.p.team].filter(Boolean).join(' · '))}</small></td>${days.map(d=>`<td>${o.d[d]?`${o.d[d].v.toFixed(1)}<small>${esc(o.d[d].opp||'')}</small>`:'<span class="hint">—</span>'}</td>`).join('')}${days.length>1?`<td><b>${o.tot.toFixed(1)}</b></td>`:''}</tr>`).join('')}</tbody></table>
+    <div class="tcBtns"><button type="button" class="dbtn" id="askDaily">Open the Daily board</button></div>`:'<div class="askErr">No free agents with games on those days fit these settings.</div>'}`);
+  const b=document.getElementById('askDaily'); if(b) b.addEventListener('click',()=>{ dyDay=days[0]; dyFilter='fa'; dyPos=pos.size===1?[...pos][0]:'all'; psClose(); setView('daily'); });
+  document.querySelectorAll('#psList .pName').forEach(s=>s.addEventListener('click',()=>psClose()));
+}
+function askPlayers(a,put){
+  const ps=a.players.map(n=>({n,p:RD&&RD.players?askName(n,RD.players,x=>x.name):null}));
+  const found=ps.filter(x=>x.p);
+  if(found.length===1&&ps.length===1){ psClose(); openPlayerCard(found[0].p.name); return; }
+  if(!found.length){ put(`<div class="askErr">I couldn’t find ${esc(a.players.join(' or ')||'that player')}.</div>`); return; }
+  const own=p=>{ const o=RD._own?RD._own.get(p.id):null; if(o) return o.abbrev; for(const t of (W&&W.teams)||[]) if((t.roster||[]).some(r=>pnorm(r.name)===pnorm(p.name))) return t.abbrev; return 'FA'; };
+  const f=v=>v==null?'—':(+v).toFixed(1);
+  const rowsDef=[['Team',p=>esc([p.team,p.pos].filter(Boolean).join(' · '))],['Owner',p=>esc(own(p))],['Status',p=>p.status&&p.status!=='ACTIVE'?esc(p.status.replace('_',' ').toLowerCase()):'active'],
+    ['Season avg',p=>f(p.s_avg)],['Last 10',p=>f(p.l10)],['Next game (DELCO)',p=>f(p.next_proj&&p.next_proj[0])],['Rest of season',p=>f(p.ppg)],['Games left',p=>p.g_rem??'—'],['Playoff games',p=>p.gpo??'—'],['Title-week games',p=>p.gch??'—']];
+  put(`${ps.filter(x=>!x.p).map(x=>`<div class="askErr">Couldn’t find ${esc(x.n)}.</div>`).join('')}<table class="askTbl"><thead><tr><th></th>${found.map(x=>`<th><span class="pName" data-pc="${esc(x.p.name)}" tabindex="0" role="button">${esc(x.p.name)}</span></th>`).join('')}</tr></thead>
+    <tbody>${rowsDef.map(([l,fn])=>`<tr><td class="hint">${l}</td>${found.map(x=>`<td>${fn(x.p)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+  document.querySelectorAll('#psList .pName').forEach(s=>s.addEventListener('click',()=>psClose()));
+}
 document.addEventListener('keydown',e=>{ if(e.key!=='/'||e.ctrlKey||e.metaKey||e.altKey) return; const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; e.preventDefault(); psOpen(); });
 
 let NSCH;   // nba_schedule.json, loaded the first time a player card opens (the 7-day strip)

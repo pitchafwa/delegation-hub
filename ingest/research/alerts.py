@@ -32,7 +32,7 @@ ET = ZoneInfo("America/New_York")
 ROOT = Path(__file__).resolve().parent.parent.parent
 DASH = ROOT / "dashboard"
 STATE_PATH = ROOT / "alerts" / "state.json"
-SITE = "https://pitchafwa.github.io/delegation-hub/"
+SITE = "https://delegation-hub.tommy-valtin.workers.dev/"
 try:
     import season_calendar as _SCAL
     ACTIVE_FROM = _SCAL.opener() - timedelta(days=1)   # the day before the opener (derived): nothing is sent before this except `test` and --force

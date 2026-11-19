@@ -5,7 +5,7 @@ Kalman-filter player trajectories, rookie/prospect projections, keeper VOR, a ke
 asset value, and a breakout / bust / ADP-edge model with walk-forward backtests and a frozen
 preseason prediction ledger.
 
-**Live board:** https://pitchafwa.github.io/delegation-hub/
+**Live board:** https://delegation-hub.tommy-valtin.workers.dev (Cloudflare Worker delegation-hub; the old https://pitchafwa.github.io/delegation-hub/ still deploys as a backup)
 
 ## Layout
 - `dashboard/` - the static site (`index.html` + `hub_data.json` + `breakout_history.json`). Deployed to GitHub Pages by `.github/workflows/pages.yml` on every push that touches it.
