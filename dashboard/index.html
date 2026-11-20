@@ -145,9 +145,11 @@
   .cmpOwn{font-size:.7rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-soft)}
   .cmpOwn.mine{border-color:var(--accent);color:var(--accent)} .cmpOwn.fa{color:var(--good);border-color:var(--good)}
   .cmpLead{font-size:.7rem;color:var(--ink-soft)}
-  .cmpRm{position:absolute;top:-4px;left:calc(50% + 18px);width:26px;height:26px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;line-height:1}
-  .cmpAdd{justify-content:flex-start}
-  .cmpAdd input{width:100%;box-sizing:border-box;padding:.55rem .6rem;border:1px dashed var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
+  #cmpBox .cmpRm{position:absolute;top:-6px;left:calc(50% + 16px);width:24px;height:24px;min-width:24px;min-height:24px;max-height:24px;padding:0;margin:0;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);cursor:pointer;font-size:.85rem;line-height:1;flex:none}
+  .cmpTopR{display:flex;align-items:center;gap:.5rem}
+  #cmpBox .cmpAddBtn{min-height:34px;padding:.25rem .75rem;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+  .cmpAddBar{padding:.5rem .8rem;border-bottom:1px solid var(--line)}
+  .cmpAddBar input{width:100%;box-sizing:border-box;padding:.55rem .6rem;border:1px dashed var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
   #cmpHits{width:100%;text-align:left}
   #cmpHits button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:.45rem .3rem;font:inherit;font-size:.85rem;cursor:pointer;min-height:44px}
   #cmpHits button small{display:block}
@@ -2859,15 +2861,15 @@ function askPlayers(a,put){
 /* ---- Compare players (2026-11-19, Tommy): up to 3 players side by side, no AI. Open it from the Compare button on a player-search row or a player card,
    or by asking about 2-3 players. Every number comes from the data the page already loads (redraft_data, hub_data, trade_board, day_proj, player_news);
    the leader in each comparable row is highlighted and the header counts rows led. */
-let CMP=[];
+let CMP=[], CMP_ADD=false;
 function cmpData(name){
   const P=findPlayer(name); if(!P) return null;
   const r=P.redraft||null, h=P.hub||null, own=P.owner?P.owner.abbrev:(P.weekOwner?P.weekOwner.abbrev:(L?'FA':null));
   const tb=TB&&TB.players?TB.players.find(x=>pnorm(x.n)===pnorm(P.name)):null;
   return {P,r,h,tb,own,name:P.name};
 }
-function cmpOpen(names){ CMP=[]; (names||[]).forEach(n=>cmpAdd(n,false)); cmpRender(); }
-function cmpAdd(name,render=true){ const k=pnorm(name); if(!k||CMP.some(x=>pnorm(x)===k)) { if(render) cmpRender(); return; } if(CMP.length>=3) CMP.pop(); CMP.push(name); if(render) cmpRender(); }
+function cmpOpen(names){ CMP=[]; CMP_ADD=false; (names||[]).forEach(n=>cmpAdd(n,false)); cmpRender(); }
+function cmpAdd(name,render=true){ CMP_ADD=false; const k=pnorm(name); if(!k||CMP.some(x=>pnorm(x)===k)) { if(render) cmpRender(); return; } if(CMP.length>=3) CMP.pop(); CMP.push(name); if(render) cmpRender(); }
 function cmpClose(){ const el=document.getElementById('cmpBox'); if(el) el.classList.remove('open'); }
 function cmpRows(X){
   const td=etISO(0), mmdd=td.slice(5), f1=v=>v==null||isNaN(v)?null:(+v).toFixed(1), f0=v=>v==null||isNaN(v)?null:Math.round(+v).toString(), sg=v=>(v>=0?'+':'')+(+v).toFixed(1);
@@ -2943,17 +2945,17 @@ function cmpRender(){
   if(!TB&&TB!==false){ askLoadTB().then(()=>{ if(el.classList.contains('open')) cmpRender(); }); }
   if(DP===undefined){ dyLoad(); askWait(()=>DP).then(()=>{ if(el.classList.contains('open')) cmpRender(); }); }
   if(!NEWS) loadNews().then(()=>{ if(el.classList.contains('open')) cmpRender(); });
-  const X=CMP.map(cmpData).filter(Boolean), n=X.length, cols=Math.max(n+(n<3?1:0),2);
+  const X=CMP.map(cmpData).filter(Boolean), n=X.length, cols=Math.max(n,1);
   const panel=el.querySelector('.cmpPanel'), secs=cmpRows(X), lead=X.map(()=>0); let comparable=0;
   const body=secs.map(([title,rows])=>{
     const html=rows.map(row=>{
-      if(row.spark) return `<div class="cmpRow"><div class="cmpL">${row.l}</div><div class="cmpV" style="--n:${cols}">${X.map(x=>`<div>${cmpSpark(x.r)}</div>`).join('')}${n<3?'<div></div>':''}</div></div>`;
+      if(row.spark) return `<div class="cmpRow"><div class="cmpL">${row.l}</div><div class="cmpV" style="--n:${cols}">${X.map(x=>`<div>${cmpSpark(x.r)}</div>`).join('')}</div></div>`;
       const vals=X.map(x=>{ try{ return row.v(x); }catch(e){ return null; } });
       const shown=X.map((x,i)=>{ try{ if(row.t) return row.t(x); return vals[i]==null?null:(row.f?row.f(vals[i],x):vals[i]); }catch(e){ return null; } });
       if(shown.every(s=>s==null||s==='')) return '';
       const nums=vals.filter(v=>v!=null&&!isNaN(v));
       let best=null; if(!row.nb&&!row.t&&n>1&&nums.length>1){ const b=row.lo?Math.min(...nums):Math.max(...nums); if(nums.filter(v=>v===b).length<nums.length){ best=b; comparable++; vals.forEach((v,i)=>{ if(v===b) lead[i]++; }); } }
-      return `<div class="cmpRow"><div class="cmpL">${row.l}</div><div class="cmpV" style="--n:${cols}">${shown.map((s,i)=>`<div class="${best!=null&&vals[i]===best?'cmpBest':''}">${s==null||s===''?'<span class="hint">—</span>':s}</div>`).join('')}${n<3?'<div></div>':''}</div></div>`;
+      return `<div class="cmpRow"><div class="cmpL">${row.l}</div><div class="cmpV" style="--n:${cols}">${shown.map((s,i)=>`<div class="${best!=null&&vals[i]===best?'cmpBest':''}">${s==null||s===''?'<span class="hint">—</span>':s}</div>`).join('')}</div></div>`;
     }).join('');
     return html?`<section class="cmpSec"><h3>${title}</h3>${html}</section>`:'';
   }).join('');
@@ -2963,12 +2965,14 @@ function cmpRender(){
       <span class="pName" data-pc="${esc(x.name)}" tabindex="0" role="button">${esc(x.name)}</span><small>${esc([r.team||(x.h&&x.h.team),r.pos||(x.h&&x.h.pos)].filter(Boolean).join(' · '))}</small>
       ${x.own?`<span class="cmpOwn${mine?' mine':''}${x.own==='FA'?' fa':''}">${mine?'Your team':esc(x.own)}</span>`:''}
       ${n>1&&comparable?`<span class="cmpLead">Leads ${lead[i]} of ${comparable}</span>`:''}</div>`; }).join('');
-  const add=n<3?`<div class="cmpHd cmpAdd"><input type="search" id="cmpQ" placeholder="+ Add" autocomplete="off" autocorrect="off" spellcheck="false"/><div id="cmpHits"></div></div>`:'';
-  panel.innerHTML=`<div class="cmpTop"><b>Compare players</b><button type="button" class="pcX" id="cmpX" aria-label="Close">×</button></div>
-    <div class="cmpScroll"><div class="cmpHead" style="--n:${cols}">${head}${add}</div>
-    ${n?`${body}<section class="cmpSec"><h3>Latest news</h3><div class="cmpRow"><div class="cmpL"></div><div class="cmpV cmpNews" style="--n:${cols}">${news.join('')}${n<3?'<div></div>':''}</div></div></section>`:'<div class="hint" style="padding:1rem">Add up to three players.</div>'}</div>`;
+  const adding=n<3&&(CMP_ADD||n<2);
+  panel.innerHTML=`<div class="cmpTop"><b>Compare players</b><span class="cmpTopR">${n<3&&!adding?'<button type="button" class="cmpAddBtn" id="cmpAddBtn">+ Add player</button>':''}<button type="button" class="pcX" id="cmpX" aria-label="Close">×</button></span></div>
+    ${adding?`<div class="cmpAddBar"><input type="search" id="cmpQ" placeholder="Add a player to compare…" autocomplete="off" autocorrect="off" spellcheck="false"/><div id="cmpHits"></div></div>`:''}
+    <div class="cmpScroll"><div class="cmpHead" style="--n:${cols}">${head}</div>
+    ${n?`${body}<section class="cmpSec"><h3>Latest news</h3><div class="cmpRow"><div class="cmpL"></div><div class="cmpV cmpNews" style="--n:${cols}">${news.join('')}</div></div></section>`:'<div class="hint" style="padding:1rem">Add up to three players.</div>'}</div>`;
   el.classList.add('open');
   panel.querySelector('#cmpX').addEventListener('click',cmpClose);
+  const ab=panel.querySelector('#cmpAddBtn'); if(ab) ab.addEventListener('click',()=>{ CMP_ADD=true; cmpRender(); const i=document.getElementById('cmpQ'); if(i) i.focus(); });
   panel.querySelectorAll('[data-cr]').forEach(b=>b.addEventListener('click',()=>{ CMP.splice(+b.dataset.cr,1); cmpRender(); }));
   const q=panel.querySelector('#cmpQ');
   if(q){ const pool=psPool(), hits=panel.querySelector('#cmpHits'); let H=[];
@@ -2979,7 +2983,7 @@ function cmpRender(){
       hits.innerHTML=H.map((p,i)=>`<button type="button" data-ch="${i}"><b>${esc(p.name)}</b><small>${esc([p.team,p.pos].filter(Boolean).join(' · '))}${p.own?' · '+esc(p.own):''}</small></button>`).join('')||'<div class="hint" style="padding:.4rem">No players found.</div>';
       hits.querySelectorAll('[data-ch]').forEach(b=>b.addEventListener('click',()=>cmpAdd(H[+b.dataset.ch].name))); };
     q.addEventListener('input',show); q.addEventListener('keydown',e=>{ if(e.key==='Enter'&&H[0]){ e.preventDefault(); cmpAdd(H[0].name); } });
-    if(n===1&&!isMobile()) setTimeout(()=>q.focus(),30); }
+    if(n===1&&!isMobile()) setTimeout(()=>q.focus(),30); q.addEventListener('keydown',e=>{ if(e.key==='Escape'&&n>=2){ e.stopPropagation(); CMP_ADD=false; cmpRender(); } }); }
 }
 document.addEventListener('click',e=>{ const c=e.target.closest('.psCmp,.pcCmp'); if(!c) return; e.preventDefault(); e.stopPropagation(); const nm=c.dataset.cmp;
   const box=document.getElementById('cmpBox'), open=box&&box.classList.contains('open');
