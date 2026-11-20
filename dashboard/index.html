@@ -979,6 +979,18 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
   .tcBtnsR{display:flex;justify-content:flex-end;margin-top:var(--sp4)}
   /* More sub-pages: one heading style */
   #aboutPane>h2,#choicesPane>h2,#cloudPane>h2,#settingsPane>h2,#keepersPane>h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:1.375rem;margin:var(--sp2) 0 var(--sp3)}
+  /* Today: do-now folds (2026-11-19) */
+  .doNone{background:var(--surface);border-radius:12px;padding:var(--sp3) var(--sp4);color:var(--ink-soft)}
+  .doNone span{display:block;font-size:.875rem;color:var(--ink-faint);margin-top:2px}
+  details.doLater{margin-top:var(--sp2)}
+  details.doLater>summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 var(--sp4);border-radius:12px;background:var(--surface);color:var(--ink-soft);font-weight:600;cursor:pointer;list-style:none}
+  details.doLater>summary::-webkit-details-marker{display:none}
+  details.doLater>summary .hint{margin-left:auto;margin-right:var(--sp2)}
+  details.doLater>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--ink-faint);border-bottom:2px solid var(--ink-faint);transform:rotate(45deg)}
+  details.doLater[open]>summary::after{transform:rotate(-135deg)}
+  details.doLater[open]>summary{margin-bottom:var(--sp2)}
+  .slTop{margin-top:var(--sp4)}
+  .muChip.on{background:var(--tonal) !important;color:var(--tonal-ink) !important;border-color:var(--accent) !important}
 </style>
 </head>
 <body>
@@ -2136,7 +2148,13 @@ function renderWeek(){
   const chgIcon=chg?`<span class="ib chgIb" role="button" tabindex="0" data-info="${esc(chg)}" aria-label="What changed since you last looked">Δ</span>`:'';
   // in the order they should be done (2026-11-08): free moves and holds first, then by day (today's steps before tonight's claims), week notes last; same-day items keep their order
   { const ord=t=>(t.when==='Now'||t.when==='Hold')?'0':(t.when==='Week'?'9':(t.at||todayIso)+(t.when==='Tonight'?'b':'a')); doItems.forEach((t,i)=>t._i=i); doItems.sort((x,y)=>ord(x)<ord(y)?-1:ord(x)>ord(y)?1:x._i-y._i); }
-  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doItems.map(t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}${chButtons(t)}</span><span class="doGain num">${esc(t.gain)}</span></div>`).join('')}</div>`:'';
+  // Today first (2026-11-19, Tommy: "I only really need to see things I need to do today"): later days, IR holds and week notes fold under "Later this week"
+  const isToday=t=>t.when==='Now'||t.when==='Today'||t.when==='Tonight'||(t.at&&t.at<=todayIso&&t.when!=='Hold'&&t.when!=='Week');
+  const doNowItems=doItems.filter(isToday), doLater=doItems.filter(t=>!isToday(t));
+  const doRow=t=>`<div class="doItem"><span class="doWhen">${esc(t.when)}</span><span class="doBody"><b>${esc(t.what)}</b>${t.sub?`<span>${esc(t.sub)}</span>`:''}${t.mv?mvButton(t.mv):''}${chButtons(t)}</span><span class="doGain num">${esc(t.gain)}</span></div>`;
+  const nextUp=doLater.find(t=>t.at&&t.when!=='Hold'&&t.when!=='Week');
+  const doNowHtml=isMe?`<h2 class="todayH">Do now ${ib('Net gain')}${chgIcon}</h2><div class="doList">${doNowItems.length?doNowItems.map(doRow).join(''):`<div class="doNone">Nothing to do today.${nextUp?` <span>Next: ${esc(nextUp.when)}, ${esc(nextUp.what.charAt(0).toLowerCase()+nextUp.what.slice(1))}.</span>`:''}</div>`}</div>
+    ${doLater.length?`<details class="doLater" ${DO_LATER_OPEN?'open':''}><summary><span>Later this week</span><span class="hint">${doLater.length} item${doLater.length===1?'':'s'}</span></summary><div class="doList">${doLater.map(doRow).join('')}</div></details>`:''}`:'';
   // tonight's lineup in ESPN slot order, points if he plays
   const SLOT_O={PG:0,SG:1,SF:2,PF:3,C:4,G:5,F:6,UT:7};
   const luNow=dayRow&&!dayRow.locked?dayRow.start.slice().sort((a,b)=>(SLOT_O[a.slot]??9)-(SLOT_O[b.slot]??9)||b.ef-a.ef):[];
@@ -2173,10 +2191,10 @@ function renderWeek(){
     ${scoreHtml}
     ${doNowHtml}
     ${matchupHtml(T,O,M,liveOk)}
+    ${T.abbrev===W.my_abbrev?`<div class="slTop">${sec('setlineup','Set lineup in ESPN','preview the rest of this matchup, then set it in one click','<div id="slBox" class="hint">Loading preview…</div>',true)}</div>`:''}
     <div class="cardPair" style="margin-top:1.2rem">${oddsHtml(T.id===meT.id)}${gamesHtml(T)}</div>
     <h2 class="todayH" style="margin-top:1.4rem">Details</h2>
     ${lineupSec}
-    ${T.abbrev===W.my_abbrev?sec('setlineup','Set lineup in ESPN','preview the rest of this matchup, then set it in one click','<div id="slBox" class="hint">Loading preview…</div>',false):''}
     ${wrapHdr('ir',irHtml,false)}
     ${wrapHdr('moves',seqRows?`<div style="font-family:'Barlow Condensed',monospace;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin:.4rem 0">Full week plan: every move in order (${addsLeft} of ${M.adds_limit} adds left) · ${(T.sequence||[]).length} move${(T.sequence||[]).length===1?'':'s'}, then nothing else clears the bar</div>
     ${laterHtml}<div class="tablewrap" style="margin-bottom:1.2rem"><table><thead><tr><th>#</th><th style="text-align:left">Add</th><th style="text-align:left">Drop</th><th>Net gain</th><th>This week, all moves so far</th><th style="text-align:left">Timing (net gain if made on each day)</th></tr></thead><tbody>${seqRows}</tbody></table></div>
@@ -2186,12 +2204,13 @@ function renderWeek(){
     ${faTabsHtml?sec('fa','Free agents','outside the plan',faTabsHtml,false):''}
     ${sec('roster','Roster and schedule',`● = plays that day (${daysHdr.join(' ')})`,`<div class="tablewrap"><table><thead><tr><th style="text-align:left">Player</th><th style="text-align:left">NBA</th><th style="text-align:left">Pos</th><th>Projected</th><th style="text-align:left" title="last 10 games: minutes (change vs his baseline) and fantasy points per minute">Form (L10)</th><th>Keeper rank</th><th style="text-align:left">Games</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`,false)}
     <div class="legend" style="margin-top:1rem"><b>How the numbers work.</b> <b>Free agent or waivers.</b> A player with no tag is a free agent: add him instantly, any hour. A <b>WAIVERS</b> tag means another team just dropped him, so he can only be claimed (ESPN processes claims at about 3am ET, at least 24 hours after the drop, in waiver order) and the plan counts him only from the day he clears. League rule: only 40 started games count per 7-day matchup (scaled for other lengths), checked at the <i>start</i> of each day. Start a day under the cap and you can start anyone and go over; start it at or over and nothing else counts. The plan picks lineups day by day to maximize <i>points</i>, not games, so it may cross the cap early when a day is strong and later days are thin, or sit weak starters to save games for better days. <b>Level</b> for a given day = the day-specific projection (DailyFantasyFuel, converted to league points) whenever that day's slate is posted; otherwise ESPN's season projection blended with the last 15 games. A free agent missing from a posted slate is treated as not expected to play. Chance of playing is measured, not guessed: for today's game the league's official injury designation sets it (rotation players: available 96%, probable 92%, questionable 57%, doubtful 4%, out 0%; bench players lower), a healthy player with no designation is 94% (89% on the second night of a back-to-back), and for later days it is 85% for rotation players, 81% at 15–20 points a game and 61% below that (they can get hurt or rest). For what a player is worth after this week, ESPN and our model (DELCO) are averaged; free agents are shrunk toward replacement, lightly for veterans whose two projections agree, more for short records. Position eligibility comes from ESPN. <b>Drops:</b> with only 5 keepers, a non-keeper's value is what he produces this season. So each team's top 6 dynasty assets (and anyone projecting 35+ a game) are never suggested as drops. Every suggestion's gain is <i>net</i>: this week's points minus the expected long-run cost. For a rental that cost is the chance the dropped player is taken before you re-add him (measured in this league: about 7% for a sub-20 player up to 32% for a 33+ player over two days); for a player you keep, it is the season-long gap between him and the player dropped. Add names to ingest/research/never_drop.json to protect anyone else. Opponent totals assume they also play their best lineups, and win chance uses a 253-point weekly spread measured last season. ${M.calendar_assumed?'<b>Matchup dates for ${(W.season||0)-1}-${String(W.season||0).slice(2)} are assumed</b> (6-day opener, then Monday–Sunday weeks) until ESPN publishes them in season. ':''}Games already tipped today can't be changed; late swaps are possible until each game starts.</div>`;
-  { const secs=[...pane.querySelectorAll('details.sec')];
+  { const secs=[...pane.querySelectorAll('details.sec')].filter(d=>!d.closest('.slTop'));
     if(secs.length>2){ const first=secs[0]; const jb=document.createElement('div'); jb.className='jumpBar';
       jb.innerHTML='<span class="hint">Jump to</span>'+secs.map(d=>`<button type="button" data-jump="${d.dataset.sec}">${d.dataset.title.replace(/^Injured players$/,'Injuries').replace(/^Roster and IR moves$/,'Roster/IR').replace(/^Full week plan$/,'Week plan').replace(/^Injuries creating opportunity$/,'Opportunity').replace(/^Long-term adds$/,'Long-term').replace(/^Other free agents worth a look$/,'Other FAs').replace(/^Roster and schedule$/,'Roster').replace(/^Lineup plan by day$/,'Lineup')}</button>`).join('');
       first.parentNode.insertBefore(jb,first);   // sits under the Details heading
       jb.addEventListener('click',e=>{ const b=e.target.closest('button[data-jump]'); if(!b) return; const d=document.getElementById('sec-'+b.dataset.jump); if(!d) return; d.open=true; secState[b.dataset.jump]=true; d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
     secs.forEach(d=>d.addEventListener('toggle',()=>{ secState[d.dataset.sec]=d.open; })); }
+  { const dl=pane.querySelector('details.doLater'); if(dl) dl.addEventListener('toggle',()=>{ DO_LATER_OPEN=dl.open; }); }
   pane.querySelectorAll('.muChip').forEach(b=>b.addEventListener('click',()=>{ MU_DAY=b.dataset.mud; MU_PICKED=true; const y=window.scrollY; renderWeek(); window.scrollTo(0,y); }));
   pane.querySelectorAll('.faTabs button').forEach(b=>b.addEventListener('click',()=>{ pane.querySelectorAll('.faTabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b))); pane.querySelectorAll('.faPanel').forEach(pn=>pn.hidden=pn.dataset.fap!==b.dataset.fat); }));
   fillSetLineup();
@@ -2349,7 +2368,7 @@ function projWeeks(sp,cw){
   return out;
 }
 const VIEWS=['week','standings','sched','board','redraft','daily','teams','trades','keepers','draft','about','cloud','choices','settings','more'];
-let pendingTeam=null;
+let pendingTeam=null, DO_LATER_OPEN=false;
 function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
   const h='#'+v+(extra?'/'+extra:'');
   if(location.hash===h||(!extra&&location.hash.startsWith('#'+v+'/'))) return;
