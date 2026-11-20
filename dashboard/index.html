@@ -2782,7 +2782,7 @@ async function askAnswer(){
     if(a.intent==='trades') await askTrades(a,put,run);
     else if(a.intent==='pickups') await askPickups(a,put);
     else if(a.intent==='players') askPlayers(a,put);
-    else if(a.intent==='team'){ const t=((W&&W.teams)||[]).find(x=>x.abbrev===a.team); if(!t){ put('<div class="askErr">I couldn’t tell which team that is.</div>'); return; } psClose(); pendingTeam=t.abbrev; setView('teams'); }
+    else if(a.intent==='team'){ const t=((W&&W.teams)||[]).find(x=>x.abbrev===a.team); if(!t){ put('<div class="askErr">I couldn’t tell which team that is.</div>'); return; } psClose(); if(t.abbrev!==(W&&W.my_abbrev)&&await askLoadTB()){ TCC.view='owners'; TCC.sel=null; TCC.owFocus=t.id; if(activeView()==='trades') renderTrades(); else setView('trades'); } else { pendingTeam=t.abbrev; setView('teams'); } }
     else if(a.intent==='standings'){ psClose(); setView('standings'); }
     else put('<div class="askErr">I can’t answer that one yet. I can find trades, find pickups for given days, look up or compare players, and open a team or the standings.</div>');
   }catch(e){ console.error(e); put('<div class="askErr">Something went wrong building that answer.</div>'); }
@@ -3709,7 +3709,7 @@ async function ownView(body){
   const ord={contend:0,balanced:1,rebuild:2}; T.sort((a,b)=>(ord[a.posture]-ord[b.posture])||(((b.o||{}).made||0)-((a.o||{}).made||0)));
   body.innerHTML=`<div class="owList">${T.map(t=>ownCard(t,poLg,chLg)).join('')}</div>`;
   body.querySelectorAll('[data-owt]').forEach(b=>b.addEventListener('click',()=>{ TCC.view='targets'; TCC.team=b.dataset.owt; TCC.tags=new Set(); TCC.gettable=false; TCC.sel=null; renderTrades(); }));
-  if(TCC.owFocus){ const el=document.getElementById('ow-'+TCC.owFocus); TCC.owFocus=null; if(el) setTimeout(()=>el.scrollIntoView({block:'start'}),30); }
+  if(TCC.owFocus){ const id=TCC.owFocus; TCC.owFocus=null; setTimeout(()=>{ const el=document.getElementById('ow-'+id); if(el) el.scrollIntoView({block:'start'}); },150); }
 }
 function ownFits(slots){ const B=tcBase(), keep=new Set(B.ro.slice().sort((a,b)=>(b.af||0)-(a.af||0)).slice(0,6).map(p=>p.id));
   return B.ro.filter(p=>!p.out&&!p.ir&&!keep.has(p.id)&&p.lvl>=28&&(p.slots||[]).some(s=>slots.includes(s))).sort((a,b)=>b.lvl-a.lvl).slice(0,3); }
