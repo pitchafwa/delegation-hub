@@ -943,6 +943,42 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
     span.ib{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;margin:-6px -4px}
   }
   span.ib .ic{width:1em;height:1em;color:var(--ink-faint)}
+
+  /* ===== Design pass batch 3 (2026-11-19): fewer boxes (cards are a background shade, not an outline), page-level controls */
+  #playerCard .pcPanel{padding-top:env(safe-area-inset-top)}
+  #playerCard .pcX{top:max(8px,calc(env(safe-area-inset-top) + 4px))}
+  .doItem,.faRow,.irBox,.scoreCard,.mxCard,.tcRow,.profCard,.kbox,.statbar,details.sec,.stTiles>div,.tcTiles>div,.owCard,.tcIdea,.tablewrap,.lineupBox,.moreList{border-color:transparent !important}
+  .mxCard.mine{border-color:var(--accent) !important}
+  .comp,.tcTag{border-color:transparent !important;background:var(--surface-2)}
+  .stTiles>div,.tcTiles>div{background:var(--surface)}
+  /* Keep / Pass */
+  .chBtn{display:inline-flex;align-items:center;gap:6px;border:0 !important;font-weight:600}
+  .chBtn .ic{width:1em;height:1em}
+  .chBtn.keep{background:var(--tonal);color:var(--tonal-ink)}
+  .chBtn.pass{background:transparent;color:var(--ink-soft);box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .chBtn.on{background:var(--tonal) !important;color:var(--tonal-ink) !important}
+  /* Dynasty value settings fold */
+  details.valSet>summary>span:first-child{white-space:nowrap}
+  details.valSet>summary .hint{margin-left:auto;white-space:nowrap}
+  details.valSet>summary::after{margin-left:var(--sp2) !important}
+  details.valSet{width:100%;box-sizing:border-box;flex-basis:100%;background:var(--surface);border-radius:var(--radius);padding:0 var(--sp3)}
+  details.valSet>summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:var(--sp2);cursor:pointer;font-weight:600;list-style:none}
+  details.valSet>summary::-webkit-details-marker{display:none}
+  details.valSet>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--ink-faint);border-bottom:2px solid var(--ink-faint);transform:rotate(45deg);margin-left:auto}
+  details.valSet[open]>summary::after{transform:rotate(-135deg)}
+  details.valSet .kbox{background:transparent;padding:0 0 var(--sp3)}
+  /* Trades Targets: Filters button + sort menu, active filters as removable chips, the filter panel */
+  .tcBar{display:flex;gap:var(--sp2);align-items:center;margin-bottom:var(--sp2)}
+  .tcBar select{flex:1;min-height:44px}
+  .tcN{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:10px;background:var(--accent);color:var(--on-accent);font-size:.75rem;padding:0 6px}
+  .tcActive{display:flex;flex-wrap:wrap;gap:var(--sp2);margin-bottom:var(--sp2)}
+  .tcA{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 var(--sp3);border-radius:999px;border:0;background:var(--tonal);color:var(--tonal-ink);font:inherit;font-size:.875rem;font-weight:600;cursor:pointer}
+  .tcA .ic{width:.9em;height:.9em}
+  .tcFPanel{background:var(--surface);border-radius:12px;padding:var(--sp3) var(--sp4) var(--sp4);margin-bottom:var(--sp3)}
+  .tcFH{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin:var(--sp2) 0 var(--sp2)}
+  .tcBtnsR{display:flex;justify-content:flex-end;margin-top:var(--sp4)}
+  /* More sub-pages: one heading style */
+  #aboutPane>h2,#choicesPane>h2,#cloudPane>h2,#settingsPane>h2,#keepersPane>h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:1.375rem;margin:var(--sp2) 0 var(--sp3)}
 </style>
 </head>
 <body>
@@ -1013,8 +1049,9 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
   <div class="controls">
     <input type="search" id="q" placeholder="filter by name…" />
     <select id="ownerSel" style="display:none;padding:.42rem .5rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:.75rem"></select>
+    <details class="valSet"><summary><span>Value settings</span><span class="hint" id="valSum"></span></summary>
     <div class="kbox"><span>Keepers/team:</span><input type="range" id="kSlider" min="0" max="19" value="5" step="1" /><input type="number" id="kNum" min="0" max="19" step="1" value="5" /></div>
-    <div class="kbox"><span>Horizon (seasons):</span><input type="range" class="hzSlider" id="hzBoard" min="1" max="10" value="10" step="1" /><b class="hzNum">10</b></div>
+    <div class="kbox"><span>Horizon (seasons):</span><input type="range" class="hzSlider" id="hzBoard" min="1" max="10" value="10" step="1" /><b class="hzNum">10</b></div></details>
     <div class="hint" id="hzMsgBoard" style="flex-basis:100%"></div>
     <div class="mobileOnly" id="sortBox"><select id="sortSel" aria-label="Sort by"></select><button id="sortDir" type="button" aria-label="Reverse sort order">↓</button></div>
   </div>
@@ -1341,6 +1378,7 @@ function fillYearSelect(){
 
 const isRk=p=>!!(p&&p._rookie);
 function render(){
+  { const vs=document.getElementById('valSum'); if(vs) vs.textContent=`${K} keepers · ${HZ} season${HZ===1?'':'s'}`; }
   if(kind==='breakout' && brkYear!=='live' && H){ renderHist(); return; }
   const rows = rowsFiltered();
   const cur = D.players.filter(p=>p.kind==='current').length;
@@ -3632,20 +3670,32 @@ function tcBoard(body,mine){
   const used=new Set(all.flatMap(p=>p.tags.map(t=>t[0])));
   const teams=[...new Set(TB.players.filter(p=>p.tid!==TB.me_id).map(p=>p.t))].sort();
   const sorts=[['score',mine?'Worth to you':'Target score'],['disc','Discount'],['po','Playoff games'],['ch','Title-week games'],['delco','DELCO']];
+  const active=[...[...TCC.tags].map(t=>[t,'tag:'+t]),...(!mine&&TCC.team!=='all'?[[TCC.team,'team']]:[]),...(TCC.pos!=='all'?[[TCC.pos,'pos']]:[]),...(!mine&&!TCC.gettable?[['Include ungettable','get']]:[])];
+  const nF=active.length;
   body.innerHTML=`<div class="tcCtl">
     <input type="search" id="tcQ" placeholder="Search a player or team" value="${esc(TCC.q)}" autocomplete="off" enterkeyhint="search">
-    <div class="tcChips">${TC_TAGS.filter(t=>used.has(t)||TCC.tags.has(t)).map(t=>`<button type="button" class="tcF ${TC_CLS[t]}" data-tct="${esc(t)}" aria-pressed="${TCC.tags.has(t)}">${esc(t)}</button>`).join('')}</div>
-    <div class="tcSort"><span>Sort</span>${sorts.map(([k,l])=>`<button type="button" data-tcs="${k}" aria-pressed="${TCC.sort===k}">${l}</button>`).join('')}</div>
-    <div class="tcSel">${mine?'':`<select id="tcTeam" aria-label="Team"><option value="all">All teams</option>${teams.map(t=>`<option ${TCC.team===t?'selected':''}>${esc(t)}</option>`).join('')}</select>`}
-      <select id="tcPos" aria-label="Position"><option value="all">All positions</option>${['PG','SG','SF','PF','C'].map(s=>`<option ${TCC.pos===s?'selected':''}>${s}</option>`).join('')}</select>
-      ${mine?'':`<button type="button" id="tcGet" aria-pressed="${TCC.gettable}">Gettable only</button>`}</div>
+    <div class="tcBar"><button type="button" class="btn" id="tcFilt" aria-expanded="${!!TCC.fOpen}">Filters${nF?` <span class="tcN">${nF}</span>`:''}</button>
+      <select id="tcSortSel" aria-label="Sort by">${sorts.map(([k,l])=>`<option value="${k}" ${TCC.sort===k?'selected':''}>Sort: ${l}</option>`).join('')}</select></div>
+    ${active.length?`<div class="tcActive">${active.map(([l,k])=>`<button type="button" class="tcA" data-tca="${esc(k)}" aria-label="Remove ${esc(l)}">${esc(l)}${ic('x')}</button>`).join('')}</div>`:''}
+    <div class="tcFPanel" ${TCC.fOpen?'':'hidden'}>
+      <div class="tcFH">Tags</div>
+      <div class="tcChips">${TC_TAGS.filter(t=>used.has(t)||TCC.tags.has(t)).map(t=>`<button type="button" class="tcF ${TC_CLS[t]}" data-tct="${esc(t)}" aria-pressed="${TCC.tags.has(t)}">${esc(t)}</button>`).join('')}</div>
+      <div class="tcFH">Team and position</div>
+      <div class="tcSel">${mine?'':`<select id="tcTeam" aria-label="Team"><option value="all">All teams</option>${teams.map(t=>`<option ${TCC.team===t?'selected':''}>${esc(t)}</option>`).join('')}</select>`}
+        <select id="tcPos" aria-label="Position"><option value="all">All positions</option>${['PG','SG','SF','PF','C'].map(s=>`<option ${TCC.pos===s?'selected':''}>${s}</option>`).join('')}</select>
+        ${mine?'':`<button type="button" class="tcF" id="tcGet" aria-pressed="${TCC.gettable}">Gettable only</button>`}</div>
+      <div class="tcBtnsR"><button type="button" class="btn primary" id="tcFDone">Show ${list.length} player${list.length===1?'':'s'}</button></div>
+    </div>
     <div class="hint">${list.length} of ${all.length} players · updated ${new Date(TB.generated).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div></div>
     <div class="tcList">${list.slice(0,TCC.limit).map(p=>tcRow(p,mine)).join('')||'<div class="hint" style="padding:1rem;text-align:center">No players match every selected tag.</div>'}</div>
     ${list.length>TCC.limit?`<button type="button" class="dbtn" id="tcMore" style="width:100%;margin-top:.5rem">Show more</button>`:''}`;
   const on=(s,e,f)=>body.querySelectorAll(s).forEach(x=>x.addEventListener(e,f));
   on('#tcQ','input',e=>{ TCC.q=e.target.value; clearTimeout(tcBoard._t); tcBoard._t=setTimeout(()=>{ tcBoard(body,mine); const i=body.querySelector('#tcQ'); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } },250); });
   on('[data-tct]','click',e=>{ const t=e.currentTarget.dataset.tct; TCC.tags.has(t)?TCC.tags.delete(t):TCC.tags.add(t); tcBoard(body,mine); });
-  on('[data-tcs]','click',e=>{ TCC.sort=e.currentTarget.dataset.tcs; tcBoard(body,mine); });
+  on('#tcSortSel','change',e=>{ TCC.sort=e.target.value; tcBoard(body,mine); });
+  on('#tcFilt','click',()=>{ TCC.fOpen=!TCC.fOpen; tcBoard(body,mine); });
+  on('#tcFDone','click',()=>{ TCC.fOpen=false; tcBoard(body,mine); });
+  on('[data-tca]','click',e=>{ const k=e.currentTarget.dataset.tca; if(k.startsWith('tag:')) TCC.tags.delete(k.slice(4)); else if(k==='team') TCC.team='all'; else if(k==='pos') TCC.pos='all'; else if(k==='get') TCC.gettable=true; tcBoard(body,mine); });
   on('#tcTeam','change',e=>{ TCC.team=e.target.value; tcBoard(body,mine); });
   on('#tcPos','change',e=>{ TCC.pos=e.target.value; tcBoard(body,mine); });
   on('#tcGet','click',()=>{ TCC.gettable=!TCC.gettable; tcBoard(body,mine); });
@@ -4921,8 +4971,8 @@ const chLast=n=>String(n||'').split(' ').slice(-1)[0];
 function chButtons(t){
   if(!t.keep&&!t.pass) return '';
   const on=(act,x)=>CH.pend&&CH.pend.act===act&&String(CH.pend.id)===String(x.id);
-  const b=(act,x,lbl,done)=>on(act,x)?`<button class="chBtn on" disabled>${CH.busy?'<span class="chSpin"></span>':'✓ '}${esc(CH.busy?lbl.replace(/^Keep/,'Keeping').replace(/^Pass on/,'Passing on'):done)}</button>`
-    :`<button class="chBtn" data-act="${act}" data-id="${esc(x.id)}" data-name="${esc(x.name)}"${CH.busy?' disabled':''}>${esc(lbl)}</button>`;
+  const b=(act,x,lbl,done)=>on(act,x)?`<button class="chBtn on ${/^Keep/.test(lbl)?'keep':'pass'}" disabled>${CH.busy?'<span class="chSpin"></span>':ic('check')}${esc(CH.busy?lbl.replace(/^Keep/,'Keeping').replace(/^Pass on/,'Passing on'):done)}</button>`
+    :`<button class="chBtn ${/^Keep/.test(lbl)?'keep':'pass'}" data-act="${act}" data-id="${esc(x.id)}" data-name="${esc(x.name)}"${CH.busy?' disabled':''}>${ic(/^Keep/.test(lbl)?'keep':'x')}${esc(lbl)}</button>`;
   const pendHere=CH.pend&&[t.keep,t.pass].some(x=>x&&String(x.id)===String(CH.pend.id));
   return `<span class="chRow">${t.keep?b('keep',t.keep,'Keep '+chLast(t.keep.name),'Kept '+chLast(t.keep.name)):''}${t.pass?b('pass',t.pass,'Pass on '+chLast(t.pass.name),'Passed on '+chLast(t.pass.name)):''}</span>${pendHere&&CH.busy?'<span class="chNote">Saved. Rebuilding the plan (about 2 minutes); this move goes away when it lands.</span>':''}`;
 }
