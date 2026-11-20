@@ -129,6 +129,40 @@
   #psList{max-height:min(60vh,440px);overflow-y:auto;-webkit-overflow-scrolling:touch}
   #psList button{display:flex;width:100%;align-items:center;gap:.6rem;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:.6rem 1rem;font:inherit;min-height:48px;cursor:pointer}
   #psList button:last-child{border-bottom:0}
+  #cmpBox{position:fixed;inset:0;z-index:78;display:none}
+  #cmpBox.open{display:block}
+  #cmpBox .cmpScrim{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+  #cmpBox .cmpPanel{position:relative;margin:max(3vh,calc(env(safe-area-inset-top) + .5rem)) auto 0;width:min(860px,calc(100vw - 16px));max-height:calc(100vh - 6vh - env(safe-area-inset-top));display:flex;flex-direction:column;background:var(--paper);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.4);overflow:hidden}
+  .cmpTop{display:flex;align-items:center;justify-content:space-between;padding:.5rem .6rem .5rem 1rem;border-bottom:1px solid var(--line)}
+  .cmpTop .pcX{position:static;float:none;margin:0}
+  .cmpScroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 .8rem 1rem}
+  .cmpHead{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:.5rem;position:sticky;top:0;background:var(--paper);z-index:2;padding:.7rem 0 .5rem;border-bottom:1px solid var(--line-strong)}
+  .cmpHd{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.15rem;min-width:0}
+  .cmpHd .pcHead{margin:0 !important;flex:0 0 auto;width:56px;height:56px;border-radius:14px;object-fit:cover;object-position:50% 15%;background:var(--surface-2)}
+  .cmpHd .pName{font-weight:700;color:var(--ink);cursor:pointer;font-size:.92rem;line-height:1.15;overflow-wrap:break-word;max-width:100%}
+  @media(max-width:720px){.cmpHd .pName{font-size:.82rem}.cmpScroll{padding:0 .5rem 1rem}}
+  .cmpHd small{color:var(--ink-faint);font-size:.72rem}
+  .cmpOwn{font-size:.7rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-soft)}
+  .cmpOwn.mine{border-color:var(--accent);color:var(--accent)} .cmpOwn.fa{color:var(--good);border-color:var(--good)}
+  .cmpLead{font-size:.7rem;color:var(--ink-soft)}
+  .cmpRm{position:absolute;top:-4px;left:calc(50% + 18px);width:26px;height:26px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;line-height:1}
+  .cmpAdd{justify-content:flex-start}
+  .cmpAdd input{width:100%;box-sizing:border-box;padding:.55rem .6rem;border:1px dashed var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
+  #cmpHits{width:100%;text-align:left}
+  #cmpHits button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:.45rem .3rem;font:inherit;font-size:.85rem;cursor:pointer;min-height:44px}
+  #cmpHits button small{display:block}
+  .cmpSec h3{margin:1rem 0 .2rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+  .cmpRow{padding:.35rem 0;border-bottom:1px solid var(--line)}
+  .cmpL{font-size:.72rem;color:var(--ink-faint);text-align:center;margin-bottom:.15rem}
+  .cmpV{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:.5rem;text-align:center;font-variant-numeric:tabular-nums;font-size:.95rem}
+  .cmpV small{display:block;font-size:.68rem;color:var(--ink-faint)}
+  .cmpV .cmpBest{color:var(--good);font-weight:700}
+  .cmpBad{color:var(--warn);font-weight:600}
+  .cmpNews{text-align:left;font-size:.8rem}
+  .cmpNewsH{line-height:1.25}
+  @media(min-width:721px){.cmpRow{display:grid;grid-template-columns:180px 1fr;align-items:center;gap:.5rem}.cmpL{text-align:left;margin:0;font-size:.8rem}.cmpHead{padding-left:calc(180px + .5rem)}.cmpNewsRow{grid-template-columns:1fr}}
+  .pcCmp{margin-top:.4rem;padding:.3rem .7rem;min-height:34px;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+  #psList .psCmp{flex:0 0 auto;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--line-strong);color:var(--accent);font-size:1rem}
   #psBox .psPanel.asking #psList{max-height:min(78vh,720px)}
   #psList .psAsk .psN{font-weight:600;color:var(--accent)}
   #psList .psRc{padding:.5rem 1rem .2rem;font-size:.75rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em}
@@ -2626,7 +2660,7 @@ function psRender(){
   const rank=p=>{ if(p.k.startsWith(qn)) return 0; if(qw.every(w=>p.words.some(x=>x.startsWith(w)))) return 1; if(p.k.includes(qn)) return 2; return -1; };
   PS_HITS=PS_POOL.map(p=>[rank(p),p]).filter(x=>x[0]>=0).sort((a,b)=>a[0]-b[0]||(b[1].v??-1)-(a[1].v??-1)).slice(0,12).map(x=>x[1]);
   PS_SEL=Math.max(ak?-1:0,Math.min(PS_SEL,Math.max(PS_HITS.length-1,0)));
-  list.innerHTML=(ak?`<button type="button" data-ask="1" class="psAsk${PS_SEL===-1?' on':''}"><span class="psN">Ask: ${esc(q.trim())}</span></button>`:'')+(PS_HITS.length?PS_HITS.map((p,i)=>`<button type="button" data-i="${i}" class="${i===PS_SEL?'on':''}"><span class="psN">${esc(p.name)}</span><span class="psM">${esc([p.team,p.pos].filter(Boolean).join(' · '))}</span><span class="psO${p.own?'':' fa'}">${p.own?esc(p.own):'FA'}</span><span class="psV">${p.v!=null?p.v.toFixed(1):''}</span></button>`).join('')
+  list.innerHTML=(ak?`<button type="button" data-ask="1" class="psAsk${PS_SEL===-1?' on':''}"><span class="psN">Ask: ${esc(q.trim())}</span></button>`:'')+(PS_HITS.length?PS_HITS.map((p,i)=>`<button type="button" data-i="${i}" class="${i===PS_SEL?'on':''}"><span class="psN">${esc(p.name)}</span><span class="psM">${esc([p.team,p.pos].filter(Boolean).join(' · '))}</span><span class="psO${p.own?'':' fa'}">${p.own?esc(p.own):'FA'}</span><span class="psV">${p.v!=null?p.v.toFixed(1):''}</span><span class="psCmp" data-cmp="${esc(p.name)}" role="button" tabindex="0" aria-label="Compare ${esc(p.name)}" title="Compare">⇄</span></button>`).join('')
     :(ak?'':'<div class="psE">No players found.</div>'));
   list.querySelectorAll('button[data-i]').forEach(b=>b.addEventListener('click',()=>psPick(+b.dataset.i)));
   const ab=list.querySelector('[data-ask]'); if(ab) ab.addEventListener('click',()=>askRun(q.trim()));
@@ -2812,6 +2846,7 @@ function askPlayers(a,put){
   const found=ps.filter(x=>x.p);
   if(found.length===1&&ps.length===1){ psClose(); openPlayerCard(found[0].p.name); return; }
   if(!found.length){ put(`<div class="askErr">I couldn’t find ${esc(a.players.join(' or ')||'that player')}.</div>`); return; }
+  if(found.length>=2){ psClose(); cmpOpen(found.map(x=>x.p.name)); return; }
   const own=p=>{ const o=RD._own?RD._own.get(p.id):null; if(o) return o.abbrev; for(const t of (W&&W.teams)||[]) if((t.roster||[]).some(r=>pnorm(r.name)===pnorm(p.name))) return t.abbrev; return 'FA'; };
   const f=v=>v==null?'—':(+v).toFixed(1);
   const rowsDef=[['Team',p=>esc([p.team,p.pos].filter(Boolean).join(' · '))],['Owner',p=>esc(own(p))],['Status',p=>p.status&&p.status!=='ACTIVE'?esc(p.status.replace('_',' ').toLowerCase()):'active'],
@@ -2820,6 +2855,136 @@ function askPlayers(a,put){
     <tbody>${rowsDef.map(([l,fn])=>`<tr><td class="hint">${l}</td>${found.map(x=>`<td>${fn(x.p)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
   document.querySelectorAll('#psList .pName').forEach(s=>s.addEventListener('click',()=>psClose()));
 }
+
+/* ---- Compare players (2026-11-19, Tommy): up to 3 players side by side, no AI. Open it from the Compare button on a player-search row or a player card,
+   or by asking about 2-3 players. Every number comes from the data the page already loads (redraft_data, hub_data, trade_board, day_proj, player_news);
+   the leader in each comparable row is highlighted and the header counts rows led. */
+let CMP=[];
+function cmpData(name){
+  const P=findPlayer(name); if(!P) return null;
+  const r=P.redraft||null, h=P.hub||null, own=P.owner?P.owner.abbrev:(P.weekOwner?P.weekOwner.abbrev:(L?'FA':null));
+  const tb=TB&&TB.players?TB.players.find(x=>pnorm(x.n)===pnorm(P.name)):null;
+  return {P,r,h,tb,own,name:P.name};
+}
+function cmpOpen(names){ CMP=[]; (names||[]).forEach(n=>cmpAdd(n,false)); cmpRender(); }
+function cmpAdd(name,render=true){ const k=pnorm(name); if(!k||CMP.some(x=>pnorm(x)===k)) { if(render) cmpRender(); return; } if(CMP.length>=3) CMP.pop(); CMP.push(name); if(render) cmpRender(); }
+function cmpClose(){ const el=document.getElementById('cmpBox'); if(el) el.classList.remove('open'); }
+function cmpRows(X){
+  const td=etISO(0), mmdd=td.slice(5), f1=v=>v==null||isNaN(v)?null:(+v).toFixed(1), f0=v=>v==null||isNaN(v)?null:Math.round(+v).toString(), sg=v=>(v>=0?'+':'')+(+v).toFixed(1);
+  const nx=x=>{ const r=x.r; if(!r||!r.next) return null; const i=r.next.findIndex(n=>n[0]>=mmdd); return i<0?null:{d:r.next[i][0],o:r.next[i][1],v:r.next_proj?r.next_proj[i]:null}; };
+  const isOut=r=>r&&['OUT','INJURY_RESERVE','SUSPENSION'].includes(r.status);
+  const vg=x=>{ if(!DP||!DP.players||!x.r) return null; const m=DP.players[x.r.id]||{}; const d=[etISO(0),etISO(1)].find(d=>m[d]); return d?{v:m[d].v,d}:null; };
+  const l3=r=>{ if(!r||!r.g||(r.gs&&RD&&r.gs!==RD.season_now)) return null; const g=r.g.slice(-3); return g.length?g.reduce((a,b)=>a+b,0)/g.length:null; };
+  const ar=D&&D.players?assetRanks():null;
+  const kv=x=>x.h&&x.h.asset_k?x.h.asset_k[K]:null, kc=x=>x.h&&x.h.ceil_asset_k?x.h.ceil_asset_k[K]:null;
+  const sa=(i,lo)=>({l:['Points','Rebounds','Assists','Blocks','Steals','3-pointers','Turnovers','Free throws made'][i],v:x=>x.r&&x.r.sa&&(!x.r.sa_season||!RD||x.r.sa_season===RD.season_now)?x.r.sa[i]:null,f:f1,lo});
+  return [
+    ['Right now',[
+      {l:'Next game (DELCO)',v:x=>{ const n=nx(x); return n&&!isOut(x.r)?n.v:null; },f:(v,x)=>{ const n=nx(x); if(isOut(x.r)) return '<span class="cmpBad">Out</span>'+(x.r.back?`<small>back ~${x.r.back.slice(5)}</small>`:''); return n?`${f1(n.v)??'—'}<small>${esc(n.o)} · ${n.d===mmdd?'today':n.d}</small>`:null; }},
+      {l:'Vegas (today / tomorrow)',v:x=>{ const g=vg(x); return g?g.v:null; },f:(v,x)=>{ const g=vg(x); return g?`${f1(g.v)}<small>${g.d===td?'today':'tomorrow'}</small>`:null; }},
+      {l:'Games next 7 days',v:x=>x.r?x.r.g7:null,f:v=>v},
+    ]],
+    ['Form',[
+      {l:'Season average',v:x=>x.r&&x.r.n_season?x.r.s_avg:null,f:(v,x)=>`${f1(v)}<small>${x.r.n_season} games</small>`},
+      {l:'Last 10',v:x=>x.r?x.r.l10:null,f:f1},
+      {l:'Last 3',v:x=>l3(x.r),f:f1},
+      {l:'Minutes, season',v:x=>x.r?x.r.s_min:null,f:f1},
+      {l:'Minutes, last 10',v:x=>x.r?x.r.m10:null,f:(v,x)=>`${f1(v)}${x.r.s_min!=null&&Math.abs(v-x.r.s_min)>=1?`<small>${sg(v-x.r.s_min)} vs season</small>`:''}`},
+      {l:'Form vs usual level',v:x=>x.r&&x.r.form?x.r.form.d:null,f:(v,x)=>`${sg(v)}<small>${sg(x.r.form.keep)} likely to stick</small>`},
+      {l:'Fantasy pts per minute',v:x=>x.r?x.r.ppm:null,f:v=>(+v).toFixed(2)},
+      {l:'Last 10 games',spark:true},
+    ]],
+    ['Rest of season',[
+      {l:'Projected per game (DELCO)',v:x=>x.r?x.r.ppg:null,f:f1},
+      {l:'DARKO per game',v:x=>x.r?x.r.darko:null,f:f1},
+      {l:'Likely range a game',v:x=>x.r?x.r.p90:null,f:(v,x)=>`${f0(x.r.p10)}–${f0(x.r.p90)}`,nb:true},
+      {l:'Games expected',v:x=>x.r?x.r.exp_gp:null,f:(v,x)=>`${f0(v)}<small>of ${x.r.g_rem} left</small>`},
+      {l:'Projected points',v:x=>x.r?x.r.pts:null,f:v=>(+v).toLocaleString()},
+      {l:'Season value (title odds)',v:x=>x.r?titleValRD(x.r):null,f:v=>fmtTitle(v)},
+      {l:'Our rank',v:x=>x.r?x.r.rank:null,f:v=>'#'+v,lo:true},
+    ]],
+    ['Playoff schedule',[
+      {l:'Playoff-week games',v:x=>x.r?x.r.gpo:null,f:v=>v},
+      {l:'Title-week games',v:x=>x.r?x.r.gch:null,f:v=>v},
+      {l:'Late-season playing time',v:x=>x.r?lateMult(x.r.team,x.r.id):null,f:v=>v>=0.995?'normal':Math.round(100*v)+'%'},
+    ]],
+    ['Health',[
+      {l:'Status',v:()=>null,f:null,t:x=>{ const r=x.r; if(!r) return null; if(!r.status||r.status==='ACTIVE') return 'Active'; return `<span class="cmpBad">${esc(r.status.replace('INJURY_RESERVE','IR').replace('DAY_TO_DAY','Day-to-day').replace('_',' '))}</span>${r.games_out?`<small>~${Math.round(r.games_out)} games out</small>`:''}`; }},
+      {l:'Injury risk',v:x=>x.r?x.r.inj_tier:null,f:v=>INJL[v],lo:true},
+      {l:'Games missed last season',v:x=>x.r?(x.r.inj_hmissed??x.r.inj_missed):null,f:v=>v,lo:true},
+    ]],
+    ['Per game this season',[0,1,2,3,4,5,6,7].map(i=>sa(i,i===6))],
+    ['Dynasty and trades',[
+      {l:'Age',v:x=>x.r?x.r.age:(x.h?x.h.age:null),f:f1,nb:true},
+      {l:`Keeper value (${K} keepers)`,v:kv,f:f1},
+      {l:'Keeper rank',v:x=>x.h&&ar?ar.get(x.h.id):null,f:v=>'#'+v,lo:true},
+      {l:'Keeper value, best case',v:kc,f:f1},
+      {l:'Peak per game',v:x=>x.h?x.h.peak_ppg:null,f:f1},
+      {l:'Next season per game',v:x=>x.h?x.h.proj_fpg:null,f:f1},
+      {l:'Breakout chance',v:x=>x.h?x.h.p_break:null,f:v=>Math.round(100*v)+'%'},
+      {l:'Bust chance',v:x=>x.h?x.h.p_bust:null,f:v=>Math.round(100*v)+'%',lo:true},
+      {l:'Market rank',v:x=>x.r?x.r.mkt:null,f:v=>'#'+v,lo:true},
+      {l:'League price',v:x=>x.tb?x.tb.pv:null,f:f0,nb:true},
+      {l:'Trade tags',v:()=>null,t:x=>x.tb&&x.tb.tags&&x.tb.tags.length?x.tb.tags.map(t=>tcTag(t[0])).join(' '):null},
+      {l:'ESPN rostered',v:x=>x.r?x.r.own:null,f:v=>Math.round(v)+'%',nb:true},
+    ]],
+  ];
+}
+function cmpSpark(r){
+  if(!r||!r.g||!r.g.length) return '<span class="hint">—</span>';
+  const g=r.g.slice(-10), mx=Math.max(60,...g), W2=110, H2=34, bw=W2/10-2, ref=r.ppg||0;
+  return `<svg viewBox="0 0 ${W2} ${H2}" width="100%" height="${H2}" preserveAspectRatio="none" aria-label="Last ${g.length} games: ${g.join(', ')}">${g.map((v,i)=>`<rect x="${i*(bw+2)}" y="${(H2-H2*v/mx).toFixed(1)}" width="${bw}" height="${(H2*v/mx).toFixed(1)}" fill="${v>=ref*1.15?'var(--good)':(v<=ref*0.7?'var(--warn)':'var(--ink-faint)')}"><title>${r.gd?r.gd[r.g.length-g.length+i]:''}: ${v}</title></rect>`).join('')}<line x1="0" x2="${W2}" y1="${(H2-H2*ref/mx).toFixed(1)}" y2="${(H2-H2*ref/mx).toFixed(1)}" stroke="var(--accent)" stroke-dasharray="3 2" stroke-width="1"/></svg>`;
+}
+function cmpRender(){
+  let el=document.getElementById('cmpBox');
+  if(!el){ el=document.createElement('div'); el.id='cmpBox'; el.innerHTML='<div class="cmpScrim"></div><div class="cmpPanel" role="dialog" aria-label="Compare players"></div>'; document.body.appendChild(el);
+    el.querySelector('.cmpScrim').addEventListener('click',cmpClose);
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&el.classList.contains('open')&&!document.querySelector('#playerCard.open')) cmpClose(); }); }
+  if(!TB&&TB!==false){ askLoadTB().then(()=>{ if(el.classList.contains('open')) cmpRender(); }); }
+  if(DP===undefined){ dyLoad(); askWait(()=>DP).then(()=>{ if(el.classList.contains('open')) cmpRender(); }); }
+  if(!NEWS) loadNews().then(()=>{ if(el.classList.contains('open')) cmpRender(); });
+  const X=CMP.map(cmpData).filter(Boolean), n=X.length, cols=Math.max(n+(n<3?1:0),2);
+  const panel=el.querySelector('.cmpPanel'), secs=cmpRows(X), lead=X.map(()=>0); let comparable=0;
+  const body=secs.map(([title,rows])=>{
+    const html=rows.map(row=>{
+      if(row.spark) return `<div class="cmpRow"><div class="cmpL">${row.l}</div><div class="cmpV" style="--n:${cols}">${X.map(x=>`<div>${cmpSpark(x.r)}</div>`).join('')}${n<3?'<div></div>':''}</div></div>`;
+      const vals=X.map(x=>{ try{ return row.v(x); }catch(e){ return null; } });
+      const shown=X.map((x,i)=>{ try{ if(row.t) return row.t(x); return vals[i]==null?null:(row.f?row.f(vals[i],x):vals[i]); }catch(e){ return null; } });
+      if(shown.every(s=>s==null||s==='')) return '';
+      const nums=vals.filter(v=>v!=null&&!isNaN(v));
+      let best=null; if(!row.nb&&!row.t&&n>1&&nums.length>1){ const b=row.lo?Math.min(...nums):Math.max(...nums); if(nums.filter(v=>v===b).length<nums.length){ best=b; comparable++; vals.forEach((v,i)=>{ if(v===b) lead[i]++; }); } }
+      return `<div class="cmpRow"><div class="cmpL">${row.l}</div><div class="cmpV" style="--n:${cols}">${shown.map((s,i)=>`<div class="${best!=null&&vals[i]===best?'cmpBest':''}">${s==null||s===''?'<span class="hint">—</span>':s}</div>`).join('')}${n<3?'<div></div>':''}</div></div>`;
+    }).join('');
+    return html?`<section class="cmpSec"><h3>${title}</h3>${html}</section>`:'';
+  }).join('');
+  const news=X.map(x=>{ const it=NEWS&&NEWS.players&&x.r?(NEWS.players[x.r.id]||NEWS.players[String(x.r.id)]||[])[0]:null; return it?`<div><div class="cmpNewsH">${esc(it.h)}</div><small>${newsAgo(it.t)} · ${esc(it.src)}</small></div>`:'<div><span class="hint">No recent news</span></div>'; });
+  const head=X.map((x,i)=>{ const r=x.r||{}, nba=x.P.nbaId, mine=x.own&&W&&x.own===W.my_abbrev;
+    return `<div class="cmpHd"><button type="button" class="cmpRm" data-cr="${i}" aria-label="Remove ${esc(x.name)}">×</button>${headshotEl(nba,r.id||x.P.espnId,56)}
+      <span class="pName" data-pc="${esc(x.name)}" tabindex="0" role="button">${esc(x.name)}</span><small>${esc([r.team||(x.h&&x.h.team),r.pos||(x.h&&x.h.pos)].filter(Boolean).join(' · '))}</small>
+      ${x.own?`<span class="cmpOwn${mine?' mine':''}${x.own==='FA'?' fa':''}">${mine?'Your team':esc(x.own)}</span>`:''}
+      ${n>1&&comparable?`<span class="cmpLead">Leads ${lead[i]} of ${comparable}</span>`:''}</div>`; }).join('');
+  const add=n<3?`<div class="cmpHd cmpAdd"><input type="search" id="cmpQ" placeholder="+ Add" autocomplete="off" autocorrect="off" spellcheck="false"/><div id="cmpHits"></div></div>`:'';
+  panel.innerHTML=`<div class="cmpTop"><b>Compare players</b><button type="button" class="pcX" id="cmpX" aria-label="Close">×</button></div>
+    <div class="cmpScroll"><div class="cmpHead" style="--n:${cols}">${head}${add}</div>
+    ${n?`${body}<section class="cmpSec"><h3>Latest news</h3><div class="cmpRow"><div class="cmpL"></div><div class="cmpV cmpNews" style="--n:${cols}">${news.join('')}${n<3?'<div></div>':''}</div></div></section>`:'<div class="hint" style="padding:1rem">Add up to three players.</div>'}</div>`;
+  el.classList.add('open');
+  panel.querySelector('#cmpX').addEventListener('click',cmpClose);
+  panel.querySelectorAll('[data-cr]').forEach(b=>b.addEventListener('click',()=>{ CMP.splice(+b.dataset.cr,1); cmpRender(); }));
+  const q=panel.querySelector('#cmpQ');
+  if(q){ const pool=psPool(), hits=panel.querySelector('#cmpHits'); let H=[];
+    const show=()=>{ const s=q.value, qn=norm(s), qw=s.split(/[\s\-.']+/).map(norm).filter(Boolean);
+      if(!qn){ hits.innerHTML=''; H=[]; return; }
+      const rank=p=>{ if(p.k.startsWith(qn)) return 0; if(qw.every(w=>p.words.some(x=>x.startsWith(w)))) return 1; if(p.k.includes(qn)) return 2; return -1; };
+      H=pool.map(p=>[rank(p),p]).filter(x=>x[0]>=0&&!CMP.some(c=>pnorm(c)===x[1].k)).sort((a,b)=>a[0]-b[0]||(b[1].v??-1)-(a[1].v??-1)).slice(0,6).map(x=>x[1]);
+      hits.innerHTML=H.map((p,i)=>`<button type="button" data-ch="${i}"><b>${esc(p.name)}</b><small>${esc([p.team,p.pos].filter(Boolean).join(' · '))}${p.own?' · '+esc(p.own):''}</small></button>`).join('')||'<div class="hint" style="padding:.4rem">No players found.</div>';
+      hits.querySelectorAll('[data-ch]').forEach(b=>b.addEventListener('click',()=>cmpAdd(H[+b.dataset.ch].name))); };
+    q.addEventListener('input',show); q.addEventListener('keydown',e=>{ if(e.key==='Enter'&&H[0]){ e.preventDefault(); cmpAdd(H[0].name); } });
+    if(n===1&&!isMobile()) setTimeout(()=>q.focus(),30); }
+}
+document.addEventListener('click',e=>{ const c=e.target.closest('.psCmp,.pcCmp'); if(!c) return; e.preventDefault(); e.stopPropagation(); const nm=c.dataset.cmp;
+  const box=document.getElementById('cmpBox'), open=box&&box.classList.contains('open');
+  if(c.classList.contains('psCmp')) psClose(); if(document.querySelector('#playerCard.open')) pcClose();
+  if(open) cmpAdd(nm); else cmpOpen([nm]); },true);
 document.addEventListener('keydown',e=>{ if(e.key!=='/'||e.ctrlKey||e.metaKey||e.altKey) return; const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return; e.preventDefault(); psOpen(); });
 
 let NSCH;   // nba_schedule.json, loaded the first time a player card opens (the 7-day strip)
@@ -2908,7 +3073,8 @@ function pcHtml(P){
       <div class="pc2Top">${headshotEl(headId,P.espnId,72)}
         <div class="pc2Info"><div class="pc2Nm">${esc(P.name)}</div>
           <div class="pc2Meta">${team?`<img class="pcTeamLogo" src="${teamLogoUrl(team)}" alt=""/> ${esc(team)}`:''}${pos?' · '+esc(pos):''}${age!=null?' · '+Math.floor(age):''}</div>
-          <div class="pc2Chs">${chips.join('')}</div></div></div>
+          <div class="pc2Chs">${chips.join('')}</div>
+          <button type="button" class="pcCmp" data-cmp="${esc(P.name)}">⇄ Compare</button></div></div>
       ${planHtml}${prj}${strip}${chart}${vals}${injHtml}${fold}
     </div>`;
 }
