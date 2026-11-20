@@ -27,3 +27,20 @@ then commit and push; Pages redeploys automatically.
 ## Preseason ledger
 `ingest/research/freeze_breakout_ledger.py` locks the breakout predictions at the 2026-10-20 season opener into
 `ingest/research/data/breakout_ledger/`. Git history is the proof they weren't edited afterwards.
+
+
+## Design system (2026-11-19, following the Backlog design review)
+
+All look-and-feel lives in the `<style>` block of `dashboard/index.html`; the last block ("Design system") holds the tokens and wins over older rules. Keep new UI inside these rules:
+
+- **Type:** five sizes only: .75rem (labels, captions), .875rem (secondary), 1rem (body), 1.125rem (emphasis), 1.375rem (section titles, key numbers), plus large display numbers (scores, win chance). Secondary text uses `--ink-soft` / `--ink-faint` rather than smaller sizes.
+- **Spacing:** a 4px scale (`--sp1`..`--sp6` = 4, 8, 12, 16, 24, 32px). Group with space and background shades, not borders.
+- **Buttons, three levels:** `.btn.primary` / `.tcGo` (one main action per view), `.btn` / `.dbtn` tonal (secondary), `.btn.ghost` (low-stakes). Destructive confirms use `.btn.primary.danger`.
+- **Chips are filters and toggles only** (`.seg` outside the nav, `.tcF`, `.chBtn`): separate pills, tonal accent when on. A selected filter never looks like a main button.
+- **Page switchers are underline tabs:** the group's sub-tabs (`#navSub`) and the Trades tabs (`.tcTabs`), one row that scrolls sideways. The bottom bar (phones) / top bar keeps the 5 destinations.
+- **More is a list page** (`renderMore`): rarely used pages live there; each sub-page shows a "More" back link instead of tabs.
+- **Icons:** the outline SVG set in `ICONS`; use `ic('name')`. Old text glyphs (↓ ↑ ◀ ▶ ⓘ ×) in buttons are swapped for icons automatically (`hydrateIcons`), but new code should call `ic()`. No emoji as icons.
+- **Header:** the data time plus a small refresh icon button (Refresh everything).
+- **Confirms:** `await hubConfirm(title, body, okLabel, danger)`. Never `alert`, `confirm` or `prompt`.
+- **Touch:** controls are at least 44px tall on phones (chips 40-44px).
+- **Copy:** no explainer or method text on pages (`.legend` is hidden unless it is `.legend.keep`, used for live status or advice); the Glossary covers what numbers mean.
