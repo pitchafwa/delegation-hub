@@ -546,6 +546,10 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   .tcSc small{font:600 .66rem "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
   .tcSc.hi{color:var(--good)}.tcSc.mid{color:var(--ink)}
   .tcStats{display:flex;flex-wrap:wrap;gap:.2rem .8rem;font-size:.8rem;color:var(--ink-soft)}.tcStats b{color:var(--ink)}
+  .tcWhyYes{margin:.45rem 0 .2rem;padding:.5rem .65rem;border-left:3px solid var(--good);background:var(--surface-2);border-radius:0 8px 8px 0;font-size:.82rem;line-height:1.35}
+  .tcWhyYes .wyH{font-weight:700;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--good);margin-bottom:.15rem}
+  .tcWhyYes .wyH.no{color:var(--warn);margin-top:.4rem}
+  .tcWhyYes ul{margin:0;padding-left:1.1rem} .tcWhyYes li{margin:.12rem 0}
   .tcTags{display:flex;flex-wrap:wrap;gap:.3rem}
   .tcTag{display:inline-block;padding:1px 8px;border-radius:999px;font:600 .74rem "Barlow Condensed",sans-serif;letter-spacing:.02em;background:var(--surface-2);color:var(--ink-soft);border:1px solid transparent}
   .tcTag.buy,.tcF.buy:not([aria-pressed="true"]){color:var(--good)}.tcTag.buy{background:color-mix(in srgb,var(--good) 15%,transparent)}
@@ -2818,6 +2822,7 @@ async function askTrades(a,put,run){
       <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(x=>esc(tcLbl(x))).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(x=>esc(x.n)).join(' + ')}</b></div>
       <div class="hint" style="font-size:.78rem">${i.get.map(p=>esc(p.n.split(' ').slice(-1)[0]+': '+stat(p))).join('<br>')}</div>
       <div class="tcNote">${esc(i.note)}</div>
+      ${tcWhyHtml(i.give,i.get,i.partner,null)}
       <div class="tcBtns"><button type="button" class="tcGo" data-aso="${k}">Open trade sheet</button><button type="button" class="dbtn" data-asa="${k}">Edit in analyzer</button></div></article>`).join('')
     :`<div class="askErr">No trade that helps you and clears the acceptance check fits these settings.${(ASK.checked||[]).length?' Checked: '+esc(ASK.checked.map(p=>p.n+' ('+p.t+')').join(', '))+'.':''}</div>`}`);
   const list=document.getElementById('psList');
@@ -3531,6 +3536,82 @@ function tcBoard(body,mine){
   on('#tcMore','click',()=>{ TCC.limit+=50; tcBoard(body,mine); });
   on('[data-tcp]','click',e=>tcOpen(+e.currentTarget.dataset.tcp,mine));
 }
+/* ---- Why they'd say yes (2026-11-19, Tommy): the other owner's side of a trade idea, in short bullets, so Tommy can make the pitch in his own words.
+   Built only from trade-board data (levels, league prices, keeper values, ages, playoff and title-week games, injuries, positions, picks) plus the
+   partner's playoff odds (contending 60%+, out of the race under 35%) and, when a full check has run, the partner's own title / playoff odds change.
+   rec = what they receive (Tommy's give side), snd = what they send (Tommy's get side). */
+function tcWhy(rec,snd,tid,them){
+  const P=TB.players.filter(p=>p.tid===tid), ab=(P[0]||{}).t||'They', yes=[], no=[];
+  const pl=a=>a.filter(x=>!x.pick), pk=a=>a.filter(x=>x.pick), sum=(a,k)=>a.reduce((s,x)=>s+(x[k]||0),0);
+  const nm=x=>x.pick?tcPickName(x.k,false):x.n, last=x=>x.pick?tcPickName(x.k,false):x.n.split(' ').slice(-1)[0], list=a=>a.map(last).join(' + ');
+  const o=ODDS&&ODDS.teams?ODDS.teams.find(t=>t.id===tid):null, made=o?o.made:null;
+  const mode=them&&them.posture?{contend:'now',rebuild:'future',balanced:'mid'}[them.posture]||'mid':(made==null?'mid':(made>=0.6?'now':(made<0.35?'future':'mid')));
+  const pct=x=>Math.round(100*x)+'%';
+  const rp=pl(rec), sp=pl(snd), rk=pk(rec), sk=pk(snd);
+  // 1. league prices (what the acceptance model reads)
+  const pvR=sum(rec,'pv'), pvS=sum(snd,'pv');
+  if(pvS>0&&pvR>=pvS*1.05) yes.push([3,`More by league prices: ${pvR.toFixed(0)} coming back for ${pvS.toFixed(0)} going out.`]);
+  else if(pvS>0&&pvR<pvS*0.95) no.push([3,`Less by league prices: ${pvR.toFixed(0)} for ${pvS.toFixed(0)}, so expect them to ask for more.`]);
+  // 2. full check: their own odds
+  if(them&&them.odds_before&&them.odds_after){
+    const dt=them.odds_after.title-them.odds_before.title, dm=them.odds_after.made-them.odds_before.made;
+    if(dt>=0.005) yes.push([5,`Their title odds go up: ${pct(them.odds_before.title)} to ${pct(them.odds_after.title)}.`]);
+    else if(dt<=-0.005&&mode!=='future') no.push([4,`Their title odds drop: ${pct(them.odds_before.title)} to ${pct(them.odds_after.title)}.`]);
+    if(dm>=0.03&&mode!=='future') yes.push([4,`Their playoff odds go up: ${pct(them.odds_before.made)} to ${pct(them.odds_after.made)}.`]);
+  }
+  // 3. production now vs future, weighted by where they are in the race
+  const lvR=sum(rp.filter(p=>!p.out),'lvl'), lvS=sum(sp.filter(p=>!p.out),'lvl'), afR=sum(rp,'af'), afS=sum(sp,'af');
+  const topR=rp.length?Math.max(...rp.map(p=>p.lvl)):0, topS=sp.length?Math.max(...sp.map(p=>p.lvl)):0;
+  const st=made==null?'':(mode==='now'?` They're contending (${pct(made)} to make the playoffs).`:(mode==='future'?` They're out of the race (${pct(made)} to make the playoffs).`:` They're on the bubble (${pct(made)} to make the playoffs).`));
+  if(mode!=='future'&&rp.length>1&&lvR>lvS+8) yes.push([3,`Depth: ${list(rp)} add up to ${lvR.toFixed(0)} a game for ${lvS.toFixed(0)} going out.${st}`]);
+  if(mode!=='future'&&topR>topS+2) yes.push([4,`Best player in the deal: ${rp.find(p=>p.lvl===topR).n} at ${topR.toFixed(1)} a game vs ${topS.toFixed(1)}.${st}`]);
+  if(mode==='future'&&afR>afS+3) yes.push([4,`More keeper value: ${afR.toFixed(0)} for ${afS.toFixed(0)}.${st}`]);
+  if(mode==='future'&&rk.length) yes.push([3,`Draft capital for a rebuild: ${rk.map(nm).join(' + ')}.`]);
+  if(mode==='now'&&afS>afR+8) no.push([2,`Gives up keeper value (${afS.toFixed(0)} for ${afR.toFixed(0)}), though contenders tend to pay that.`]);
+  if(mode==='future'&&lvR<lvS-5&&afR<=afS) no.push([3,`Out of the race, so production now matters less to them than keepers and picks.`]);
+  // 4. youth
+  const ageR=rp.length?Math.min(...rp.map(p=>p.age||99)):null, ageS=sp.length?Math.min(...sp.map(p=>p.age||99)):null;
+  const youngR=rp.find(p=>p.age===ageR);
+  if(youngR&&ageR<25&&ageS!=null&&ageR<ageS-3) yes.push([mode==='future'?3:1,`Younger: ${youngR.n} is ${Math.floor(ageR)}, vs ${Math.floor(ageS)} for ${sp.find(p=>p.age===ageS).n}.`]);
+  // 5. injuries
+  for(const p of sp) if(p.out) yes.push([mode==='now'?4:2,`Turns ${p.n}, who is out${p.back?' until about '+p.back.slice(5):''}, into ${rp.some(x=>!x.out)?'healthy production now':'a return'}.`]);
+  for(const p of rp) if(p.out) no.push([mode==='now'?4:2,`${p.n} is out${p.back?' until about '+p.back.slice(5):''}.`]);
+  // 6. positions: healthy players at 30+ a game they have at each spot
+  const POS=['PG','SG','SF','PF','C'], have=s=>P.filter(p=>!p.out&&p.lvl>=30&&(p.slots||[]).includes(s)).length;
+  const base=Object.fromEntries(POS.map(s=>[s,have(s)])), thin=Math.min(...POS.map(s=>base[s]));
+  const fill=new Map(), pl2=n=>n===1?'':'s';
+  for(const s of POS){ const inn=rp.filter(p=>!p.out&&p.lvl>=30&&(p.slots||[]).includes(s)), out=sp.filter(p=>!p.out&&p.lvl>=30&&(p.slots||[]).includes(s)).length;
+    if(inn.length>out&&base[s]<=Math.max(2,thin)) for(const p of inn){ if(!fill.has(p.n)) fill.set(p.n,[]); fill.get(p.n).push(s); }
+    else if(out>inn.length&&base[s]-out+inn.length<=1) no.push([3,`Leaves them thin at ${s}: ${base[s]-out+inn.length} healthy ${s}${pl2(base[s]-out+inn.length)} scoring 30+ after the deal.`]); }
+  for(const [n,ss] of fill) yes.push([3,`${n} fills a thin spot: they have ${ss.map(s=>`${base[s]} healthy ${s}${pl2(base[s])}`).join(' and ')} scoring 30+.`]);
+  // 7. playoff schedule
+  const g=(a,k)=>a.length?sum(a,k)/a.length:0;
+  if(mode!=='future'&&rp.length&&sp.length){ const dpo=g(rp,'gpo')-g(sp,'gpo'), dch=g(rp,'gch')-g(sp,'gch');
+    const gl=a=>a.map(p=>`${last(p)} ${p.gpo??'?'}${p.gch!=null?' ('+p.gch+')':''}`).join(', ');
+    if(dpo>=1||dch>=1) yes.push([2,`Better playoff schedule, playoff-week games (title week): ${gl(rp)} vs ${gl(sp)}.`]);
+    else if(dpo<=-1||dch<=-1) no.push([2,`Fewer playoff games coming back, playoff-week games (title week): ${gl(rp)} vs ${gl(sp)}.`]); }
+  // 8. form: selling or buying at the right moment
+  for(const p of sp){ const t=(p.tags||[]).map(x=>x[0]), f1=v=>v!=null?v.toFixed(1):'?';
+    if(t.includes('Sell high')) yes.push([3,`Sells ${p.n} high: averaging ${f1(p.avg)}, well above his projection of ${f1(p.delco)}.`]);
+    else if(t.includes('Overperforming')) yes.push([2,`Cashes in on ${p.n}'s hot start: averaging ${f1(p.avg)} vs a preseason projection of ${f1(p.espn)}.`]);
+    if(t.includes('Buy low')) no.push([2,`They'd be selling ${p.n} while he's cold: averaging ${f1(p.avg)} vs a projection of ${f1(p.delco)}.`]);
+    else if(t.includes('Underperforming')) no.push([2,`They'd be selling ${p.n} below his preseason projection (${f1(p.avg)} vs ${f1(p.espn)}).`]);
+    if(t.includes('Their keeper')||p.t5) no.push([4,`${p.n} is one of their 5 most valuable players, and owners hold on to those.`]); }
+  for(const p of rp){ const t=(p.tags||[]).map(x=>x[0]); if(t.includes('Rising role')) yes.push([2,`${p.n}'s role is growing.`]); }
+  // 9. roster spots
+  const net=rp.length-sp.length;
+  if(net<0) yes.push([2,`Frees ${-net===1?'a roster spot':-net+' roster spots'} for a pickup.`]);
+  if(net>0){ const weak=P.filter(p=>!p.ir&&!sp.includes(p)).sort((a,b)=>a.lvl-b.lvl).slice(0,net);
+    no.push([2,`They need to drop ${weak.length?weak.map(p=>`${p.n} (${p.lvl.toFixed(0)} a game)`).join(' and '):'someone'} to make room.`]); }
+  if(sk.length) no.push([1,`They give up ${sk.map(nm).join(' + ')}.`]);
+  const top=(a,n)=>a.sort((x,y)=>y[0]-x[0]).slice(0,n).map(x=>x[1]);
+  return {ab,yes:top(yes,3),no:top(no,2)};
+}
+function tcWhyHtml(rec,snd,tid,them){
+  try{ const w=tcWhy(rec,snd,tid,them); if(!w.yes.length&&!w.no.length) return '';
+    return `<div class="tcWhyYes">${w.yes.length?`<div class="wyH">Why ${esc(w.ab)} would say yes</div><ul>${w.yes.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}${w.no.length?`<div class="wyH no">What they may push back on</div><ul class="no">${w.no.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`;
+  }catch(e){ console.error(e); return ''; }
+}
 function tcIdeaCard(i,k){
   const ck=TCC.checks[i.key], pct=x=>(100*x).toFixed(1)+'%';
   const partner=i.partner!=null?(TB.players.find(p=>p.tid===i.partner)||{}).t:(i.get.find(x=>!x.pick)||{}).t;
@@ -3539,6 +3620,7 @@ function tcIdeaCard(i,k){
     <div class="tcIdeaHd"><span class="tcShape">${i.shape}${TCC.sell?' · '+esc(partner||''):''}</span>${chip(i.band==='likely'?'Likely':'Possible',i.band==='likely'?'good':'acc')}<span class="tcGain">${tcSg(full?full.me.value.total:i.v)}${full?'':'<small style="font-size:.6rem;color:var(--ink-faint);margin-left:2px">est.</small>'}</span></div>
     <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(x=>esc(tcLbl(x))).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(x=>esc(x.pick?tcPickName(x.k,true):x.n)).join(' + ')}</b></div>
     <div class="tcNote">${esc(i.note)}</div>
+    ${tcWhyHtml(i.give,i.get,i.partner!=null?i.partner:(i.get.find(x=>!x.pick)||{}).tid,full?full.them:null)}
     ${full?`<div class="tcFull"><div class="tcFullHd">Full check</div><div>Title <b>${pct(full.me.odds_before.title)}</b> to <b class="${full.me.d_title_pp>=0?'up':'down'}">${pct(full.me.odds_after.title)}</b> · Playoffs ${pct(full.me.odds_before.made)} to ${pct(full.me.odds_after.made)}</div>
       <div class="hint">Total ${tcSg(full.me.value.total)} · keeper strength ${full.me.keeper_strength.before} to ${full.me.keeper_strength.after} · ${esc(full.them.abbrev)} title ${pct(full.them.odds_before.title)} to ${pct(full.them.odds_after.title)}</div></div>`:''}
     ${ck&&!full?`<div class="tcNote" ${ck.res&&ck.res.error?'style="color:var(--warn)"':''}>${esc(ck.res&&ck.res.error?ck.res.error:ck.msg||'')}</div>`:''}
@@ -3616,6 +3698,7 @@ function tcIdeasView(body){
       <div class="tcDeal"><span class="lbl">You give</span><span>${i.give.map(n=>esc(/^PICK:/.test(n)?tcPickName(n,false):n)).join(' + ')}</span><span class="lbl">You get</span><b>${i.get.map(n=>esc(/^PICK:/.test(n)?tcPickName(n,true):n)).join(' + ')}</b></div>
       <div class="tcFull"><div>Title <b>${pct(i.me.odds_before.title)}</b> to <b class="${i.me.d_title_pp>=0?'up':'down'}">${pct(i.me.odds_after.title)}</b> · Playoffs ${pct(i.me.odds_before.made)} to ${pct(i.me.odds_after.made)}</div>
         <div class="hint">Keeper strength ${i.me.keeper_strength.before} to ${i.me.keeper_strength.after}${i.me.drops.length?' · drops '+i.me.drops.map(esc).join(', '):''} · ${esc(i.partner)} title ${pct(i.them.odds_before.title)} to ${pct(i.them.odds_after.title)}</div></div>
+      ${tcWhyHtml(i.give.map(n=>toItem(n,TB.me_id)),i.get.map(n=>toItem(n,tid)),tid,i.them)}
       <div class="tcBtns"><button type="button" class="tcGo" data-tco="${i.target}">Open ${esc((B.byId.get(i.target)||{}).n||'target')}</button><button type="button" class="dbtn" data-tci="${k}" data-tid="${tid}">Edit in analyzer</button></div></article>`; }).join('');
   body.innerHTML=`<div class="hint" style="margin:.2rem 0 .6rem">Every idea here has been through the full check · updated ${new Date(TB.generated).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div>${cards||'<div class="hint" style="padding:1rem;text-align:center">No trade that helps you also clears the acceptance check today.</div>'}`;
   body.querySelectorAll('[data-tco]').forEach(b=>b.addEventListener('click',()=>tcOpen(+b.dataset.tco,false)));
