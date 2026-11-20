@@ -519,7 +519,24 @@ select{background:var(--surface);color:var(--ink);border:1px solid var(--line-st
   #draftTbl th{white-space:normal}#draftTbl td{padding:.4rem .4rem}
   @media(max-width:900px){.dTop{grid-template-columns:1fr}.dSide{position:static;order:-1}}
   /* Trades Command Center */
-  .tcTabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;margin:0 0 .8rem}
+  .tcTabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;margin:0 0 .8rem}
+  @media(max-width:720px){.tcTabs{grid-template-columns:repeat(3,minmax(0,1fr))}.tcTabs button:nth-child(4){border-left:0}.tcTabs button:nth-child(n+4){border-top:1px solid var(--line)}}
+  .owList{display:grid;gap:.7rem}
+  .owCard{border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);padding:.7rem .85rem;font-size:.86rem;line-height:1.4}
+  .owCard ul{margin:.1rem 0 .3rem;padding-left:1.1rem} .owCard li{margin:.12rem 0}
+  .owCard .pName{color:var(--accent);cursor:pointer}
+  .owHd{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .owHd b{font-size:1rem}
+  .owPost{font-size:.72rem;padding:.1rem .5rem;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-soft)}
+  .owPost.contend{border-color:var(--good);color:var(--good)} .owPost.rebuild{border-color:var(--warn);color:var(--warn)}
+  .owStats{display:flex;gap:1rem;flex-wrap:wrap;margin:.3rem 0 .2rem;color:var(--ink-soft);font-size:.8rem}
+  .owStats b{color:var(--ink)} .owStats small.up{color:var(--good)} .owStats small.down{color:var(--warn)}
+  .owH{margin-top:.45rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);font-weight:700}
+  .owHab{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.2rem}
+  .wnKind{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.1rem .5rem;border-radius:6px;background:var(--surface-2);color:var(--accent)}
+  .wnKind.k-Injury{color:var(--warn)} .wnKind.k-Falling{color:var(--warn)} .wnKind.k-Climbing{color:var(--good)} .wnKind.k-Pricedrop{color:var(--good)}
+  .wnHead{font-weight:700;margin:.4rem 0 .15rem}
+  .wnBody{color:var(--ink-soft)}
   .tcTabs button{border:0;min-height:44px;background:var(--surface);color:var(--ink-soft);font:inherit;font-size:.9rem;cursor:pointer}
   .tcTabs button+button{border-left:1px solid var(--line)}
   .tcTabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
@@ -3476,7 +3493,7 @@ async function renderTrades(){
   if(TB===null){ pane.innerHTML='<div class="hint" style="padding:1rem">Loading trades...</div>';
     try{ TB=await (await fetch('trade_board.json',{cache:'no-cache'})).json(); }catch(e){ TB=false; } }
   if(!TB){ pane.innerHTML='<div class="hint" style="padding:1rem">Trade data is not built yet.</div>'; return; }
-  const tabs=[['targets','Targets'],['mine','My roster'],['ideas','Ideas'],['analyzer','Analyzer']];
+  const tabs=[['targets','Targets'],['windows','Windows'],['owners','Owners'],['ideas','Ideas'],['mine','My roster'],['analyzer','Analyzer']];
   pane.innerHTML=`<div class="tcTabs" role="tablist">${tabs.map(([k,l])=>`<button type="button" role="tab" data-tcv="${k}" aria-selected="${TCC.view===k&&!TCC.sel?'true':'false'}">${l}</button>`).join('')}</div><div id="tcBody"></div><div id="taBox" ${TCC.view==='analyzer'&&!TCC.sel?'':'hidden'}></div>`;
   pane.querySelectorAll('[data-tcv]').forEach(b=>b.addEventListener('click',()=>{ TCC.view=b.dataset.tcv; TCC.sel=null; renderTrades(); }));
   const body=document.getElementById('tcBody');
@@ -3484,6 +3501,8 @@ async function renderTrades(){
   else if(TCC.view==='targets') tcBoard(body,false);
   else if(TCC.view==='mine') tcBoard(body,true);
   else if(TCC.view==='ideas') tcIdeasView(body);
+  else if(TCC.view==='owners') ownView(body);
+  else if(TCC.view==='windows') winView(body);
   else { body.innerHTML=''; taInit(); }
 }
 function tcOpen(id,sell){ TCC.sel=id; TCC.sell=!!sell; TCC.second=null; TCC.shape='All'; renderTrades(); const p=document.getElementById('tradesPane'); if(p) p.scrollIntoView({block:'start'}); }
@@ -3611,6 +3630,125 @@ function tcWhyHtml(rec,snd,tid,them){
   try{ const w=tcWhy(rec,snd,tid,them); if(!w.yes.length&&!w.no.length) return '';
     return `<div class="tcWhyYes">${w.yes.length?`<div class="wyH">Why ${esc(w.ab)} would say yes</div><ul>${w.yes.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}${w.no.length?`<div class="wyH no">What they may push back on</div><ul class="no">${w.no.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`;
   }catch(e){ console.error(e); return ''; }
+}
+/* ---- Owners and Trade windows (2026-11-19, Tommy). Owners: one card per other team: where they stand, what they're short on, what they have
+   spare, how they build, and which of your players fit their holes. Windows: moments that open a deal right now (a starter out, a team falling out
+   of or climbing into the race, a roster crunch, a falling keeper price). All from trade_board.json, playoff_odds / odds_history, week_plan,
+   keeper_history and team_profiles; nothing new is computed on the server. */
+let OWN_X=null;
+async function ownLoad(){
+  if(OWN_X) return OWN_X;
+  const get=f=>fetch(f,{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null);
+  const [oh,kh,tp,tc]=await Promise.all([get('odds_history.json'),get('keeper_history.json'),get('team_profiles.json'),get('trade_context.json')]);
+  OWN_X={oh,kh,tp,tc}; return OWN_X;
+}
+const OWN_POS=['PG','SG','SF','PF','C'];
+function ownTeam(tid){
+  const X=OWN_X||{}, P=TB.players.filter(p=>p.tid===tid), ab=(P[0]||{}).t||'';
+  const wt=W&&W.teams?W.teams.find(t=>t.id===tid||t.abbrev===ab):null, name=wt?wt.name:'';
+  const o=ODDS&&ODDS.teams?ODDS.teams.find(t=>t.id===tid):null;
+  const ctx=X.tc&&X.tc.teams?X.tc.teams[String(tid)]:null;
+  const posture=o?((o.made>=0.6&&o.title>=0.1)?'contend':((o.made<=0.25&&o.title<=0.04)?'rebuild':'balanced')):(ctx&&ctx.posture||'balanced');
+  // 7-day change in playoff odds
+  let d7=null; if(X.oh&&X.oh.days){ const ds=Object.keys(X.oh.days).sort(), now=ds[ds.length-1], ago=new Date(Date.parse(now)-7*864e5).toISOString().slice(0,10), past=ds.filter(d=>d<=ago).pop();
+    if(past&&X.oh.days[past][ab]&&X.oh.days[now][ab]) d7=X.oh.days[now][ab][0]-X.oh.days[past][ab][0]; }
+  const healthy=P.filter(p=>!p.out), have=s=>healthy.filter(p=>p.lvl>=30&&(p.slots||[]).includes(s));
+  const depth=Object.fromEntries(OWN_POS.map(s=>[s,have(s).length])), mn=Math.min(...OWN_POS.map(s=>depth[s]));
+  const thin=OWN_POS.filter(s=>depth[s]<=Math.max(1,mn)&&depth[s]<=2), deep=OWN_POS.filter(s=>depth[s]>=5);
+  const hurt=P.filter(p=>p.out&&p.lvl>=33).sort((a,b)=>b.lvl-a.lvl);
+  const po=healthy.slice().sort((a,b)=>b.lvl-a.lvl).slice(0,8), poAvg=po.length?po.reduce((s,p)=>s+(p.gpo||0),0)/po.length:null, chAvg=po.length?po.reduce((s,p)=>s+(p.gch||0),0)/po.length:null;
+  const crunch=wt&&wt.roster_spots&&wt.roster_spots.non_ir>=wt.roster_spots.of?(wt.roster||[]).filter(r=>r.ir&&(!r.status||r.status==='ACTIVE'||(r.back&&r.back<=etISO(7)))):[];
+  const sellers=P.filter(p=>!p.t5&&(p.tags||[]).some(t=>['Sell high','Overperforming'].includes(t[0]))).sort((a,b)=>b.lvl-a.lvl).slice(0,3);
+  const spare=P.filter(p=>!p.t5&&!p.out&&p.lvl>=30&&(p.slots||[]).some(s=>deep.includes(s))).sort((a,b)=>b.lvl-a.lvl).slice(0,3);
+  // how they build (draft and keeper habits vs the league)
+  const tp=X.tp&&X.tp.teams?X.tp.teams.find(t=>t.id===tid):null, lg=X.tp?X.tp.league:null, habits=[];
+  if(tp&&lg&&tp.metrics){ const m=tp.metrics;
+    if(m.keeper_young_share!=null&&lg.keeper_young_share&&m.keeper_young_share>=lg.keeper_young_share*1.6) habits.push('Keeps young players more than most');
+    if(m.age_mean!=null&&lg.age_mean&&m.age_mean<=lg.age_mean-1.2) habits.push('Drafts young');
+    if(m.age_mean!=null&&lg.age_mean&&m.age_mean>=lg.age_mean+1.2) habits.push('Drafts veterans');
+    if(m.rookie_share!=null&&lg.rookie_share&&m.rookie_share>=lg.rookie_share*1.5) habits.push('Likes rookies');
+    if(m.injury_gamble!=null&&lg.injury_gamble&&m.injury_gamble>=lg.injury_gamble*1.5) habits.push('Takes injury gambles');
+    if(m.big_share!=null&&lg.big_share&&m.big_share>=lg.big_share+0.08) habits.push('Leans on bigs');
+    if(m.guard_share!=null&&lg.guard_share&&m.guard_share>=lg.guard_share+0.08) habits.push('Leans on guards');
+    const tg=(tp.tags||[]).map(t=>typeof t==='string'?t:t.label).filter(Boolean); if(tg.length) habits.splice(0,habits.length,...tg); }
+  // which of my players fit their holes (not my top 6 keepers)
+  const B=tcBase(), keep=new Set(B.ro.slice().sort((a,b)=>(b.af||0)-(a.af||0)).slice(0,6).map(p=>p.id));
+  const fits=B.ro.filter(p=>!p.out&&!p.ir&&!keep.has(p.id)&&p.lvl>=28&&(p.slots||[]).some(s=>thin.includes(s)||hurt.some(h=>(h.slots||[]).includes(s)&&OWN_POS.includes(s)))).sort((a,b)=>b.lvl-a.lvl).slice(0,4);
+  return {tid,ab,name,o,posture,d7,depth,thin,deep,hurt,poAvg,chAvg,crunch,sellers,spare,habits,fits,P};
+}
+const ownPostL=p=>({contend:'Contending',rebuild:'Out of the race',balanced:'On the bubble'}[p]||'');
+function ownCard(t,poLg,chLg){
+  const pct=x=>x==null?'—':Math.round(100*x)+'%', f1=v=>v!=null?v.toFixed(1):'—', o=t.o||{};
+  const nm=p=>`<span class="pName" data-pc="${esc(p.n)}" tabindex="0" role="button">${esc(p.n)}</span>`;
+  const needs=[];
+  if(t.thin.length) needs.push(`Thin at <b>${t.thin.join(', ')}</b>: ${t.thin.map(s=>`${t.depth[s]} healthy ${s}${t.depth[s]===1?'':'s'} scoring 30+`).join(', ')}.`);
+  if(t.hurt.length) needs.push(`Missing ${t.hurt.slice(0,3).map(p=>`${nm(p)} (${f1(p.lvl)}${p.back?', back ~'+p.back.slice(5):''})`).join(', ')}.`);
+  if(t.poAvg!=null&&poLg!=null&&t.poAvg<=poLg-0.4) needs.push(`Weak playoff schedule: their top 8 average ${t.poAvg.toFixed(1)} playoff-week games (league ${poLg.toFixed(1)}).`);
+  if(t.chAvg!=null&&chLg!=null&&t.chAvg<=chLg-0.3) needs.push(`Light title week: ${t.chAvg.toFixed(1)} games for their top 8 (league ${chLg.toFixed(1)}).`);
+  if(t.crunch.length) needs.push(`Roster crunch: full active roster with ${t.crunch.map(r=>`<span class="pName" data-pc="${esc(r.name)}" tabindex="0" role="button">${esc(r.name)}</span>`).join(', ')} due off IR, so they must drop or deal someone.`);
+  if(t.posture==='rebuild') needs.push('Rebuilding: keeper value, young players and picks.');
+  const spare=[];
+  if(t.deep.length) spare.push(`Deep at <b>${t.deep.join(', ')}</b> (${t.deep.map(s=>t.depth[s]).join(', ')} healthy scorers 30+).`);
+  if(t.spare.length) spare.push(`Could spare: ${t.spare.map(p=>`${nm(p)} (${f1(p.lvl)})`).join(', ')}.`);
+  if(t.sellers.length) spare.push(`Running hot: ${t.sellers.map(p=>(p.tags||[]).some(x=>x[0]==='Sell high')?`${nm(p)} (${f1(p.avg)}, DELCO ${f1(p.delco)})`:`${nm(p)} (${f1(p.avg)} vs preseason ${f1(p.espn)})`).join(', ')}.`);
+  return `<article class="owCard" id="ow-${t.tid}"><div class="owHd"><div><b>${esc(t.ab)}</b> <span class="hint">${esc(t.name)}</span></div>
+      <span class="owPost ${t.posture}">${ownPostL(t.posture)}</span></div>
+    <div class="owStats"><span>Record <b>${o.wins??'—'}-${o.l??'—'}</b></span><span>Playoffs <b>${pct(o.made)}</b>${t.d7!=null&&Math.abs(t.d7)>=0.03?` <small class="${t.d7>0?'up':'down'}">${t.d7>0?'+':''}${Math.round(100*t.d7)} in 7 days</small>`:''}</span><span>Title <b>${pct(o.title)}</b></span></div>
+    ${needs.length?`<div class="owH">Needs</div><ul>${needs.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}
+    ${spare.length?`<div class="owH">Has to offer</div><ul>${spare.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}
+    ${t.habits.length?`<div class="owH">How they build</div><div class="owHab">${t.habits.map(h=>`<span class="tcTag">${esc(h)}</span>`).join(' ')}</div>`:''}
+    ${t.fits.length?`<div class="owH">Your players that fit</div><div class="owHab">${t.fits.map(p=>`<span class="tcTag kp">${esc(p.n)} · ${esc((p.slots||[]).filter(s=>s!=='UT').slice(0,2).join('/'))} · ${f1(p.lvl)}</span>`).join(' ')}</div>`:''}
+    <div class="tcBtns"><button type="button" class="dbtn" data-owt="${esc(t.ab)}">See their players</button></div></article>`;
+}
+async function ownView(body){
+  body.innerHTML='<div class="hint" style="padding:1rem">Loading owners…</div>';
+  await ownLoad();
+  const tids=[...new Set(TB.players.filter(p=>p.tid!==TB.me_id).map(p=>p.tid))], T=tids.map(ownTeam);
+  const all=T.flatMap(t=>[t.poAvg]).filter(x=>x!=null), poLg=all.length?all.reduce((a,b)=>a+b,0)/all.length:null;
+  const ch=T.map(t=>t.chAvg).filter(x=>x!=null), chLg=ch.length?ch.reduce((a,b)=>a+b,0)/ch.length:null;
+  const ord={contend:0,balanced:1,rebuild:2}; T.sort((a,b)=>(ord[a.posture]-ord[b.posture])||(((b.o||{}).made||0)-((a.o||{}).made||0)));
+  body.innerHTML=`<div class="owList">${T.map(t=>ownCard(t,poLg,chLg)).join('')}</div>`;
+  body.querySelectorAll('[data-owt]').forEach(b=>b.addEventListener('click',()=>{ TCC.view='targets'; TCC.team=b.dataset.owt; TCC.tags=new Set(); TCC.gettable=false; TCC.sel=null; renderTrades(); }));
+  if(TCC.owFocus){ const el=document.getElementById('ow-'+TCC.owFocus); TCC.owFocus=null; if(el) setTimeout(()=>el.scrollIntoView({block:'start'}),30); }
+}
+function ownFits(slots){ const B=tcBase(), keep=new Set(B.ro.slice().sort((a,b)=>(b.af||0)-(a.af||0)).slice(0,6).map(p=>p.id));
+  return B.ro.filter(p=>!p.out&&!p.ir&&!keep.has(p.id)&&p.lvl>=28&&(p.slots||[]).some(s=>slots.includes(s))).sort((a,b)=>b.lvl-a.lvl).slice(0,3); }
+function winList(){
+  const X=OWN_X||{}, out=[], f1=v=>v!=null?v.toFixed(1):'—', pct=x=>Math.round(100*x)+'%';
+  const tids=[...new Set(TB.players.filter(p=>p.tid!==TB.me_id).map(p=>p.tid))], T=new Map(tids.map(t=>[t,ownTeam(t)]));
+  for(const t of T.values()){
+    // a starter out: they need a body at his spot now (most for contenders)
+    for(const p of t.hurt.slice(0,2)){ if(p.lvl<38) continue; const sl=(p.slots||[]).filter(s=>OWN_POS.includes(s)), short=sl.filter(s=>t.depth[s]<=2);
+      out.push({s:(p.lvl-30)*(t.posture==='contend'?1.4:t.posture==='rebuild'?0.5:1)+(short.length?6:0),kind:'Injury',t,head:`${t.ab} lost ${p.n} (${f1(p.lvl)} a game)${p.back?', back about '+p.back.slice(5):''}`,
+        body:`${short.length?`They now have ${short.map(s=>`${t.depth[s]} healthy ${s}${t.depth[s]===1?'':'s'}`).join(' and ')} scoring 30+. `:''}${t.posture==='contend'?'A contender without a starter is the easiest buyer.':(t.posture==='rebuild'?'Out of the race: they may sell him cheap as an injury buy.':'On the bubble: they may pay for a replacement now.')}`,
+        pid:p.id,fits:ownFits(sl)}); }
+    // race movement
+    if(t.d7!=null&&t.o){ const m=t.o.made;
+      if(t.d7<=-0.1&&m<0.45) out.push({s:30*-t.d7+(m<0.3?8:2),kind:'Falling',t,head:`${t.ab} fell to ${pct(m)} to make the playoffs (${Math.round(100*t.d7)} in 7 days)`,body:'Teams sliding out of the race start selling veterans for keepers, youth and picks.'});
+      if(t.d7>=0.1&&m>=0.35) out.push({s:30*t.d7+4,kind:'Climbing',t,head:`${t.ab} climbed to ${pct(m)} to make the playoffs (+${Math.round(100*t.d7)} in 7 days)`,body:m>=0.6?'Rising into a real contender: the time they are likeliest to pay for production now.':'Just climbed into the race: likely to pay for production now.'}); }
+    // roster crunch
+    if(t.crunch.length) out.push({s:10+3*t.crunch.length,kind:'Crunch',t,head:`${t.ab} has a roster crunch`,body:`Full active roster with ${t.crunch.map(r=>r.name).join(', ')} due off IR. A 2-for-1 that hands them one better player solves it.`});
+  }
+  // falling keeper prices on other teams (same horizon, last ~7 days)
+  if(X.kh&&X.kh.v&&X.kh.dates&&D&&D.players){ const ds=X.kh.dates, n=ds.length-1, ago=new Date(Date.parse(ds[n])-7*864e5).toISOString().slice(0,10);
+    let i0=-1; for(let i=0;i<n;i++) if(ds[i]<=ago&&(X.kh.hz||[])[i]===(X.kh.hz||[])[n]) i0=i;
+    if(i0>=0){ const byName=new Map(D.players.map(h=>[pnorm(h.player),h.id]));
+      for(const p of TB.players){ if(p.tid===TB.me_id) continue; const id=byName.get(pnorm(p.n)), v=id?X.kh.v[id]:null; if(!v||v[i0]==null||v[n]==null) continue;
+        const d=v[n]-v[i0]; if(d<=-4&&v[n]>=20&&d/v[i0]<=-0.1){ const t=T.get(p.tid);
+          out.push({s:-d+(p.lvl>=35?4:0),kind:'Price drop',t,head:`${p.n}'s keeper value fell ${v[i0].toFixed(0)} to ${v[n].toFixed(0)} this week`,body:`${(p.tags||[]).some(x=>x[0]==='Buy low')?`Averaging ${f1(p.avg)} with DELCO at ${f1(p.delco)}, so a bounce back is expected. `:`DELCO ${f1(p.delco)}, averaging ${f1(p.avg)}. `}On ${p.t}${t?', '+ownPostL(t.posture).toLowerCase():''}.`,pid:p.id}); } } } }
+  out.sort((a,b)=>b.s-a.s); let nInj=0; return out.filter(w=>w.kind!=='Injury'||++nInj<=5).slice(0,15);
+}
+async function winView(body){
+  body.innerHTML='<div class="hint" style="padding:1rem">Looking for trade windows…</div>';
+  await ownLoad();
+  const L2=winList(), f1=v=>v!=null?v.toFixed(1):'—';
+  body.innerHTML=L2.length?`<div class="owList">${L2.map((w,k)=>`<article class="owCard wn"><div class="owHd"><span class="wnKind k-${w.kind.replace(' ','')}">${w.kind}</span><span class="owPost ${w.t?w.t.posture:''}">${w.t?esc(w.t.ab)+' · '+ownPostL(w.t.posture):''}</span></div>
+      <div class="wnHead">${esc(w.head)}</div><div class="wnBody">${esc(w.body)}</div>
+      ${w.fits&&w.fits.length?`<div class="owHab" style="margin-top:.35rem"><span class="hint">Your fits:</span> ${w.fits.slice(0,3).map(p=>`<span class="tcTag kp">${esc(p.n)} · ${f1(p.lvl)}</span>`).join(' ')}</div>`:''}
+      <div class="tcBtns">${w.pid?`<button type="button" class="tcGo" data-wnp="${w.pid}">Trade sheet</button>`:''}${w.t?`<button type="button" class="dbtn" data-wno="${w.t.tid}">${esc(w.t.ab)}'s needs</button>`:''}</div></article>`).join('')}</div>`
+    :'<div class="hint" style="padding:1rem;text-align:center">No trade windows open right now.</div>';
+  body.querySelectorAll('[data-wnp]').forEach(b=>b.addEventListener('click',()=>tcOpen(+b.dataset.wnp,false)));
+  body.querySelectorAll('[data-wno]').forEach(b=>b.addEventListener('click',()=>{ TCC.view='owners'; TCC.owFocus=+b.dataset.wno; TCC.sel=null; renderTrades(); }));
 }
 function tcIdeaCard(i,k){
   const ck=TCC.checks[i.key], pct=x=>(100*x).toFixed(1)+'%';
