@@ -112,7 +112,9 @@
   }
  },
  "league_req": "2026-10-26",
- "lu": {},
+ "lu": {
+  "2026-11-21:4065648": 1
+ },
  "my_drops": {},
  "pickup_sent": {},
  "plan_announced": {},
