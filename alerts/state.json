@@ -1,7 +1,8 @@
 {
  "avail_prev": {
   "2566769": "FREEAGENT",
-  "3978": "FREEAGENT"
+  "3978": "FREEAGENT",
+  "4592479": "WAIVERS"
  },
  "benef_sent": {
   "2026-10-23:3032979": 1
@@ -118,9 +119,9 @@
  "pickup_sent": {},
  "plan_announced": {},
  "plan_rebuild": {
-  "at": "2026-11-20T22:40:33+00:00",
+  "at": "2026-11-21T00:20:39+00:00",
   "sig": "6430,3133626,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4433134,4594327,4683678,4684740,5041939,5041955,5105565,5241364,5279130",
-  "why": "scheduled build at 22:07Z did not run (plan from 20:06Z)"
+  "why": "new free agent(s) to evaluate: Julian Champagnie"
  },
  "rosterfix_sent": {},
  "sent": {
