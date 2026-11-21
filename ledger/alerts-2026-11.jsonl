@@ -100,3 +100,4 @@
 {"kind":"alert","ts":"2026-11-18T13:00:47-05:00","title":"Swap out Scottie Barnes by 7:30pm","body":"Scottie Barnes (G) is out (injury report).\nMove Darryn Peterson to G, start Kenrich Williams at UT (~24 pts).\nOr: Amen Thompson.","priority":4}
 {"kind":"late_scratch","ts":"2026-11-18T13:00:47-05:00","player":"Scottie Barnes","stage":1,"mins_to_tip":389,"swap":"Kenrich Williams"}
 {"kind":"alert","ts":"2026-11-18T17:30:36-05:00","title":"Fix lineup by 7pm","body":"Start Kenrich Williams: he's on your bench.\nBench Amen Thompson today: saving the start for a bigger day this week (games cap).","priority":4}
+{"kind":"alert","ts":"2026-11-21T14:59:06-05:00","title":"Stash Moses Moody on IR","body":"Injured, Left Knee. Expected back about Dec 1. Add him, drop Kenrich Williams, move him to IR. Then activate Scotty Pippen Jr. with no drop. +182 rest of season.","priority":3}
