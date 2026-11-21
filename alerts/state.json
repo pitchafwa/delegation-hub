@@ -119,9 +119,9 @@
  "pickup_sent": {},
  "plan_announced": {},
  "plan_rebuild": {
-  "at": "2026-11-21T19:40:40+00:00",
+  "at": "2026-11-21T22:40:32+00:00",
   "sig": "6430,3133626,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4433134,4594327,4683678,4684740,5041939,5041955,5105565,5241364,5279130",
-  "why": "scheduled build at 19:07Z did not run (plan from 17:59Z)"
+  "why": "scheduled build at 22:07Z did not run (plan from 20:06Z)"
  },
  "rosterfix_sent": {},
  "sent": {
