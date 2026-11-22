@@ -105,3 +105,7 @@
 {"kind":"late_scratch","ts":"2026-11-21T15:45:36-05:00","player":"Jayson Tatum","stage":1,"mins_to_tip":374,"swap":null}
 {"kind":"alert","ts":"2026-11-21T21:25:34-05:00","title":"Still starting Jayson Tatum (out)","body":"Jayson Tatum (SF) is out (injury report).\nNo bench fit (adds now only count from tomorrow): leave it empty.","priority":5}
 {"kind":"late_scratch","ts":"2026-11-21T21:25:34-05:00","player":"Jayson Tatum","stage":2,"mins_to_tip":34,"swap":null}
+{"kind":"alert","ts":"2026-11-22T08:00:36-05:00","title":"Stash Moses Moody on IR","body":"Injured, Left Knee. Expected back about Dec 1. Add him, drop Scoot Henderson, move him to IR. Then activate Ty Jerome with no drop. +148 rest of season.","priority":3}
+{"kind":"alert","ts":"2026-11-22T08:00:37-05:00","title":"Activate Ty Jerome from IR","body":"ESPN lists him healthy. He can't score from IR. Activate him and drop Scoot Henderson. Do it before 3:30pm, when roster moves lock for today. +40 pts this week.","priority":4}
+{"kind":"alert","ts":"2026-11-22T08:00:37-05:00","title":"Swap out Jayson Tatum by 8:30pm","body":"Jayson Tatum (PF) is out.\nMove Cooper Flagg to PF, start Kenrich Williams at SF (~33 pts).","priority":4}
+{"kind":"late_scratch","ts":"2026-11-22T08:00:37-05:00","player":"Jayson Tatum","stage":1,"mins_to_tip":749,"swap":"Kenrich Williams"}
