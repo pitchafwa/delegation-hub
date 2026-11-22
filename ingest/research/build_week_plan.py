@@ -887,6 +887,18 @@ def week_games(pl):
     return sum(1 for d in plan_days + LOOK_DAYS if p_play(pl, d) > 0)
 
 
+# 2026-11-21 (Tommy, after Jerome): ESPN can list a player OUT for hours after the NBA report has him back. A free agent like that is worth adding before the
+# roster lock, so the league report wins: he plays from the first plan day it lists him Probable / Available / Questionable (same rule as plan_ir's returns).
+_ofk = {}
+for (_gd, _kk), _st in OFFICIAL.items():
+    _ofk.setdefault(_kk, {})[_gd] = _st
+for _f in fa_players:
+    if _f["status"] in ("OUT", "INJURY_RESERVE"):
+        _o = _ofk.get(norm(_f["name"]).replace(" ", ""), {})
+        _d = next((d for d in plan_days + list(LOOK_DAYS or []) if _o.get(d.isoformat()) in ("Probable", "Available", "Questionable")), None)
+        if _d:
+            _f.update(status="ACTIVE", _back=_d, nba_back=_d.isoformat())
+            print("free agent back on the NBA report:", _f["name"], _d, _o.get(_d.isoformat()))
 fa_players.sort(key=lambda p: -(p["level"] * week_games(p)))
 fa_players = fa_players[:100]   # widened from 60 (2026-09-27): a real, well-known, healthy scorer (Jalen Green) ranked #87 here purely because ESPN's
 # default free-agent relevance sort for this specific league buried him below other names -- he was getting cut before ever reaching fa_pool/"This

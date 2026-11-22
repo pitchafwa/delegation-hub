@@ -395,6 +395,42 @@ def league_refresh_check(s):
         (Path(__file__).resolve().parent.parent / "league_request.txt").write_text("morning refresh missing", encoding="utf-8")
 
 
+def report_change_rebuild(T, mine, off, s):
+    """2026-11-21 (Tommy, after Jerome): before today's roster lock, a new NBA injury report designation for one of my players, or for a free agent the plan
+    weighed, asks for a fresh plan, so morning news reaches the plan before moves lock (early-tip days have no scheduled build between ~4:30am and 2pm ET).
+    Baseline: what the plan was built with (my players) or the first status seen today (free agents). One request per set of changes."""
+    if locked_now():
+        return
+    t0 = TODAY.isoformat()
+    plan_off = {int(p["id"]): p.get("official") for p in T["roster"]}
+    changes = []
+    for p in mine.roster:
+        o = off.get(norm(p.name).replace(" ", ""))
+        if o is not None and int(p.playerId) in plan_off and o != plan_off[int(p.playerId)]:
+            changes.append(f"{p.name} {plan_off[int(p.playerId)] or 'not listed'} to {o}")
+    fa = {norm(v["name"]).replace(" ", ""): v["name"] for v in (T.get("pickup_checks") or {}).values() if v.get("name")}
+    if fa:
+        fo = official_today(set(fa))
+        base = s.get("fa_official") or {}
+        if base.get("date") != t0:
+            base = {"date": t0, "st": {}}
+        for k, o in fo.items():
+            b0 = base["st"].get(k)
+            if b0 is None:
+                base["st"][k] = o
+            elif b0 != o:
+                changes.append(f"{fa[k]} {b0} to {o}")
+                base["st"][k] = o
+        s["fa_official"] = base
+    if not changes:
+        return
+    sig = t0 + ":" + "|".join(sorted(changes))
+    if s.get("report_rebuild_sig") == sig:
+        return
+    s["report_rebuild_sig"] = sig
+    request_rebuild(s, "NBA injury report: " + ", ".join(changes[:4]))
+
+
 def plan_rebuild_check(W, T, mine, s):
     """Ask for a fresh plan (the workflow step after this script dispatches refresh-gameday when rebuild_request.txt exists) when
     (a) Tommy's ESPN roster no longer matches the roster the plan was built from (he made a move), or (b) a scheduled plan build was skipped.
@@ -495,6 +531,10 @@ def run_check():
             plan_rebuild_check(W, T, mine, s)
         except Exception as ex:
             print("plan rebuild check failed:", repr(ex)[:120])
+        try:
+            report_change_rebuild(T, mine, off, s)
+        except Exception as ex:
+            print("report change check failed:", repr(ex)[:120])
         try:
             league_refresh_check(s)
         except Exception as ex:
