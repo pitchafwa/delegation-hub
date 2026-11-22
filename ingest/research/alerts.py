@@ -249,7 +249,7 @@ def digest(kind):
                           "activate_swap": f"IR: activate {m['name']} and drop {m.get('drop', {}).get('name', '?')}" + (f" on {date.fromisoformat(m['on']).strftime('%a')}" if m.get("on") and m["on"] > TODAY.isoformat() else "") + (" (unlocks adds)" if m.get("unlock") else ""),
                           "release_ir": f"IR: drop {m['name']} straight from IR" + (f" on {date.fromisoformat(m['on']).strftime('%a')}" if m.get("on") and m["on"] > TODAY.isoformat() else "") + (" (unlocks adds)" if m.get("unlock") else ""),
                           "stay_ir": f"IR: keep {m['name']} on IR (healthy, so adds stay locked; freeing them is not worth it this week)",
-                          "return": f"IR: {m['name']} back {date.fromisoformat(m['on']).strftime('%a') if m.get('on') else 'soon'} (ESPN's date)" + ((", not worth a spot: drop him then" if m["drop"]["id"] == m["id"] else f", drop {m['drop']['name']} then") if m.get("drop") else "")}.get(m["action"], f"IR: {m['name']}: {m['action']}"))
+                          "return": f"IR: {m['name']} back {date.fromisoformat(m['on']).strftime('%a') if m.get('on') else 'soon'} ({'NBA report: ' + m['official'].lower() if m.get('src') == 'nba' else "ESPN's date"})" + ((", not worth a spot: drop him then" if m["drop"]["id"] == m["id"] else f", drop {m['drop']['name']} then") if m.get("drop") else "")}.get(m["action"], f"IR: {m['name']}: {m['action']}"))
     mv = best_moves(T, 5 if kind == "weekly" else 3)
     adds_left = M["adds_limit"] - T.get("adds_used", 0)
     lines.append(f"Planned moves ({adds_left} of {M['adds_limit']} adds left):" if mv else "No moves planned this week.")
@@ -671,7 +671,32 @@ def ir_back_alert(T, s, mine, off, can_send):
     lock = roster_lock()
     for p in mine.roster:
         e = p.injuryStatus or "ACTIVE"
-        if p.lineupSlot != "IR" or e in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
+        if p.lineupSlot != "IR":
+            continue
+        if e in ("OUT", "INJURY_RESERVE", "SUSPENSION"):
+            # 2026-11-21 (Jerome): ESPN can keep a player OUT for hours after the NBA report lists him Probable, past the first tip, when IR moves lock.
+            # The plan brings him back on the report's word; this says so before the lock.
+            o = off.get(norm(p.name).replace(" ", "")) if off is not None else None
+            pm = next((m for m in (T.get("ir_moves") or []) if int(m.get("id") or 0) == int(p.playerId)), None)
+            if e != "OUT" or o not in ("Probable", "Available", "Questionable"):
+                continue
+            if not pm or pm["action"] != "return" or pm.get("on") != TODAY.isoformat():
+                if f"irq:{p.playerId}:{TODAY.isoformat()}" not in sent and not locked_now():
+                    sent[f"irq:{p.playerId}:{TODAY.isoformat()}"] = TODAY.isoformat()
+                    request_rebuild(s, f"{p.name} listed {o} on the NBA injury report")
+                continue
+            if locked_now() or (in_quiet() and not FORCE):
+                continue
+            key = f"{p.playerId}:{TODAY.isoformat()}"
+            if key in sent:
+                continue
+            lock = roster_lock()
+            body = (f"NBA injury report: {o.lower()} tonight. ESPN still lists him out and may not update before IR moves lock"
+                    + (f" at {_fmt_t(lock)}" if lock else "") + ". Once he's on your bench you can start or sit him right up to his tip.")
+            if pm.get("drop") and int(pm["drop"]["id"]) != int(p.playerId):
+                body += f" Drop {pm['drop']['name']} to make room."
+            if push(f"Activate {p.name} from IR now", body, priority=4, tags=["hospital"], actions=[btn("Open my team", ESPN_TEAM)]):
+                sent[key] = TODAY.isoformat()
             continue
         if f"{p.name} off IR from tomorrow" in (T.get("bridge") or []):
             continue                                             # already activated in ESPN for tomorrow

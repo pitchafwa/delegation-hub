@@ -1899,6 +1899,7 @@ def advise_injuries(r, total, c0, key_of, ir_free):
 
 
 IR_SLOTS = 4
+OFFICIAL_BACK = ("Probable", "Available", "Questionable")     # NBA injury report designations that bring a player listed out back into the plan that day
 IR_OK = ("OUT", "INJURY_RESERVE")     # ASSUMPTION: ESPN only lets players with an out/IR status into an IR slot (verify in season)
 ROSTER_SPOTS = 15                     # 10 starters + 5 bench; IR slots are extra
 
@@ -1939,13 +1940,22 @@ def plan_ir(r, mine=True):
         if not (p["ir"] or p["status"] in IR_OK) or p["status"] == "SUSPENSION":
             continue
         bk = espn_back(p["espn_id"])
+        # 2026-11-21 (Tommy, Jerome): the NBA's own injury report listed him Probable at 5:30am while ESPN kept him OUT until 2:40pm, after the 1pm roster lock,
+        # so he could not leave IR in time. The league report wins: the first plan day it lists him as anything but Out/Doubtful is his return day.
+        ob = next((d for d in plan_days + list(LOOK_DAYS or []) if d >= today and p["status"] in IR_OK and p.get("official", {}).get(d.isoformat()) in OFFICIAL_BACK), None)
+        src = "nba" if ob and (bk is None or ob < bk) else "espn"
+        if src == "nba":
+            bk = ob
         if bk and bk <= horizon:
-            rets.append((bk, k))
-    for bk, k in sorted(rets):
+            rets.append((bk, k, src, p.get("official", {}).get(ob.isoformat()) if src == "nba" else None))
+    for bk, k, src, olab in sorted(rets, key=lambda x: (x[0], str(x[1]))):
         p = plan[k]
+        if p["ir"]:
+            bk = max(bk, FIRST_MOVE_DAY)                 # after today's roster lock he can only leave IR for tomorrow
         # on IR: off the roster count until he is back. On the bench: already on it, he just doesn't play before then
         plan[k] = dict(p, ir=False, status="ACTIVE", _ir_now=p["ir"], _status_now=p["status"], _back=bk, **({"from": max(bk, p.get("from") or bk)} if p["ir"] else {}))
-        mv = {"id": p["espn_id"], "name": p["name"], "action": "return", "status": p["status"], "level": p["level"], "on": bk.isoformat(), "drop": None}
+        mv = {"id": p["espn_id"], "name": p["name"], "action": "return", "status": p["status"], "level": p["level"], "on": bk.isoformat(), "drop": None, "src": src, "from_ir": bool(p["ir"]),
+              **({"official": olab} if src == "nba" else {})}
         n = sum(1 for q in plan.values() if not q["ir"] and not (q.get("from") and q["from"] > bk) and not (q.get("until") and q["until"] < bk))
         if n > ROSTER_SPOTS:
             cand = [q for q in plan.values() if not q["ir"] and not q.get("_back") and not q.get("until") and q["espn_id"] not in prot]
