@@ -112,3 +112,6 @@
 {"kind":"alert","ts":"2026-11-22T08:13:41-05:00","title":"Stash Dennis Schroder on IR","body":"Injured, Left Hamstring. Expected back about Nov 25. Add him, drop Scoot Henderson, move him to IR. Then activate Ty Jerome with no drop. +130 rest of season.","priority":3}
 {"kind":"alert","ts":"2026-11-22T08:42:21-05:00","title":"Move Jayson Tatum to IR","body":"He's out. Free move; it opens a roster spot. +36 pts this week.","priority":4}
 {"kind":"alert","ts":"2026-11-22T08:42:22-05:00","title":"Now: add Bennett Stirtz","body":"Open roster spot before 3:30pm, when today's first game locks roster moves. Rental: drop him after tonight's game, +26 pts. If he's gone: De'Anthony Melton.","priority":4}
+{"kind":"alert","ts":"2026-11-23T08:00:36-05:00","title":"Move Grayson Allen to IR","body":"He's out. Free move; it opens a roster spot. +117 pts this week.","priority":4}
+{"kind":"alert","ts":"2026-11-23T08:00:37-05:00","title":"Swap out Grayson Allen by 7pm","body":"Grayson Allen (G) is out (injury report).\nStart Scottie Barnes at G (~53 pts).\nOr: Amen Thompson, Donovan Clingan.","priority":4}
+{"kind":"late_scratch","ts":"2026-11-23T08:00:37-05:00","player":"Grayson Allen","stage":1,"mins_to_tip":659,"swap":"Scottie Barnes"}
