@@ -12,7 +12,7 @@
   "date": "2026-11-23",
   "st": {
    "bensaraf": "Out",
-   "deanwade": "Probable",
+   "deanwade": "Available",
    "jaylontyson": "Probable"
   }
  },
@@ -125,10 +125,11 @@
   "5241364:2026-11-22::today": "2026-11-22"
  },
  "plan_rebuild": {
-  "at": "2026-11-23T22:40:33+00:00",
+  "at": "2026-11-23T23:40:38+00:00",
   "sig": "6430,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4432847,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "scheduled build at 22:07Z did not run (plan from 21:40Z)"
+  "why": "NBA injury report: Dean Wade Probable to Available"
  },
+ "report_rebuild_sig": "2026-11-23:Dean Wade Probable to Available",
  "rosterfix_sent": {
   "3135045:to_ir": "2026-11-23",
   "4065648:to_ir": "2026-11-22"
