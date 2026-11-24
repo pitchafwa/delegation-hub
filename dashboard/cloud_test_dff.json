@@ -1,22 +1,22 @@
 {
- "date": "2026-11-23",
- "day": "2026-11-22",
+ "date": "2026-11-24",
+ "day": "2026-11-23",
  "dff": {
-  "laptop": 138,
-  "cloud": 138,
-  "matched": 137,
-  "only_laptop": 1,
-  "only_cloud": 1,
-  "cloud_minus_laptop_median_min": 0.6,
-  "cloud_later_by_15min_plus": 2
+  "laptop": 141,
+  "cloud": 155,
+  "matched": 141,
+  "only_laptop": 0,
+  "only_cloud": 14,
+  "cloud_minus_laptop_median_min": 0.5,
+  "cloud_later_by_15min_plus": 0
  },
  "injuries": {
-  "laptop": 66,
-  "cloud": 67,
-  "matched": 66,
+  "laptop": 55,
+  "cloud": 58,
+  "matched": 55,
   "only_laptop": 0,
-  "only_cloud": 1,
-  "cloud_minus_laptop_median_min": 0.5,
+  "only_cloud": 3,
+  "cloud_minus_laptop_median_min": 0.6,
   "cloud_later_by_15min_plus": 0
  }
 }
