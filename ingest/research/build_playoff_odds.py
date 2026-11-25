@@ -141,6 +141,31 @@ def live():
             sig = wpm["sigma"].get(str(d)) or sig7 * (d / 7.0) ** 0.5
             r.update(pa=round(pa), pb=round(pb), p_a=round(0.5 * (1 + math.erf(wpm["beta"] * (pa - pb) / sig / math.sqrt(2))), 3))
         out["schedule"].append(r)
+    # ROAD AHEAD (2026-11-25, Tommy: "this matchup is 90% won, so prioritize next week since that looks like a toss-up"): my remaining regular-season matchups with
+    # win chance (the same model as above) and LEVERAGE = what one more point is worth to my win chance in that week, relative to a toss-up 7-day week, the same
+    # scale the weekly plan uses for this week (build_week_plan.this_week_value). The plan weights next week's points by it.
+    road = []
+    # weeks whose NBA schedule is not out yet (NBA Cup dates TBD) project only the known games: scale both teams up to a typical week's games for the win chance
+    _ag = sp.get("avg_games") or []
+    _typ = float(np.median([x for x in _ag if x > 0])) if _ag else 0.0
+    for g in games:
+        if g["done"] or my not in (g["a"], g["b"]) or g["week"] > REG_LAST:
+            continue
+        o = g["b"] if g["a"] == my else g["a"]
+        pm, po = mu.get((my, g["week"])), mu.get((o, g["week"]))
+        if pm is None or po is None:
+            continue
+        d = lens.get(g["week"], 7)
+        ag = _ag[g["week"] - 1] if len(_ag) >= g["week"] else _typ
+        partial = bool(_typ and ag < 0.8 * _typ * d / 7.0)
+        if partial and ag > 0:
+            k_ = _typ * d / 7.0 / ag
+            pm, po = pm * k_, po * k_
+        sig = wpm["sigma"].get(str(d)) or sig7 * (d / 7.0) ** 0.5
+        x = wpm["beta"] * (pm - po) / sig
+        road.append({"week": g["week"], "opp": o, "opp_abbrev": teams[o], "days": d, "me": round(pm), "them": round(po), "partial": partial,
+                     "wp": round(0.5 * (1 + math.erf(x / math.sqrt(2))), 3), "lev": round(math.exp(-x * x / 2) * sig7 / sig, 2)})
+    out["road"] = sorted(road, key=lambda r: r["week"])
     st = season_table(ids, games)
     for t in out["teams"]:
         t.update(st[t["id"]])

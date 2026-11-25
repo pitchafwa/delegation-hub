@@ -172,12 +172,27 @@ print(f"matchup {mp_id}: {mp_start}..{mp_end} ({n_days} days, {(_per or {}).get(
 # allowance, which expires anyway, so setting up next week this way keeps next week's adds untouched.
 LOOKAHEAD_DAYS = int(os.environ.get("LOOKAHEAD_DAYS", "7"))
 LOOK_DAYS, NEXT_CAP = [], cap
-if len(plan_days) <= 2 and plan_days[-1] == mp_end and mp_id < _CAL["last_week"]:
+# EARLY LOOKAHEAD (2026-11-25, Tommy: "it's Monday but this matchup is 90% won, so prioritize next week since that looks like a toss-up"). When this week is
+# nearly decided either way (the last plan's lev_now: a point now is worth half a toss-up point or less, about 87%+ or 13%-) and next week is close
+# (playoff_odds.json road: its leverage 0.75+), next matchup is scored from any day of the week, with its points weighted by its leverage (NEXT_LEV below).
+# This week's adds then go to players who also help next week. Regular season only. NO_EARLY_LOOK=1 turns it off.
+EARLY_LOOK = None
+try:
+    if not os.environ.get("NO_EARLY_LOOK") and mp_id < _CAL["last_week"] and (mp_id + 1) not in set(_CAL.get("playoff_weeks") or []):
+        _wp0 = json.load(open(HUB / "week_plan.json", encoding="utf-8"))
+        _me0 = next((t for t in _wp0.get("teams", []) if t.get("abbrev") == _wp0.get("my_abbrev")), {})
+        _rd0 = next((x for x in (json.load(open(HUB / "playoff_odds.json", encoding="utf-8")).get("road") or []) if int(x["week"]) == mp_id + 1), None)
+        if (int((_wp0.get("matchup") or {}).get("id") or 0) == mp_id and _me0.get("lev_now") is not None and float(_me0["lev_now"]) <= float(os.environ.get("EARLY_LOOK_MAX", "0.5"))
+                and _rd0 is not None and float(_rd0["lev"]) >= float(os.environ.get("EARLY_LOOK_MIN_NEXT", "0.75"))):
+            EARLY_LOOK = {"wp_now": _me0.get("win_prob"), "lev_now": _me0["lev_now"], "wp_next": _rd0["wp"], "lev_next": _rd0["lev"], "opp_next": _rd0["opp_abbrev"]}
+except Exception as _ex:
+    print("early lookahead check failed:", repr(_ex)[:100])
+if (EARLY_LOOK or len(plan_days) <= 2) and plan_days[-1] == mp_end and mp_id < _CAL["last_week"]:
     _nx = next(((a_, b_) for i_, a_, b_ in BOUNDS if i_ == mp_id + 1), None)
     if _nx:
         LOOK_DAYS = [_nx[0] + timedelta(days=k) for k in range(min(LOOKAHEAD_DAYS, (_nx[1] - _nx[0]).days + 1))]
         NEXT_CAP = next(p_["cap"] for p_ in _CAL["periods"] if p_["id"] == mp_id + 1)
-        print(f"lookahead on: also scoring next matchup's first days {[d.isoformat() for d in LOOK_DAYS]} (cap {NEXT_CAP})")
+        print(f"lookahead on: also scoring next matchup's first days {[d.isoformat() for d in LOOK_DAYS]} (cap {NEXT_CAP})" + (f"; early: this week {EARLY_LOOK['wp_now']}, next week {EARLY_LOOK['wp_next']} vs {EARLY_LOOK['opp_next']}" if EARLY_LOOK and len(plan_days) > 2 else ""))
 
 # NBA schedule for the matchup (+ the day before, for back-to-back detection)
 games = {}     # date -> {team: iso tipoff}
@@ -2057,6 +2072,20 @@ try:
         print(f"playoffs: this week counts {THIS_WEEK_COUNTS}, chance of playing next week {NEXT_WEEK_P:.0%}")
 except Exception as _ex:
     print("playoff context unavailable:", repr(_ex)[:100])
+# NEXT WEEK'S LEVERAGE (2026-11-25, Tommy: last week sat at 90%+ all week while this week's toss-up was coming). This week's points already count by what they do to
+# the win chance (this_week_value); next week's counted at face value, as if every next week were a toss-up. Now they count by next week's own leverage
+# (playoff_odds.json "road": value of a point to next week's win chance vs a toss-up 7-day week, the same scale), so a safe week leans to moves that help a close
+# next one, and a lopsided next week does not pull adds away from a close one now. Regular season only (playoff weeks keep NEXT_WEEK_P). NO_NEXT_LEV=1 = old rule.
+NEXT_LEV = None
+try:
+    if THIS_WEEK_COUNTS and LOOK_DAYS and not os.environ.get("NO_NEXT_LEV"):
+        _rd = next((x for x in (_odds.get("road") or []) if int(x["week"]) == mp_id + 1), None)
+        if _rd is not None and (mp_id + 1) not in _po_weeks:
+            NEXT_LEV = min(1.5, max(0.2, float(_rd["lev"])))
+            NEXT_WEEK_P *= NEXT_LEV
+            print(f"next week vs {_rd['opp_abbrev']}: win chance {_rd['wp']:.0%}, its points count x{NEXT_LEV:.2f}")
+except Exception as _ex:
+    print("next-week leverage unavailable:", repr(_ex)[:100])
 
 out_teams = []
 plans = {}
@@ -2285,6 +2314,10 @@ for tm in out_teams:
         # margin so far + 0.72 x the expected remaining margin, over the measured spread for the days left (was: full margin / (253 x sqrt 2) x sqrt(share left))
         sf = tm["pts_so_far"] - next(x["pts_so_far"] for x in out_teams if x["id"] == o)
         tm["win_prob"] = round(_Phi((sf + WP_BETA * (diff - sf)) / wp_sigma(max(len(plan_days), 0.25))), 3)
+        if tm["abbrev"] == MY_ABBREV:                   # Road ahead on the Today page: what a point is worth this week vs next week (same scale)
+            tm["lev_now"] = round(this_week_value(1.0), 2) if THIS_WEEK_COUNTS else 0.0
+            tm["lev_next"] = NEXT_LEV
+            tm["early_look"] = bool(EARLY_LOOK and len(plan_days) > 2 and LOOK_DAYS)
 
 # ---- STASH POOL: free agents the this-week search cannot see -- out now (injured), or whose team has no game in the planning window.
 # build_schedule_plan.py values each of them over the REST OF THE SEASON (when he is back, how many games, what he would replace) and merges them with the dynasty adds.

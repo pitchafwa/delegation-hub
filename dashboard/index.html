@@ -1001,6 +1001,24 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
   .alRow{display:flex;gap:var(--sp3);padding:var(--sp2) 0;border-bottom:1px solid var(--line)}
   .alRow .alT{flex:none;width:4.5rem;color:var(--ink-soft);font-size:.875rem;padding-top:1px;font-variant-numeric:tabular-nums}
   .alRow .alF{color:var(--warn)}
+
+  /* Road ahead (Today) */
+  .road{background:var(--surface);border-radius:12px;padding:var(--sp3) var(--sp4);margin-top:var(--sp4)}
+  .roadH{display:flex;align-items:center;justify-content:space-between;gap:var(--sp2);margin-bottom:var(--sp2)}
+  .roadH h3{margin:0;font-size:1rem}
+  .rdFocus{background:var(--tonal);color:var(--tonal-ink);border-radius:999px;padding:2px 10px;font-size:.75rem;font-weight:700}
+  .rdRow{display:grid;grid-template-columns:6.5rem 1fr 2.75rem 5.5rem;align-items:center;gap:var(--sp2);padding:6px 0}
+  .rdRow.now .rdL{font-weight:700}
+  .rdL{font-size:.875rem;line-height:1.15}
+  .rdL small{display:block;color:var(--ink-soft);font-size:.75rem}
+  .rdBar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+  .rdBar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .rdP{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;font-size:.875rem}
+  .rdTag{font-size:.75rem;font-weight:600;border-radius:999px;padding:1px 8px;justify-self:start;white-space:nowrap}
+  .rdTag.safe{background:var(--surface-2);color:var(--good)}
+  .rdTag.close{background:var(--tonal);color:var(--tonal-ink)}
+  .rdTag.long{background:var(--surface-2);color:var(--warn)}
+  @media (max-width:420px){ .rdRow{grid-template-columns:5.5rem 1fr 2.5rem 4.75rem} }
 </style>
 </head>
 <body>
@@ -2204,6 +2222,7 @@ function renderWeek(){
     ${doNowHtml}
     ${matchupHtml(T,O,M,liveOk)}
     ${T.abbrev===W.my_abbrev?`<div class="slTop">${sec('setlineup','Set lineup in ESPN','preview the rest of this matchup, then set it in one click','<div id="slBox" class="hint">Loading preview…</div>',true)}</div>`:''}
+    ${T.id===meT.id?roadHtml(T):''}
     <div class="cardPair" style="margin-top:1.2rem">${oddsHtml(T.id===meT.id)}${gamesHtml(T)}</div>
     <h2 class="todayH" style="margin-top:1.4rem">Details</h2>
     ${lineupSec}
@@ -3405,6 +3424,19 @@ function gamesHtml(T){
     <div class="note" style="margin-top:.3rem"><span class="gwMeK">Yours</span> · <span class="gwOpK">${esc(((W.teams||[]).find(t=>t.id===T.opp)||{}).abbrev||'opponent')}</span></div></details>`;
 }
 
+
+/* ROAD AHEAD (2026-11-25, Tommy): this week's win chance next to the coming matchups (playoff_odds.json road), so a safe or lost week can be traded for a close one.
+   The plan weights next week's points by how close it is, and starts planning for it early when this week is nearly decided (T.early_look). */
+function roadHtml(T){
+  const R=(ODDS&&ODDS.road)||[], wk=W&&W.matchup?W.matchup.id:null; if(!R.length||wk==null) return '';
+  const opp=((W.teams||[]).find(t=>t.id===T.opp)||{}).abbrev||'';
+  const rows=[{lab:'This week',opp,wp:T.win_prob,now:true},...R.filter(r=>r.week>wk).slice(0,4).map(r=>({lab:r.week===wk+1?'Next week':`Week ${r.week}`,opp:r.opp_abbrev,wp:r.wp,est:r.partial}))];
+  const tag=p=>p==null?'':p>=0.75?'<span class="rdTag safe">Likely win</span>':p<=0.25?'<span class="rdTag long">Long shot</span>':(p>=0.4&&p<=0.6)?'<span class="rdTag close">Toss-up</span>':'';
+  const pc=p=>p==null?'–':Math.round(p*100)+'%';
+  return `<section class="road"><div class="roadH"><h3>Road ahead</h3>${T.early_look?'<span class="rdFocus">Planning for next week</span>':''}</div>
+    ${rows.map(r=>`<div class="rdRow${r.now?' now':''}"><span class="rdL">${r.lab}<small>vs ${esc(r.opp)}</small></span><span class="rdBar"><i style="width:${Math.round((r.wp||0)*100)}%"></i></span><span class="rdP">${r.est?'~':''}${pc(r.wp)}</span>${tag(r.wp)}</div>`).join('')}
+  </section>`;
+}
 let ODDS=null;
 function oddsHtml(mine){
   const O=ODDS; if(!O||!mine) return '';
