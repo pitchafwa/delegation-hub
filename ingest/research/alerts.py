@@ -116,18 +116,23 @@ def push(title, body, priority=3, tags=None, actions=None):
     """phone alert. Keep the title under ~35 characters and the body to 2-3 short lines: iPhone shows about that much without expanding.
     actions: ntfy buttons. Only point at ESPN when there is something to do there NOW; a heads-up for later gets 'Open plan' only."""
     print(f"--- {title} (priority {priority})\n{body}" + (f"\n[buttons: {', '.join(a['label'] for a in actions)}]" if actions else "") + "\n")
-    if title != "Fantasy Hub test":
-        _ledger("alert", title=title, body=body[:600], priority=priority)
     if DRY:
         return True
     if not TOPIC:
         print("NTFY_TOPIC is not set: cannot send")
-        return False
-    payload = {"topic": TOPIC, "title": title, "message": body[:3800], "priority": priority, "tags": tags or [], "click": PLAN_URL}
-    if actions:
-        payload["actions"] = actions[:3]
-    r = requests.post("https://ntfy.sh/", json=payload, timeout=30)
-    return r.status_code == 200
+        ok = False
+    else:
+        payload = {"topic": TOPIC, "title": title, "message": body[:3800], "priority": priority, "tags": tags or [], "click": PLAN_URL}
+        if actions:
+            payload["actions"] = actions[:3]
+        try:
+            ok = requests.post("https://ntfy.sh/", json=payload, timeout=30).status_code == 200
+        except Exception as ex:
+            print("ntfy send failed:", repr(ex)[:120])
+            ok = False
+    if title != "Fantasy Hub test":
+        _ledger("alert", title=title, body=body[:600], priority=priority, ok=ok)       # ok: ntfy took it (More > Alerts shows the ones that did not)
+    return ok
 
 
 STATUS_WORD = {"ACTIVE": "healthy", "DAY_TO_DAY": "day-to-day", "OUT": "out", "INJURY_RESERVE": "on injured reserve", "SUSPENSION": "suspended"}

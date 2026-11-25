@@ -978,7 +978,7 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
   .tcFH{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin:var(--sp2) 0 var(--sp2)}
   .tcBtnsR{display:flex;justify-content:flex-end;margin-top:var(--sp4)}
   /* More sub-pages: one heading style */
-  #aboutPane>h2,#choicesPane>h2,#cloudPane>h2,#settingsPane>h2,#keepersPane>h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:1.375rem;margin:var(--sp2) 0 var(--sp3)}
+  #aboutPane>h2,#choicesPane>h2,#cloudPane>h2,#alertsPane>h2,#settingsPane>h2,#keepersPane>h2{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:1.375rem;margin:var(--sp2) 0 var(--sp3)}
   /* Today: do-now folds (2026-11-19) */
   .doNone{background:var(--surface);border-radius:12px;padding:var(--sp3) var(--sp4);color:var(--ink-soft)}
   .doNone span{display:block;font-size:.875rem;color:var(--ink-faint);margin-top:2px}
@@ -991,6 +991,16 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
   details.doLater[open]>summary{margin-bottom:var(--sp2)}
   .slTop{margin-top:var(--sp4)}
   .muChip.on{background:var(--tonal) !important;color:var(--tonal-ink) !important;border-color:var(--accent) !important}
+
+  /* Alert log (More > Alerts) */
+  .alChk{display:flex;gap:var(--sp3);align-items:center;background:var(--surface);border-radius:12px;padding:var(--sp3) var(--sp4);margin-bottom:var(--sp4)}
+  .alChk .ic{width:22px;height:22px;flex:none}
+  .alChk.ok .ic{color:var(--good)} .alChk.bad .ic{color:var(--warn)}
+  .alChk small,.alRow small{display:block;color:var(--ink-soft);font-size:.875rem;margin-top:2px}
+  .alDay{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin:var(--sp4) 0 var(--sp2)}
+  .alRow{display:flex;gap:var(--sp3);padding:var(--sp2) 0;border-bottom:1px solid var(--line)}
+  .alRow .alT{flex:none;width:4.5rem;color:var(--ink-soft);font-size:.875rem;padding-top:1px;font-variant-numeric:tabular-nums}
+  .alRow .alF{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -1015,6 +1025,7 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
       <button data-v="draft" id="draftBtn">Draft</button>
       <button data-v="about">Glossary</button>
       <button data-v="cloud">Cloud test</button>
+      <button data-v="alerts">Alerts</button>
       <button data-v="choices">Keep / pass</button>
       <button data-v="settings">Settings</button>
       <button data-v="more">More</button>
@@ -1023,6 +1034,7 @@ sup.ours{font-size:.7em;color:var(--accent);margin-left:1px;font-weight:600;curs
 
   <div id="aboutPane" style="display:none"></div>
   <div id="cloudPane" style="display:none"></div>
+  <div id="alertsPane" style="display:none"></div>
   <div id="choicesPane" style="display:none"></div>
   <div id="settingsPane" style="display:none"></div>
   <div id="morePane" style="display:none"></div>
@@ -2367,7 +2379,7 @@ function projWeeks(sp,cw){
   for(let w=cw; w<cw+12&&out.length<4; w++){ const v=sp.proj[String(w)]; if(v==null) continue; if(ag[w-1]!=null&&ag[w-1]<2.5) continue; out.push(v); }
   return out;
 }
-const VIEWS=['week','standings','sched','board','redraft','daily','teams','trades','keepers','draft','about','cloud','choices','settings','more'];
+const VIEWS=['week','standings','sched','board','redraft','daily','teams','trades','keepers','draft','about','cloud','alerts','choices','settings','more'];
 let pendingTeam=null, DO_LATER_OPEN=false;
 function setHash(v,extra,replace){   // every tab has its own address (#teams, #redraft, #teams/DRNK): refresh, bookmark and share keep you on the page
   const h='#'+v+(extra?'/'+extra:'');
@@ -2771,6 +2783,7 @@ document.addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return
 /* ===== Design system (2026-11-19, from Backlog's design review): one outline icon set, in-page confirms, the More page.
    Rules are written down in README.md "Design system". */
 const ICONS={
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   refresh:'<path d="M20 11a8 8 0 0 0-14.9-3"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.9 3"/><path d="M20 20v-4h-4"/>',
   'arrow-down':'<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>','arrow-up':'<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',
   'chevron-left':'<path d="M15 18l-6-6 6-6"/>','chevron-right':'<path d="M9 6l6 6-6 6"/>',
@@ -2809,7 +2822,7 @@ function hubConfirm(title,body,okLabel,danger){
 function renderMore(){
   const pn=document.getElementById('morePane'); if(!pn) return;
   const items=[['keepers','keep','Keepers','Pick your keepers'],['draft','list','Draft','Draft board and live draft'],['choices','check','Keep / pass','Moves you kept or passed on'],
-    ['settings','gear','Settings','Value horizon'],['about','book','Glossary','What each number means'],['cloud','cloud','Cloud test','Laptop-free trial scorecard']];
+    ['settings','gear','Settings','Value horizon'],['about','book','Glossary','What each number means'],['alerts','bell','Alerts','Phone alerts sent and the last check'],['cloud','cloud','Cloud test','Laptop-free trial scorecard']];
   if(offseason()) items.splice(0,2,['week','history','Last week','The final matchup']);
   pn.innerHTML=`<h2 class="pgT">More</h2><div class="moreList">${items.map(([v,i,l,d])=>`<button type="button" class="moreRow" data-mv="${v}">${ic(i,'lead')}<span><b>${l}</b><small>${d}</small></span>${ic('chevron-right','tail')}</button>`).join('')}</div>`;
   pn.querySelectorAll('[data-mv]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.mv)));
@@ -4758,6 +4771,24 @@ function renderStandings(){
     pane.querySelector('#stFullBtn').addEventListener('click',()=>{ stFull=!stFull; try{ localStorage.setItem('stFull',stFull?'1':'0'); }catch(e){} renderStandings(); }); }
   if(!isMobile()) mobileTables(pane);
 }
+
+// ALERT LOG (2026-11-25, Tommy): the phone alerts that went out and when the alert check last ran. alerts.yml publishes alert_log.json to the live-data branch every run.
+let ALOG=null, ALOG_AT=0;
+async function renderAlerts(){
+  const pn=document.getElementById('alertsPane');
+  if(!ALOG||Date.now()-ALOG_AT>60000){ if(!ALOG) pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
+    try{ const r=await fetch('https://raw.githubusercontent.com/pitchafwa/delegation-hub/live-data/alert_log.json?t='+Date.now(),{cache:'no-store'}); ALOG=r.ok?await r.json():null; ALOG_AT=Date.now(); }catch(e){ ALOG=null; } }
+  if(!ALOG){ pn.innerHTML='<h2>Alerts</h2><div class="hint">The alert log is not available yet.</div>'; return; }
+  const ago=iso=>{ const m=Math.round((Date.now()-new Date(iso))/60000); return m<1?'just now':m<60?`${m} min ago`:m<1440?`${Math.round(m/60)} h ago`:`${Math.round(m/1440)} d ago`; };
+  const tm=iso=>new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  const dy=iso=>new Date(iso).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+  const c=ALOG.check||{}, late=c.at&&(Date.now()-new Date(c.at))>45*60000;
+  const okc=c.ok!==false&&!late;
+  const days=[]; for(const a of (ALOG.alerts||[])){ const d=dy(a.ts); let g=days.find(x=>x.d===d); if(!g){ g={d,items:[]}; days.push(g); } g.items.push(a); }
+  pn.innerHTML=`<h2>Alerts</h2>
+    <div class="alChk ${okc?'ok':'bad'}">${ic(okc?'check':'x')}<div><b>${okc?'Alerts are running':'Alert check needs a look'}</b><small>Last check ${c.at?ago(c.at):'unknown'}${c.ok===false?' · it failed':''}${late?' · checks normally run every 5 minutes':''}</small></div></div>
+    ${days.length?days.map(g=>`<div class="alDay">${esc(g.d)}</div>${g.items.map(a=>`<div class="alRow${a.ok===false?' fail':''}"><span class="alT">${tm(a.ts)}</span><div><b>${esc(a.title)}</b>${a.body?`<small>${esc(a.body)}</small>`:''}${a.ok===false?'<small class="alF">Not delivered</small>':''}</div></div>`).join('')}`).join(''):'<div class="hint">No alerts in the last 30 days.</div>'}`;
+}
 // Laptop-free trial scorecard (2026-11-01): the cloud copy of the daily refresh vs the laptop's, one record a day on the cloud-test branch (cloud_test.py)
 let CT=null, CTL=null;
 async function renderCloud(){
@@ -4817,8 +4848,8 @@ function renderAbout(){
 /* In season the draft tools live under More; from the end of the fantasy season until opening night they move to the front. */
 const offseason=()=>!!RD&&(!!RD.preseason||(!!RD.season_end&&new Date()>new Date(RD.season_end+'T23:59:59')));
 const navGroups=()=>offseason()
-  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft'],['daily','Daily']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['more','More'],['about','Glossary'],['choices','Keep / pass'],['settings','Settings'],['week','Last week'],['cloud','Cloud test']]]]
-  :[['week','Today',[['week','Today']]],['players','Players',[['daily','Daily'],['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['more','More'],['keepers','Keepers'],['draft','Draft'],['choices','Keep / pass'],['settings','Settings'],['about','Glossary'],['cloud','Cloud test']]]];
+  ?[['draft','Draft',[['keepers','Keepers'],['draft','Draft']]],['players','Players',[['board','Dynasty'],['redraft','Redraft'],['daily','Daily']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['more','More'],['about','Glossary'],['choices','Keep / pass'],['settings','Settings'],['week','Last week'],['alerts','Alerts'],['cloud','Cloud test']]]]
+  :[['week','Today',[['week','Today']]],['players','Players',[['daily','Daily'],['redraft','Redraft'],['board','Dynasty']]],['league','League',[['standings','Standings'],['teams','Teams'],['sched','Matchups']]],['trades','Trades',[['trades','Trades']]],['more','More',[['more','More'],['keepers','Keepers'],['draft','Draft'],['choices','Keep / pass'],['settings','Settings'],['about','Glossary'],['alerts','Alerts'],['cloud','Cloud test']]]];
 const lastInGroup={};
 function renderNav(){
   const btn=v=>document.querySelector(`#segView button[data-v="${v}"]`);
@@ -4846,10 +4877,10 @@ document.addEventListener('click',e=>{
 function wire(){
   document.getElementById('segView').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
-    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,daily:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!W,draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,choices:()=>true,settings:()=>!!D,more:()=>true};
+    const READY={week:()=>!!W,standings:()=>!!(ODDS&&W),sched:()=>!!(ODDS&&W),board:()=>!!D,redraft:()=>!!RD,daily:()=>!!RD,teams:()=>!!(D&&L),trades:()=>!!W,draft:()=>!!(D&&DR),keepers:()=>!!(D&&DR),about:()=>true,cloud:()=>true,alerts:()=>true,choices:()=>true,settings:()=>!!D,more:()=>true};
     if(READY[b.dataset.v]&&!READY[b.dataset.v]()){
       [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed', x===b));
-      ['board','redraft','daily','about','standings','teams','week','trades','sched','draft','keepers','cloud','choices','settings','more'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
+      ['board','redraft','daily','about','standings','teams','week','trades','sched','draft','keepers','cloud','alerts','choices','settings','more'].forEach(k=>{ const el=document.getElementById(k+'Pane'); if(el) el.style.display=(k===b.dataset.v)?'':'none'; });
       const pn=document.getElementById(b.dataset.v+'Pane'); if(pn&&!pn.innerText.trim()) pn.innerHTML='<div class="hint" style="padding:1rem">Loading…</div>';
       setHash(b.dataset.v); renderNav(); return;
     }
@@ -4862,6 +4893,8 @@ function wire(){
     document.getElementById('aboutPane').style.display = b.dataset.v==='about' ? '' : 'none';
     document.getElementById('cloudPane').style.display = b.dataset.v==='cloud' ? '' : 'none';
     if(b.dataset.v==='cloud') renderCloud();
+    document.getElementById('alertsPane').style.display = b.dataset.v==='alerts' ? '' : 'none';
+    if(b.dataset.v==='alerts') renderAlerts();
     if(b.dataset.v==='choices') renderChoices();
     document.getElementById('settingsPane').style.display = b.dataset.v==='settings' ? '' : 'none';
     if(b.dataset.v==='settings') renderSettings();
