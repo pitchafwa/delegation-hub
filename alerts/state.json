@@ -66,11 +66,6 @@
    "espn": "ACTIVE",
    "official": null
   },
-  "4432847": {
-   "date": "2026-11-25",
-   "espn": "ACTIVE",
-   "official": null
-  },
   "4433083": {
    "date": "2026-11-25",
    "espn": "ACTIVE",
@@ -120,7 +115,8 @@
  "league_req": "2026-10-26",
  "lu": {},
  "my_drops": {
-  "3133626": "2026-11-22"
+  "3133626": "2026-11-22",
+  "4432847": "2026-11-25"
  },
  "pickup_sent": {},
  "plan_announced": {
