@@ -9,6 +9,7 @@ league draft history and doesn't depend on which player-value engine
 produces the underlying projections.
 """
 import json
+import os
 import pickle
 import re
 import sys
@@ -232,6 +233,39 @@ try:
     print(f"  wrote delco_pregame.csv ({len(_out)} rows)")
 except Exception as _ex:
     print("  delco_pregame.csv skipped:", repr(_ex)[:120])
+# RISER CORRECTION (2026-11-25, Tommy; delco_riser_study.py, data/delco_riser_model.json). Season DELCO keeps too little of a player's in-season change: 16-20 games
+# in, a player 5+ over DELCO kept ~60% of that gap over his next 30 games, and slumpers mirror it. Correction = const + gap (avg so far - DELCO) + form (last 10 - so far)
+# + minutes vs DELCO's expected minutes + minutes trend (last 5 - so far), by stage (games this season; none before game 3). Test seasons 2021-26, next 30 games:
+# error 4.49 -> 4.30 points a game, risers 5+ 5.86 -> 4.68, better in every season. build_hub_data.py adds it to season_ppg (not live-rookie numbers). RISER=0 turns it off.
+RISER = {}
+try:
+    if os.environ.get("RISER", "1") != "0":
+        _rm = json.load(open(ROOT / "data" / "delco_riser_model.json"))
+        _co = _rm["models"]["F3"]
+        _labs = ["3-5", "8-12", "16-20", "25-50"]
+        _cs = df["SEASON"].max()
+        _m = (df["SEASON"] == _cs).to_numpy() & (df["MIN"].to_numpy() > 0)
+        _fpg = (sum(w * df[k] for k, w in _W.items()) + 3.0 * df["STL"]).to_numpy()
+        _cur_all = _now.to_numpy()
+        _amin_all = df["_postS_MIN"].to_numpy()
+        _pidv, _minv = df["PLAYER_ID"].to_numpy(), df["MIN"].to_numpy(float)
+        for _pid in np.unique(_pidv[_m]):
+            _ix = np.flatnonzero(_m & (_pidv == _pid))
+            n_ = len(_ix)
+            if n_ < 3:
+                continue
+            _f, _mn = _fpg[_ix], _minv[_ix]
+            _cur = float(_cur_all[_ix[-1]])
+            gap = _f.mean() - _cur
+            trend = _f[-10:].mean() - _f.mean()
+            mgap = _mn.mean() - float(_amin_all[_ix[-1]])
+            mtrend = _mn[-5:].mean() - _mn.mean()
+            st = next(i for i, (lo, hi) in enumerate(_rm["stages"]) if lo <= n_ <= hi)
+            c = _co[_labs[st]]
+            RISER[int(_pid)] = round(float(c[0] + c[1] * gap + c[2] * trend + c[3] * mgap + c[4] * mtrend), 2)
+        print(f"  riser correction for {len(RISER)} players this season (median {np.median(list(RISER.values())) if RISER else 0:+.2f})")
+except Exception as _ex:
+    print("  riser correction skipped:", repr(_ex)[:120])
 print("  STL year-0 set to flat career rate (no Kalman filter -- tested, didn't help).")
 
 season_base = pd.read_csv(ROOT / "data" / "player_season_base.csv")
@@ -318,7 +352,7 @@ if __name__ == "__main__":
         season_ppg = max(0.0, fantasy_ppg({s: float(year0_season.loc[pid, s]) for s in STATS}) + 3 * float(td3_pg.get(pid, 0.0)))
         rows.append({
             "PLAYER_ID": pid, "player": names.get(pid, ""), "age": round(float(last_game_age.get(pid, np.nan)), 1),
-            "current_year_ppg": round(traj[0], 1), "season_ppg": round(season_ppg, 1), "peak_ppg": round(max(traj), 1),
+            "current_year_ppg": round(traj[0], 1), "season_ppg": round(season_ppg, 1), "riser_adj": RISER.get(int(pid), 0.0), "peak_ppg": round(max(traj), 1),
             "peak_year_index": int(np.argmax(traj)), "trajectory": [round(v, 1) for v in traj],
             "vor": total, "years_above_replacement": yrs,
             "had_output_b_prior": bool(pid in output_b_priors),

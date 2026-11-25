@@ -377,6 +377,15 @@ VET_IN_N = 2
 vet_in = np.zeros(len(live), dtype=bool)          # flagged so build_hub_data does not scale this season's number up to season mode a second time
 _dl = pd.read_csv(D / "delco_pregame_all.csv.gz", usecols=["PLAYER_ID", "GAME_DATE", "SEASON", "after"])
 _dl = _dl[_dl["SEASON"] == f"{ROOKIE_CLASS}-{str(ROOKIE_CLASS + 1)[2:]}"].sort_values("GAME_DATE").groupby("PLAYER_ID")["after"].agg(["count", "last"])
+# 2026-11-25 (Tommy; delco_riser_study.py + riser_path_test.py): THIS season now moves toward season DELCO + the riser correction (kalman_vor.py RISER) with a flat
+# w 0.7. Held out on 2021-25 (correction fit on 2011-21 only), rest-of-season error: after 5 games 5.56 -> 5.41, 10: 5.49 -> 5.28, 20: 5.41 -> 5.18, 30: 5.39 -> 5.16;
+# risers' miss +1.9 -> +0.3. The old rule's extra push (w 1.0 when DELCO is 5+ above the path) overshoots on corrected DELCO (-1.0 to -1.3), so it is dropped.
+# Next seasons (h 2+) keep the uncorrected DELCO and their weights (untested with the correction). RISER=0 restores the old rule.
+try:
+    _RA = pd.read_csv(D / "current_player_trajectories.csv", usecols=["PLAYER_ID", "riser_adj"]).set_index("PLAYER_ID")["riser_adj"].dropna().to_dict()
+except Exception:
+    _RA = {}
+_RISER_ON = os.environ.get("RISER", "1") != "0" and bool(_RA)
 for i, pid in enumerate(live["PLAYER_ID"]):
     pid = int(pid)
     if pid not in _dl.index or int(_dl.loc[pid, "count"]) < VET_IN_N or np.isnan(E_v[i, 0]):
@@ -388,8 +397,11 @@ for i, pid in enumerate(live["PLAYER_ID"]):
     w = {1: 1.0 if d0 >= 5 else (0.6 if d0 <= -5 else 0.7), 2: float(np.interp(n, [2, 5, 20], [0.4, 0.4, 0.5])), 3: float(np.interp(n, [2, 3, 20], [0.2, 0.3, 0.4]))}
     for h in range(1, H + 1):
         wh = w[h] if h <= 3 else w[3] * 0.7 ** (h - 3)
+        tgt_ = s_
+        if h == 1 and _RISER_ON:
+            wh, tgt_ = 0.7, max(0.0, s_ + float(_RA.get(pid, 0.0)))
         if not np.isnan(E_v[i, h - 1]):
-            E_v[i, h - 1] = max(E_v[i, h - 1] + wh * (s_ - E_v[i, h - 1]), 0.0)
+            E_v[i, h - 1] = max(E_v[i, h - 1] + wh * (tgt_ - E_v[i, h - 1]), 0.0)
     if abs(d0) >= 8:
         print(f"  vet in-season: {live.loc[i, 'player'] if 'player' in live.columns else pid} {n} games, season DELCO {s_:5.1f}: path {before} -> {E_v[i, :3].round(1).tolist()}")
 elite_p = (pr_pick <= 5) & (pr_age <= 21.5)

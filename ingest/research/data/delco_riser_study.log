@@ -1,0 +1,66 @@
+checkpoints 37,641 (fit 23,841, test 13,800), player-seasons 4,193
+
+A. Is DELCO biased? next 30 minus DELCO by season (all checkpoints)
+   2011-12  n= 2139  mean +1.54   rest of season +1.69
+   2012-13  n= 2395  mean +1.73   rest of season +1.80
+   2013-14  n= 2295  mean +1.73   rest of season +1.69
+   2014-15  n= 2306  mean +1.44   rest of season +1.50
+   2015-16  n= 2378  mean +2.01   rest of season +2.49
+   2016-17  n= 2507  mean +1.93   rest of season +2.06
+   2017-18  n= 2318  mean +1.79   rest of season +1.95
+   2018-19  n= 2556  mean +2.02   rest of season +2.37
+   2019-20  n= 2430  mean +1.68   rest of season +1.78
+   2020-21  n= 2517  mean +2.21   rest of season +2.42
+   2021-22  n= 2711  mean +2.10   rest of season +2.37
+   2022-23  n= 2756  mean +0.91   rest of season +1.06
+   2023-24  n= 2608  mean +1.02   rest of season +1.27
+   2024-25  n= 2723  mean +1.13   rest of season +1.45
+   2025-26  n= 3002  mean +0.21   rest of season +0.23
+
+B. Next 30 minus DELCO by gap (so far minus DELCO) and stage, all seasons
+   games 3-5    [-99,-5) -0.65 (n=1599)  [-5,-2) +0.48 (n=1543)  [-2,+2) +1.40 (n=2601)  [+2,+5) +1.68 (n=1212)  [+5,+99) +3.45 (n=1398)
+   games 8-12   [-99,-5) -1.00 (n=526)  [-5,-2) +0.02 (n=1553)  [-2,+2) +1.32 (n=3713)  [+2,+5) +2.25 (n=1480)  [+5,+99) +4.96 (n=895)
+   games 16-20  [-99,-5) -2.36 (n=113)  [-5,-2) -0.07 (n=1174)  [-2,+2) +1.19 (n=4431)  [+2,+5) +2.62 (n=1536)  [+5,+99) +6.34 (n=620)
+   games 25-50  [-99,-5) -5.89 (n=26)  [-5,-2) -0.39 (n=787)  [-2,+2) +1.23 (n=9357)  [+2,+5) +2.95 (n=2474)  [+5,+99) +7.02 (n=603)
+
+C. Out of sample (test 2021-22..2025-26): error of each candidate (RMSE / MAE / mean miss), weighted by games
+  target: next 30 games
+    F0 DELCO as is             RMSE 5.847  MAE 4.488  bias +1.07   |  risers 5+: 5.86 (+3.80)  slumpers 5+: 4.55 (-0.96)  rest: 4.37 (+1.04)
+    F1 + constant              RMSE 5.794  MAE 4.506  bias -0.73   |  risers 5+: 5.25 (+2.14)  slumpers 5+: 4.98 (-2.52)  rest: 4.40 (-0.80)
+    F2 + gap                   RMSE 5.637  MAE 4.369  bias -0.24   |  risers 5+: 4.97 (-0.75)  slumpers 5+: 4.42 (+0.16)  rest: 4.32 (-0.24)
+    F3 + gap, form, minutes    RMSE 5.561  MAE 4.304  bias -0.13   |  risers 5+: 4.68 (-0.53)  slumpers 5+: 4.41 (+0.09)  rest: 4.27 (-0.12)
+    F4 F3 split by gap sign    RMSE 5.560  MAE 4.303  bias -0.14   |  risers 5+: 4.69 (-0.65)  slumpers 5+: 4.40 (-0.13)  rest: 4.26 (-0.10)
+
+  target: rest of season
+    F0 DELCO as is             RMSE 5.961  MAE 4.545  bias +1.38   |  risers 5+: 5.66 (+3.39)  slumpers 5+: 4.40 (-0.31)  rest: 4.46 (+1.37)
+    F1 + constant              RMSE 5.831  MAE 4.513  bias -0.59   |  risers 5+: 5.15 (+1.48)  slumpers 5+: 4.76 (-2.18)  rest: 4.43 (-0.61)
+    F2 + gap                   RMSE 5.732  MAE 4.434  bias -0.14   |  risers 5+: 5.10 (-1.04)  slumpers 5+: 4.35 (+0.20)  rest: 4.38 (-0.10)
+    F3 + gap, form, minutes    RMSE 5.693  MAE 4.397  bias -0.05   |  risers 5+: 4.85 (-0.83)  slumpers 5+: 4.38 (+0.12)  rest: 4.36 (-0.00)
+    F4 F3 split by gap sign    RMSE 5.693  MAE 4.396  bias -0.06   |  risers 5+: 4.87 (-0.93)  slumpers 5+: 4.38 (-0.07)  rest: 4.36 (+0.02)
+
+D. By stage, next 30 games MAE (test): F0 vs F2 vs F3
+   games 3-5    n= 3111   F0 4.728   F2 4.610   F3 4.609
+   games 8-12   n= 3014   F0 4.548   F2 4.441   F3 4.418
+   games 16-20  n= 2893   F0 4.388   F2 4.240   F3 4.171
+   games 25-50  n= 4782   F0 4.336   F2 4.228   F3 4.090
+
+coefficients refit on 2011-26 (next 30 games; columns: const, gap[, trend, mgap, mtrend]):
+   F2 games 3-5    [1.2691, 0.2366]
+   F2 games 8-12   [1.326, 0.4276]
+   F2 games 16-20  [1.2076, 0.5973]
+   F2 games 25-50  [1.1581, 0.6802]
+   F3 games 3-5    [1.2543, 0.2034, 0.0, 0.1133, 0.0]
+   F3 games 8-12   [1.1272, 0.3136, 0.0876, 0.3418, 0.1169]
+   F3 games 16-20  [0.8131, 0.3704, 0.0763, 0.5349, 0.2219]
+   F3 games 25-50  [0.7024, 0.4304, 0.1404, 0.5797, 0.257]
+
+wrote data/delco_riser_model.json
+
+E. The constant, per test season (next 30 games: MAE / mean miss)
+   2021-22   F0 4.738 (+2.09)   F3 4.361 (+0.51)   F3n 4.490 (+1.36)   F3r 4.375 (+0.34, const +1.02)
+   2022-23   F0 4.320 (+0.92)   F3 4.153 (-0.38)   F3n 4.165 (+0.52)   F3r 4.211 (-0.72, const +1.23)
+   2023-24   F0 4.597 (+0.98)   F3 4.293 (-0.36)   F3n 4.287 (+0.54)   F3r 4.291 (-0.34, const +0.88)
+   2024-25   F0 4.285 (+1.15)   F3 4.226 (+0.17)   F3n 4.325 (+1.17)   F3r 4.275 (+0.69, const +0.48)
+   2025-26   F0 4.504 (+0.29)   F3 4.475 (-0.57)   F3n 4.479 (+0.47)   F3r 4.485 (-0.37, const +0.84)
+   all test: F3n MAE 4.351 bias +0.81; risers 5+ 4.57; slumpers 5+ 4.57
+F3n refit on 2011-26: 3-5 [0.0, 0.188, 0.0, 0.142, 0.0]; 8-12 [0.0, 0.278, 0.126, 0.522, 0.185]; 16-20 [0.0, 0.336, 0.103, 0.733, 0.239]; 25-50 [0.0, 0.4, 0.159, 0.807, 0.266]

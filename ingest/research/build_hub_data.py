@@ -273,7 +273,9 @@ for _, r in current.iterrows():
         "history_values": hist["values"],
         "year0_ppg": _traj_c[0],
         # season mode: the same projection, re-weighted by how much faster season-mode DELCO reacts to this season's games (ratio of the two raw filter outputs)
-        "season_ppg": _traj_c[0] if int(r["PLAYER_ID"]) in ROOKIE_LIVE else round(_traj_c[0] * float(np.clip((r["season_ppg"] / r["trajectory"][0]) if ("season_ppg" in r and pd.notna(r["season_ppg"]) and r["trajectory"][0] > 0) else 1.0, 0.6, 1.6)), 1),
+        "season_ppg": _traj_c[0] if int(r["PLAYER_ID"]) in ROOKIE_LIVE else round(max(0.0, _traj_c[0] * float(np.clip((r["season_ppg"] / r["trajectory"][0]) if ("season_ppg" in r and pd.notna(r["season_ppg"]) and r["trajectory"][0] > 0) else 1.0, 0.6, 1.6))
+                                                                                  + (float(r["riser_adj"]) if "riser_adj" in r and pd.notna(r["riser_adj"]) else 0.0)), 1),      # + riser correction (kalman_vor.py RISER, 2026-11-25)
+        "riser_adj": None if int(r["PLAYER_ID"]) in ROOKIE_LIVE else (float(r["riser_adj"]) if "riser_adj" in r and pd.notna(r["riser_adj"]) else None),
         "peak_ppg": max(_traj_c),
         "peak_year_index": int(np.argmax(_traj_c)),
         "trajectory": _traj_c,
