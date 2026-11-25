@@ -131,9 +131,9 @@
   "5241364:2026-11-22::today": "2026-11-22"
  },
  "plan_rebuild": {
-  "at": "2026-11-25T18:01:10+00:00",
-  "sig": "3978,6430,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "NBA injury report: Grayson Allen Questionable to Out, Miles McBride Questionable to Out"
+  "at": "2026-11-25T18:15:33+00:00",
+  "sig": "3978,6430,3135045,3907497,4065648,4065733,4066436,4395724,4431680,4431785,4432194,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
+  "why": "roster changed: +De'Anthony Melton"
  },
  "report_rebuild_sig": "2026-11-25:Grayson Allen Questionable to Out|Miles McBride Questionable to Out",
  "rosterfix_sent": {
