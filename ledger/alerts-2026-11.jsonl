@@ -117,3 +117,5 @@
 {"kind":"late_scratch","ts":"2026-11-23T08:00:37-05:00","player":"Grayson Allen","stage":1,"mins_to_tip":659,"swap":"Scottie Barnes"}
 {"kind":"alert","ts":"2026-11-24T08:00:44-05:00","title":"Now: add DeMar DeRozan","body":"Open roster spot before 7pm, when today's first game locks roster moves. Rental: drop him after tonight's game, +25 pts. If he's gone: Isaiah Joe.","priority":4}
 {"kind":"alert","ts":"2026-11-25T08:00:39-05:00","title":"Activate Grayson Allen from IR now","body":"NBA injury report: questionable tonight. ESPN still lists him out and may not update before IR moves lock at 5pm. Once he's on your bench you can start or sit him right up to his tip. Drop Terrence Shannon Jr. to make room.","priority":4}
+{"kind":"alert","ts":"2026-11-25T13:01:12-05:00","title":"Swap out Grayson Allen by 7pm","body":"Grayson Allen (SG) is out (injury report).\nNo bench fit. Free agent: De'Anthony Melton (~36 pts), costs an add. Add him before 5pm, when roster moves lock.","priority":4}
+{"kind":"late_scratch","ts":"2026-11-25T13:01:12-05:00","player":"Grayson Allen","stage":1,"mins_to_tip":359,"swap":null}
