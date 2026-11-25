@@ -11,107 +11,110 @@
  },
  "fa_high": {},
  "fa_official": {
-  "date": "2026-11-24",
-  "st": {}
+  "date": "2026-11-25",
+  "st": {
+   "bensaraf": "Out",
+   "brandonwilliams": "Questionable"
+  }
  },
  "irback_sent": {
   "4065733:2026-11-22": "2026-11-22"
  },
  "last_status": {
   "3135045": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "OUT",
-   "official": null
+   "official": "Questionable"
   },
   "3907497": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "OUT",
    "official": null
   },
   "3978": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4065648": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4065733": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4395724": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4431680": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4431785": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   },
   "4432194": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4432847": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4433083": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4433134": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4594327": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4683678": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "4684740": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "5041939": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "5041955": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "5105565": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "ACTIVE",
    "official": null
   },
   "6430": {
-   "date": "2026-11-24",
+   "date": "2026-11-25",
    "espn": "OUT",
-   "official": null
+   "official": "Out"
   }
  },
  "league_req": "2026-10-26",
@@ -128,11 +131,11 @@
   "5241364:2026-11-22::today": "2026-11-22"
  },
  "plan_rebuild": {
-  "at": "2026-11-25T01:40:31+00:00",
+  "at": "2026-11-25T05:02:59+00:00",
   "sig": "3978,6430,3135045,3907497,4065648,4065733,4395724,4431680,4431785,4432194,4432847,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "scheduled build at 01:07Z did not run (plan from 23:06Z)"
+  "why": "NBA injury report: Jimmy Butler III not listed to Out, Grayson Allen not listed to Questionable, Scotty Pippen Jr. not listed to Out"
  },
- "report_rebuild_sig": "2026-11-23:Dean Wade Probable to Available",
+ "report_rebuild_sig": "2026-11-25:Grayson Allen not listed to Questionable|Jimmy Butler III not listed to Out|Scotty Pippen Jr. not listed to Out",
  "rosterfix_sent": {
   "3135045:to_ir": "2026-11-23",
   "4065648:to_ir": "2026-11-22"
