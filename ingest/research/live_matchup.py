@@ -241,6 +241,31 @@ def main():
             starts[tid] += n_
             if d < TODAY:
                 sb[tid] += n_
+    # ---- history (kept on the live-data branch between runs)
+    # A failed read must not count as "no history yet": that published an empty chart over the good one (2026-11-04 19:55 UTC). Retry, then skip this run and leave the last
+    # published file alone; the next run is 5 minutes away. Only a matchup never published before starts from nothing.
+    hist, prev_proj, prev = [], {}, None
+    for _try in range(4):
+        try:
+            # GitHub's API first: the raw address serves a newly published file about 5 minutes late (measured 2026-11-05), so each run built on an old copy and lost readings
+            _tok = os.environ.get("GITHUB_TOKEN")
+            _r = requests.get(API_URL + f"&t={int(NOW.timestamp())}{_try}", timeout=20, headers={"Accept": "application/vnd.github.raw+json", **({"Authorization": f"Bearer {_tok}"} if _tok else {})}) if _try < 3 \
+                else requests.get(RAW_URL + f"?t={int(NOW.timestamp())}{_try}", timeout=20)
+            _r.raise_for_status()
+            prev = _r.json()
+            break
+        except Exception as ex:
+            print("could not read the last published file:", ex)
+            if _try < 3:
+                time.sleep(5 * (_try + 1))
+    if prev is None:
+        _led = ROOT / "ledger" / f"live-{TODAY.strftime('%Y-%m')}.jsonl"
+        if _led.exists() and f'"matchup":{mp},' in _led.read_text(encoding="utf-8"):
+            print("skipping this run so the published history is kept")
+            return
+    elif prev.get("matchup") == mp and prev.get("season") == YEAR:
+        hist = prev.get("history", [])
+        prev_proj = prev.get("proj_by_day") or {}
     # ---- expected points still to come
     plan_team = {t["id"]: t for t in W.get("teams", [])} if plan_match else {}
     plan_roster = {tid: {p["id"]: p for p in plan_team[tid]["roster"]} for tid in plan_team}
@@ -267,12 +292,17 @@ def main():
             not_dressed = bool(gi) and not e["played"] and e["id"] is not None and int(e["id"]) in ruled_out(gi.get("event"))      # ruled out on the game page
             lvl = pr.get("tonight") or pr.get("level", 22.0)
             boost = 0.0 if pr.get("tonight") else ((pr.get("boost") or {}).get(TODAY.isoformat(), 0.0) if isinstance(pr.get("boost"), dict) else 0.0)   # "tonight" already includes it
+            # PREGAME NUMBER STAYS PUT (2026-11-25, Tommy): once his game tips, use the projection saved before tip-off (proj_by_day), not the current plan's.
+            # A plan rebuilt mid-game (after the props come down, or after the lock) can carry a different number, which changed his "proj" partway through the game.
+            _saved = ((prev_proj.get(TODAY.isoformat()) or {}).get("me" if tid == my_id else "opp") or {}).get(str(e["id"])) if started else None
+            if _saved:
+                lvl, boost = float(_saved), 0.0
             fin = live_final(e, gi, lvl) if (e["played"] and gi and gi["state"] == "in") else None
             if gi is not None or not prog:
                 outp = e["status"] in ("OUT", "INJURY_RESERVE", "SUSPENSION") or not_dressed
                 stt = ("out" if outp and not e["played"] else ("final" if gi and gi["state"] == "post" else ("live" if gi and gi["state"] == "in" else "pre"))) if gi else ("final" if e["played"] else "pre")
                 lineup[tid].append({"name": e["name"], "slot": _PM.get(e["slot"], ""), "pts": round(e["pts"], 1) if e["played"] else (0.0 if started and not outp else None), "st": stt,
-                                    "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"]),
+                                    "clock": gi["clock"] if gi else "", "tip": gi["tip"] if gi else None, "proj": round(float(_saved or pr.get("tonight") or pr.get("level") or 0), 1), "played": bool(e["played"]),
                                     "left": prog.get(tcanon), "final": round(fin, 1) if fin is not None else None})   # share of his game left; projected final (live_final)
             left = prog.get(canon(PRO_TEAM_MAP.get(e["team"]) or ""), None)
             if left is None:
@@ -425,31 +455,6 @@ def main():
     margin = pts[my_id] - pts[opp_id]
     mu = margin + BETA * (exp_rem[my_id] - exp_rem[opp_id])
     wp = Phi(mu / sigma(rem_days)) if rem_days > 0.02 else (1.0 if margin > 0 else 0.0 if margin < 0 else 0.5)
-    # ---- history (kept on the live-data branch between runs)
-    # A failed read must not count as "no history yet": that published an empty chart over the good one (2026-11-04 19:55 UTC). Retry, then skip this run and leave the last
-    # published file alone; the next run is 5 minutes away. Only a matchup never published before starts from nothing.
-    hist, prev_proj, prev = [], {}, None
-    for _try in range(4):
-        try:
-            # GitHub's API first: the raw address serves a newly published file about 5 minutes late (measured 2026-11-05), so each run built on an old copy and lost readings
-            _tok = os.environ.get("GITHUB_TOKEN")
-            _r = requests.get(API_URL + f"&t={int(NOW.timestamp())}{_try}", timeout=20, headers={"Accept": "application/vnd.github.raw+json", **({"Authorization": f"Bearer {_tok}"} if _tok else {})}) if _try < 3 \
-                else requests.get(RAW_URL + f"?t={int(NOW.timestamp())}{_try}", timeout=20)
-            _r.raise_for_status()
-            prev = _r.json()
-            break
-        except Exception as ex:
-            print("could not read the last published file:", ex)
-            if _try < 3:
-                time.sleep(5 * (_try + 1))
-    if prev is None:
-        _led = ROOT / "ledger" / f"live-{TODAY.strftime('%Y-%m')}.jsonl"
-        if _led.exists() and f'"matchup":{mp},' in _led.read_text(encoding="utf-8"):
-            print("skipping this run so the published history is kept")
-            return
-    elif prev.get("matchup") == mp and prev.get("season") == YEAR:
-        hist = prev.get("history", [])
-        prev_proj = prev.get("proj_by_day") or {}
     try:                                                     # points put back after that wipe, merged in every run
         _rs = json.load(open(Path(__file__).resolve().parent / "data" / "live_history_restore.json", encoding="utf-8")).get(str(YEAR), {}).get(str(mp), [])
         if _rs:
