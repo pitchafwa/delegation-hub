@@ -128,9 +128,9 @@
   "4066436:2026-11-25::today": "2026-11-25"
  },
  "plan_rebuild": {
-  "at": "2026-11-26T09:24:44+00:00",
+  "at": "2026-11-26T22:40:34+00:00",
   "sig": "3978,6430,3135045,3907497,4065648,4065733,4066436,4395724,4431680,4431785,4432194,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "new free agent(s) to evaluate: Malcolm Brogdon"
+  "why": "scheduled build at 22:07Z did not run (plan from 20:06Z)"
  },
  "report_rebuild_sig": "2026-11-25:Grayson Allen Questionable to Out|Miles McBride Questionable to Out",
  "rosterfix_sent": {
