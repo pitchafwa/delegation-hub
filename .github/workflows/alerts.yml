@@ -98,9 +98,14 @@ jobs:
             git init -q -b live-data
             git config user.name "alerts-bot"
             git config user.email "alerts-bot@users.noreply.github.com"
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+            # keep every published file this run did not write (2026-11-26: on a no-games day the tracker wrote nothing, and publishing only the alert log
+            # wiped live_matchup.json, so Today lost the earlier days of the matchup and the tracker could not read its own history back)
+            if git fetch -q --depth 1 origin live-data; then
+              for f in $(git ls-tree --name-only FETCH_HEAD); do [ -f "$f" ] || git checkout -q FETCH_HEAD -- "$f"; done
+            fi
             git add *.json
             git commit -q -m "live data"
-            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
             git push -q -f origin live-data
           fi
 
