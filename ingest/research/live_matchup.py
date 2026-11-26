@@ -5,7 +5,8 @@ Runs every 20 minutes from the alerts workflow (needs ESPN_S2 / SWID) and publis
   score          ESPN's LIVE totals (totalPointsLive: includes games in progress)
   expected rest  players in each team's ACTUAL lineup today: the unplayed share of their game (from ESPN's NBA scoreboard clock) x their level (tonight's projection when the plan has one)
                  x chance of playing for players not in yet, plus the plan's expected points for the days after today
-  win chance     Phi( (margin now + 0.72 x expected remaining margin) / sigma(days left) ), fit and checked on 2025-26 (win_prob_study.py: calibrated within ~2 points)
+  win chance     Phi( (margin now + today's expected remaining margin + 0.72 x the later days' expected margin) / sigma(days left) ), fit and checked on 2025-26
+                 (win_prob_study.py: calibrated within ~2 points); today's part counts in full since 2026-11-25 (see TODAY COUNTS IN FULL below)
   the cap        starts so far vs the games-played cap (a locked lineup ends scoring for the week)
 Test on last season:  LIVE_YEAR=2026 LIVE_DATE=2026-01-15 LIVE_MP=13 uv run python research/live_matchup.py --dry
 """
@@ -453,7 +454,12 @@ def main():
     rem_days = frac_today + fut_days
     exp_rem = {tid: rem_today[tid] + fut[tid] for tid in (my_id, opp_id)}
     margin = pts[my_id] - pts[opp_id]
-    mu = margin + BETA * (exp_rem[my_id] - exp_rem[opp_id])
+    # TODAY COUNTS IN FULL (2026-11-25, Tommy: "my win prob dropped a lot during the early games even though those players were only scoring at or near their projections").
+    # The 0.72 was fit at day boundaries on a crude baseline (each team's recent points per day), and was applied to tonight's points still to come as well. Points scored
+    # count in full, so when one side's games came first, its players scoring exactly on projection moved points from 0.72 to 1.0 and the win chance slid (tonight: 61% -> 53%
+    # on schedule alone, then back up as the late games played). Measured on this season's live log (19 complete days): tonight's projected gap from the actual lineups came
+    # true at a slope of 0.96 (SE 0.14), and counting it in full fits better (miss 47.9 vs 50.8). The later days keep the 0.72 (their gap came true far less: slope 0.25, n=14).
+    mu = margin + (rem_today[my_id] - rem_today[opp_id]) + BETA * (fut[my_id] - fut[opp_id])
     wp = Phi(mu / sigma(rem_days)) if rem_days > 0.02 else (1.0 if margin > 0 else 0.0 if margin < 0 else 0.5)
     try:                                                     # points put back after that wipe, merged in every run
         _rs = json.load(open(Path(__file__).resolve().parent / "data" / "live_history_restore.json", encoding="utf-8")).get(str(YEAR), {}).get(str(mp), [])
