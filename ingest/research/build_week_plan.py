@@ -176,13 +176,16 @@ LOOK_DAYS, NEXT_CAP = [], cap
 # nearly decided either way (the last plan's lev_now: a point now is worth half a toss-up point or less, about 87%+ or 13%-) and next week is close
 # (playoff_odds.json road: its leverage 0.75+), next matchup is scored from any day of the week, with its points weighted by its leverage (NEXT_LEV below).
 # This week's adds then go to players who also help next week. Regular season only. NO_EARLY_LOOK=1 turns it off.
+# Every move is still charged its real effect on THIS week's win chance (this_week_value, from where the matchup stands after earlier moves), so the plan
+# only gives up this-week points where next week gains more: 87% -> 67% would cost ~190 toss-up points. Once on, it stays on this matchup until a point
+# now is worth 0.7 of a toss-up point (about 80%), so a small dip from moves already made does not flip the plan back and forth (2026-11-25, Tommy).
 EARLY_LOOK = None
 try:
     if not os.environ.get("NO_EARLY_LOOK") and mp_id < _CAL["last_week"] and (mp_id + 1) not in set(_CAL.get("playoff_weeks") or []):
         _wp0 = json.load(open(HUB / "week_plan.json", encoding="utf-8"))
         _me0 = next((t for t in _wp0.get("teams", []) if t.get("abbrev") == _wp0.get("my_abbrev")), {})
         _rd0 = next((x for x in (json.load(open(HUB / "playoff_odds.json", encoding="utf-8")).get("road") or []) if int(x["week"]) == mp_id + 1), None)
-        if (int((_wp0.get("matchup") or {}).get("id") or 0) == mp_id and _me0.get("lev_now") is not None and float(_me0["lev_now"]) <= float(os.environ.get("EARLY_LOOK_MAX", "0.5"))
+        if (int((_wp0.get("matchup") or {}).get("id") or 0) == mp_id and _me0.get("lev_now") is not None and float(_me0["lev_now"]) <= (0.7 if _me0.get("early_look") else float(os.environ.get("EARLY_LOOK_MAX", "0.5")))
                 and _rd0 is not None and float(_rd0["lev"]) >= float(os.environ.get("EARLY_LOOK_MIN_NEXT", "0.75"))):
             EARLY_LOOK = {"wp_now": _me0.get("win_prob"), "lev_now": _me0["lev_now"], "wp_next": _rd0["wp"], "lev_next": _rd0["lev"], "opp_next": _rd0["opp_abbrev"]}
 except Exception as _ex:

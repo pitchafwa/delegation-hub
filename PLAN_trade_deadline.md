@@ -1,6 +1,6 @@
 # Plan: trade deadline calendar + injured-star buy list
 
-Status: PLAN ONLY (Tommy, 2026-11-25: "make a plan for this but don't implement yet"). Backlog item #3.
+Status: PLAN ONLY, questions answered; build on Tommy's go-ahead (Tommy, 2026-11-25: "make a plan for this but don't implement yet"). Backlog item #3.
 
 ## What we know
 
@@ -44,11 +44,11 @@ For every injured player on another team whose healthy level is 35+:
 2. **Are injured stars really cheap in this league?** There are only ~9 completed trades, so this can't be measured here. Use the league-price model's discount and be upfront that it's a model price, not a market record.
 3. **A replay of 2025-26:** what the list would have ranked at three dates, and how those players did in the playoff weeks.
 
-## 4. Questions for Tommy before building
+## 4. Decisions (Tommy, 2026-11-25)
 
-- **Phone alert:** a single alert a few days before the deadline (only if a list target is still open), or site only? The default would be site only, per the actionable-alerts rule.
-- **Season-ending injuries:** include them as keeper buys for next season, or this season only?
-- **Your own injured players:** also show "sell" candidates (injured players on your team who won't be back for the playoffs), or buy side only?
+- Phone alert a few days before the deadline: YES (one alert; say which list targets and open trade ideas are still live).
+- Season-ending injuries: YES, include them as keeper buys for next season (valued on next season / keeper value, shown apart from this-season buys).
+- Sell side: YES, also list your own injured players who will not be back for the playoffs, with what they would fetch now.
 
 ## Rough size
 
