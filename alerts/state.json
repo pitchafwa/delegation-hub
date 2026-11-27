@@ -11,7 +11,7 @@
  "fa_official": {
   "date": "2026-11-27",
   "st": {
-   "deanwade": "Questionable",
+   "deanwade": "Out",
    "devincarter": "Out",
    "isaiahstewart": "Questionable",
    "tjmcconnell": "Questionable"
@@ -136,11 +136,11 @@
   "4278355:2026-11-27:deanthony melton:today": "2026-11-27"
  },
  "plan_rebuild": {
-  "at": "2026-11-27T22:40:35+00:00",
+  "at": "2026-11-27T23:40:37+00:00",
   "sig": "6430,3133626,3135045,3907497,4065648,4065733,4066436,4395724,4431680,4431785,4432194,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "scheduled build at 22:07Z did not run (plan from 20:06Z)"
+  "why": "NBA injury report: Dean Wade Questionable to Out"
  },
- "report_rebuild_sig": "2026-11-25:Grayson Allen Questionable to Out|Miles McBride Questionable to Out",
+ "report_rebuild_sig": "2026-11-27:Dean Wade Questionable to Out",
  "rosterfix_sent": {},
  "sent": {
   "daily": "2026-10-23",
