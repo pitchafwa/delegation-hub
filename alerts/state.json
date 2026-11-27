@@ -132,13 +132,14 @@
   "4066436:2026-11-25:": "2026-11-25",
   "4066436:2026-11-25::today": "2026-11-25",
   "4278355:2026-11-27:deanthony melton": "2026-11-27",
+  "4278355:2026-11-27:deanthony melton:late": "2026-11-27",
   "4278355:2026-11-27:deanthony melton:rem": "2026-11-27",
   "4278355:2026-11-27:deanthony melton:today": "2026-11-27"
  },
  "plan_rebuild": {
-  "at": "2026-11-27T23:40:37+00:00",
+  "at": "2026-11-27T23:55:34+00:00",
   "sig": "6430,3133626,3135045,3907497,4065648,4065733,4066436,4395724,4431680,4431785,4432194,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "NBA injury report: Dean Wade Questionable to Out"
+  "why": "Obi Toppin: today's roster lock passed before the add"
  },
  "report_rebuild_sig": "2026-11-27:Dean Wade Questionable to Out",
  "rosterfix_sent": {},
