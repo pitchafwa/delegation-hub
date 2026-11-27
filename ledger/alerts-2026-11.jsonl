@@ -120,3 +120,4 @@
 {"kind":"alert","ts":"2026-11-25T13:01:12-05:00","title":"Swap out Grayson Allen by 7pm","body":"Grayson Allen (SG) is out (injury report).\nNo bench fit. Free agent: De'Anthony Melton (~36 pts), costs an add. Add him before 5pm, when roster moves lock.","priority":4}
 {"kind":"late_scratch","ts":"2026-11-25T13:01:12-05:00","player":"Grayson Allen","stage":1,"mins_to_tip":359,"swap":null}
 {"kind":"alert","ts":"2026-11-25T13:03:52-05:00","title":"Now: add De'Anthony Melton","body":"Open roster spot before 5pm, when today's first game locks roster moves. Rental: drop him after tonight's game, +38 pts. If he's gone: Javon Small.","priority":4}
+{"kind":"alert","ts":"2026-11-27T08:00:37-05:00","title":"Now: add T.J. McConnell","body":"Drop De'Anthony Melton before 7pm, when today's first game locks roster moves. Rental: drop him after tomorrow's game, +25 pts. If he's gone: Obi Toppin.","priority":4,"ok":true}
