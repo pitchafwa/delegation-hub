@@ -5172,9 +5172,12 @@ async function pollPlan(){
 }
 setInterval(pollPlan,240000);
 alertPlanSync();
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ pollPlan(); loadLive(); } });
-fetch('local_refresh_status.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x){ RS=x; renderStamp(); } }).catch(()=>{});
-setInterval(renderStamp,300000);
+// PC refresh status (2026-11-28, Tommy): read again whenever the app comes back to the screen and every 5 minutes, not only at page load. The home-screen app
+// resumes a page opened the night before, which kept the old "finished" time and showed a stale-data warning after the morning refresh had run.
+function loadRS(){ fetch('local_refresh_status.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{ if(x){ RS=x; renderStamp(); } }).catch(()=>{}); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ pollPlan(); loadLive(); loadRS(); } });
+loadRS();
+setInterval(loadRS,300000);
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }   // home-screen app: last good copy when offline (sw.js)
 const LIVE_URL='https://raw.githubusercontent.com/pitchafwa/delegation-hub/live-data/live_matchup.json';
 async function loadLive(){
