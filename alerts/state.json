@@ -137,9 +137,9 @@
   "4278355:2026-11-27:deanthony melton:today": "2026-11-27"
  },
  "plan_rebuild": {
-  "at": "2026-11-27T23:55:34+00:00",
+  "at": "2026-11-28T01:40:31+00:00",
   "sig": "6430,3133626,3135045,3907497,4065648,4065733,4066436,4395724,4431680,4431785,4432194,4433083,4433134,4594327,4683678,4684740,5041939,5041955,5105565",
-  "why": "Obi Toppin: today's roster lock passed before the add"
+  "why": "scheduled build at 01:07Z did not run (plan from 23:56Z)"
  },
  "report_rebuild_sig": "2026-11-27:Dean Wade Questionable to Out",
  "rosterfix_sent": {},
