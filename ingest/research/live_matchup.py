@@ -356,6 +356,23 @@ def main():
             if sum(x.get("p", 0.94) for x in _pre) >= len(_act_pre) * 0.94:
                 p_start[opp_id] = [x.get("p", 0.94) for x in _pre] + [x["q"] for x in _begun]
             print(f"opponent lineup not set yet: {len(_act_pre)} starters still to play vs {len(_pre)} in his plan; using the plan's {_plan_pts:.0f} (lineup {_act_pts:.0f})")
+    # OPPONENT OVER THE CAP BEFORE TIP-OFF (2026-11-28, Tommy: "assuming my opponent will not set his lineup by the time games tip off and thus will finish saturday
+    # over the cap"). The rule above only covered a lineup with too few starters. BLCK at 32 of 34 had 5 starters in his ESPN lineup at noon, which counted Sunday
+    # (his plan: 10 starters, ~347 points) as 100% lost and put the win chance at 94.5%. His plan starts only Shai and keeps Sunday open. Until his games tip he
+    # can still bench them, so when his lineup would lock tomorrow and his plan would not, his not-yet-started games follow the plan (as mine do below). Once
+    # a game tips, its lineup is real: starters in tipped games count, so a lockout he really sets still shows within minutes.
+    if _orow and sb[opp_id] < cap and pre_n[opp_id] is None and float(_orow.get("starts_after") or 1e9) < cap:
+        _pre = [x for x in _orow.get("start", []) if not_begun(x, opp_id)]
+        _act_pre = [x for x in left_today[opp_id] if x.get("pre")]
+        _begun = [x for x in left_today[opp_id] if "live" not in x and not x.get("pre")]
+        _done = sum(1 for e in (today_box or {}).get(opp_id, []) if e["slot"] is not None and e["slot"] <= 11 and e["played"]) + sum(x["q"] for x in _begun)
+        _n_act, _n_plan = len(_act_pre) * 0.94, sum(x.get("p", 0.94) for x in _pre)
+        if sb[opp_id] + _done + _n_act >= cap and sb[opp_id] + _done + _n_plan < cap:
+            _plan_pts = sum(x.get("ef", 0.0) for x in _pre) * float(_ot.get("eff") or 1.0)
+            rem_today[opp_id] += _plan_pts - sum(x["ef"] for x in _act_pre)
+            pre_n[opp_id] = _n_plan + sum(x["q"] for x in _begun)
+            p_start[opp_id] = [x.get("p", 0.94) for x in _pre] + [x["q"] for x in _begun]
+            print(f"opponent lineup over the cap before tip-off: {len(_act_pre)} starters still to play vs {len(_pre)} in his plan, which keeps tomorrow open; using the plan")
     # MY UNLOCKED LINEUP (2026-10-31, Tommy): until a game tips I can still change who starts in it, and I follow the plan. My ESPN lineup at 6am had one
     # start too many for the cap (the plan benches someone), which counted Sunday as lost (81% -> 63%) until Tommy fixed the lineup. So for my games not
     # yet started, today's points and starts are the plan's (after its moves), not whatever ESPN shows; started games count as played.
